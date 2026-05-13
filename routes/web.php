@@ -1,0 +1,58 @@
+<?php
+
+use App\Http\Controllers\AdminTimesheetController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EmployeeTimesheetController;
+use App\Http\Controllers\HodTimesheetController;
+use App\Http\Controllers\Manage\DepartmentController;
+use App\Http\Controllers\Manage\ProjectController;
+use App\Http\Controllers\Manage\TimesheetPeriodController;
+use App\Http\Controllers\Manage\UserController;
+use Illuminate\Support\Facades\Route;
+
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [AuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [AuthController::class, 'login']);
+});
+
+Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
+
+Route::middleware('auth')->group(function () {
+    Route::get('/', DashboardController::class)->name('dashboard');
+
+    Route::middleware('role:employee,hod,admin,super_admin')->prefix('my-timesheets')->name('employee.timesheets.')->group(function () {
+        Route::get('/', [EmployeeTimesheetController::class, 'index'])->name('index');
+        Route::get('/create', [EmployeeTimesheetController::class, 'create'])->name('create');
+        Route::post('/', [EmployeeTimesheetController::class, 'store'])->name('store');
+        Route::get('/{timesheet}', [EmployeeTimesheetController::class, 'show'])->name('show');
+        Route::get('/{timesheet}/edit', [EmployeeTimesheetController::class, 'edit'])->name('edit');
+        Route::put('/{timesheet}', [EmployeeTimesheetController::class, 'update'])->name('update');
+        Route::delete('/{timesheet}', [EmployeeTimesheetController::class, 'destroy'])->name('destroy');
+    });
+
+    Route::middleware('role:hod')->prefix('department')->name('hod.')->group(function () {
+        Route::get('/timesheets', [HodTimesheetController::class, 'index'])->name('timesheets.index');
+        Route::get('/timesheets/{timesheet}', [HodTimesheetController::class, 'show'])->name('timesheets.show');
+        Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
+        Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');
+        Route::get('/tracker', [HodTimesheetController::class, 'tracker'])->name('tracker');
+    });
+
+    Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::get('/timesheets', [AdminTimesheetController::class, 'index'])->name('timesheets.index');
+        Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->name('timesheets.export');
+        Route::get('/timesheets/{timesheet}', [AdminTimesheetController::class, 'show'])->name('timesheets.show');
+        Route::middleware('role:super_admin')->group(function () {
+            Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
+            Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');
+        });
+    });
+
+    Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
+        Route::resource('users', UserController::class)->except(['show', 'destroy']);
+        Route::resource('departments', DepartmentController::class)->except(['show', 'destroy']);
+        Route::resource('projects', ProjectController::class)->except(['show', 'destroy']);
+        Route::resource('periods', TimesheetPeriodController::class)->except(['show', 'destroy'])->parameters(['periods' => 'period']);
+    });
+});
