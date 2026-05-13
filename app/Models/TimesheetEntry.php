@@ -10,7 +10,7 @@ class TimesheetEntry extends Model
     use HasFactory;
 
     protected $fillable = [
-        'timesheet_id', 'work_date', 'day_name', 'project_id', 'regular_hours',
+        'timesheet_id', 'work_date', 'day_name', 'attendance_code', 'project_id', 'regular_hours',
         'overtime_hours', 'description', 'remarks',
     ];
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeTimesheetController;
 use App\Http\Controllers\HodTimesheetController;
 use App\Http\Controllers\Manage\DepartmentController;
+use App\Http\Controllers\Manage\AuditLogController;
 use App\Http\Controllers\Manage\ProjectController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
@@ -28,6 +29,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/{timesheet}', [EmployeeTimesheetController::class, 'show'])->name('show');
         Route::get('/{timesheet}/edit', [EmployeeTimesheetController::class, 'edit'])->name('edit');
         Route::put('/{timesheet}', [EmployeeTimesheetController::class, 'update'])->name('update');
+        Route::post('/{timesheet}/recall', [EmployeeTimesheetController::class, 'recall'])->name('recall');
         Route::delete('/{timesheet}', [EmployeeTimesheetController::class, 'destroy'])->name('destroy');
     });
 
@@ -54,5 +56,6 @@ Route::middleware('auth')->group(function () {
         Route::resource('departments', DepartmentController::class)->except(['show', 'destroy']);
         Route::resource('projects', ProjectController::class)->except(['show', 'destroy']);
         Route::resource('periods', TimesheetPeriodController::class)->except(['show', 'destroy'])->parameters(['periods' => 'period']);
+        Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });
 });

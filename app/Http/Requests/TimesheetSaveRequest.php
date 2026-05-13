@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\TimesheetPeriod;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
 class TimesheetSaveRequest extends FormRequest
@@ -19,6 +20,7 @@ class TimesheetSaveRequest extends FormRequest
             'timesheet_period_id' => ['required', 'exists:timesheet_periods,id'],
             'entries' => ['required', 'array', 'min:1'],
             'entries.*.work_date' => ['required', 'date'],
+            'entries.*.attendance_code' => ['required', Rule::in(array_keys(config('timesheet.attendance_codes')))],
             'entries.*.project_id' => ['nullable', 'exists:projects,id'],
             'entries.*.regular_hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
             'entries.*.overtime_hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
@@ -47,6 +49,7 @@ class TimesheetSaveRequest extends FormRequest
                         $validator->errors()->add("entries.$index.project_id", 'Project/job number is required when hours are entered.');
                     }
 
+                    // Overtime-only rows are valid for after-hours work on a separate project.
                     if ($overtime > 0 && blank($entry['remarks'] ?? null)) {
                         $validator->errors()->add("entries.$index.remarks", 'Remarks are required when overtime is entered.');
                     }

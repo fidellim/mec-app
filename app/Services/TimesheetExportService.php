@@ -14,7 +14,7 @@ class TimesheetExportService
         return response()->streamDownload(function () use ($filters) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
-                'employee name', 'employee code', 'department', 'week number', 'year', 'date', 'day',
+                'employee name', 'employee number', 'department', 'week number', 'year', 'date', 'day', 'attendance code',
                 'project code', 'project name', 'regular hours', 'overtime hours', 'total hours',
                 'description', 'remarks', 'status', 'approved by', 'approved date',
             ]);
@@ -38,6 +38,7 @@ class TimesheetExportService
                                 $timesheet->period->year,
                                 $entry->work_date->toDateString(),
                                 $entry->day_name,
+                                $entry->attendance_code,
                                 $entry->project?->project_code,
                                 $entry->project?->project_name,
                                 $entry->regular_hours,

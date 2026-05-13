@@ -9,6 +9,12 @@
     <div class="d-flex gap-2">
         @include('partials.status', ['status' => $timesheet->status])
         @if($timesheet->editableBy(auth()->user()))<a class="btn btn-primary btn-sm" href="{{ route('employee.timesheets.edit', $timesheet) }}">Edit</a>@endif
+        @if($timesheet->status === 'submitted')
+            <form method="post" action="{{ route('employee.timesheets.recall', $timesheet) }}" data-confirm="Recall this submitted timesheet so you can edit it?">
+                @csrf
+                <button class="btn btn-warning btn-sm">Recall Submission</button>
+            </form>
+        @endif
     </div>
 </div>
 @if($timesheet->status === 'rejected')

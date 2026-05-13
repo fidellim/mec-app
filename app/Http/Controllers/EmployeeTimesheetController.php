@@ -23,12 +23,22 @@ class EmployeeTimesheetController extends Controller
         $periods = TimesheetPeriod::where('status', 'open')->latest('start_date')->get();
         $period = $periods->first();
         abort_unless($period, 422, 'No open timesheet period is available.');
-        abort_if(Timesheet::where('user_id', auth()->id())->where('timesheet_period_id', $period->id)->exists(), 422, 'A timesheet already exists for the current week.');
+
+        $existingTimesheet = Timesheet::where('user_id', auth()->id())
+            ->where('timesheet_period_id', $period->id)
+            ->first();
+
+        if ($existingTimesheet) {
+            return redirect()
+                ->route('employee.timesheets.show', $existingTimesheet)
+                ->with('warning', 'You already have a timesheet for this week. You cannot create another one.');
+        }
 
         return view('employee.timesheets.form', [
             'timesheet' => null,
             'periods' => $periods,
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
+            'attendanceCodes' => config('timesheet.attendance_codes'),
             'entries' => $this->defaultEntries($period),
         ]);
     }
@@ -38,7 +48,16 @@ class EmployeeTimesheetController extends Controller
         $user = $request->user();
         $period = TimesheetPeriod::findOrFail($request->timesheet_period_id);
         abort_if($period->status === 'closed', 422, 'Closed periods cannot accept submissions.');
-        abort_if(Timesheet::where('user_id', $user->id)->where('timesheet_period_id', $period->id)->exists(), 422, 'Only one timesheet is allowed per weekly period.');
+
+        $existingTimesheet = Timesheet::where('user_id', $user->id)
+            ->where('timesheet_period_id', $period->id)
+            ->first();
+
+        if ($existingTimesheet) {
+            return redirect()
+                ->route('employee.timesheets.show', $existingTimesheet)
+                ->with('warning', 'You already have a timesheet for this week. You cannot create another one.');
+        }
 
         $timesheet = DB::transaction(function () use ($request, $user, $period, $audit) {
             $timesheet = Timesheet::create([
@@ -73,6 +92,7 @@ class EmployeeTimesheetController extends Controller
             'timesheet' => $timesheet->load('entries'),
             'periods' => TimesheetPeriod::where('id', $timesheet->timesheet_period_id)->get(),
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
+            'attendanceCodes' => config('timesheet.attendance_codes'),
             'entries' => $timesheet->entries,
         ]);
     }
@@ -100,6 +120,24 @@ class EmployeeTimesheetController extends Controller
         return redirect()->route('employee.timesheets.show', $timesheet)->with('success', 'Timesheet updated.');
     }
 
+    public function recall(Timesheet $timesheet, AuditLogService $audit)
+    {
+        $this->authorizeOwner($timesheet);
+        abort_unless($timesheet->status === 'submitted', 403, 'Only submitted timesheets can be recalled.');
+
+        $old = $timesheet->toArray();
+        $timesheet->update([
+            'status' => 'draft',
+            'submitted_at' => null,
+        ]);
+
+        $audit->record('timesheet_recalled', $timesheet, $old, $timesheet->fresh()->toArray());
+
+        return redirect()
+            ->route('employee.timesheets.edit', $timesheet)
+            ->with('warning', 'Your submitted timesheet has been recalled. You can now edit and resubmit it.');
+    }
+
     public function destroy(Timesheet $timesheet, AuditLogService $audit)
     {
         $this->authorizeOwner($timesheet);
@@ -116,6 +154,7 @@ class EmployeeTimesheetController extends Controller
         return collect(CarbonPeriod::create($period->start_date, $period->end_date))->map(fn ($date) => [
             'work_date' => $date->toDateString(),
             'day_name' => $date->format('l'),
+            'attendance_code' => 'O100',
             'project_id' => null,
             'regular_hours' => 0,
             'overtime_hours' => 0,
@@ -133,6 +172,7 @@ class EmployeeTimesheetController extends Controller
             $timesheet->entries()->create([
                 'work_date' => $workDate->toDateString(),
                 'day_name' => $workDate->format('l'),
+                'attendance_code' => $entry['attendance_code'] ?? 'O100',
                 'project_id' => $entry['project_id'] ?: null,
                 'regular_hours' => $entry['regular_hours'] ?? 0,
                 'overtime_hours' => $entry['overtime_hours'] ?? 0,
