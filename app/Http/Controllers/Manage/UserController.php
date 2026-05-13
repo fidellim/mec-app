@@ -54,10 +54,20 @@ class UserController extends Controller
         return $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'email' => ['required', 'email', Rule::unique('users')->ignore($user)],
-            'employee_code' => ['nullable', 'string', 'max:50', Rule::unique('users')->ignore($user)],
+            'employee_code' => [
+                Rule::requiredIf(fn () => in_array($request->role, ['employee', 'hod'], true)),
+                'nullable',
+                'string',
+                'max:50',
+                'regex:/^(MEC|MCE)-HR-\d{4}-\d{3,}$/',
+                Rule::unique('users')->ignore($user),
+            ],
             'department_id' => ['nullable', 'exists:departments,id'],
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
+        ], [
+            'employee_code.required' => 'Employee number is required for employees and HODs.',
+            'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN or MCE-HR-YYYY-NNN. The final number must be at least 3 digits.',
         ]) + ['is_active' => false];
     }
 }

@@ -37,7 +37,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Olivia HOD',
             'email' => 'ops.hod@example.com',
             'password' => Hash::make('password123'),
-            'employee_code' => 'HOD001',
+            'employee_code' => 'MEC-HR-2024-017',
             'department_id' => $operations->id,
             'role' => 'hod',
             'is_active' => true,
@@ -47,7 +47,7 @@ class DatabaseSeeder extends Seeder
             'name' => 'Ethan HOD',
             'email' => 'eng.hod@example.com',
             'password' => Hash::make('password123'),
-            'employee_code' => 'HOD002',
+            'employee_code' => 'MCE-HR-2024-018',
             'department_id' => $engineering->id,
             'role' => 'hod',
             'is_active' => true,
@@ -57,11 +57,11 @@ class DatabaseSeeder extends Seeder
         $engineering->update(['hod_id' => $engHod->id]);
 
         foreach ([
-            ['Aisha Khan', 'aisha@example.com', 'EMP001', $operations->id],
-            ['Ben Carter', 'ben@example.com', 'EMP002', $operations->id],
-            ['Carla Mendes', 'carla@example.com', 'EMP003', $engineering->id],
-            ['Daniel Lim', 'daniel@example.com', 'EMP004', $engineering->id],
-            ['Fatima Noor', 'fatima@example.com', 'EMP005', $engineering->id],
+            ['Aisha Khan', 'aisha@example.com', 'MEC-HR-2025-086', $operations->id],
+            ['Ben Carter', 'ben@example.com', 'MCE-HR-2025-087', $operations->id],
+            ['Carla Mendes', 'carla@example.com', 'MEC-HR-2025-088', $engineering->id],
+            ['Daniel Lim', 'daniel@example.com', 'MCE-HR-2025-089', $engineering->id],
+            ['Fatima Noor', 'fatima@example.com', 'MEC-HR-2025-090', $engineering->id],
         ] as [$name, $email, $code, $departmentId]) {
             User::create([
                 'name' => $name,
@@ -74,15 +74,7 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        foreach ([
-            ['JOB-1001', 'Corporate Website Support', 'Acme Holdings'],
-            ['JOB-1002', 'ERP Implementation', 'Northstar Trading'],
-            ['JOB-1003', 'Facilities Upgrade', 'Internal'],
-            ['JOB-1004', 'Client Reporting Automation', 'Blue Peak'],
-            ['JOB-1005', 'General Administration', null],
-        ] as [$code, $name, $client]) {
-            Project::create(['project_code' => $code, 'project_name' => $name, 'client_name' => $client, 'is_active' => true]);
-        }
+        $this->call(ProjectSeeder::class);
 
         $start = Carbon::now()->startOfWeek();
         TimesheetPeriod::create([
