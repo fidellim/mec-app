@@ -25,7 +25,7 @@ class UserController extends Controller
 
     public function create()
     {
-        return view('manage.users.form', ['userModel' => new User(), 'departments' => Department::orderBy('name')->get()]);
+        return view('manage.users.form', ['userModel' => new User(), 'departments' => Department::where('is_active', true)->orderBy('name')->get()]);
     }
 
     public function store(Request $request, AuditLogService $audit)
@@ -40,7 +40,13 @@ class UserController extends Controller
 
     public function edit(User $user)
     {
-        return view('manage.users.form', ['userModel' => $user, 'departments' => Department::orderBy('name')->get()]);
+        return view('manage.users.form', [
+            'userModel' => $user,
+            'departments' => Department::where('is_active', true)
+                ->orWhere('id', $user->department_id)
+                ->orderBy('name')
+                ->get(),
+        ]);
     }
 
     public function update(Request $request, User $user, AuditLogService $audit)

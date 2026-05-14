@@ -11,6 +11,7 @@ class DepartmentFactory extends Factory
         return [
             'name' => fake()->unique()->company().' Department',
             'code' => fake()->unique()->lexify('???'),
+            'is_active' => true,
         ];
     }
 }

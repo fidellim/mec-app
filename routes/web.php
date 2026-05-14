@@ -53,8 +53,10 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
         Route::resource('users', UserController::class)->except(['show']);
-        Route::resource('departments', DepartmentController::class)->except(['show', 'destroy']);
-        Route::resource('projects', ProjectController::class)->except(['show', 'destroy']);
+        Route::patch('departments/{department}/status', [DepartmentController::class, 'status'])->name('departments.status');
+        Route::resource('departments', DepartmentController::class)->except(['show']);
+        Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->name('projects.status');
+        Route::resource('projects', ProjectController::class)->except(['show']);
         Route::resource('periods', TimesheetPeriodController::class)->except(['show', 'destroy'])->parameters(['periods' => 'period']);
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });

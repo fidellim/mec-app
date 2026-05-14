@@ -72,6 +72,17 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 - The replacement HOD must be an active HOD in the same department so department approvals continue to work.
 - If no replacement HOD exists, create or update another HOD for that department before deleting the current HOD.
 
+## Department And Project Management
+
+Super Admin users can manage departments and projects/job numbers from the **Manage** area.
+
+- Departments and projects can be activated or deactivated.
+- Deactivated departments are hidden from new user department assignment, but existing users and historical timesheets keep their department.
+- Deactivated projects are hidden from new timesheet project selection, but historical timesheets and exports keep the original project/job number.
+- Departments can only be permanently deleted when they have no users, no timesheets, and no assigned HOD.
+- Projects can only be permanently deleted when they have no timesheet entries.
+- If a department or project already has historical usage, deactivate it instead of deleting it.
+
 ## Main Workflow
 
 1. Super Admin creates departments, users, projects, and weekly periods.
@@ -102,6 +113,7 @@ It streams a native `.xlsx` workbook using Laravel Excel. The workbook mirrors t
 - Approved timesheet correction is intentionally not implemented.
 - Notifications, payroll, leave management, Teams integration, Power BI, mobile app, and advanced analytics are outside Phase 1.
 - User deletion is permanent in Phase 1; deactivate a user instead if historical ownership should be retained.
+- Department and project deletion is restricted to unused records; use deactivate/archive for anything with history.
 
 ## Suggested Phase 2 Improvements
 

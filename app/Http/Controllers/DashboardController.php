@@ -18,7 +18,7 @@ class DashboardController extends Controller
         return match ($user->role) {
             'super_admin' => view('dashboards.super_admin', [
                 'totalUsers' => User::count(),
-                'activeDepartments' => Department::count(),
+                'activeDepartments' => Department::where('is_active', true)->count(),
                 'activeProjects' => Project::where('is_active', true)->count(),
                 'period' => $period,
                 'summary' => $this->summary($period),

@@ -12,7 +12,7 @@ class ProjectController extends Controller
 {
     public function index()
     {
-        return view('manage.projects.index', ['projects' => Project::orderBy('project_code')->paginate(20)]);
+        return view('manage.projects.index', ['projects' => Project::withCount('entries')->orderBy('project_code')->paginate(20)]);
     }
 
     public function create()
@@ -38,6 +38,34 @@ class ProjectController extends Controller
         $project->update($this->validated($request, $project));
         $audit->record('project_updated', $project, $old, $project->fresh()->toArray());
         return redirect()->route('manage.projects.index')->with('success', 'Project updated.');
+    }
+
+    public function status(Project $project, AuditLogService $audit)
+    {
+        $old = $project->toArray();
+        $project->update(['is_active' => ! $project->is_active]);
+        $audit->record($project->is_active ? 'project_activated' : 'project_deactivated', $project, $old, $project->fresh()->toArray());
+
+        return redirect()
+            ->route('manage.projects.index')
+            ->with('success', $project->is_active ? 'Project reactivated.' : 'Project deactivated.');
+    }
+
+    public function destroy(Project $project, AuditLogService $audit)
+    {
+        $project->loadCount('entries');
+
+        if ($project->entries_count > 0) {
+            return redirect()
+                ->route('manage.projects.index')
+                ->with('error', 'This project has timesheet entries. Deactivate it instead of deleting it.');
+        }
+
+        $old = $project->toArray();
+        $audit->record('project_deleted', $project, $old);
+        $project->delete();
+
+        return redirect()->route('manage.projects.index')->with('success', 'Unused project deleted.');
     }
 
     private function validated(Request $request, ?Project $project = null): array
