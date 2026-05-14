@@ -7,13 +7,20 @@ use App\Models\Department;
 use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
     public function index()
     {
-        return view('manage.users.index', ['users' => User::with('department')->orderBy('name')->paginate(20)]);
+        return view('manage.users.index', [
+            'users' => User::with(['department', 'headedDepartment'])->orderBy('name')->paginate(20),
+            'replacementHods' => User::where('role', 'hod')
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(),
+        ]);
     }
 
     public function create()
@@ -47,6 +54,47 @@ class UserController extends Controller
         $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
 
         return redirect()->route('manage.users.index')->with('success', 'User updated.');
+    }
+
+    public function destroy(Request $request, User $user, AuditLogService $audit)
+    {
+        abort_if((int) $user->id === (int) $request->user()->id, 403, 'You cannot delete your own account.');
+
+        $headedDepartment = $user->headedDepartment;
+
+        if ($headedDepartment) {
+            $request->validate([
+                'replacement_hod_id' => [
+                    'required',
+                    Rule::exists('users', 'id')->where(fn ($query) => $query
+                        ->where('role', 'hod')
+                        ->where('is_active', true)
+                        ->where('department_id', $headedDepartment->id)
+                        ->where('id', '!=', $user->id)
+                    ),
+                ],
+            ], [
+                'replacement_hod_id.required' => 'Select a replacement HOD before deleting this user.',
+                'replacement_hod_id.exists' => 'The replacement HOD must be an active HOD in the same department.',
+            ]);
+        }
+
+        $old = $user->load(['department', 'headedDepartment'])->toArray();
+        $old['timesheets_count'] = $user->timesheets()->count();
+
+        DB::transaction(function () use ($request, $user, $audit, $headedDepartment, $old) {
+            if ($headedDepartment) {
+                $headedDepartment->update(['hod_id' => $request->integer('replacement_hod_id')]);
+            }
+
+            $audit->record('user_deleted', $user, $old, [
+                'replacement_hod_id' => $headedDepartment ? $request->integer('replacement_hod_id') : null,
+            ]);
+
+            $user->delete();
+        });
+
+        return redirect()->route('manage.users.index')->with('success', 'User deleted. Related timesheets and entries were removed.');
     }
 
     private function validated(Request $request, ?User $user = null): array

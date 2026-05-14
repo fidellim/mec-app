@@ -52,7 +52,7 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
-        Route::resource('users', UserController::class)->except(['show', 'destroy']);
+        Route::resource('users', UserController::class)->except(['show']);
         Route::resource('departments', DepartmentController::class)->except(['show', 'destroy']);
         Route::resource('projects', ProjectController::class)->except(['show', 'destroy']);
         Route::resource('periods', TimesheetPeriodController::class)->except(['show', 'destroy'])->parameters(['periods' => 'period']);

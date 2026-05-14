@@ -59,6 +59,19 @@ password123
 - Head of Department: view only their department employees and timesheets, approve submitted timesheets, reject with a required comment, and track missing submissions.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, edit only draft or rejected timesheets, and resubmit rejected records.
 
+## User Management
+
+Super Admin users can create, edit, activate/deactivate, and delete users from **Manage Users**.
+
+- Employee numbers are entered manually when creating or editing employees and HODs.
+- Super Admin cannot delete their own account.
+- Deleting a user permanently removes the user and the timesheets owned by that user.
+- Timesheet entries are also deleted because they belong to the deleted user's timesheets.
+- Approval history is preserved where possible: if a deleted user previously approved or rejected another user's timesheet, the approver/rejector reference is set to blank.
+- If the deleted user is assigned as the HOD of a department, Super Admin must select a replacement HOD before deletion.
+- The replacement HOD must be an active HOD in the same department so department approvals continue to work.
+- If no replacement HOD exists, create or update another HOD for that department before deleting the current HOD.
+
 ## Main Workflow
 
 1. Super Admin creates departments, users, projects, and weekly periods.
@@ -88,7 +101,7 @@ It streams a native `.xlsx` workbook using Laravel Excel. The workbook mirrors t
 - Export uses Laravel Excel and generates native `.xlsx` files.
 - Approved timesheet correction is intentionally not implemented.
 - Notifications, payroll, leave management, Teams integration, Power BI, mobile app, and advanced analytics are outside Phase 1.
-- Confirmation is browser-based for Phase 1; Bootstrap modal styling can be added later without changing the workflow.
+- User deletion is permanent in Phase 1; deactivate a user instead if historical ownership should be retained.
 
 ## Suggested Phase 2 Improvements
 
