@@ -93,7 +93,7 @@ class EmployeeTimesheetController extends Controller
             'periods' => TimesheetPeriod::where('id', $timesheet->timesheet_period_id)->get(),
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
             'attendanceCodes' => config('timesheet.attendance_codes'),
-            'entries' => $timesheet->entries,
+            'entries' => $this->entriesWithMissingPeriodDays($timesheet),
         ]);
     }
 
@@ -154,13 +154,35 @@ class EmployeeTimesheetController extends Controller
         return collect(CarbonPeriod::create($period->start_date, $period->end_date))->map(fn ($date) => [
             'work_date' => $date->toDateString(),
             'day_name' => $date->format('l'),
-            'attendance_code' => 'O100',
+            'attendance_code' => $date->isWeekend() ? null : 'O100',
             'project_id' => null,
             'regular_hours' => 0,
             'overtime_hours' => 0,
-            'description' => null,
             'remarks' => null,
         ]);
+    }
+
+    private function entriesWithMissingPeriodDays(Timesheet $timesheet)
+    {
+        $existingEntries = $timesheet->entries->sortBy([
+            ['work_date', 'asc'],
+            ['id', 'asc'],
+        ])->values();
+
+        $datesWithEntries = $existingEntries
+            ->pluck('work_date')
+            ->map(fn ($date) => $date->toDateString())
+            ->unique();
+
+        $missingEntries = $this->defaultEntries($timesheet->period)
+            ->reject(fn ($entry) => $datesWithEntries->contains($entry['work_date']));
+
+        return $existingEntries
+            ->concat($missingEntries)
+            ->sortBy(fn ($entry) => $entry instanceof \App\Models\TimesheetEntry
+                ? $entry->work_date->toDateString().'_'.$entry->id
+                : $entry['work_date'].'_0')
+            ->values();
     }
 
     private function syncEntries(Timesheet $timesheet, array $entries): void
@@ -172,11 +194,11 @@ class EmployeeTimesheetController extends Controller
             $timesheet->entries()->create([
                 'work_date' => $workDate->toDateString(),
                 'day_name' => $workDate->format('l'),
-                'attendance_code' => $entry['attendance_code'] ?? 'O100',
+                'attendance_code' => $entry['attendance_code'] ?: null,
                 'project_id' => $entry['project_id'] ?: null,
                 'regular_hours' => $entry['regular_hours'] ?? 0,
                 'overtime_hours' => $entry['overtime_hours'] ?? 0,
-                'description' => $entry['description'] ?? null,
+                'description' => null,
                 'remarks' => $entry['remarks'] ?? null,
             ]);
         }

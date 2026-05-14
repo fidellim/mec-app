@@ -20,17 +20,25 @@
         </select>
     </div>
     <div class="content-card p-3">
-        <div class="small text-muted mb-2">
-            Use Add project to split a day across multiple projects. Overtime-only project rows are allowed when regular hours are 0.
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
+            <div class="small text-muted">
+                Use Add project to split a day across multiple projects. Overtime-only project rows are allowed when regular hours are 0. Remarks are required for overtime before submitting for approval.
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <span class="badge text-bg-primary fs-6" id="weekRegularTotal">Week RT 0.00</span>
+                <span class="badge text-bg-warning fs-6" id="weekOvertimeTotal">Week OT 0.00</span>
+                <span class="badge text-bg-secondary fs-6" id="weekGrandTotal">Week Total 0.00</span>
+            </div>
         </div>
         <div class="table-responsive">
             <table class="table timesheet-entry-table" id="timesheet-entry-table">
-                <thead><tr><th>Date</th><th>Day</th><th>Attendance Code</th><th>Project/Job</th><th>Regular</th><th>Overtime</th><th>Description</th><th>Remarks</th><th></th></tr></thead>
+                <thead><tr><th>Date</th><th>Day</th><th>Day Total</th><th>Attendance Code</th><th>Project/Job</th><th>Regular</th><th>Overtime</th><th>Remarks</th><th></th></tr></thead>
                 <tbody>
                 @foreach($entries as $i => $entry)
                     @php($row = is_array($entry) ? (object) $entry : $entry)
                     @php($workDate = $row->work_date instanceof \Carbon\CarbonInterface ? $row->work_date->toDateString() : $row->work_date)
                     @php($dayName = \Carbon\Carbon::parse($workDate)->format('l'))
+                    @php($selectedAttendanceCode = old("entries.$i.attendance_code", $row->attendance_code ?? ''))
                     <tr data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
                         <td style="min-width: 145px;">
                             <input type="hidden" name="entries[{{ $i }}][work_date]" value="{{ old("entries.$i.work_date", $workDate) }}" data-field="work_date">
@@ -39,10 +47,14 @@
                         <td style="min-width: 110px;">
                             <span data-day-label>{{ $dayName }}</span>
                         </td>
+                        <td style="min-width: 150px;">
+                            <span class="badge text-bg-light border text-dark" data-day-total></span>
+                        </td>
                         <td>
                             <select class="form-select attendance-select" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code" required>
+                                <option value="">Select</option>
                                 @foreach($attendanceCodes as $code => $label)
-                                    <option value="{{ $code }}" @selected(old("entries.$i.attendance_code", $row->attendance_code ?? 'O100') === $code)>{{ $code }} - {{ $label }}</option>
+                                    <option value="{{ $code }}" @selected($selectedAttendanceCode === $code)>{{ $code }} - {{ $label }}</option>
                                 @endforeach
                             </select>
                         </td>
@@ -56,11 +68,10 @@
                         </td>
                         <td style="width: 110px;"><input class="form-control" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][regular_hours]" data-field="regular_hours" value="{{ old("entries.$i.regular_hours", $row->regular_hours ?? 0) }}"></td>
                         <td style="width: 110px;"><input class="form-control" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][overtime_hours]" data-field="overtime_hours" value="{{ old("entries.$i.overtime_hours", $row->overtime_hours ?? 0) }}"></td>
-                        <td class="description-cell"><input class="form-control" name="entries[{{ $i }}][description]" data-field="description" value="{{ old("entries.$i.description", $row->description) }}"></td>
                         <td class="remarks-cell"><input class="form-control" name="entries[{{ $i }}][remarks]" data-field="remarks" value="{{ old("entries.$i.remarks", $row->remarks) }}"></td>
                         <td>
                             <div class="d-flex gap-1">
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-add-entry>Add project</button>
+                                <button type="button" class="btn btn-sm btn-outline-primary" data-add-entry data-bs-toggle="tooltip" data-bs-title="Add another project row for this specific day">Add project</button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" data-remove-entry>Remove</button>
                             </div>
                         </td>
@@ -86,6 +97,31 @@
         });
     };
 
+    const calculateDayTotals = (workDate) => {
+        const rows = Array.from(table.querySelectorAll(`[data-entry-row][data-work-date="${workDate}"]`));
+        const regular = rows.reduce((sum, row) => sum + (parseFloat(row.querySelector('[data-field="regular_hours"]').value) || 0), 0);
+        const overtime = rows.reduce((sum, row) => sum + (parseFloat(row.querySelector('[data-field="overtime_hours"]').value) || 0), 0);
+
+        rows.forEach((row, index) => {
+            const total = row.querySelector('[data-day-total]');
+            if (!total) {
+                return;
+            }
+            total.textContent = index === 0 ? `RT ${regular.toFixed(2)} / OT ${overtime.toFixed(2)}` : '';
+            total.classList.toggle('d-none', index !== 0);
+        });
+    };
+
+    const calculateWeekTotals = () => {
+        const rows = Array.from(table.querySelectorAll('[data-entry-row]'));
+        const regular = rows.reduce((sum, row) => sum + (parseFloat(row.querySelector('[data-field="regular_hours"]').value) || 0), 0);
+        const overtime = rows.reduce((sum, row) => sum + (parseFloat(row.querySelector('[data-field="overtime_hours"]').value) || 0), 0);
+
+        document.getElementById('weekRegularTotal').textContent = `Week RT ${regular.toFixed(2)}`;
+        document.getElementById('weekOvertimeTotal').textContent = `Week OT ${overtime.toFixed(2)}`;
+        document.getElementById('weekGrandTotal').textContent = `Week Total ${(regular + overtime).toFixed(2)}`;
+    };
+
     const resequenceRows = () => {
         const seenDates = new Set();
         const rows = table.querySelectorAll('[data-entry-row]');
@@ -105,6 +141,8 @@
             seenDates.add(row.dataset.workDate);
         });
 
+        seenDates.forEach((workDate) => calculateDayTotals(workDate));
+        calculateWeekTotals();
         nextIndex = rows.length;
     };
 
@@ -117,14 +155,14 @@
             const newRow = currentRow.cloneNode(true);
 
             newRow.querySelector('[data-field="work_date"]').value = currentRow.dataset.workDate;
-            newRow.querySelector('[data-field="attendance_code"]').value = 'O100';
+            newRow.querySelector('[data-field="attendance_code"]').value = '';
             newRow.querySelector('[data-field="project_id"]').value = '';
             newRow.querySelector('[data-field="regular_hours"]').value = '0';
             newRow.querySelector('[data-field="overtime_hours"]').value = '0';
-            newRow.querySelector('[data-field="description"]').value = '';
             newRow.querySelector('[data-field="remarks"]').value = '';
             newRow.querySelector('[data-date-label]').textContent = '';
             newRow.querySelector('[data-day-label]').textContent = '';
+            newRow.querySelector('[data-day-total]').textContent = '';
             renameRowFields(newRow, nextIndex++);
 
             let insertAfter = currentRow;
@@ -132,6 +170,8 @@
                 insertAfter = insertAfter.nextElementSibling;
             }
             insertAfter.after(newRow);
+            initializeTooltips(newRow);
+            resequenceRows();
         }
 
         if (removeButton) {
@@ -140,17 +180,25 @@
             const sameDayRows = rows.filter((row) => row.dataset.workDate === currentRow.dataset.workDate);
 
             if (sameDayRows.length === 1) {
-                currentRow.querySelector('[data-field="attendance_code"]').value = 'O100';
+                currentRow.querySelector('[data-field="attendance_code"]').value = '';
                 currentRow.querySelector('[data-field="project_id"]').value = '';
                 currentRow.querySelector('[data-field="regular_hours"]').value = '0';
                 currentRow.querySelector('[data-field="overtime_hours"]').value = '0';
-                currentRow.querySelector('[data-field="description"]').value = '';
                 currentRow.querySelector('[data-field="remarks"]').value = '';
+                calculateDayTotals(currentRow.dataset.workDate);
+                calculateWeekTotals();
                 return;
             }
 
             currentRow.remove();
             resequenceRows();
+        }
+    });
+
+    table.addEventListener('input', (event) => {
+        if (event.target.matches('[data-field="regular_hours"], [data-field="overtime_hours"]')) {
+            calculateDayTotals(event.target.closest('[data-entry-row]').dataset.workDate);
+            calculateWeekTotals();
         }
     });
 

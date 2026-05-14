@@ -20,11 +20,10 @@ class TimesheetSaveRequest extends FormRequest
             'timesheet_period_id' => ['required', 'exists:timesheet_periods,id'],
             'entries' => ['required', 'array', 'min:1'],
             'entries.*.work_date' => ['required', 'date'],
-            'entries.*.attendance_code' => ['required', Rule::in(array_keys(config('timesheet.attendance_codes')))],
+            'entries.*.attendance_code' => ['nullable', Rule::in(array_keys(config('timesheet.attendance_codes')))],
             'entries.*.project_id' => ['nullable', 'exists:projects,id'],
             'entries.*.regular_hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
             'entries.*.overtime_hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
-            'entries.*.description' => ['nullable', 'string', 'max:2000'],
             'entries.*.remarks' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -49,9 +48,13 @@ class TimesheetSaveRequest extends FormRequest
                         $validator->errors()->add("entries.$index.project_id", 'Project/job number is required when hours are entered.');
                     }
 
-                    // Overtime-only rows are valid for after-hours work on a separate project.
-                    if ($overtime > 0 && blank($entry['remarks'] ?? null)) {
-                        $validator->errors()->add("entries.$index.remarks", 'Remarks are required when overtime is entered.');
+                    if (($regular > 0 || $overtime > 0) && empty($entry['attendance_code'])) {
+                        $validator->errors()->add("entries.$index.attendance_code", 'Attendance code is required when hours are entered.');
+                    }
+
+                    // Overtime rows are valid with or without regular hours; remarks are enforced on final submission.
+                    if ($this->boolean('submit') && $overtime > 0 && blank($entry['remarks'] ?? null)) {
+                        $validator->errors()->add("entries.$index.remarks", 'Remarks are required for overtime before submitting for approval.');
                     }
                 }
 

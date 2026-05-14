@@ -10,7 +10,7 @@
 <div class="content-card p-3">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
-            <thead><tr><th>Date</th><th>Day</th><th>Attendance Code</th><th>Project</th><th>Regular</th><th>Overtime</th><th>Description</th><th>Remarks</th></tr></thead>
+            <thead><tr><th>Date</th><th>Day</th><th>Attendance Code</th><th>Project</th><th>Regular</th><th>Overtime</th><th>Remarks</th></tr></thead>
             <tbody>
             @foreach($timesheet->entries as $entry)
                 <tr>
@@ -20,7 +20,6 @@
                     <td>{{ $entry->project?->project_code }} {{ $entry->project?->project_name }}</td>
                     <td>{{ $entry->regular_hours }}</td>
                     <td>{{ $entry->overtime_hours }}</td>
-                    <td>{{ $entry->description }}</td>
                     <td>{{ $entry->remarks }}</td>
                 </tr>
             @endforeach
