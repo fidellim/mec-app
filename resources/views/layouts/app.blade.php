@@ -21,6 +21,8 @@
             --app-sidebar-link: #d6dde8;
             --app-sidebar-hover: #253449;
             --app-topbar-bg: #ffffff;
+            --app-logo-plate-bg: #ffffff;
+            --app-logo-plate-border: rgba(255, 255, 255, .2);
         }
         [data-bs-theme="dark"] {
             --app-body-bg: #101418;
@@ -30,6 +32,8 @@
             --app-sidebar-link: #c7d0dc;
             --app-sidebar-hover: #1b2633;
             --app-topbar-bg: #171c22;
+            --app-logo-plate-bg: transparent;
+            --app-logo-plate-border: transparent;
         }
         body { background: var(--app-body-bg); }
         .sidebar { min-height: 100vh; background: var(--app-sidebar-bg); }
@@ -37,13 +41,24 @@
         .sidebar a:hover, .sidebar a.active { background: var(--app-sidebar-hover); color: #fff; }
         .topbar { background: var(--app-topbar-bg); }
         .content-card { background: var(--app-card-bg); border: 1px solid var(--app-border); border-radius: .5rem; }
+        .brand-logo { display: block; height: 2.75rem; width: auto; object-fit: contain; }
+        .brand-logo-wrap {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: .45rem;
+            background: var(--app-logo-plate-bg);
+            border: 1px solid var(--app-logo-plate-border);
+            padding: .45rem .6rem;
+        }
+        .sidebar .brand-logo { width: 9.5rem; height: auto; max-height: 3.25rem; }
+        .login-logo { height: 4.5rem; max-width: 14rem; object-fit: contain; }
         .table > :not(caption) > * > * { vertical-align: middle; }
         .table-fixed { table-layout: fixed; }
         .text-truncate-cell { max-width: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .project-select { width: 18rem; max-width: 100%; }
         .attendance-select { width: 13rem; max-width: 100%; }
         .timesheet-entry-table th, .timesheet-entry-table td { white-space: nowrap; }
-        .timesheet-entry-table .description-cell,
         .timesheet-entry-table .remarks-cell { min-width: 14rem; }
         .pagination svg { width: 1rem; height: 1rem; }
         .theme-switch {
@@ -109,7 +124,9 @@
     <div class="row">
         @auth
             <aside class="col-md-3 col-xl-2 sidebar p-3">
-                <div class="text-white fw-semibold fs-5 mb-4">Timesheets</div>
+                <div class="brand-logo-wrap mb-4">
+                    <img class="brand-logo" data-theme-logo src="{{ asset('images/mec_logo_light.webp') }}" alt="MEC">
+                </div>
                 <nav class="d-grid gap-1">
                     <a href="{{ route('dashboard') }}">Dashboard</a>
                     <a href="{{ route('employee.timesheets.index') }}">My Timesheets</a>
@@ -190,6 +207,14 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
+const initializeTooltips = (scope = document) => {
+    scope.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
+        bootstrap.Tooltip.getOrCreateInstance(element);
+    });
+};
+
+initializeTooltips();
+
 (() => {
     const buttons = document.querySelectorAll('[data-theme-toggle]');
     const icons = document.querySelectorAll('[data-theme-icon]');
@@ -198,12 +223,19 @@
         light: "{{ asset('images/moon-icon.svg') }}",
         dark: "{{ asset('images/sun-icon.svg') }}",
     };
+    const logoPaths = {
+        light: "{{ asset('images/mec_logo_light.webp') }}",
+        dark: "{{ asset('images/mec_logo_dark.webp') }}",
+    };
 
     const effectiveTheme = () => localStorage.getItem('theme') || (media.matches ? 'dark' : 'light');
     const applyTheme = (theme) => {
         document.documentElement.setAttribute('data-bs-theme', theme);
         icons.forEach((icon) => {
             icon.src = iconPaths[theme];
+        });
+        document.querySelectorAll('[data-theme-logo]').forEach((logo) => {
+            logo.src = logoPaths[theme];
         });
         buttons.forEach((button) => {
             button.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
@@ -250,7 +282,12 @@ document.querySelectorAll('form').forEach((form) => {
                 hidden.value = submitter.value;
                 form.appendChild(hidden);
             }
-            form.submit();
+            if (form.requestSubmit) {
+                form.requestSubmit();
+                return;
+            }
+
+            HTMLFormElement.prototype.submit.call(form);
         };
         new bootstrap.Modal(document.getElementById('confirmModal')).show();
     });

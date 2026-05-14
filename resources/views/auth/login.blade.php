@@ -4,6 +4,9 @@
 <div class="row justify-content-center align-items-center" style="min-height: 80vh;">
     <div class="col-md-5 col-lg-4">
         <div class="content-card p-4 shadow-sm">
+            <div class="text-center mb-4">
+                <img class="login-logo" data-theme-logo src="{{ asset('images/mec_logo_light.webp') }}" alt="MEC">
+            </div>
             <h1 class="h4 mb-1">Sign in</h1>
             <p class="text-muted mb-4">Timesheet Management System</p>
             <form method="post" action="{{ route('login') }}">
