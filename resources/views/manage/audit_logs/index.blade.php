@@ -1,11 +1,14 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Audit Logs</h1>
+<div class="section-header">
+    <div>
+        <h1 class="h3 page-heading mb-1">Audit Logs</h1>
+        <div class="text-muted">Review important user, project, department, and timesheet actions.</div>
+    </div>
 </div>
 
-<form class="content-card p-3 mb-3 row g-2">
+<form class="filter-card mb-3 row g-2">
     <div class="col-md-3">
         <select class="form-select" name="action">
             <option value="">All actions</option>
@@ -34,7 +37,7 @@
     </div>
 </form>
 
-<div class="content-card p-3">
+<div class="content-card overflow-hidden">
     <div class="table-responsive">
         <table class="table table-hover mb-0">
             <thead>
@@ -51,7 +54,7 @@
             @forelse($logs as $log)
                 <tr>
                     <td>{{ $log->created_at->format('Y-m-d H:i') }}</td>
-                    <td>{{ $log->user?->name ?? 'System' }}</td>
+                    <td class="fw-semibold">{{ $log->user?->name ?? 'System' }}</td>
                     <td><span class="badge text-bg-secondary">{{ $log->action }}</span></td>
                     <td>
                         <div class="small">{{ class_basename($log->auditable_type) ?: '-' }}</div>
@@ -78,7 +81,7 @@
                 </tr>
             @empty
                 <tr>
-                    <td colspan="6" class="text-center text-muted py-4">No audit logs found.</td>
+                    <td colspan="6" class="empty-state">No audit logs found.</td>
                 </tr>
             @endforelse
             </tbody>

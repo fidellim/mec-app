@@ -1,19 +1,29 @@
 @extends('layouts.app')
 
 @section('content')
-<h1 class="h3 mb-4">Super Admin Dashboard</h1>
-<div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Total users</div><div class="fs-3">{{ $totalUsers }}</div></div></div>
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Departments</div><div class="fs-3">{{ $activeDepartments }}</div></div></div>
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Active projects</div><div class="fs-3">{{ $activeProjects }}</div></div></div>
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Open period</div><div class="fs-6">{{ $period?->start_date?->toDateString() ?? 'None' }}</div></div></div>
+<div class="section-header">
+    <div>
+        <h1 class="h3 page-heading mb-1">Super Admin Dashboard</h1>
+        <div class="text-muted">System overview for users, departments, projects, and the open period.</div>
+    </div>
 </div>
-<div class="content-card p-3">
-    <h2 class="h5">System-wide submission summary</h2>
-    <div class="d-flex gap-4">
-        <div>Submitted: <strong>{{ $summary['submitted'] }}</strong></div>
-        <div>Approved: <strong>{{ $summary['approved'] }}</strong></div>
-        <div>Rejected: <strong>{{ $summary['rejected'] }}</strong></div>
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Total users</div><div class="stat-value">{{ $totalUsers }}</div></div></div>
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Departments</div><div class="stat-value">{{ $activeDepartments }}</div></div></div>
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Active projects</div><div class="stat-value">{{ $activeProjects }}</div></div></div>
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Open period</div><div class="fs-5 fw-bold">{{ $period?->start_date?->toDateString() ?? 'None' }}</div><div class="small text-muted">{{ $period?->end_date?->toDateString() ?? '' }}</div></div></div>
+</div>
+<div class="content-card">
+    <div class="content-card-header">
+        <h2 class="h5 mb-1">System-wide submission summary</h2>
+        <div class="small text-muted">Current period status across the organization.</div>
+    </div>
+    <div class="content-card-body">
+        <div class="row g-3">
+            <div class="col-md-4"><div class="meta-label">Submitted</div><div class="meta-value">{{ $summary['submitted'] }}</div></div>
+            <div class="col-md-4"><div class="meta-label">Approved</div><div class="meta-value">{{ $summary['approved'] }}</div></div>
+            <div class="col-md-4"><div class="meta-label">Rejected</div><div class="meta-value">{{ $summary['rejected'] }}</div></div>
+        </div>
     </div>
 </div>
 @endsection

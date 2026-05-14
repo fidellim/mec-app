@@ -1,12 +1,17 @@
 @extends('layouts.app')
 
 @section('content')
-<h1 class="h3 mb-4">HOD Dashboard</h1>
-<div class="row g-3 mb-4">
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Pending approvals</div><div class="fs-3">{{ $pending }}</div></div></div>
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Approved this week</div><div class="fs-3">{{ $approved }}</div></div></div>
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Rejected this week</div><div class="fs-3">{{ $rejected }}</div></div></div>
-    <div class="col-md-3"><div class="content-card p-3"><div class="text-muted">Not submitted</div><div class="fs-3">{{ $missing }}</div></div></div>
+<div class="section-header">
+    <div>
+        <h1 class="h3 page-heading mb-1">HOD Dashboard</h1>
+        <div class="text-muted">Review department submissions and follow up on missing timesheets.</div>
+    </div>
+    <a class="btn btn-primary" href="{{ route('hod.timesheets.index', ['status' => 'submitted']) }}">Review Pending Approvals</a>
 </div>
-<a class="btn btn-primary" href="{{ route('hod.timesheets.index', ['status' => 'submitted']) }}">Review Pending Approvals</a>
+<div class="row g-3 mb-4">
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Pending approvals</div><div class="stat-value">{{ $pending }}</div></div></div>
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Approved this week</div><div class="stat-value">{{ $approved }}</div></div></div>
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Rejected this week</div><div class="stat-value">{{ $rejected }}</div></div></div>
+    <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Not submitted</div><div class="stat-value">{{ $missing }}</div></div></div>
+</div>
 @endsection

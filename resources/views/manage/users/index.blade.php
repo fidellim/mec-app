@@ -1,12 +1,15 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Users</h1>
+<div class="section-header">
+    <div>
+        <h1 class="h3 page-heading mb-1">Users</h1>
+        <div class="text-muted">Manage accounts, roles, employee numbers, and access status.</div>
+    </div>
     <a class="btn btn-primary" href="{{ route('manage.users.create') }}">New User</a>
 </div>
 
-<div class="content-card p-3">
+<div class="content-card overflow-hidden">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead>
@@ -33,11 +36,11 @@
                         </td>
                         <td>{{ $user->employee_code ?: '-' }}</td>
                         <td>{{ $user->email }}</td>
-                        <td>{{ str_replace('_', ' ', $user->role) }}</td>
-                        <td>{{ $user->department?->name }}</td>
-                        <td>{{ $user->is_active ? 'Active' : 'Inactive' }}</td>
+                        <td><span class="badge text-bg-light border text-dark">{{ str_replace('_', ' ', $user->role) }}</span></td>
+                        <td>{{ $user->department?->name ?: '-' }}</td>
+                        <td><span class="badge {{ $user->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $user->is_active ? 'Active' : 'Inactive' }}</span></td>
                         <td class="text-end">
-                            <div class="d-inline-flex gap-2">
+                            <div class="action-group">
                                 <a class="btn btn-sm btn-primary" href="{{ route('manage.users.edit', $user) }}">Edit</a>
                                 @if((int) $user->id !== (int) auth()->id())
                                     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ $user->id }}">

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<h1 class="h3 mb-3">{{ $period->exists ? 'Edit Period' : 'New Period' }}</h1>
+<div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $period->exists ? 'Edit Period' : 'New Period' }}</h1><div class="text-muted">Define the weekly submission window and status.</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $period->exists ? route('manage.periods.update', $period) : route('manage.periods.store') }}">
     @csrf @if($period->exists) @method('put') @endif
     <div class="row g-3">

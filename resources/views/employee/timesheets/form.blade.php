@@ -2,35 +2,57 @@
 
 @section('content')
 @php($isEdit = (bool) $timesheet)
-<h1 class="h3 mb-3">{{ $isEdit ? 'Edit Timesheet' : 'Create Weekly Timesheet' }}</h1>
+<div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
+    <div>
+        <h1 class="h3 page-heading mb-1">{{ $isEdit ? 'Edit Timesheet' : 'Create Weekly Timesheet' }}</h1>
+        <div class="text-muted">Record regular and overtime hours by attendance code and project/job number.</div>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <span class="badge text-bg-primary fs-6 px-3 py-2" id="weekRegularTotal">Week RT 0.00</span>
+        <span class="badge text-bg-warning fs-6 px-3 py-2" id="weekOvertimeTotal">Week OT 0.00</span>
+        <span class="badge text-bg-secondary fs-6 px-3 py-2" id="weekGrandTotal">Week Total 0.00</span>
+    </div>
+</div>
 @if($timesheet?->status === 'rejected')
-    <div class="alert alert-warning"><strong>Rejected:</strong> {{ $timesheet->rejection_comment }}</div>
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">Rejected timesheet</div>
+        <div>{{ $timesheet->rejection_comment }}</div>
+    </div>
 @endif
 <form method="post" action="{{ $isEdit ? route('employee.timesheets.update', $timesheet) : route('employee.timesheets.store') }}">
     @csrf
     @if($isEdit) @method('put') @endif
-    <div class="content-card p-3 mb-3">
-        <label class="form-label">Weekly period</label>
-        <select class="form-select" name="timesheet_period_id" required>
-            @foreach($periods as $period)
-                <option value="{{ $period->id }}" @selected(old('timesheet_period_id', $timesheet?->timesheet_period_id) == $period->id)>
-                    Week {{ $period->week_number }}, {{ $period->year }}: {{ $period->start_date->toDateString() }} to {{ $period->end_date->toDateString() }}
-                </option>
-            @endforeach
-        </select>
-    </div>
-    <div class="content-card p-3">
-        <div class="d-flex flex-column flex-lg-row justify-content-between gap-2 mb-3">
-            <div class="small text-muted">
-                Use Add project to split a day across multiple projects. Overtime-only project rows are allowed when regular hours are 0. Remarks are required for overtime before submitting for approval.
+    <div class="toolbar-card p-3 mb-3">
+        <div class="row g-3 align-items-end">
+            <div class="col-lg-5">
+                <label class="form-label fw-semibold">Weekly period</label>
+                <select class="form-select" name="timesheet_period_id" required>
+                    @foreach($periods as $period)
+                        <option value="{{ $period->id }}" @selected(old('timesheet_period_id', $timesheet?->timesheet_period_id) == $period->id)>
+                            Week {{ $period->week_number }}, {{ $period->year }}: {{ $period->start_date->toDateString() }} to {{ $period->end_date->toDateString() }}
+                        </option>
+                    @endforeach
+                </select>
             </div>
-            <div class="d-flex gap-2 flex-wrap">
-                <span class="badge text-bg-primary fs-6" id="weekRegularTotal">Week RT 0.00</span>
-                <span class="badge text-bg-warning fs-6" id="weekOvertimeTotal">Week OT 0.00</span>
-                <span class="badge text-bg-secondary fs-6" id="weekGrandTotal">Week Total 0.00</span>
+            <div class="col-lg-7">
+                <div class="small text-muted">
+                    Use Add project to split a day across multiple projects. Overtime-only project rows are allowed when regular hours are 0. Remarks are required for overtime before submitting for approval.
+                </div>
             </div>
         </div>
-        <div class="table-responsive">
+    </div>
+    <div class="content-card overflow-hidden">
+        <div class="content-card-header d-flex flex-column flex-lg-row justify-content-between gap-2">
+            <div>
+                <div class="fw-semibold">Daily entries</div>
+                <div class="small text-muted">Each row is saved against the selected week and locked after submission.</div>
+            </div>
+            <div class="d-flex gap-2 small text-muted">
+                <span>RT: Regular time</span>
+                <span>OT: Overtime</span>
+            </div>
+        </div>
+        <div class="table-responsive content-card-body p-0">
             <table class="table timesheet-entry-table" id="timesheet-entry-table">
                 <thead><tr><th>Date</th><th>Day</th><th>Day Total</th><th>Attendance Code</th><th>Project/Job</th><th>Regular</th><th>Overtime</th><th>Remarks</th><th></th></tr></thead>
                 <tbody>
@@ -42,13 +64,13 @@
                     <tr data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
                         <td style="min-width: 145px;">
                             <input type="hidden" name="entries[{{ $i }}][work_date]" value="{{ old("entries.$i.work_date", $workDate) }}" data-field="work_date">
-                            <span data-date-label>{{ old("entries.$i.work_date", $workDate) }}</span>
+                            <span class="fw-semibold" data-date-label>{{ old("entries.$i.work_date", $workDate) }}</span>
                         </td>
                         <td style="min-width: 110px;">
-                            <span data-day-label>{{ $dayName }}</span>
+                            <span class="text-muted" data-day-label>{{ $dayName }}</span>
                         </td>
                         <td style="min-width: 150px;">
-                            <span class="badge text-bg-light border text-dark" data-day-total></span>
+                            <span class="badge text-bg-light border text-dark px-3 py-2" data-day-total></span>
                         </td>
                         <td>
                             <select class="form-select attendance-select" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code" required>
@@ -70,7 +92,7 @@
                         <td style="width: 110px;"><input class="form-control" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][overtime_hours]" data-field="overtime_hours" value="{{ old("entries.$i.overtime_hours", $row->overtime_hours ?? 0) }}"></td>
                         <td class="remarks-cell"><input class="form-control" name="entries[{{ $i }}][remarks]" data-field="remarks" value="{{ old("entries.$i.remarks", $row->remarks) }}"></td>
                         <td>
-                            <div class="d-flex gap-1">
+                            <div class="d-flex gap-1 justify-content-end">
                                 <button type="button" class="btn btn-sm btn-outline-primary" data-add-entry data-bs-toggle="tooltip" data-bs-title="Add another project row for this specific day">Add project</button>
                                 <button type="button" class="btn btn-sm btn-outline-danger" data-remove-entry>Remove</button>
                             </div>
@@ -80,7 +102,7 @@
                 </tbody>
             </table>
         </div>
-        <div class="d-flex gap-2 justify-content-end">
+        <div class="sticky-actions d-flex flex-column flex-sm-row gap-2 justify-content-end p-3">
             <button class="btn btn-outline-secondary" name="submit" value="0">Save Draft</button>
             <button class="btn btn-primary" name="submit" value="1" data-confirm="Submit this timesheet for approval?">Submit for Approval</button>
         </div>

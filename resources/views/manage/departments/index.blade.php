@@ -1,12 +1,15 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h1 class="h3 mb-0">Departments</h1>
+<div class="section-header">
+    <div>
+        <h1 class="h3 page-heading mb-1">Departments</h1>
+        <div class="text-muted">Archive departments with history and delete only unused records.</div>
+    </div>
     <a class="btn btn-primary" href="{{ route('manage.departments.create') }}">New Department</a>
 </div>
 
-<div class="content-card p-3">
+<div class="content-card overflow-hidden">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
             <thead>
@@ -35,7 +38,7 @@
                             {{ $department->users_count }} users / {{ $department->timesheets_count }} timesheets
                         </td>
                         <td class="text-end">
-                            <div class="d-inline-flex gap-2">
+                            <div class="action-group">
                                 <a class="btn btn-sm btn-primary" href="{{ route('manage.departments.edit', $department) }}">Edit</a>
                                 <form method="post" action="{{ route('manage.departments.status', $department) }}" data-confirm="{{ $department->is_active ? 'Deactivate this department? Existing records will remain visible.' : 'Reactivate this department?' }}">
                                     @csrf

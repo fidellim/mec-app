@@ -1,14 +1,22 @@
 @extends('layouts.app')
 
 @section('content')
-<h1 class="h3 mb-4">Employee Dashboard</h1>
-<div class="row g-3 mb-4">
-    <div class="col-md-4"><div class="content-card p-3"><div class="text-muted">Current week</div><div class="fs-4">@if($current) @include('partials.status', ['status' => $current->status]) @else Not submitted @endif</div></div></div>
-    <div class="col-md-4"><div class="content-card p-3"><div class="text-muted">Drafts</div><div class="fs-4">{{ $drafts->count() }}</div></div></div>
-    <div class="col-md-4"><div class="content-card p-3"><div class="text-muted">Rejected requiring action</div><div class="fs-4">{{ $rejected->count() }}</div></div></div>
+<div class="section-header">
+    <div>
+        <h1 class="h3 page-heading mb-1">Employee Dashboard</h1>
+        <div class="text-muted">Track your current week, drafts, and timesheets that need attention.</div>
+    </div>
 </div>
-<div class="d-flex justify-content-between mb-3">
-    <h2 class="h5">Recent submissions</h2>
+<div class="row g-3 mb-4">
+    <div class="col-md-4"><div class="content-card stat-card p-3"><div class="stat-label">Current week</div><div class="stat-value fs-4">@if($current) @include('partials.status', ['status' => $current->status]) @else <span class="badge text-bg-secondary">Not submitted</span> @endif</div></div></div>
+    <div class="col-md-4"><div class="content-card stat-card p-3"><div class="stat-label">Drafts</div><div class="stat-value">{{ $drafts->count() }}</div><div class="small text-muted">Saved but not submitted</div></div></div>
+    <div class="col-md-4"><div class="content-card stat-card p-3"><div class="stat-label">Rejected requiring action</div><div class="stat-value">{{ $rejected->count() }}</div><div class="small text-muted">Revise and resubmit</div></div></div>
+</div>
+<div class="section-header">
+    <div>
+        <h2 class="h5 mb-1">Recent submissions</h2>
+        <div class="text-muted">Your latest weekly timesheets.</div>
+    </div>
     <a class="btn btn-primary" href="{{ route('employee.timesheets.create') }}">Create Weekly Timesheet</a>
 </div>
 @include('employee.timesheets._table', ['timesheets' => $recent])
