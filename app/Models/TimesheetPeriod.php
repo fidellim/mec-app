@@ -14,6 +14,9 @@ class TimesheetPeriod extends Model
     protected function casts(): array
     {
         return [
+            'id' => 'integer',
+            'week_number' => 'integer',
+            'year' => 'integer',
             'start_date' => 'date',
             'end_date' => 'date',
         ];

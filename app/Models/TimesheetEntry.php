@@ -17,6 +17,9 @@ class TimesheetEntry extends Model
     protected function casts(): array
     {
         return [
+            'id' => 'integer',
+            'timesheet_id' => 'integer',
+            'project_id' => 'integer',
             'work_date' => 'date',
             'regular_hours' => 'decimal:2',
             'overtime_hours' => 'decimal:2',

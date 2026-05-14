@@ -11,6 +11,14 @@ class Department extends Model
 
     protected $fillable = ['name', 'code', 'hod_id'];
 
+    protected function casts(): array
+    {
+        return [
+            'id' => 'integer',
+            'hod_id' => 'integer',
+        ];
+    }
+
     public function users()
     {
         return $this->hasMany(User::class);

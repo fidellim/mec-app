@@ -217,6 +217,6 @@ class EmployeeTimesheetController extends Controller
 
     private function authorizeOwner(Timesheet $timesheet): void
     {
-        abort_unless($timesheet->user_id === auth()->id(), 403);
+        abort_unless((int) $timesheet->user_id === (int) auth()->id(), 403);
     }
 }

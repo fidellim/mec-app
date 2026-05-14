@@ -18,6 +18,12 @@ class Timesheet extends Model
     protected function casts(): array
     {
         return [
+            'id' => 'integer',
+            'user_id' => 'integer',
+            'department_id' => 'integer',
+            'timesheet_period_id' => 'integer',
+            'approved_by' => 'integer',
+            'rejected_by' => 'integer',
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
@@ -59,6 +65,6 @@ class Timesheet extends Model
 
     public function editableBy(User $user): bool
     {
-        return $this->user_id === $user->id && in_array($this->status, ['draft', 'rejected'], true);
+        return (int) $this->user_id === (int) $user->id && in_array($this->status, ['draft', 'rejected'], true);
     }
 }

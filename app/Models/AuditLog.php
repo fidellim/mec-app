@@ -13,6 +13,9 @@ class AuditLog extends Model
     protected function casts(): array
     {
         return [
+            'id' => 'integer',
+            'user_id' => 'integer',
+            'auditable_id' => 'integer',
             'old_values' => 'array',
             'new_values' => 'array',
         ];
