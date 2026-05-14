@@ -25,7 +25,7 @@ class AdminTimesheetController extends Controller
 
     public function export(TimesheetExportService $export)
     {
-        return $export->csv(request()->only(['week_number', 'year', 'department_id', 'employee_id', 'status']));
+        return $export->excel(request()->only(['week_number', 'year', 'department_id', 'employee_id', 'status']));
     }
 
     private function filtered()

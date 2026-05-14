@@ -3,7 +3,7 @@
 @section('content')
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h1 class="h3 mb-0">All Timesheets</h1>
-    <a class="btn btn-outline-success" href="{{ route('admin.timesheets.export', request()->query()) }}">Export CSV</a>
+    <a class="btn btn-outline-success" href="{{ route('admin.timesheets.export', request()->query()) }}">Export Excel</a>
 </div>
 <form class="content-card p-3 mb-3 row g-2">
     <div class="col-md-2"><input class="form-control" name="week_number" placeholder="Week" value="{{ request('week_number') }}"></div>

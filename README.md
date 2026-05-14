@@ -9,7 +9,7 @@ Phase 1 replaces the Excel/email weekly timesheet process with a Laravel web app
 - MySQL
 - Laravel session authentication
 - Role middleware for `super_admin`, `admin`, `hod`, and `employee`
-- CSV export service placeholder that can be replaced with Excel export later
+- Native XLSX export service for weekly timesheet workbooks
 
 ## Installation
 
@@ -70,7 +70,7 @@ password123
 7. Employee can recall a submitted timesheet before HOD action, returning it to draft for correction.
 8. HOD approves or rejects department timesheets.
 9. Rejected timesheets show the rejection comment and become editable by the employee.
-10. Admin and Super Admin monitor all records and export CSV data.
+10. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
 
 ## Export
 
@@ -80,12 +80,12 @@ The export route is available to Admin and Super Admin:
 /admin/timesheets/export
 ```
 
-It streams a CSV with employee, department, period, date, project, hours, status, and approval fields. The `App\Services\TimesheetExportService` class is intentionally isolated so a package such as Laravel Excel can be added later without changing controllers.
+It streams a native `.xlsx` workbook using Laravel Excel. The workbook mirrors the employee weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
 
 ## Phase 1 Limitations
 
 - Registration is disabled; Super Admin creates users.
-- Export is CSV, not native XLSX.
+- Export uses Laravel Excel and generates native `.xlsx` files.
 - Approved timesheet correction is intentionally not implemented.
 - Notifications, payroll, leave management, Teams integration, Power BI, mobile app, and advanced analytics are outside Phase 1.
 - Confirmation is browser-based for Phase 1; Bootstrap modal styling can be added later without changing the workflow.
