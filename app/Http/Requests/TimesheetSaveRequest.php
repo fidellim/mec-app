@@ -52,10 +52,6 @@ class TimesheetSaveRequest extends FormRequest
                         $validator->errors()->add("entries.$index.attendance_code", 'Attendance code is required when hours are entered.');
                     }
 
-                    // Overtime rows are valid with or without regular hours; remarks are enforced on final submission.
-                    if ($this->boolean('submit') && $overtime > 0 && blank($entry['remarks'] ?? null)) {
-                        $validator->errors()->add("entries.$index.remarks", 'Remarks are required for overtime before submitting for approval.');
-                    }
                 }
 
                 if ($this->boolean('submit') && ! $hasHours) {

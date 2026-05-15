@@ -36,7 +36,7 @@
             </div>
             <div class="col-lg-7">
                 <div class="small text-muted">
-                    Use Add project to split a day across multiple projects. Overtime-only project rows are allowed when regular hours are 0. Remarks are required for overtime before submitting for approval.
+                    Use Add project to split a day across multiple projects. Attendance code and project/job number are required only when hours are entered. Remarks are optional.
                 </div>
             </div>
         </div>
@@ -73,7 +73,7 @@
                             <span class="badge text-bg-light border text-dark px-3 py-2" data-day-total></span>
                         </td>
                         <td>
-                            <select class="form-select attendance-select" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code" required>
+                            <select class="form-select attendance-select" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code">
                                 <option value="">Select</option>
                                 @foreach($attendanceCodes as $code => $label)
                                     <option value="{{ $code }}" @selected($selectedAttendanceCode === $code)>{{ $code }} - {{ $label }}</option>
@@ -144,6 +144,15 @@
         document.getElementById('weekGrandTotal').textContent = `Week Total ${(regular + overtime).toFixed(2)}`;
     };
 
+    const updateRowRequirements = (row) => {
+        const regular = parseFloat(row.querySelector('[data-field="regular_hours"]').value) || 0;
+        const overtime = parseFloat(row.querySelector('[data-field="overtime_hours"]').value) || 0;
+        const hasHours = regular > 0 || overtime > 0;
+
+        row.querySelector('[data-field="attendance_code"]').required = hasHours;
+        row.querySelector('[data-field="project_id"]').required = hasHours;
+    };
+
     const resequenceRows = () => {
         const seenDates = new Set();
         const rows = table.querySelectorAll('[data-entry-row]');
@@ -161,6 +170,7 @@
             }
 
             seenDates.add(row.dataset.workDate);
+            updateRowRequirements(row);
         });
 
         seenDates.forEach((workDate) => calculateDayTotals(workDate));
@@ -207,6 +217,7 @@
                 currentRow.querySelector('[data-field="regular_hours"]').value = '0';
                 currentRow.querySelector('[data-field="overtime_hours"]').value = '0';
                 currentRow.querySelector('[data-field="remarks"]').value = '';
+                updateRowRequirements(currentRow);
                 calculateDayTotals(currentRow.dataset.workDate);
                 calculateWeekTotals();
                 return;
@@ -219,7 +230,9 @@
 
     table.addEventListener('input', (event) => {
         if (event.target.matches('[data-field="regular_hours"], [data-field="overtime_hours"]')) {
-            calculateDayTotals(event.target.closest('[data-entry-row]').dataset.workDate);
+            const row = event.target.closest('[data-entry-row]');
+            updateRowRequirements(row);
+            calculateDayTotals(row.dataset.workDate);
             calculateWeekTotals();
         }
     });
