@@ -106,6 +106,128 @@ The export route is available to Admin and Super Admin:
 
 It streams a native `.xlsx` workbook using Laravel Excel. The workbook mirrors the employee weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
 
+## Testing
+
+The project has automated tests for the Laravel backend flows and browser-level end-to-end checks.
+
+### Unit Tests
+
+Unit tests live in `tests/Unit`.
+
+Use unit tests for small isolated logic that does not need a browser or full HTTP request, such as model helpers, value calculations, or service behavior.
+
+Run all PHPUnit tests:
+
+```bash
+composer test
+```
+
+Run only unit tests:
+
+```bash
+php artisan test --testsuite=Unit
+```
+
+### Feature / Functional Tests
+
+Feature tests live in `tests/Feature`.
+
+These tests exercise real Laravel routes, middleware, validation, database writes, redirects, and authorization rules. They currently cover:
+
+- login and inactive user access
+- role-based access control
+- dashboard rendering for each role
+- employee timesheet creation, draft, submission, recall, rejection, and resubmission
+- timesheet edge cases such as duplicate weeks, closed periods, blank weekend attendance, missing project/code, and invalid dates
+- HOD approval and rejection rules
+- admin and super admin approval/export access
+- user, department, project, period, and audit-log management flows
+
+Run only feature tests:
+
+```bash
+php artisan test --testsuite=Feature
+```
+
+Run one specific test file:
+
+```bash
+php artisan test tests/Feature/EmployeeTimesheetWorkflowTest.php
+```
+
+### Integration Testing
+
+The feature tests also act as integration tests because they verify multiple layers working together:
+
+- HTTP routes
+- middleware
+- form request validation
+- Eloquent models and relationships
+- migrations
+- audit logging
+- Excel export response generation
+
+The test environment uses an in-memory SQLite database through `phpunit.xml.dist`, so tests run quickly and do not touch the local MySQL/MariaDB data.
+
+### End-To-End Tests
+
+End-to-end tests live in `tests/E2E` and use Playwright.
+
+Install Node dependencies:
+
+```bash
+npm install
+```
+
+Prepare a seeded test database:
+
+```bash
+php artisan migrate:fresh --seed
+```
+
+Run the browser tests:
+
+```bash
+npm run test:e2e
+```
+
+Open the Playwright UI runner:
+
+```bash
+npm run test:e2e:ui
+```
+
+By default, Playwright starts the Laravel development server at `http://127.0.0.1:8000`. To test an already-running app:
+
+```bash
+E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e
+```
+
+On Windows PowerShell:
+
+```powershell
+$env:E2E_SKIP_WEBSERVER="1"
+$env:E2E_BASE_URL="http://127.0.0.1:8000"
+npm run test:e2e
+```
+
+### Recommended Test Routine
+
+Before committing backend or validation changes:
+
+```bash
+composer test
+```
+
+Before releasing to production:
+
+```bash
+composer test
+npm run test:e2e
+```
+
+When a bug is found, add or update a test that reproduces the bug first, then fix the code and rerun the relevant test file.
+
 ## Phase 1 Limitations
 
 - Registration is disabled; Super Admin creates users.
