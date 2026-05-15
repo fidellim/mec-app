@@ -148,9 +148,13 @@
         const regular = parseFloat(row.querySelector('[data-field="regular_hours"]').value) || 0;
         const overtime = parseFloat(row.querySelector('[data-field="overtime_hours"]').value) || 0;
         const hasHours = regular > 0 || overtime > 0;
+        const attendanceSelect = row.querySelector('[data-field="attendance_code"]');
+        const projectSelect = row.querySelector('[data-field="project_id"]');
 
-        row.querySelector('[data-field="attendance_code"]').required = hasHours;
-        row.querySelector('[data-field="project_id"]').required = hasHours;
+        [attendanceSelect, projectSelect].forEach((select) => {
+            select.required = hasHours;
+            select.tomselect?.wrapper.classList.toggle('is-required', hasHours);
+        });
     };
 
     const resequenceRows = () => {
@@ -184,7 +188,9 @@
 
         if (addButton) {
             const currentRow = addButton.closest('[data-entry-row]');
+            destroySearchableSelects(currentRow);
             const newRow = currentRow.cloneNode(true);
+            initializeSearchableSelects(currentRow);
 
             newRow.querySelector('[data-field="work_date"]').value = currentRow.dataset.workDate;
             newRow.querySelector('[data-field="attendance_code"]').value = '';
@@ -203,6 +209,7 @@
             }
             insertAfter.after(newRow);
             initializeTooltips(newRow);
+            initializeSearchableSelects(newRow);
             resequenceRows();
         }
 
@@ -212,8 +219,8 @@
             const sameDayRows = rows.filter((row) => row.dataset.workDate === currentRow.dataset.workDate);
 
             if (sameDayRows.length === 1) {
-                currentRow.querySelector('[data-field="attendance_code"]').value = '';
-                currentRow.querySelector('[data-field="project_id"]').value = '';
+                setSearchableSelectValue(currentRow.querySelector('[data-field="attendance_code"]'), '');
+                setSearchableSelectValue(currentRow.querySelector('[data-field="project_id"]'), '');
                 currentRow.querySelector('[data-field="regular_hours"]').value = '0';
                 currentRow.querySelector('[data-field="overtime_hours"]').value = '0';
                 currentRow.querySelector('[data-field="remarks"]').value = '';

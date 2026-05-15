@@ -12,6 +12,7 @@
         })();
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
     <style>
         :root {
             --app-body-bg: #f4f6f9;
@@ -196,14 +197,49 @@
         .timesheet-entry-table tbody tr { border-left: 3px solid transparent; }
         .timesheet-entry-table tbody tr:hover { border-left-color: var(--bs-primary); }
         .form-control,
-        .form-select {
+        .form-select,
+        .ts-control {
             border-color: var(--app-border);
             border-radius: .55rem;
         }
         .form-control:focus,
-        .form-select:focus {
+        .form-select:focus,
+        .ts-wrapper.focus .ts-control {
             border-color: var(--bs-primary);
             box-shadow: 0 0 0 .22rem var(--app-focus-ring);
+        }
+        .ts-wrapper.single .ts-control,
+        .ts-wrapper.single .ts-control input {
+            cursor: text;
+        }
+        .ts-wrapper.form-select {
+            padding: 0;
+            background-image: none;
+        }
+        .ts-control {
+            min-height: calc(2.25rem + 2px);
+            background: var(--bs-body-bg);
+            color: var(--bs-body-color);
+        }
+        .ts-dropdown {
+            background: var(--app-card-bg);
+            border-color: var(--app-border);
+            border-radius: .65rem;
+            box-shadow: var(--app-shadow-md);
+            color: var(--bs-body-color);
+            overflow: hidden;
+        }
+        .ts-dropdown .option,
+        .ts-dropdown .no-results {
+            padding: .55rem .75rem;
+        }
+        .ts-dropdown .active {
+            background: var(--app-muted-bg);
+            color: var(--bs-body-color);
+        }
+        .ts-wrapper.required .ts-control,
+        .ts-wrapper.is-required .ts-control {
+            border-color: var(--app-border);
         }
         .btn {
             border-radius: .55rem;
@@ -409,6 +445,7 @@
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
 const initializeTooltips = (scope = document) => {
     scope.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
@@ -417,6 +454,48 @@ const initializeTooltips = (scope = document) => {
 };
 
 initializeTooltips();
+
+const initializeSearchableSelects = (scope = document) => {
+    if (!window.TomSelect) {
+        return;
+    }
+
+    scope.querySelectorAll('select.form-select').forEach((select) => {
+        if (select.tomselect || select.dataset.searchable === 'false') {
+            return;
+        }
+
+        new TomSelect(select, {
+            allowEmptyOption: true,
+            create: false,
+            dropdownParent: 'body',
+            maxOptions: null,
+            searchField: ['text'],
+            sortField: [{ field: '$order' }],
+        });
+    });
+};
+
+const destroySearchableSelects = (scope) => {
+    scope.querySelectorAll('select.form-select').forEach((select) => {
+        if (select.tomselect) {
+            select.tomselect.destroy();
+        }
+    });
+};
+
+const setSearchableSelectValue = (select, value) => {
+    if (select?.tomselect) {
+        select.tomselect.setValue(value, true);
+        return;
+    }
+
+    if (select) {
+        select.value = value;
+    }
+};
+
+initializeSearchableSelects();
 
 (() => {
     const buttons = document.querySelectorAll('[data-theme-toggle]');
