@@ -126,6 +126,13 @@ class TimesheetWorksheetExport implements FromView, ShouldAutoSize, WithEvents, 
 
         $headerStart = $startRow + 6;
         $headerEnd = $startRow + 9;
+        $weekdayNameRow = $headerStart + 2;
+
+        foreach (['C:D', 'E:F', 'G:H', 'I:J', 'K:L'] as $columns) {
+            [$startColumn, $endColumn] = explode(':', $columns);
+            $sheet->mergeCells("{$startColumn}{$weekdayNameRow}:{$endColumn}{$weekdayNameRow}");
+        }
+
         $sheet->getStyle("A{$headerStart}:U{$headerEnd}")->applyFromArray([
             'font' => ['bold' => true],
             'alignment' => [
@@ -162,6 +169,5 @@ class TimesheetWorksheetExport implements FromView, ShouldAutoSize, WithEvents, 
             $sheet->getRowDimension($rowNumber)->setRowHeight($rowNumber < $dataStart ? 22 : 18);
         }
 
-        $sheet->freezePane('A'.($headerStart + 1));
     }
 }

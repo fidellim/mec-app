@@ -152,8 +152,7 @@
         </tr>
         <tr>
             @foreach($worksheet['weekday_dates'] as $date)
-                <th class="subheader">{{ $date->format('D') }}</th>
-                <th class="subheader"></th>
+                <th colspan="2" class="subheader">{{ $date->format('D') }}</th>
             @endforeach
             <th class="subheader weekend">{{ $worksheet['saturday']?->format('d') }}</th>
             <th class="subheader weekend">{{ $worksheet['sunday']?->format('d') }}</th>
