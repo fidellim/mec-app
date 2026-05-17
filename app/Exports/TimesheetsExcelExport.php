@@ -7,23 +7,29 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 class TimesheetsExcelExport implements WithMultipleSheets
 {
-    public function __construct(private readonly Collection $worksheets)
-    {
+    public function __construct(
+        private readonly Collection $worksheets,
+        private readonly ?Collection $projectSummaryRows = null
+    ) {
     }
 
     public function sheets(): array
     {
+        $sheets = [
+            new ProjectSummaryWorksheetExport($this->projectSummaryRows ?? collect()),
+        ];
+
         if ($this->worksheets->isEmpty()) {
-            return [new TimesheetWorksheetExport(null, 'No Timesheets')];
+            return $sheets;
         }
 
-        return $this->worksheets
+        return array_merge($sheets, $this->worksheets
             ->values()
             ->map(fn (array $worksheet, int $index) => new TimesheetWorksheetExport(
                 $worksheet,
                 $this->sheetTitle($worksheet, $index)
             ))
-            ->all();
+            ->all());
     }
 
     private function sheetTitle(array $worksheet, int $index): string

@@ -104,7 +104,7 @@ The export route is available to Admin and Super Admin:
 /admin/timesheets/export
 ```
 
-It streams a native `.xlsx` workbook using Laravel Excel. The workbook mirrors the employee weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
+It streams a native `.xlsx` workbook using Laravel Excel. The first worksheet is a project summary that combines regular, overtime, and total hours by project across all exported users. The remaining worksheets mirror the employee weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
 
 ## Testing
 

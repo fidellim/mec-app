@@ -25,9 +25,10 @@ class TimesheetExportService
             ->get();
 
         $payload = $timesheets->map(fn (Timesheet $timesheet) => $this->buildWorksheet($timesheet));
+        $projectSummary = $this->buildProjectSummary($timesheets);
         $fileName = 'employee_weekly_timesheets_'.now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new TimesheetsExcelExport($payload), $fileName, ExcelWriter::XLSX);
+        return Excel::download(new TimesheetsExcelExport($payload, $projectSummary), $fileName, ExcelWriter::XLSX);
     }
 
     public function csv(array $filters): StreamedResponse
@@ -164,5 +165,32 @@ class TimesheetExportService
                 ->map(fn ($part) => mb_substr($part, 0, 1))
                 ->implode(''),
         ];
+    }
+
+    private function buildProjectSummary($timesheets)
+    {
+        return $timesheets
+            ->flatMap(fn (Timesheet $timesheet) => $timesheet->entries)
+            ->filter(function ($entry) {
+                return $entry->project_id
+                    && ((float) $entry->regular_hours > 0 || (float) $entry->overtime_hours > 0);
+            })
+            ->groupBy('project_id')
+            ->map(function ($entries) {
+                $first = $entries->first();
+                $regular = (float) $entries->sum('regular_hours');
+                $overtime = (float) $entries->sum('overtime_hours');
+
+                return [
+                    'project_code' => $first->project?->project_code ?? '-',
+                    'project_name' => $first->project?->project_name ?? 'Unknown Project',
+                    'client_name' => $first->project?->client_name ?? '',
+                    'regular_hours' => $regular,
+                    'overtime_hours' => $overtime,
+                    'total_hours' => $regular + $overtime,
+                ];
+            })
+            ->sortBy('project_code')
+            ->values();
     }
 }
