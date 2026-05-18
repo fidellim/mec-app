@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Mail\TimesheetWorkflowMail;
 use App\Models\Timesheet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -37,7 +39,11 @@ class EmployeeTimesheetWorkflowTest extends TestCase
 
     public function test_employee_can_submit_valid_timesheet_and_it_becomes_locked(): void
     {
+        Mail::fake();
+
         $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $department->update(['hod_id' => $hod->id]);
         $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
         $period = $this->openPeriod();
         $project = $this->project();
@@ -53,6 +59,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertSame('submitted', $timesheet->status);
         $this->assertNotNull($timesheet->submitted_at);
         $this->actingAs($employee)->get(route('employee.timesheets.edit', $timesheet))->assertForbidden();
+        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+            && $mail->headline === 'Timesheet submitted for approval');
     }
 
     public function test_employee_cannot_create_second_timesheet_for_same_week(): void
@@ -165,6 +173,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
 
     public function test_rejected_timesheet_can_be_updated_and_resubmitted(): void
     {
+        Mail::fake();
+
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
         $period = $this->openPeriod();
         $project = $this->project();
@@ -187,11 +197,17 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertNull($timesheet->rejection_comment);
         $this->assertSame('7.00', $timesheet->total_regular_hours);
         $this->assertSame('1.00', $timesheet->total_overtime_hours);
+        Mail::assertNothingSent();
     }
 
     public function test_employee_can_recall_own_submitted_timesheet(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $department->update(['hod_id' => $hod->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
         $period = $this->openPeriod();
         $project = $this->project();
         $timesheet = $this->submittedTimesheet($employee, $period, $project);
@@ -201,6 +217,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertRedirect(route('employee.timesheets.edit', $timesheet));
 
         $this->assertSame('draft', $timesheet->refresh()->status);
+        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+            && $mail->headline === 'Timesheet recalled by employee');
     }
 
     public function test_employee_cannot_view_or_edit_another_employees_timesheet(): void

@@ -7,6 +7,7 @@ use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\TimesheetEmailNotificationService;
 
 class HodTimesheetController extends Controller
 {
@@ -40,7 +41,7 @@ class HodTimesheetController extends Controller
         return view('hod.timesheets.show', ['timesheet' => $timesheet->load(['user', 'entries.project', 'period', 'department'])]);
     }
 
-    public function approve(Timesheet $timesheet, AuditLogService $audit)
+    public function approve(Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
     {
         $this->authorizeDepartment($timesheet);
         abort_unless($timesheet->status === 'submitted', 422);
@@ -56,11 +57,12 @@ class HodTimesheetController extends Controller
             'rejection_comment' => null,
         ]);
         $audit->record('timesheet_approved', $timesheet, $old, $timesheet->fresh()->toArray());
+        $emails->approved($timesheet);
 
         return back()->with('success', 'Timesheet approved.');
     }
 
-    public function reject(RejectTimesheetRequest $request, Timesheet $timesheet, AuditLogService $audit)
+    public function reject(RejectTimesheetRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
     {
         $this->authorizeDepartment($timesheet);
         abort_unless($timesheet->status === 'submitted', 422);
@@ -76,6 +78,7 @@ class HodTimesheetController extends Controller
             'approved_by' => null,
         ]);
         $audit->record('timesheet_rejected', $timesheet, $old, $timesheet->fresh()->toArray());
+        $emails->rejected($timesheet);
 
         return back()->with('success', 'Timesheet rejected.');
     }

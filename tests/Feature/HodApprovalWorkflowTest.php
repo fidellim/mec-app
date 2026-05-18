@@ -2,7 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Mail\TimesheetWorkflowMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -13,6 +15,8 @@ class HodApprovalWorkflowTest extends TestCase
 
     public function test_hod_can_approve_submitted_timesheet_in_own_department(): void
     {
+        Mail::fake();
+
         $department = $this->department();
         $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
         $department->update(['hod_id' => $hod->id]);
@@ -27,6 +31,8 @@ class HodApprovalWorkflowTest extends TestCase
         $this->assertSame('approved', $timesheet->status);
         $this->assertSame($hod->id, $timesheet->approved_by);
         $this->assertNotNull($timesheet->approved_at);
+        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
+            && $mail->headline === 'Timesheet approved');
     }
 
     public function test_hod_rejection_requires_comment(): void
@@ -45,6 +51,8 @@ class HodApprovalWorkflowTest extends TestCase
 
     public function test_hod_can_reject_with_comment(): void
     {
+        Mail::fake();
+
         $department = $this->department();
         $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
         $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
@@ -58,6 +66,9 @@ class HodApprovalWorkflowTest extends TestCase
         $this->assertSame('rejected', $timesheet->status);
         $this->assertSame('Wrong project code.', $timesheet->rejection_comment);
         $this->assertSame($hod->id, $timesheet->rejected_by);
+        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
+            && $mail->headline === 'Timesheet rejected'
+            && $mail->comment === 'Wrong project code.');
     }
 
     public function test_hod_cannot_access_or_approve_other_department_timesheets(): void

@@ -106,6 +106,52 @@ The export route is available to Admin and Super Admin:
 
 It streams a native `.xlsx` workbook using Laravel Excel. The first worksheet is a project summary that combines regular, overtime, and total hours by project across all exported users. The remaining worksheets mirror the employee weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
 
+## Email Notifications
+
+The system sends email notifications for core timesheet workflow actions:
+
+- Employee submits a timesheet: Head of Department receives a review email.
+- Employee resubmits a rejected timesheet: Head of Department receives a review email.
+- Employee recalls a submitted timesheet: Head of Department receives a recall email.
+- Head of Department approves a timesheet: employee receives an approval email.
+- Head of Department rejects a timesheet: employee receives a rejection email with the comment.
+
+Local development defaults to logging emails instead of sending them:
+
+```env
+MAIL_MAILER=log
+```
+
+For production SMTP email sending, configure these values in `.env`:
+
+```env
+MAIL_MAILER=smtp
+MAIL_HOST=your.smtp.host
+MAIL_PORT=587
+MAIL_USERNAME=your_smtp_username
+MAIL_PASSWORD=your_smtp_password
+MAIL_ENCRYPTION=tls
+MAIL_FROM_ADDRESS=timesheets@yourdomain.com
+MAIL_FROM_NAME="${APP_NAME}"
+APP_URL=https://your-production-domain.com
+```
+
+Credentials needed from the email provider:
+
+- SMTP host
+- SMTP port
+- SMTP username
+- SMTP password or app password
+- encryption type, usually `tls` for port `587` or `ssl` for port `465`
+- verified sender email address
+- sender name
+
+The branded email template is located at:
+
+```text
+resources/views/emails/timesheet-workflow.blade.php
+```
+
 ## Testing
 
 The project has automated tests for the Laravel backend flows and browser-level end-to-end checks.
