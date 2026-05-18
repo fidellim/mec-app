@@ -6,7 +6,7 @@ These Playwright tests exercise the main browser workflows against a seeded loca
 
 - Employee login and timesheet page access
 - Timesheet form behavior, including dynamically added project rows
-- HOD department approval/tracker pages
+- Head of Department approval/tracker pages
 - Admin timesheet export download
 - Super Admin management pages
 

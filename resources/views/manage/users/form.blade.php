@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+@php($roleLabels = config('roles.labels'))
 <div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $userModel->exists ? 'Edit User' : 'New User' }}</h1><div class="text-muted">Set employee identity, role, department, and account status.</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $userModel->exists ? route('manage.users.update', $userModel) : route('manage.users.store') }}">
     @csrf @if($userModel->exists) @method('put') @endif
@@ -10,9 +11,9 @@
         <div class="col-md-4">
             <label class="form-label">Employee Number</label>
             <input class="form-control" name="employee_code" value="{{ old('employee_code', $userModel->employee_code) }}" placeholder="MEC-HR-2026-095">
-            <div class="form-text">Required for employees and HODs. Use MEC/MCE-HR-YYYY-NNN.</div>
+            <div class="form-text">Required for employees and Heads of Department. Use MEC/MCE-HR-YYYY-NNN.</div>
         </div>
-        <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ str_replace('_', ' ', ucfirst($role)) }}</option>@endforeach</select></div>
+        <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
         <div class="col-md-6"><label class="form-label">Password {{ $userModel->exists ? '(leave blank to keep current)' : '' }}</label><input class="form-control" type="password" name="password" {{ $userModel->exists ? '' : 'required' }}></div>
         <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input type="hidden" name="is_active" value="0"><input class="form-check-input" type="checkbox" name="is_active" value="1" id="active" @checked(old('is_active', $userModel->is_active ?? true))><label class="form-check-label" for="active">Active</label></div></div>

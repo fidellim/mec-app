@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $department->exists ? 'Edit Department' : 'New Department' }}</h1><div class="text-muted">Maintain department details and HOD assignment.</div></div></div>
+<div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $department->exists ? 'Edit Department' : 'New Department' }}</h1><div class="text-muted">Maintain department details and Head of Department assignment.</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $department->exists ? route('manage.departments.update', $department) : route('manage.departments.store') }}">
     @csrf @if($department->exists) @method('put') @endif
     <div class="row g-3">

@@ -3,7 +3,7 @@
 @section('content')
 <div class="section-header">
     <div>
-        <h1 class="h3 page-heading mb-1">HOD Dashboard</h1>
+        <h1 class="h3 page-heading mb-1">Head of Department Dashboard</h1>
         <div class="text-muted">Review department submissions and follow up on missing timesheets.</div>
     </div>
     <a class="btn btn-primary" href="{{ route('hod.timesheets.index', ['status' => 'submitted']) }}">Review Pending Approvals</a>

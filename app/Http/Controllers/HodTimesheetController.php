@@ -30,7 +30,7 @@ class HodTimesheetController extends Controller
     {
         $this->authorizeDepartment($timesheet);
         abort_unless($timesheet->status === 'submitted', 422);
-        abort_if((int) $timesheet->user_id === (int) auth()->id() && ! auth()->user()->isAdminLike(), 403, 'HOD cannot approve their own timesheet.');
+        abort_if((int) $timesheet->user_id === (int) auth()->id() && ! auth()->user()->isAdminLike(), 403, 'Head of Department cannot approve their own timesheet.');
 
         $old = $timesheet->toArray();
         $timesheet->update([
@@ -50,7 +50,7 @@ class HodTimesheetController extends Controller
     {
         $this->authorizeDepartment($timesheet);
         abort_unless($timesheet->status === 'submitted', 422);
-        abort_if((int) $timesheet->user_id === (int) auth()->id() && ! auth()->user()->isAdminLike(), 403, 'HOD cannot reject their own timesheet.');
+        abort_if((int) $timesheet->user_id === (int) auth()->id() && ! auth()->user()->isAdminLike(), 403, 'Head of Department cannot reject their own timesheet.');
 
         $old = $timesheet->toArray();
         $timesheet->update([

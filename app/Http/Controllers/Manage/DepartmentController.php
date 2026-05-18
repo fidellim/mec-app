@@ -64,7 +64,7 @@ class DepartmentController extends Controller
         if ($department->users_count > 0 || $department->timesheets_count > 0 || $department->hod_id) {
             return redirect()
                 ->route('manage.departments.index')
-                ->with('error', 'This department has users, timesheets, or an assigned HOD. Deactivate it instead of deleting it.');
+                ->with('error', 'This department has users, timesheets, or an assigned Head of Department. Deactivate it instead of deleting it.');
         }
 
         $old = $department->toArray();

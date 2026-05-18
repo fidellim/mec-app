@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+@php($roleLabels = config('roles.labels'))
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Users</h1>
@@ -31,12 +32,12 @@
                         <td>
                             <div class="fw-semibold">{{ $user->name }}</div>
                             @if($headedDepartment)
-                                <div class="small text-muted">HOD of {{ $headedDepartment->name }}</div>
+                                <div class="small text-muted">Head of Department for {{ $headedDepartment->name }}</div>
                             @endif
                         </td>
                         <td>{{ $user->employee_code ?: '-' }}</td>
                         <td>{{ $user->email }}</td>
-                        <td><span class="badge text-bg-light border text-dark">{{ str_replace('_', ' ', $user->role) }}</span></td>
+                        <td><span class="badge text-bg-light border text-dark">{{ $roleLabels[$user->role] ?? $user->role }}</span></td>
                         <td>{{ $user->department?->name ?: '-' }}</td>
                         <td><span class="badge {{ $user->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $user->is_active ? 'Active' : 'Inactive' }}</span></td>
                         <td class="text-end">
@@ -77,9 +78,9 @@
 
                             @if($headedDepartment)
                                 <div class="alert alert-warning">
-                                    This user is the HOD of {{ $headedDepartment->name }}. Select a replacement HOD before deleting.
+                                    This user is the Head of Department for {{ $headedDepartment->name }}. Select a replacement Head of Department before deleting.
                                 </div>
-                                <label class="form-label">Replacement HOD</label>
+                                <label class="form-label">Replacement Head of Department</label>
                                 <select class="form-select" name="replacement_hod_id" required @disabled($departmentReplacementHods->isEmpty())>
                                     <option value="">Select replacement</option>
                                     @foreach($departmentReplacementHods as $replacementHod)
@@ -87,7 +88,7 @@
                                     @endforeach
                                 </select>
                                 @if($departmentReplacementHods->isEmpty())
-                                    <div class="form-text text-danger">Create or update another active HOD in {{ $headedDepartment->name }} before deleting this user.</div>
+                                    <div class="form-text text-danger">Create or update another active Head of Department in {{ $headedDepartment->name }} before deleting this user.</div>
                                 @endif
                             @endif
                         </div>

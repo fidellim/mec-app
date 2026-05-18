@@ -1,6 +1,6 @@
 # Timesheet Management System
 
-Phase 1 replaces the Excel/email weekly timesheet process with a Laravel web application for employee submission, HOD approval, admin monitoring, and export.
+Phase 1 replaces the Excel/email weekly timesheet process with a Laravel web application for employee submission, Head of Department approval, admin monitoring, and export.
 
 ## Tech Stack
 
@@ -42,8 +42,8 @@ password123
 | --- | --- |
 | Super Admin | superadmin@example.com |
 | Admin | admin@example.com |
-| Operations HOD | ops.hod@example.com |
-| Engineering HOD | eng.hod@example.com |
+| Operations Head of Department | ops.hod@example.com |
+| Engineering Head of Department | eng.hod@example.com |
 | Employee | aisha@example.com |
 | Employee | ben@example.com |
 | Employee | carla@example.com |
@@ -68,9 +68,9 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 - Deleting a user permanently removes the user and the timesheets owned by that user.
 - Timesheet entries are also deleted because they belong to the deleted user's timesheets.
 - Approval history is preserved where possible: if a deleted user previously approved or rejected another user's timesheet, the approver/rejector reference is set to blank.
-- If the deleted user is assigned as the HOD of a department, Super Admin must select a replacement HOD before deletion.
-- The replacement HOD must be an active HOD in the same department so department approvals continue to work.
-- If no replacement HOD exists, create or update another HOD for that department before deleting the current HOD.
+- If the deleted user is assigned as the Head of Department, Super Admin must select a replacement Head of Department before deletion.
+- The replacement Head of Department must be active and in the same department so department approvals continue to work.
+- If no replacement Head of Department exists, create or update another Head of Department for that department before deleting the current one.
 
 ## Department And Project Management
 
@@ -79,7 +79,7 @@ Super Admin users can manage departments and projects/job numbers from the **Man
 - Departments and projects can be activated or deactivated.
 - Deactivated departments are hidden from new user department assignment, but existing users and historical timesheets keep their department.
 - Deactivated projects are hidden from new timesheet project selection, but historical timesheets and exports keep the original project/job number.
-- Departments can only be permanently deleted when they have no users, no timesheets, and no assigned HOD.
+- Departments can only be permanently deleted when they have no users, no timesheets, and no assigned Head of Department.
 - Projects can only be permanently deleted when they have no timesheet entries.
 - If a department or project already has historical usage, deactivate it instead of deleting it.
 
@@ -91,8 +91,8 @@ Super Admin users can manage departments and projects/job numbers from the **Man
 4. A day can contain multiple project rows, including overtime-only rows after normal working hours.
 5. Employee saves as draft or submits.
 6. Submitted timesheets are locked for the employee.
-7. Employee can recall a submitted timesheet before HOD action, returning it to draft for correction.
-8. HOD approves or rejects department timesheets.
+7. Employee can recall a submitted timesheet before Head of Department action, returning it to draft for correction.
+8. Head of Department approves or rejects department timesheets.
 9. Rejected timesheets show the rejection comment and become editable by the employee.
 10. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
 
@@ -139,8 +139,8 @@ These tests exercise real Laravel routes, middleware, validation, database write
 - dashboard rendering for each role
 - employee timesheet creation, draft, submission, recall, rejection, and resubmission
 - timesheet edge cases such as duplicate weeks, closed periods, blank weekend attendance, missing project/code, and invalid dates
-- HOD approval and rejection rules
-- admin and super admin approval/export access
+- Head of Department approval and rejection rules
+- admin and Super Admin approval/export access
 - user, department, project, period, and audit-log management flows
 
 Run only feature tests:
@@ -284,7 +284,7 @@ When a bug is found, add or update a test that reproduces the bug first, then fi
 
 - Laravel Excel XLSX exports and scheduled export delivery.
 - Email or Teams approval notifications.
-- Delegated approval and temporary HOD coverage.
+- Delegated approval and temporary Head of Department coverage.
 - Payroll integration and locked payroll periods.
 - Rich reporting dashboards and Power BI dataset sync.
 - Correction workflow for approved timesheets with audit approval.

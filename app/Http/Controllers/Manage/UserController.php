@@ -80,8 +80,8 @@ class UserController extends Controller
                     ),
                 ],
             ], [
-                'replacement_hod_id.required' => 'Select a replacement HOD before deleting this user.',
-                'replacement_hod_id.exists' => 'The replacement HOD must be an active HOD in the same department.',
+                'replacement_hod_id.required' => 'Select a replacement Head of Department before deleting this user.',
+                'replacement_hod_id.exists' => 'The replacement Head of Department must be active and in the same department.',
             ]);
         }
 

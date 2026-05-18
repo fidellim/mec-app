@@ -16,7 +16,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Code</th>
-                    <th>HOD</th>
+                    <th>Head of Department</th>
                     <th>Status</th>
                     <th>Usage</th>
                     <th></th>
@@ -73,10 +73,10 @@
                     <div class="modal-body">
                         <p class="mb-2">Delete <strong>{{ $department->name }}</strong>?</p>
                         @if($canDelete)
-                            <p class="text-muted mb-0">This department has no users, timesheets, or assigned HOD, so it can be permanently deleted.</p>
+                            <p class="text-muted mb-0">This department has no users, timesheets, or assigned Head of Department, so it can be permanently deleted.</p>
                         @else
                             <div class="alert alert-warning mb-0">
-                                This department has users, timesheets, or an assigned HOD. Deactivate it instead to preserve historical records.
+                                This department has users, timesheets, or an assigned Head of Department. Deactivate it instead to preserve historical records.
                             </div>
                         @endif
                     </div>

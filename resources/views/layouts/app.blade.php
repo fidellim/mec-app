@@ -391,7 +391,7 @@
                 <header class="topbar border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
                     <div>
                         <div class="fw-semibold">{{ auth()->user()->name }}</div>
-                        <div class="small text-muted text-capitalize">{{ str_replace('_', ' ', auth()->user()->role) }}</div>
+                        <div class="small text-muted">{{ config('roles.labels.'.auth()->user()->role, auth()->user()->role) }}</div>
                     </div>
                     <div class="d-flex align-items-center gap-2">
                         <button class="theme-switch" type="button" data-theme-toggle aria-label="Toggle color theme" title="Toggle color theme">
