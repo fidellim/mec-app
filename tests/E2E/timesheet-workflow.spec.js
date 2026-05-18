@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 
 async function login(page, email, password = 'password123') {
   await page.goto('/login');
-  await page.getByLabel(/email/i).fill(email);
-  await page.getByLabel(/password/i).fill(password);
+  await page.locator('input[name="email"]').fill(email);
+  await page.locator('input[name="password"]').fill(password);
   await page.getByRole('button', { name: /login/i }).click();
   await expect(page).toHaveURL(/\/$/);
 }
@@ -29,20 +29,23 @@ test.describe('employee timesheet workflow', () => {
     if (await addProjectButton.isVisible()) {
       await addProjectButton.click();
       await expect(page.getByRole('button', { name: /remove/i }).first()).toBeVisible();
-      await expect(page.locator('select[name*="[project_id]"]').nth(1)).toBeVisible();
+      await expect(page.locator('select[name*="[project_id]"]').nth(1)).toHaveCount(1);
     }
   });
 });
 
 test.describe('approval and admin workflows', () => {
-  test('hod can view department approval pages', async ({ page }) => {
-    await login(page, 'hod.engineering@example.com');
+  test('hod can view department approval pages', async ({ page }, testInfo) => {
+    const hodEmail = testInfo.project.name === 'tablet' ? 'ops.hod@example.com' : 'eng.hod@example.com';
+
+    await login(page, hodEmail);
 
     await page.goto('/department/timesheets');
     await expect(page.getByRole('heading', { name: /department timesheets|pending approvals/i })).toBeVisible();
 
     await page.goto('/department/tracker');
-    await expect(page.getByText(/submitted|approved|rejected|not submitted/i)).toBeVisible();
+    await expect(page.getByRole('heading', { name: /submission tracker/i })).toBeVisible();
+    await expect(page.getByText(/submitted|approved|rejected|not submitted/i).first()).toBeVisible();
   });
 
   test('admin can view records and request an export', async ({ page }) => {
