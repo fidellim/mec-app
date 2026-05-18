@@ -6,14 +6,51 @@
         <h1 class="h3 page-heading mb-1">Department Timesheets</h1>
         <div class="text-muted">Review and action employee submissions from your department.</div>
     </div>
-    <form class="d-flex gap-2">
-        <select class="form-select" name="status">
-            <option value="">All statuses</option>
-            @foreach(['submitted','approved','rejected','draft'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>@endforeach
-        </select>
-        <button class="btn btn-outline-primary">Filter</button>
-    </form>
 </div>
+<form class="filter-card mb-3" method="get">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-6 col-xl-3">
+            <label class="form-label">Status</label>
+            <select class="form-select" name="status">
+                <option value="">All statuses</option>
+                @foreach(['submitted','approved','rejected','draft'] as $status)
+                    <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-6 col-xl-3">
+            <label class="form-label">Employee</label>
+            <select class="form-select" name="employee_id">
+                <option value="">All employees</option>
+                @foreach($employees as $employee)
+                    <option value="{{ $employee->id }}" @selected((int) request('employee_id') === (int) $employee->id)>{{ $employee->name }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-4 col-xl-2">
+            <label class="form-label">Week</label>
+            <select class="form-select" name="week_number">
+                <option value="">All weeks</option>
+                @foreach($periods->pluck('week_number')->unique() as $weekNumber)
+                    <option value="{{ $weekNumber }}" @selected((string) request('week_number') === (string) $weekNumber)>Week {{ $weekNumber }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-4 col-xl-2">
+            <label class="form-label">Year</label>
+            <select class="form-select" name="year">
+                <option value="">All years</option>
+                @foreach($periods->pluck('year')->unique() as $year)
+                    <option value="{{ $year }}" @selected((string) request('year') === (string) $year)>{{ $year }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="col-md-4 col-xl-2 d-flex gap-2">
+            <button class="btn btn-primary flex-fill">Filter</button>
+            <a class="btn btn-outline-secondary" href="{{ route('hod.timesheets.index') }}">Reset</a>
+        </div>
+    </div>
+</form>
 <div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Employee</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
 @forelse($timesheets as $timesheet)
     <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('hod.timesheets.show', $timesheet) }}">Review</a></td></tr>

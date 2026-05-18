@@ -71,6 +71,44 @@ class HodApprovalWorkflowTest extends TestCase
         $this->actingAs($hod)->post(route('hod.timesheets.approve', $timesheet))->assertForbidden();
     }
 
+    public function test_hod_can_filter_department_timesheets_by_employee_week_and_year(): void
+    {
+        $department = $this->department();
+        $otherDepartment = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $employee = $this->userWithRole('employee', [
+            'name' => 'Filtered Employee',
+            'department_id' => $department->id,
+        ]);
+        $otherEmployee = $this->userWithRole('employee', [
+            'name' => 'Other Department Employee',
+            'department_id' => $otherDepartment->id,
+        ]);
+        $week20 = $this->openPeriod();
+        $week21 = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $project = $this->project();
+
+        $this->submittedTimesheet($employee, $week20, $project);
+        $this->submittedTimesheet($employee, $week21, $project);
+        $this->submittedTimesheet($otherEmployee, $week20, $project);
+
+        $this->actingAs($hod)
+            ->get(route('hod.timesheets.index', [
+                'employee_id' => $employee->id,
+                'week_number' => 20,
+                'year' => 2026,
+            ]))
+            ->assertOk()
+            ->assertSee('Filtered Employee')
+            ->assertSee('20 / 2026')
+            ->assertDontSee('21 / 2026')
+            ->assertDontSee('Other Department Employee');
+    }
+
     public function test_hod_cannot_approve_own_timesheet(): void
     {
         $department = $this->department();

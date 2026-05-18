@@ -14,10 +14,24 @@ class HodTimesheetController extends Controller
     {
         $timesheets = $this->scope(Timesheet::with(['user', 'period']))
             ->when(request('status'), fn ($q, $status) => $q->where('status', $status))
+            ->when(request('employee_id'), fn ($q, $employeeId) => $q->where('user_id', $employeeId))
+            ->when(request('week_number'), fn ($q, $weekNumber) => $q->whereHas('period', fn ($period) => $period->where('week_number', $weekNumber)))
+            ->when(request('year'), fn ($q, $year) => $q->whereHas('period', fn ($period) => $period->where('year', $year)))
             ->latest()
-            ->paginate(15);
+            ->paginate(15)
+            ->withQueryString();
 
-        return view('hod.timesheets.index', compact('timesheets'));
+        $employees = User::where('department_id', auth()->user()->department_id)
+            ->whereIn('role', ['employee', 'hod'])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $periods = TimesheetPeriod::orderByDesc('year')
+            ->orderByDesc('week_number')
+            ->get(['week_number', 'year']);
+
+        return view('hod.timesheets.index', compact('timesheets', 'employees', 'periods'));
     }
 
     public function show(Timesheet $timesheet)
