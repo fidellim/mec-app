@@ -188,9 +188,16 @@
 
         if (addButton) {
             const currentRow = addButton.closest('[data-entry-row]');
+            const currentAttendanceValue = currentRow.querySelector('[data-field="attendance_code"]').tomselect?.getValue()
+                ?? currentRow.querySelector('[data-field="attendance_code"]').value;
+            const currentProjectValue = currentRow.querySelector('[data-field="project_id"]').tomselect?.getValue()
+                ?? currentRow.querySelector('[data-field="project_id"]').value;
+
             destroySearchableSelects(currentRow);
             const newRow = currentRow.cloneNode(true);
             initializeSearchableSelects(currentRow);
+            setSearchableSelectValue(currentRow.querySelector('[data-field="attendance_code"]'), currentAttendanceValue);
+            setSearchableSelectValue(currentRow.querySelector('[data-field="project_id"]'), currentProjectValue);
 
             newRow.querySelector('[data-field="work_date"]').value = currentRow.dataset.workDate;
             newRow.querySelector('[data-field="attendance_code"]').value = '';

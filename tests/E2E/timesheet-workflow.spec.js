@@ -24,12 +24,23 @@ test.describe('employee timesheet workflow', () => {
     await login(page, 'aisha@example.com');
     await page.goto('/my-timesheets/create');
 
+    const firstProjectSelect = page.locator('select[name*="[project_id]"]').first();
+    const firstProjectValue = await firstProjectSelect.locator('option').nth(1).getAttribute('value');
+    expect(firstProjectValue).toBeTruthy();
+
+    await firstProjectSelect.evaluate((select, value) => {
+      select.tomselect?.setValue(value);
+      select.value = value;
+    }, firstProjectValue);
+
     const addProjectButton = page.getByRole('button', { name: /add project/i }).first();
 
     if (await addProjectButton.isVisible()) {
       await addProjectButton.click();
       await expect(page.getByRole('button', { name: /remove/i }).first()).toBeVisible();
       await expect(page.locator('select[name*="[project_id]"]').nth(1)).toHaveCount(1);
+      await expect(firstProjectSelect).toHaveValue(firstProjectValue);
+      await expect(page.locator('select[name*="[project_id]"]').nth(1)).toHaveValue('');
     }
   });
 });
