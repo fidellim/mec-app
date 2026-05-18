@@ -86,7 +86,7 @@ Super Admin users can manage departments and projects/job numbers from the **Man
 ## Main Workflow
 
 1. Super Admin creates departments, users, projects, and weekly periods.
-2. Employee creates one timesheet per open weekly period.
+2. Employee selects an open weekly period and creates one timesheet for that period.
 3. Employee enters daily rows against project/job numbers.
 4. A day can contain multiple project rows, including overtime-only rows after normal working hours.
 5. Employee saves as draft or submits.
@@ -95,6 +95,18 @@ Super Admin users can manage departments and projects/job numbers from the **Man
 8. Head of Department approves or rejects department timesheets.
 9. Rejected timesheets show the rejection comment and become editable by the employee.
 10. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
+
+## Open Period Rules
+
+Employees can create timesheets for any weekly period that is marked `open`.
+
+- Past periods can remain open when late submissions are allowed.
+- Current periods can remain open for normal weekly submission.
+- Future periods can be opened early when advance submissions are allowed.
+- Closed periods cannot accept new drafts, submissions, or resubmissions.
+- Employees can still only have one timesheet per weekly period.
+
+Super Admin controls availability from **Manage Weekly Periods**. To allow last week or next week, keep or set that period to `open`; to stop new changes, set the period to `closed`.
 
 ## Export
 

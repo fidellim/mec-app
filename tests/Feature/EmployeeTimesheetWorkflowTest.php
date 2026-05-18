@@ -37,6 +37,63 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertNull($weekendEntry->attendance_code);
     }
 
+    public function test_employee_can_choose_from_multiple_open_periods_before_creating_timesheet(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $lastWeek = $this->openPeriod([
+            'week_number' => 20,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-17',
+        ]);
+        $currentWeek = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.create'))
+            ->assertOk()
+            ->assertSee('Week 20')
+            ->assertSee('Week 21');
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.create', ['period_id' => $lastWeek->id]))
+            ->assertOk()
+            ->assertSee('2026-05-11')
+            ->assertSee('2026-05-17')
+            ->assertDontSee('2026-05-18');
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.create', ['period_id' => $currentWeek->id]))
+            ->assertOk()
+            ->assertSee('2026-05-18')
+            ->assertSee('2026-05-24')
+            ->assertDontSee('2026-05-11');
+    }
+
+    public function test_employee_cannot_create_form_for_closed_period_from_query_string(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $openPeriod = $this->openPeriod();
+        $closedPeriod = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+            'status' => 'closed',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.create', ['period_id' => $closedPeriod->id]))
+            ->assertRedirect(route('employee.timesheets.create'))
+            ->assertSessionHas('warning');
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.create'))
+            ->assertSee('Week 20')
+            ->assertDontSee('Week 21');
+    }
+
     public function test_employee_can_submit_valid_timesheet_and_it_becomes_locked(): void
     {
         Mail::fake();
@@ -72,7 +129,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $existing = $this->submittedTimesheet($employee, $period, $project);
 
         $this->actingAs($employee)
-            ->get(route('employee.timesheets.create'))
+            ->get(route('employee.timesheets.create', ['period_id' => $period->id]))
             ->assertRedirect(route('employee.timesheets.show', $existing))
             ->assertSessionHas('warning');
 

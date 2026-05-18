@@ -22,8 +22,19 @@ class EmployeeTimesheetController extends Controller
     public function create()
     {
         $periods = TimesheetPeriod::where('status', 'open')->latest('start_date')->get();
-        $period = $periods->first();
-        abort_unless($period, 422, 'No open timesheet period is available.');
+        abort_unless($periods->isNotEmpty(), 422, 'No open timesheet period is available.');
+
+        if (! request()->filled('period_id')) {
+            return view('employee.timesheets.choose_period', compact('periods'));
+        }
+
+        $period = $periods->firstWhere('id', (int) request('period_id'));
+
+        if (! $period) {
+            return redirect()
+                ->route('employee.timesheets.create')
+                ->with('warning', 'Select an open weekly period before creating a timesheet.');
+        }
 
         $existingTimesheet = Timesheet::where('user_id', auth()->id())
             ->where('timesheet_period_id', $period->id)
@@ -37,7 +48,7 @@ class EmployeeTimesheetController extends Controller
 
         return view('employee.timesheets.form', [
             'timesheet' => null,
-            'periods' => $periods,
+            'periods' => collect([$period]),
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
             'attendanceCodes' => config('timesheet.attendance_codes'),
             'entries' => $this->defaultEntries($period),

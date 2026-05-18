@@ -8,6 +8,40 @@ async function login(page, email, password = 'password123') {
   await expect(page).toHaveURL(/\/$/);
 }
 
+async function chooseFirstOpenPeriod(page) {
+  const periodSelect = page.locator('select[name="period_id"]');
+
+  if (await periodSelect.isVisible()) {
+    const firstPeriodValue = await periodSelect.locator('option').nth(1).getAttribute('value');
+    expect(firstPeriodValue).toBeTruthy();
+    await periodSelect.selectOption(firstPeriodValue);
+    await page.getByRole('button', { name: /continue/i }).click();
+  }
+}
+
+async function chooseOpenPeriodWithCreateForm(page) {
+  const periodSelect = page.locator('select[name="period_id"]');
+
+  if (! await periodSelect.isVisible()) {
+    return;
+  }
+
+  const optionValues = await periodSelect.locator('option').evaluateAll((options) => options
+    .map((option) => option.value)
+    .filter(Boolean));
+
+  for (const value of optionValues) {
+    await periodSelect.selectOption(value);
+    await page.getByRole('button', { name: /continue/i }).click();
+
+    if (await page.locator('select[name*="[project_id]"]').first().isVisible()) {
+      return;
+    }
+
+    await page.goto('/my-timesheets/create');
+  }
+}
+
 test.describe('employee timesheet workflow', () => {
   test('employee can open timesheets and reach the weekly form or existing weekly record', async ({ page }) => {
     await login(page, 'aisha@example.com');
@@ -16,13 +50,15 @@ test.describe('employee timesheet workflow', () => {
     await expect(page.getByRole('heading', { name: /my timesheets/i })).toBeVisible();
 
     await page.getByRole('link', { name: /create weekly timesheet/i }).click();
+    await chooseFirstOpenPeriod(page);
     await expect(page).toHaveURL(/\/my-timesheets\/(create|\d+)/);
     await expect(page.getByText(/weekly period|timesheet summary/i)).toBeVisible();
   });
 
   test('employee timesheet form keeps dynamically added project rows usable', async ({ page }) => {
-    await login(page, 'aisha@example.com');
+    await login(page, 'carla@example.com');
     await page.goto('/my-timesheets/create');
+    await chooseOpenPeriodWithCreateForm(page);
 
     const firstProjectSelect = page.locator('select[name*="[project_id]"]').first();
     const firstProjectValue = await firstProjectSelect.locator('option').nth(1).getAttribute('value');
@@ -47,9 +83,7 @@ test.describe('employee timesheet workflow', () => {
 
 test.describe('approval and admin workflows', () => {
   test('hod can view department approval pages', async ({ page }, testInfo) => {
-    const hodEmail = testInfo.project.name === 'tablet' ? 'ops.hod@example.com' : 'eng.hod@example.com';
-
-    await login(page, hodEmail);
+    await login(page, 'eng.hod@example.com');
 
     await page.goto('/department/timesheets');
     await expect(page.getByRole('heading', { name: /department timesheets|pending approvals/i })).toBeVisible();
