@@ -18,6 +18,26 @@ php artisan migrate:fresh --seed
 npm run test:e2e
 ```
 
+Run in headed mode to watch the browser:
+
+```bash
+npm run test:e2e:headed
+```
+
+Run headed mode more slowly so each browser action is easier to follow:
+
+```bash
+npm run test:e2e:headed:slow
+```
+
+The slow headed script uses `E2E_SLOW_MO=500` by default. To use a different delay, set `E2E_SLOW_MO` before running Playwright.
+
+Open the Playwright UI runner:
+
+```bash
+npm run test:e2e:ui
+```
+
 Use another environment:
 
 ```bash
@@ -30,12 +50,47 @@ Run against an already-running Laravel server:
 E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e
 ```
 
+Run headed mode against an already-running Laravel server:
+
+```bash
+E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e:headed
+```
+
 On Windows PowerShell:
 
 ```powershell
 $env:E2E_SKIP_WEBSERVER="1"
 $env:E2E_BASE_URL="http://127.0.0.1:8000"
 npm run test:e2e
+```
+
+Windows PowerShell headed mode:
+
+```powershell
+$env:E2E_SKIP_WEBSERVER="1"
+$env:E2E_BASE_URL="http://127.0.0.1:8000"
+npm run test:e2e:headed
+```
+
+Windows PowerShell slow headed mode:
+
+```powershell
+$env:E2E_SKIP_WEBSERVER="1"
+$env:E2E_BASE_URL="http://127.0.0.1:8000"
+npm run test:e2e:headed:slow
+```
+
+Run one browser project only:
+
+```bash
+npx playwright test --project=chromium --headed
+```
+
+Run one browser project slowly:
+
+```powershell
+$env:E2E_SLOW_MO="500"
+npx playwright test --project=chromium --headed
 ```
 
 ## Assumptions

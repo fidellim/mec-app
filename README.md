@@ -191,6 +191,20 @@ Run the browser tests:
 npm run test:e2e
 ```
 
+Run the browser tests in headed mode so you can watch the browser:
+
+```bash
+npm run test:e2e:headed
+```
+
+Run headed mode more slowly so each browser action is easier to follow:
+
+```bash
+npm run test:e2e:headed:slow
+```
+
+The slow headed script uses `E2E_SLOW_MO=500` by default. To use a different delay, set `E2E_SLOW_MO` before running Playwright.
+
 Open the Playwright UI runner:
 
 ```bash
@@ -209,6 +223,35 @@ On Windows PowerShell:
 $env:E2E_SKIP_WEBSERVER="1"
 $env:E2E_BASE_URL="http://127.0.0.1:8000"
 npm run test:e2e
+```
+
+For headed mode against an already-running app on Windows PowerShell:
+
+```powershell
+$env:E2E_SKIP_WEBSERVER="1"
+$env:E2E_BASE_URL="http://127.0.0.1:8000"
+npm run test:e2e:headed
+```
+
+For slow headed mode against an already-running app on Windows PowerShell:
+
+```powershell
+$env:E2E_SKIP_WEBSERVER="1"
+$env:E2E_BASE_URL="http://127.0.0.1:8000"
+npm run test:e2e:headed:slow
+```
+
+To run one browser project only:
+
+```bash
+npx playwright test --project=chromium --headed
+```
+
+To run one browser project slowly:
+
+```powershell
+$env:E2E_SLOW_MO="500"
+npx playwright test --project=chromium --headed
 ```
 
 ### Recommended Test Routine

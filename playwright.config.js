@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:8000';
+const slowMo = Number(process.env.E2E_SLOW_MO || 0);
 
 export default defineConfig({
   testDir: './tests/E2E',
@@ -10,6 +11,9 @@ export default defineConfig({
   },
   use: {
     baseURL,
+    launchOptions: {
+      slowMo,
+    },
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
   },
