@@ -185,6 +185,20 @@ class ManagementWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_period_form_guides_super_admin_with_auto_calculated_fields(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.periods.create'))
+            ->assertOk()
+            ->assertSee('Select the Monday start date')
+            ->assertSee('data-period-start', false)
+            ->assertSee('data-period-end', false)
+            ->assertSee('data-period-week', false)
+            ->assertSee('data-period-year', false);
+    }
+
     public function test_management_index_pages_render_for_super_admin(): void
     {
         $superAdmin = $this->userWithRole('super_admin');

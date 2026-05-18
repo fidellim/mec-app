@@ -108,6 +108,8 @@ Employees can create timesheets for any weekly period that is marked `open`.
 
 Super Admin controls availability from **Manage Weekly Periods**. To allow last week or next week, keep or set that period to `open`; to stop new changes, set the period to `closed`.
 
+When creating or editing a weekly period, Super Admin selects the Monday start date. The form automatically fills the Sunday end date, ISO week number, and year, while backend validation still rejects periods that do not run from Monday through Sunday.
+
 ## Export
 
 The export route is available to Admin and Super Admin:
