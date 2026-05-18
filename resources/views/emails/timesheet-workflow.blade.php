@@ -36,7 +36,7 @@
                                 </tr>
                                 <tr>
                                     <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;">Period</td>
-                                    <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:14px;font-weight:700;">Week {{ $timesheet->period->week_number }}, {{ $timesheet->period->year }}</td>
+                                    <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:14px;font-weight:700;">Week {{ $timesheet->period->week_number }} ({{ $timesheet->period->start_date->format('M d, Y') }} - {{ $timesheet->period->end_date->format('M d, Y') }})</td>
                                 </tr>
                                 <tr>
                                     <td style="padding:14px 16px;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;">Hours</td>
@@ -62,7 +62,7 @@
                     </tr>
                     <tr>
                         <td style="background:#f8fafc;border-top:1px solid #e5e7eb;padding:16px 28px;color:#64748b;font-size:12px;line-height:1.5;">
-                            This is an automated message from the Timesheet Management System. Please do not reply to this email.
+                            This is an automated message from {{ config('app.name', 'Timesheet Management System') }}. Please do not reply to this email.
                         </td>
                     </tr>
                 </table>
