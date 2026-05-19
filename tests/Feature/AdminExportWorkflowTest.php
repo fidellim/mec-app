@@ -171,7 +171,7 @@ class AdminExportWorkflowTest extends TestCase
         $period = $this->openPeriod();
         $projectA = $this->project([
             'project_code' => 'P100',
-            'project_name' => 'Pipeline Upgrade',
+            'project_name' => 'Detailed Engineering Services  for Pipeline Upgrade and Facility Modification Works',
             'client_name' => 'ADNOC',
         ]);
         $projectB = $this->project([
@@ -226,8 +226,14 @@ class AdminExportWorkflowTest extends TestCase
         $summary = $spreadsheet->getSheet(0);
 
         $this->assertSame('Project Summary', $summary->getTitle());
+        $this->assertTrue($summary->getStyle('B4')->getAlignment()->getWrapText());
+        $this->assertTrue($summary->getStyle('C4')->getAlignment()->getWrapText());
+        $this->assertGreaterThan(20, $summary->getRowDimension(4)->getRowHeight());
+        $this->assertSame(62.0, $summary->getColumnDimension('B')->getWidth());
         $this->assertSame('P100', $summary->getCell('A4')->getValue());
-        $this->assertSame('Pipeline Upgrade', $summary->getCell('B4')->getValue());
+        $this->assertStringContainsString("\n", $summary->getCell('B4')->getValue());
+        $this->assertStringContainsString('Detailed Engineering Services', $summary->getCell('B4')->getValue());
+        $this->assertStringNotContainsString('Services  for', $summary->getCell('B4')->getValue());
         $this->assertEquals(16, $summary->getCell('D4')->getCalculatedValue());
         $this->assertEquals(2, $summary->getCell('E4')->getCalculatedValue());
         $this->assertEquals(18, $summary->getCell('F4')->getCalculatedValue());

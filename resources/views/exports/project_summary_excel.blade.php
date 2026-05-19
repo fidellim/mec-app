@@ -40,6 +40,11 @@
         .center {
             text-align: center;
         }
+        .wrap-text {
+            white-space: normal;
+            word-wrap: break-word;
+            vertical-align: top;
+        }
     </style>
 </head>
 <body>
@@ -61,8 +66,8 @@
     @forelse($rows as $row)
         <tr>
             <td class="center">{{ $row['project_code'] }}</td>
-            <td>{{ $row['project_name'] }}</td>
-            <td>{{ $row['client_name'] }}</td>
+            <td class="wrap-text">{!! nl2br(e(wordwrap(preg_replace('/\s+/', ' ', trim($row['project_name'])), 62, "\n", false))) !!}</td>
+            <td class="wrap-text">{!! nl2br(e(wordwrap(preg_replace('/\s+/', ' ', trim($row['client_name'])), 22, "\n", false))) !!}</td>
             <td class="right">{{ number_format($row['regular_hours'], 2) }}</td>
             <td class="right">{{ number_format($row['overtime_hours'], 2) }}</td>
             <td class="right">{{ number_format($row['total_hours'], 2) }}</td>

@@ -5,7 +5,7 @@ namespace App\Exports;
 use Illuminate\Contracts\View\View;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromView;
-use Maatwebsite\Excel\Concerns\ShouldAutoSize;
+use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
@@ -13,7 +13,7 @@ use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
 
-class ProjectSummaryWorksheetExport implements FromView, ShouldAutoSize, WithEvents, WithTitle
+class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithEvents, WithTitle
 {
     public function __construct(private readonly Collection $rows)
     {
@@ -32,6 +32,18 @@ class ProjectSummaryWorksheetExport implements FromView, ShouldAutoSize, WithEve
             'totalOvertime' => $this->rows->sum('overtime_hours'),
             'totalHours' => $this->rows->sum('total_hours'),
         ]);
+    }
+
+    public function columnWidths(): array
+    {
+        return [
+            'A' => 16,
+            'B' => 62,
+            'C' => 22,
+            'D' => 16,
+            'E' => 16,
+            'F' => 16,
+        ];
     }
 
     public function registerEvents(): array
@@ -72,11 +84,38 @@ class ProjectSummaryWorksheetExport implements FromView, ShouldAutoSize, WithEve
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF4F4F4']],
                 ]);
 
-                foreach (['A' => 16, 'B' => 45, 'C' => 22, 'D' => 16, 'E' => 16, 'F' => 16] as $column => $width) {
-                    $sheet->getColumnDimension($column)->setAutoSize(false);
-                    $sheet->getColumnDimension($column)->setWidth($width);
+                foreach ($this->rows->values() as $index => $row) {
+                    $worksheetRow = $index + 4;
+                    $projectName = $this->wrapCellText((string) ($row['project_name'] ?? ''), 62);
+                    $clientName = $this->wrapCellText((string) ($row['client_name'] ?? ''), 22);
+                    $sheet->setCellValue("B{$worksheetRow}", $projectName);
+                    $sheet->setCellValue("C{$worksheetRow}", $clientName);
+
+                    $projectLineCount = substr_count($projectName, "\n") + 1;
+                    $clientLineCount = substr_count($clientName, "\n") + 1;
+                    $lineCount = max(
+                        1,
+                        $projectLineCount,
+                        $clientLineCount,
+                    );
+
+                    $sheet->getRowDimension($worksheetRow)->setRowHeight(max(20, $lineCount * 15));
                 }
+
+                $sheet->getStyle("B4:C{$lastRow}")->applyFromArray([
+                    'alignment' => [
+                        'wrapText' => true,
+                        'vertical' => Alignment::VERTICAL_TOP,
+                    ],
+                ]);
             },
         ];
+    }
+
+    private function wrapCellText(string $value, int $width): string
+    {
+        $value = preg_replace('/\s+/', ' ', trim($value)) ?? '';
+
+        return wordwrap($value, $width, "\n", false);
     }
 }
