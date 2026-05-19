@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Log;
 class AutomationSetting extends Model
 {
     public const TIMESHEET_MISSING_REMINDERS = 'timesheet_missing_reminders';
+    public const TIMESHEET_PERIOD_AUTO_CREATION = 'timesheet_period_auto_creation';
 
     protected $fillable = [
         'key',

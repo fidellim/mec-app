@@ -13,3 +13,9 @@ Schedule::command('timesheets:send-missing-reminders')
     ->at('07:00')
     ->when(fn () => AutomationSetting::enabled(AutomationSetting::TIMESHEET_MISSING_REMINDERS))
     ->withoutOverlapping(60);
+
+Schedule::command('timesheets:create-weekly-period')
+    ->mondays()
+    ->at('06:30')
+    ->when(fn () => AutomationSetting::enabled(AutomationSetting::TIMESHEET_PERIOD_AUTO_CREATION))
+    ->withoutOverlapping(60);

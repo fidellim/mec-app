@@ -88,17 +88,19 @@ Super Admin users can manage departments and projects/job numbers from the **Man
 Super Admin users can pause or resume scheduled background jobs from **Manage Automations**.
 
 - Disabled automations are skipped by Laravel's scheduler.
-- The reminder command also checks the automation setting, so direct command runs will not send emails while disabled unless `--force` is used.
+- Automation commands also check their automation setting, so direct command runs will not execute while disabled unless `--force` is used.
 - Enable and disable actions are recorded in `audit_logs`.
 - Existing manual actions, such as a Head of Department manually sending a reminder from the tracker, remain available.
 
-The first configured automation is:
+Configured automations:
 
 ```text
+timesheet_period_auto_creation
 timesheet_missing_reminders
 ```
 
-This controls the automatic Monday reminder for employees missing submitted or approved weekly timesheets.
+- `timesheet_period_auto_creation` creates the current Monday-to-Sunday weekly period if it does not exist yet.
+- `timesheet_missing_reminders` sends the automatic Monday reminder for employees missing submitted or approved weekly timesheets.
 
 ## Main Workflow
 
@@ -126,6 +128,14 @@ Employees can create timesheets for any weekly period that is marked `open`.
 Super Admin controls availability from **Manage Weekly Periods**. To allow last week or next week, keep or set that period to `open`; to stop new changes, set the period to `closed`.
 
 When creating or editing a weekly period, Super Admin selects the Monday start date. The form automatically fills the Sunday end date, ISO week number, and year, while backend validation still rejects periods that do not run from Monday through Sunday.
+
+The weekly period auto creation command is:
+
+```bash
+php artisan timesheets:create-weekly-period
+```
+
+It runs every Monday at 06:30 when **Weekly Period Auto Creation** is enabled. It creates the current ISO week period as `open` if the week/year does not exist yet. If the period already exists, it skips creation and records the skip in `audit_logs`.
 
 ## Export
 
@@ -213,7 +223,26 @@ Then clear cached config:
 php artisan config:clear
 ```
 
-To test the automation command directly, make sure the target weekly period is `open`, has an `end_date` before today, and has at least one active employee without a submitted or approved timesheet. Then run:
+To test weekly period auto creation directly, run:
+
+```bash
+php artisan timesheets:create-weekly-period
+```
+
+To test a specific week without changing your computer date, pass any date inside that week:
+
+```bash
+php artisan timesheets:create-weekly-period --date=2026-05-25
+```
+
+Expected result:
+
+- if the week does not exist, a new Monday-to-Sunday `open` period is created
+- if the week already exists, no duplicate is created
+- `audit_logs` contains `timesheet_period_auto_created` or `timesheet_period_auto_create_skipped`
+- **Weekly Period Auto Creation** `last_run_at` updates in **Manage Automations**
+
+To test missing timesheet reminders directly, make sure the target weekly period is `open`, has an `end_date` before today, and has at least one active employee without a submitted or approved timesheet. Then run:
 
 ```bash
 php artisan timesheets:send-missing-reminders --period_id=1
@@ -229,8 +258,8 @@ To test the Super Admin emergency stop:
 
 1. Log in as Super Admin.
 2. Go to **Manage Automations**.
-3. Disable **Missing Timesheet Reminders**.
-4. Run the reminder command again:
+3. Disable **Weekly Period Auto Creation** or **Missing Timesheet Reminders**.
+4. Run the related command again:
 
 ```bash
 php artisan timesheets:send-missing-reminders --period_id=1
@@ -242,9 +271,16 @@ Expected output:
 Missing timesheet reminders automation is disabled.
 ```
 
-No email should be logged or sent. To test the emergency CLI override, run:
+No email should be logged or sent. For weekly period auto creation, the disabled output is:
+
+```text
+Weekly period auto creation automation is disabled.
+```
+
+To test the emergency CLI override, run:
 
 ```bash
+php artisan timesheets:create-weekly-period --force
 php artisan timesheets:send-missing-reminders --period_id=1 --force
 ```
 
@@ -264,7 +300,7 @@ Keep the scheduler running locally:
 php artisan schedule:work
 ```
 
-Keep that terminal open. Laravel will check the schedule every minute and run due tasks, such as the Monday 07:00 missing timesheet reminder when the automation is enabled. This is usually easier for local testing because you do not need to configure a local cron job.
+Keep that terminal open. Laravel will check the schedule every minute and run due tasks, such as the Monday 06:30 weekly period creation and Monday 07:00 missing timesheet reminder when each automation is enabled. This is usually easier for local testing because you do not need to configure a local cron job.
 
 For production SMTP email sending, configure these values in `.env`:
 
@@ -320,6 +356,7 @@ Use unit tests for small isolated logic that does not need a browser or full HTT
 Run all PHPUnit tests:
 
 ```bash
+php artisan config:clear
 composer test
 ```
 

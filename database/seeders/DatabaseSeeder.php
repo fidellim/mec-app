@@ -93,13 +93,18 @@ class DatabaseSeeder extends Seeder
 
         $this->call(ProjectSeeder::class);
 
-        AutomationSetting::updateOrCreate(
-            ['key' => AutomationSetting::TIMESHEET_MISSING_REMINDERS],
-            [
+        foreach ([
+            AutomationSetting::TIMESHEET_PERIOD_AUTO_CREATION => [
+                'name' => 'Weekly Period Auto Creation',
+                'description' => 'Automatically creates the current Monday-to-Sunday weekly period if it does not exist yet.',
+            ],
+            AutomationSetting::TIMESHEET_MISSING_REMINDERS => [
                 'name' => 'Missing Timesheet Reminders',
                 'description' => 'Automatically emails employees who have not submitted or approved their timesheet for the latest past open weekly period.',
             ],
-        );
+        ] as $key => $attributes) {
+            AutomationSetting::updateOrCreate(['key' => $key], $attributes);
+        }
 
         $start = Carbon::now()->startOfWeek();
         TimesheetPeriod::firstOrCreate(

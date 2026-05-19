@@ -20,12 +20,22 @@ return new class extends Migration
         });
 
         DB::table('automation_settings')->insert([
-            'key' => 'timesheet_missing_reminders',
-            'name' => 'Missing Timesheet Reminders',
-            'description' => 'Automatically emails employees who have not submitted or approved their timesheet for the latest past open weekly period.',
-            'is_enabled' => true,
-            'created_at' => now(),
-            'updated_at' => now(),
+            [
+                'key' => 'timesheet_period_auto_creation',
+                'name' => 'Weekly Period Auto Creation',
+                'description' => 'Automatically creates the current Monday-to-Sunday weekly period if it does not exist yet.',
+                'is_enabled' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
+            [
+                'key' => 'timesheet_missing_reminders',
+                'name' => 'Missing Timesheet Reminders',
+                'description' => 'Automatically emails employees who have not submitted or approved their timesheet for the latest past open weekly period.',
+                'is_enabled' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ],
         ]);
     }
 
