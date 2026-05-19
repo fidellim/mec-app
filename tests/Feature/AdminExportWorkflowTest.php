@@ -53,7 +53,10 @@ class AdminExportWorkflowTest extends TestCase
 
     public function test_admin_can_download_excel_export(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'initials' => 'ZX',
+        ]);
         $this->submittedTimesheet($employee, $this->openPeriod(), $this->project(), ['status' => 'approved']);
         $admin = $this->userWithRole('admin');
 
@@ -64,6 +67,9 @@ class AdminExportWorkflowTest extends TestCase
 
         $response->assertOk();
         $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $this->assertSame('ZX', $spreadsheet->getSheet(1)->getCell('B4')->getValue());
     }
 
     public function test_excel_export_includes_project_summary_sheet_with_combined_hours(): void

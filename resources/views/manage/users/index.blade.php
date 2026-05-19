@@ -17,6 +17,7 @@
                 <tr>
                     <th>Name</th>
                     <th>Employee Number</th>
+                    <th>Initials</th>
                     <th>Email</th>
                     <th>Role</th>
                     <th>Department</th>
@@ -36,6 +37,7 @@
                             @endif
                         </td>
                         <td>{{ $user->employee_code ?: '-' }}</td>
+                        <td>{{ $user->initials ?: '-' }}</td>
                         <td>{{ $user->email }}</td>
                         <td><span class="badge text-bg-light border text-dark">{{ $roleLabels[$user->role] ?? $user->role }}</span></td>
                         <td>{{ $user->department?->name ?: '-' }}</td>

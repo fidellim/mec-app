@@ -27,6 +27,7 @@ class ManagementWorkflowTest extends TestCase
             'email' => 'new.employee@example.com',
             'password' => 'password123',
             'employee_code' => 'MEC-HR-2026-095',
+            'initials' => 'NE',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -35,8 +36,42 @@ class ManagementWorkflowTest extends TestCase
         $this->assertDatabaseHas('users', [
             'email' => 'new.employee@example.com',
             'employee_code' => 'MEC-HR-2026-095',
+            'initials' => 'NE',
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
+    }
+
+    public function test_user_initials_are_optional_but_limited(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), [
+            'name' => 'No Initials Employee',
+            'email' => 'no.initials@example.com',
+            'password' => 'password123',
+            'employee_code' => 'MEC-HR-2026-096',
+            'initials' => '',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'no.initials@example.com',
+            'initials' => null,
+        ]);
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), [
+            'name' => 'Long Initials Employee',
+            'email' => 'long.initials@example.com',
+            'password' => 'password123',
+            'employee_code' => 'MEC-HR-2026-097',
+            'initials' => str_repeat('A', 21),
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertSessionHasErrors('initials');
     }
 
     public function test_database_seeder_can_be_rerun_without_duplicate_errors(): void

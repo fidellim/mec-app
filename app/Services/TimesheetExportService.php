@@ -160,11 +160,16 @@ class TimesheetExportService
             'saturday' => $saturday,
             'sunday' => $sunday,
             'rows' => $rows,
-            'initials' => collect(explode(' ', $timesheet->user->name))
-                ->filter()
-                ->map(fn ($part) => mb_substr($part, 0, 1))
-                ->implode(''),
+            'initials' => $timesheet->user->initials ?: $this->initialsFromName($timesheet->user->name),
         ];
+    }
+
+    private function initialsFromName(string $name): string
+    {
+        return collect(explode(' ', $name))
+            ->filter()
+            ->map(fn ($part) => mb_substr($part, 0, 1))
+            ->implode('');
     }
 
     private function buildProjectSummary($timesheets)

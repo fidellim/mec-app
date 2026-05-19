@@ -55,6 +55,7 @@ password123
 - Super Admin: manage users, departments, projects/job numbers, weekly periods, view all timesheets, approve or reject submitted records if needed, and export.
 - Super Admin can also manage scheduled automation controls and view audit logs for important system and timesheet actions.
 - Employee numbers are manually entered by Super Admin and must follow `MEC-HR-YYYY-NNN` or `MCE-HR-YYYY-NNN`; the final number must be at least 3 digits and can grow beyond 999.
+- Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
 - Admin: view all timesheets, filter records, monitor dashboard summaries, and export.
 - Head of Department: view only their department employees and timesheets, approve submitted timesheets, reject with a required comment, and track missing submissions.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, edit only draft or rejected timesheets, and resubmit rejected records.
@@ -64,6 +65,7 @@ password123
 Super Admin users can create, edit, activate/deactivate, and delete users from **Manage Users**.
 
 - Employee numbers are entered manually when creating or editing employees and HODs.
+- Initials can be entered manually when creating or editing users. If initials are blank, exports fall back to initials derived from the employee name.
 - Super Admin cannot delete their own account.
 - Deleting a user permanently removes the user and the timesheets owned by that user.
 - Timesheet entries are also deleted because they belong to the deleted user's timesheets.

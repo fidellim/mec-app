@@ -50,6 +50,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Olivia HOD',
                 'password' => Hash::make('password123'),
                 'employee_code' => 'MEC-HR-2024-017',
+                'initials' => 'OH',
                 'department_id' => $operations->id,
                 'role' => 'hod',
                 'is_active' => true,
@@ -62,6 +63,7 @@ class DatabaseSeeder extends Seeder
                 'name' => 'Ethan HOD',
                 'password' => Hash::make('password123'),
                 'employee_code' => 'MCE-HR-2024-018',
+                'initials' => 'EH',
                 'department_id' => $engineering->id,
                 'role' => 'hod',
                 'is_active' => true,
@@ -72,18 +74,19 @@ class DatabaseSeeder extends Seeder
         $engineering->update(['hod_id' => $engHod->id]);
 
         foreach ([
-            ['Aisha Khan', 'aisha@example.com', 'MEC-HR-2025-086', $operations->id],
-            ['Ben Carter', 'ben@example.com', 'MCE-HR-2025-087', $operations->id],
-            ['Carla Mendes', 'carla@example.com', 'MEC-HR-2025-088', $engineering->id],
-            ['Daniel Lim', 'daniel@example.com', 'MCE-HR-2025-089', $engineering->id],
-            ['Fatima Noor', 'fatima@example.com', 'MEC-HR-2025-090', $engineering->id],
-        ] as [$name, $email, $code, $departmentId]) {
+            ['Aisha Khan', 'aisha@example.com', 'MEC-HR-2025-086', 'AK', $operations->id],
+            ['Ben Carter', 'ben@example.com', 'MCE-HR-2025-087', 'BC', $operations->id],
+            ['Carla Mendes', 'carla@example.com', 'MEC-HR-2025-088', 'CM', $engineering->id],
+            ['Daniel Lim', 'daniel@example.com', 'MCE-HR-2025-089', 'DL', $engineering->id],
+            ['Fatima Noor', 'fatima@example.com', 'MEC-HR-2025-090', 'FN', $engineering->id],
+        ] as [$name, $email, $code, $initials, $departmentId]) {
             User::firstOrCreate(
                 ['email' => $email],
                 [
                     'name' => $name,
                     'password' => Hash::make('password123'),
                     'employee_code' => $code,
+                    'initials' => $initials,
                     'department_id' => $departmentId,
                     'role' => 'employee',
                     'is_active' => true,
