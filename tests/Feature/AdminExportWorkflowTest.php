@@ -2,8 +2,10 @@
 
 namespace Tests\Feature;
 
+use App\Mail\TimesheetWorkflowMail;
 use App\Models\TimesheetEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -30,13 +32,63 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('Operations');
     }
 
-    public function test_admin_cannot_use_super_admin_approval_actions(): void
+    public function test_admin_cannot_approve_non_hod_timesheets(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
         $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project());
         $admin = $this->userWithRole('admin');
 
         $this->actingAs($admin)->post(route('admin.timesheets.approve', $timesheet))->assertForbidden();
+    }
+
+    public function test_admin_can_approve_hod_timesheet(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $timesheet = $this->submittedTimesheet($hod, $this->openPeriod(), $this->project());
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.timesheets.approve', $timesheet))
+            ->assertRedirect();
+
+        $this->assertSame('approved', $timesheet->refresh()->status);
+        $this->assertSame($admin->id, $timesheet->approved_by);
+        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+            && $mail->headline === 'Timesheet approved');
+    }
+
+    public function test_admin_can_reject_hod_timesheet(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $timesheet = $this->submittedTimesheet($hod, $this->openPeriod(), $this->project());
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.timesheets.reject', $timesheet), ['rejection_comment' => 'Please update the project.'])
+            ->assertRedirect();
+
+        $timesheet->refresh();
+        $this->assertSame('rejected', $timesheet->status);
+        $this->assertSame($admin->id, $timesheet->rejected_by);
+        $this->assertSame('Please update the project.', $timesheet->rejection_comment);
+        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+            && $mail->headline === 'Timesheet rejected');
+    }
+
+    public function test_admin_cannot_approve_own_timesheet(): void
+    {
+        $admin = $this->userWithRole('admin', ['department_id' => $this->department()->id]);
+        $timesheet = $this->submittedTimesheet($admin, $this->openPeriod(), $this->project());
+
+        $this->actingAs($admin)
+            ->post(route('admin.timesheets.approve', $timesheet))
+            ->assertForbidden();
     }
 
     public function test_super_admin_can_approve_from_admin_area(): void
@@ -49,6 +101,16 @@ class AdminExportWorkflowTest extends TestCase
 
         $this->assertSame('approved', $timesheet->refresh()->status);
         $this->assertSame($superAdmin->id, $timesheet->approved_by);
+    }
+
+    public function test_super_admin_cannot_approve_own_timesheet(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin', ['department_id' => $this->department()->id]);
+        $timesheet = $this->submittedTimesheet($superAdmin, $this->openPeriod(), $this->project());
+
+        $this->actingAs($superAdmin)
+            ->post(route('admin.timesheets.approve', $timesheet))
+            ->assertForbidden();
     }
 
     public function test_admin_can_download_excel_export(): void

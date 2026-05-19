@@ -46,9 +46,8 @@ class HodTimesheetController extends Controller
 
     public function approve(Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
     {
-        $this->authorizeDepartment($timesheet);
+        $this->authorizeApprovalAction($timesheet, 'approve');
         abort_unless($timesheet->status === 'submitted', 422);
-        abort_if((int) $timesheet->user_id === (int) auth()->id() && ! auth()->user()->isAdminLike(), 403, 'Head of Department cannot approve their own timesheet.');
 
         $old = $timesheet->toArray();
         $timesheet->update([
@@ -67,9 +66,8 @@ class HodTimesheetController extends Controller
 
     public function reject(RejectTimesheetRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
     {
-        $this->authorizeDepartment($timesheet);
+        $this->authorizeApprovalAction($timesheet, 'reject');
         abort_unless($timesheet->status === 'submitted', 422);
-        abort_if((int) $timesheet->user_id === (int) auth()->id() && ! auth()->user()->isAdminLike(), 403, 'Head of Department cannot reject their own timesheet.');
 
         $old = $timesheet->toArray();
         $timesheet->update([
@@ -155,5 +153,39 @@ class HodTimesheetController extends Controller
         }
 
         abort_unless((int) $timesheet->department_id === (int) auth()->user()->department_id, 403);
+    }
+
+    private function authorizeApprovalAction(Timesheet $timesheet, string $action): void
+    {
+        $actor = auth()->user();
+        $timesheet->loadMissing('user');
+
+        abort_if(
+            (int) $timesheet->user_id === (int) $actor->id,
+            403,
+            'You cannot '.$action.' your own timesheet.'
+        );
+
+        if ($actor->isSuperAdmin()) {
+            return;
+        }
+
+        if ($actor->role === 'admin') {
+            abort_unless(
+                $timesheet->user?->role === 'hod',
+                403,
+                'Admin can only '.$action.' Head of Department timesheets.'
+            );
+
+            return;
+        }
+
+        abort_unless($actor->role === 'hod', 403);
+        abort_unless((int) $timesheet->department_id === (int) $actor->department_id, 403);
+        abort_unless(
+            $timesheet->user?->role === 'employee',
+            403,
+            'Head of Department can only '.$action.' employee timesheets.'
+        );
     }
 }

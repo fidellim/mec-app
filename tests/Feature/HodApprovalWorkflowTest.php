@@ -190,4 +190,15 @@ class HodApprovalWorkflowTest extends TestCase
 
         $this->actingAs($hod)->post(route('hod.timesheets.approve', $timesheet))->assertForbidden();
     }
+
+    public function test_hod_cannot_reject_own_timesheet(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $timesheet = $this->submittedTimesheet($hod, $this->openPeriod(), $this->project());
+
+        $this->actingAs($hod)
+            ->post(route('hod.timesheets.reject', $timesheet), ['rejection_comment' => 'Needs correction.'])
+            ->assertForbidden();
+    }
 }

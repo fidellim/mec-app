@@ -52,12 +52,12 @@ password123
 
 ## Role Permissions
 
-- Super Admin: manage users, departments, projects/job numbers, weekly periods, view all timesheets, approve or reject submitted records if needed, and export.
+- Super Admin: manage users, departments, projects/job numbers, weekly periods, view all timesheets, approve or reject submitted records if needed, and export. Super Admin cannot approve or reject their own timesheet.
 - Super Admin can also manage scheduled automation controls and view audit logs for important system and timesheet actions.
 - Employee numbers are manually entered by Super Admin and must follow `MEC-HR-YYYY-NNN` or `MCE-HR-YYYY-NNN`; the final number must be at least 3 digits and can grow beyond 999.
 - Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
-- Admin: view all timesheets, filter records, monitor dashboard summaries, and export.
-- Head of Department: view only their department employees and timesheets, approve submitted timesheets, reject with a required comment, and track missing submissions.
+- Admin: view all timesheets, filter records, monitor dashboard summaries, export, and approve or reject Head of Department timesheets. Admin cannot approve or reject their own timesheet.
+- Head of Department: view only their department employees and timesheets, approve submitted employee timesheets, reject employee timesheets with a required comment, and track missing submissions. Head of Department cannot approve or reject their own timesheet.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, edit only draft or rejected timesheets, and resubmit rejected records.
 
 ## User Management
