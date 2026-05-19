@@ -199,6 +199,73 @@ php artisan timesheets:send-missing-reminders --period_id=1
 
 Verify the result by checking the recipient inbox, the `audit_logs` table for `timesheet_missing_reminder_sent`, and `storage/logs/laravel.log` for SMTP errors if the email does not arrive.
 
+### Testing Automation Locally
+
+Use log mail locally so reminder emails are written to `storage/logs/laravel.log` instead of being sent:
+
+```env
+MAIL_MAILER=log
+```
+
+Then clear cached config:
+
+```bash
+php artisan config:clear
+```
+
+To test the automation command directly, make sure the target weekly period is `open`, has an `end_date` before today, and has at least one active employee without a submitted or approved timesheet. Then run:
+
+```bash
+php artisan timesheets:send-missing-reminders --period_id=1
+```
+
+Expected result:
+
+- reminder email content appears in `storage/logs/laravel.log`
+- `audit_logs` contains `timesheet_missing_reminder_sent`
+- the automation's `last_run_at` updates in **Manage Automations**
+
+To test the Super Admin emergency stop:
+
+1. Log in as Super Admin.
+2. Go to **Manage Automations**.
+3. Disable **Missing Timesheet Reminders**.
+4. Run the reminder command again:
+
+```bash
+php artisan timesheets:send-missing-reminders --period_id=1
+```
+
+Expected output:
+
+```text
+Missing timesheet reminders automation is disabled.
+```
+
+No email should be logged or sent. To test the emergency CLI override, run:
+
+```bash
+php artisan timesheets:send-missing-reminders --period_id=1 --force
+```
+
+To test Laravel's scheduler locally instead of calling the command directly, use one of these scheduler commands.
+
+Run the scheduler once and stop:
+
+```bash
+php artisan schedule:run
+```
+
+This is what the cPanel cron job calls every minute in production. It checks whether any scheduled task is due at that exact moment, runs due tasks, then exits.
+
+Keep the scheduler running locally:
+
+```bash
+php artisan schedule:work
+```
+
+Keep that terminal open. Laravel will check the schedule every minute and run due tasks, such as the Monday 07:00 missing timesheet reminder when the automation is enabled. This is usually easier for local testing because you do not need to configure a local cron job.
+
 For production SMTP email sending, configure these values in `.env`:
 
 ```env
