@@ -9,5 +9,5 @@ Artisan::command('about-timesheets', function () {
 
 Schedule::command('timesheets:send-missing-reminders')
     ->mondays()
-    ->at('09:00')
+    ->at('07:00')
     ->withoutOverlapping(60);

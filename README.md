@@ -221,7 +221,7 @@ Automation works on cPanel by adding a Cron Job that runs Laravel's scheduler ev
 * * * * * cd /home/mecgroup/portal && php artisan schedule:run >> /dev/null 2>&1
 ```
 
-Laravel then runs the missing timesheet reminder command every Monday at 09:00 for the latest open period that has already ended.
+Laravel then runs the missing timesheet reminder command every Monday at 07:00 for the latest open period that has already ended.
 
 ## Testing
 

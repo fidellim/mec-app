@@ -17,7 +17,7 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
     public function test_automatic_command_sends_reminders_for_latest_past_open_period(): void
     {
         Mail::fake();
-        Carbon::setTestNow('2026-05-18 09:00:00');
+        Carbon::setTestNow('2026-05-18 07:00:00');
 
         $department = $this->department();
         $missingEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
@@ -49,7 +49,7 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
     public function test_automatic_command_does_not_send_when_no_past_open_period_exists(): void
     {
         Mail::fake();
-        Carbon::setTestNow('2026-05-18 09:00:00');
+        Carbon::setTestNow('2026-05-18 07:00:00');
 
         $this->openPeriod([
             'week_number' => 21,
