@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\AutomationSetting;
 use App\Models\Department;
 use App\Models\Project;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
+use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -35,6 +37,26 @@ class ManagementWorkflowTest extends TestCase
             'employee_code' => 'MEC-HR-2026-095',
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
+    }
+
+    public function test_database_seeder_can_be_rerun_without_duplicate_errors(): void
+    {
+        $this->seed(DatabaseSeeder::class);
+
+        Department::where('name', 'Operations')->firstOrFail()->update(['code' => 'CUSTOM-OPS']);
+        User::where('email', 'aisha@example.com')->firstOrFail()->update(['name' => 'Production Aisha']);
+        AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->firstOrFail()->update(['is_enabled' => false]);
+
+        $this->seed(DatabaseSeeder::class);
+
+        $this->assertSame(1, Department::where('name', 'Operations')->count());
+        $this->assertSame(1, Department::where('name', 'Engineering')->count());
+        $this->assertSame(1, User::where('email', 'superadmin@example.com')->count());
+        $this->assertSame(1, User::where('email', 'aisha@example.com')->count());
+        $this->assertSame(1, AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->count());
+        $this->assertSame('CUSTOM-OPS', Department::where('name', 'Operations')->firstOrFail()->code);
+        $this->assertSame('Production Aisha', User::where('email', 'aisha@example.com')->firstOrFail()->name);
+        $this->assertFalse(AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->firstOrFail()->is_enabled);
     }
 
     public function test_invalid_employee_number_is_rejected(): void
@@ -199,6 +221,41 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('data-period-year', false);
     }
 
+    public function test_super_admin_can_toggle_automation_settings(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $automation = AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->firstOrFail();
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.automations.index'))
+            ->assertOk()
+            ->assertSee('Automation Controls')
+            ->assertSee('Missing Timesheet Reminders');
+
+        $this->actingAs($superAdmin)
+            ->patch(route('manage.automations.toggle', $automation))
+            ->assertRedirect(route('manage.automations.index'))
+            ->assertSessionHas('success');
+
+        $this->assertFalse($automation->refresh()->is_enabled);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'automation_disabled',
+            'auditable_type' => AutomationSetting::class,
+            'auditable_id' => $automation->id,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->patch(route('manage.automations.toggle', $automation))
+            ->assertRedirect(route('manage.automations.index'));
+
+        $this->assertTrue($automation->refresh()->is_enabled);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'automation_enabled',
+            'auditable_type' => AutomationSetting::class,
+            'auditable_id' => $automation->id,
+        ]);
+    }
+
     public function test_management_index_pages_render_for_super_admin(): void
     {
         $superAdmin = $this->userWithRole('super_admin');
@@ -215,6 +272,7 @@ class ManagementWorkflowTest extends TestCase
         $this->actingAs($superAdmin)->get(route('manage.departments.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.projects.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.periods.index'))->assertOk();
+        $this->actingAs($superAdmin)->get(route('manage.automations.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.audit-logs.index'))->assertOk();
     }
 }
