@@ -72,6 +72,79 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertDontSee('2026-05-11');
     }
 
+    public function test_users_without_department_cannot_open_timesheet_create_flow(): void
+    {
+        $this->openPeriod();
+
+        foreach (['admin', 'super_admin'] as $role) {
+            $user = $this->userWithRole($role, ['department_id' => null]);
+
+            $this->actingAs($user)
+                ->get(route('employee.timesheets.create'))
+                ->assertRedirect(route('employee.timesheets.index'))
+                ->assertSessionHas('warning');
+
+            $this->actingAs($user)
+                ->get(route('employee.timesheets.create', ['period_id' => 1]))
+                ->assertRedirect(route('employee.timesheets.index'))
+                ->assertSessionHas('warning');
+
+            $this->actingAs($user)
+                ->get(route('employee.timesheets.index'))
+                ->assertOk()
+                ->assertSee('Department Required')
+                ->assertSee('assigned to a department');
+        }
+    }
+
+    public function test_users_without_department_cannot_store_timesheet_by_direct_request(): void
+    {
+        $period = $this->openPeriod();
+        $project = $this->project();
+
+        foreach (['admin', 'super_admin'] as $role) {
+            $user = $this->userWithRole($role, ['department_id' => null]);
+
+            $this->actingAs($user)->post(route('employee.timesheets.store'), [
+                'timesheet_period_id' => $period->id,
+                'submit' => '1',
+                'entries' => $this->validEntries($project),
+            ])
+                ->assertRedirect(route('employee.timesheets.index'))
+                ->assertSessionHas('warning');
+
+            $this->assertDatabaseMissing('timesheets', [
+                'user_id' => $user->id,
+                'timesheet_period_id' => $period->id,
+            ]);
+        }
+    }
+
+    public function test_admin_with_department_can_create_own_timesheet(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+
+        $this->actingAs($admin)
+            ->get(route('employee.timesheets.create'))
+            ->assertOk()
+            ->assertSee('Week 20');
+
+        $this->actingAs($admin)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'entries' => $this->validEntries($project),
+        ])->assertRedirect();
+
+        $this->assertDatabaseHas('timesheets', [
+            'user_id' => $admin->id,
+            'department_id' => $department->id,
+            'timesheet_period_id' => $period->id,
+            'status' => 'draft',
+        ]);
+    }
+
     public function test_employee_cannot_create_form_for_closed_period_from_query_string(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);

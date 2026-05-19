@@ -21,6 +21,10 @@ class EmployeeTimesheetController extends Controller
 
     public function create()
     {
+        if ($redirect = $this->redirectIfMissingDepartment()) {
+            return $redirect;
+        }
+
         $periods = TimesheetPeriod::where('status', 'open')->latest('start_date')->get();
         abort_unless($periods->isNotEmpty(), 422, 'No open timesheet period is available.');
 
@@ -58,6 +62,12 @@ class EmployeeTimesheetController extends Controller
     public function store(TimesheetSaveRequest $request, AuditLogService $audit, TimesheetEmailNotificationService $emails)
     {
         $user = $request->user();
+        if (! $user->department_id) {
+            return redirect()
+                ->route('employee.timesheets.index')
+                ->with('warning', $this->missingDepartmentMessage());
+        }
+
         $period = TimesheetPeriod::findOrFail($request->timesheet_period_id);
         abort_if($period->status === 'closed', 422, 'Closed periods cannot accept submissions.');
 
@@ -117,6 +127,11 @@ class EmployeeTimesheetController extends Controller
     {
         $this->authorizeOwner($timesheet);
         abort_unless($timesheet->editableBy($request->user()), 403);
+        if (! $request->user()->department_id || ! $timesheet->department_id) {
+            return redirect()
+                ->route('employee.timesheets.index')
+                ->with('warning', $this->missingDepartmentMessage());
+        }
         abort_if($timesheet->period->status === 'closed', 422, 'Closed periods cannot accept submissions.');
 
         $old = $timesheet->load('entries')->toArray();
@@ -240,5 +255,21 @@ class EmployeeTimesheetController extends Controller
     private function authorizeOwner(Timesheet $timesheet): void
     {
         abort_unless((int) $timesheet->user_id === (int) auth()->id(), 403);
+    }
+
+    private function redirectIfMissingDepartment()
+    {
+        if (auth()->user()->department_id) {
+            return null;
+        }
+
+        return redirect()
+            ->route('employee.timesheets.index')
+            ->with('warning', $this->missingDepartmentMessage());
+    }
+
+    private function missingDepartmentMessage(): string
+    {
+        return 'You need to be assigned to a department before creating or submitting a timesheet. Please contact Super Admin.';
     }
 }

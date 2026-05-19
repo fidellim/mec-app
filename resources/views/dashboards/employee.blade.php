@@ -17,7 +17,16 @@
         <h2 class="h5 mb-1">Recent submissions</h2>
         <div class="text-muted">Your latest weekly timesheets.</div>
     </div>
-    <a class="btn btn-primary" href="{{ route('employee.timesheets.create') }}">Create Weekly Timesheet</a>
+    @if(auth()->user()->department_id)
+        <a class="btn btn-primary" href="{{ route('employee.timesheets.create') }}">Create Weekly Timesheet</a>
+    @else
+        <button class="btn btn-outline-secondary" type="button" disabled>Department Required</button>
+    @endif
 </div>
+@unless(auth()->user()->department_id)
+    <div class="alert alert-warning">
+        You need to be assigned to a department before creating or submitting a timesheet. Please contact Super Admin.
+    </div>
+@endunless
 @include('employee.timesheets._table', ['timesheets' => $recent])
 @endsection

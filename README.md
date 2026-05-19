@@ -59,6 +59,7 @@ password123
 - Admin: view all timesheets, filter records, monitor dashboard summaries, export, and approve or reject Head of Department timesheets. Admin cannot approve or reject their own timesheet.
 - Head of Department: view only their department employees and timesheets, approve submitted employee timesheets, reject employee timesheets with a required comment, and track missing submissions. Head of Department cannot approve or reject their own timesheet.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, edit only draft or rejected timesheets, and resubmit rejected records.
+- Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
 
 ## User Management
 
@@ -66,6 +67,7 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 
 - Employee numbers are entered manually when creating or editing employees and HODs.
 - Initials can be entered manually when creating or editing users. If initials are blank, exports fall back to initials derived from the employee name.
+- Users without a department cannot create or submit their own timesheets. Assign a department first if Admin, Super Admin, Head of Department, or Employee accounts need to submit personal weekly time.
 - Super Admin cannot delete their own account.
 - Deleting a user permanently removes the user and the timesheets owned by that user.
 - Timesheet entries are also deleted because they belong to the deleted user's timesheets.
