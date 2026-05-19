@@ -87,8 +87,16 @@ class AdminExportWorkflowTest extends TestCase
         $timesheet = $this->submittedTimesheet($admin, $this->openPeriod(), $this->project());
 
         $this->actingAs($admin)
+            ->from(route('admin.timesheets.show', $timesheet))
             ->post(route('admin.timesheets.approve', $timesheet))
-            ->assertForbidden();
+            ->assertRedirect(route('admin.timesheets.show', $timesheet))
+            ->assertSessionHas('warning');
+
+        $this->actingAs($admin)
+            ->from(route('admin.timesheets.show', $timesheet))
+            ->post(route('admin.timesheets.reject', $timesheet), ['rejection_comment' => 'Please revise.'])
+            ->assertRedirect(route('admin.timesheets.show', $timesheet))
+            ->assertSessionHas('warning');
     }
 
     public function test_super_admin_can_approve_from_admin_area(): void
@@ -109,8 +117,31 @@ class AdminExportWorkflowTest extends TestCase
         $timesheet = $this->submittedTimesheet($superAdmin, $this->openPeriod(), $this->project());
 
         $this->actingAs($superAdmin)
+            ->get(route('admin.timesheets.show', $timesheet))
+            ->assertOk()
+            ->assertSee('You cannot approve or reject your own timesheet')
+            ->assertDontSee('Approve this timesheet?')
+            ->assertDontSee('Rejection comment');
+
+        $this->actingAs($superAdmin)
+            ->from(route('admin.timesheets.show', $timesheet))
             ->post(route('admin.timesheets.approve', $timesheet))
-            ->assertForbidden();
+            ->assertRedirect(route('admin.timesheets.show', $timesheet))
+            ->assertSessionHas('warning');
+    }
+
+    public function test_admin_can_see_approval_actions_for_hod_timesheet(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $timesheet = $this->submittedTimesheet($hod, $this->openPeriod(), $this->project());
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.show', $timesheet))
+            ->assertOk()
+            ->assertSee('Approve this timesheet?')
+            ->assertSee('Rejection comment');
     }
 
     public function test_admin_can_download_excel_export(): void

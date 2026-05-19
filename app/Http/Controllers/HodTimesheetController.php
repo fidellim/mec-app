@@ -46,6 +46,10 @@ class HodTimesheetController extends Controller
 
     public function approve(Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
     {
+        if ($this->isOwnTimesheet($timesheet)) {
+            return back()->with('warning', $this->ownTimesheetApprovalMessage());
+        }
+
         $this->authorizeApprovalAction($timesheet, 'approve');
         abort_unless($timesheet->status === 'submitted', 422);
 
@@ -66,6 +70,10 @@ class HodTimesheetController extends Controller
 
     public function reject(RejectTimesheetRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
     {
+        if ($this->isOwnTimesheet($timesheet)) {
+            return back()->with('warning', $this->ownTimesheetApprovalMessage());
+        }
+
         $this->authorizeApprovalAction($timesheet, 'reject');
         abort_unless($timesheet->status === 'submitted', 422);
 
@@ -187,5 +195,15 @@ class HodTimesheetController extends Controller
             403,
             'Head of Department can only '.$action.' employee timesheets.'
         );
+    }
+
+    private function isOwnTimesheet(Timesheet $timesheet): bool
+    {
+        return (int) $timesheet->user_id === (int) auth()->id();
+    }
+
+    private function ownTimesheetApprovalMessage(): string
+    {
+        return 'You cannot approve or reject your own timesheet. Another authorized approver must review this submission.';
     }
 }

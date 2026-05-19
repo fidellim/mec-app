@@ -188,7 +188,18 @@ class HodApprovalWorkflowTest extends TestCase
         $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
         $timesheet = $this->submittedTimesheet($hod, $this->openPeriod(), $this->project());
 
-        $this->actingAs($hod)->post(route('hod.timesheets.approve', $timesheet))->assertForbidden();
+        $this->actingAs($hod)
+            ->get(route('hod.timesheets.show', $timesheet))
+            ->assertOk()
+            ->assertSee('You cannot approve or reject your own timesheet')
+            ->assertDontSee('Approve this timesheet?')
+            ->assertDontSee('Rejection comment');
+
+        $this->actingAs($hod)
+            ->from(route('hod.timesheets.show', $timesheet))
+            ->post(route('hod.timesheets.approve', $timesheet))
+            ->assertRedirect(route('hod.timesheets.show', $timesheet))
+            ->assertSessionHas('warning');
     }
 
     public function test_hod_cannot_reject_own_timesheet(): void
@@ -198,7 +209,9 @@ class HodApprovalWorkflowTest extends TestCase
         $timesheet = $this->submittedTimesheet($hod, $this->openPeriod(), $this->project());
 
         $this->actingAs($hod)
+            ->from(route('hod.timesheets.show', $timesheet))
             ->post(route('hod.timesheets.reject', $timesheet), ['rejection_comment' => 'Needs correction.'])
-            ->assertForbidden();
+            ->assertRedirect(route('hod.timesheets.show', $timesheet))
+            ->assertSessionHas('warning');
     }
 }
