@@ -381,6 +381,7 @@
                         <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')])>Departments</a>
                         <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')])>Projects</a>
                         <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')])>Weekly Periods</a>
+                        <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')])>Automations</a>
                         <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')])>Audit Logs</a>
                     @endif
                 </nav>

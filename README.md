@@ -53,7 +53,7 @@ password123
 ## Role Permissions
 
 - Super Admin: manage users, departments, projects/job numbers, weekly periods, view all timesheets, approve or reject submitted records if needed, and export.
-- Super Admin can also view audit logs for important system and timesheet actions.
+- Super Admin can also manage scheduled automation controls and view audit logs for important system and timesheet actions.
 - Employee numbers are manually entered by Super Admin and must follow `MEC-HR-YYYY-NNN` or `MCE-HR-YYYY-NNN`; the final number must be at least 3 digits and can grow beyond 999.
 - Admin: view all timesheets, filter records, monitor dashboard summaries, and export.
 - Head of Department: view only their department employees and timesheets, approve submitted timesheets, reject with a required comment, and track missing submissions.
@@ -82,6 +82,23 @@ Super Admin users can manage departments and projects/job numbers from the **Man
 - Departments can only be permanently deleted when they have no users, no timesheets, and no assigned Head of Department.
 - Projects can only be permanently deleted when they have no timesheet entries.
 - If a department or project already has historical usage, deactivate it instead of deleting it.
+
+## Automation Controls
+
+Super Admin users can pause or resume scheduled background jobs from **Manage Automations**.
+
+- Disabled automations are skipped by Laravel's scheduler.
+- The reminder command also checks the automation setting, so direct command runs will not send emails while disabled unless `--force` is used.
+- Enable and disable actions are recorded in `audit_logs`.
+- Existing manual actions, such as a Head of Department manually sending a reminder from the tracker, remain available.
+
+The first configured automation is:
+
+```text
+timesheet_missing_reminders
+```
+
+This controls the automatic Monday reminder for employees missing submitted or approved weekly timesheets.
 
 ## Main Workflow
 

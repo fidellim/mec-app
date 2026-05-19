@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\MissingTimesheetReminderMail;
+use App\Models\AutomationSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Mail;
@@ -42,6 +43,48 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             'action' => 'timesheet_missing_reminder_sent',
             'auditable_id' => $missingEmployee->id,
         ]);
+        $this->assertNotNull(AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->firstOrFail()->last_run_at);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_automatic_command_does_not_send_when_automation_is_disabled(): void
+    {
+        Mail::fake();
+        Carbon::setTestNow('2026-05-18 07:00:00');
+
+        AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->update(['is_enabled' => false]);
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $this->openPeriod();
+
+        $this->artisan('timesheets:send-missing-reminders')
+            ->expectsOutput('Missing timesheet reminders automation is disabled.')
+            ->assertSuccessful();
+
+        Mail::assertNothingSent();
+        $this->assertDatabaseMissing('audit_logs', [
+            'action' => 'timesheet_missing_reminder_sent',
+            'auditable_id' => $employee->id,
+        ]);
+
+        Carbon::setTestNow();
+    }
+
+    public function test_automatic_command_can_be_forced_when_automation_is_disabled(): void
+    {
+        Mail::fake();
+        Carbon::setTestNow('2026-05-18 07:00:00');
+
+        AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->update(['is_enabled' => false]);
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+
+        $this->artisan('timesheets:send-missing-reminders', ['--force' => true])
+            ->expectsOutput('Sent 1 missing timesheet reminder(s) for Week 20, 2026.')
+            ->assertSuccessful();
+
+        Mail::assertSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($employee->email)
+            && $mail->period->is($period));
 
         Carbon::setTestNow();
     }

@@ -7,6 +7,7 @@ use App\Http\Controllers\EmployeeTimesheetController;
 use App\Http\Controllers\HodTimesheetController;
 use App\Http\Controllers\Manage\DepartmentController;
 use App\Http\Controllers\Manage\AuditLogController;
+use App\Http\Controllers\Manage\AutomationSettingController;
 use App\Http\Controllers\Manage\ProjectController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
@@ -59,6 +60,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->name('projects.status');
         Route::resource('projects', ProjectController::class)->except(['show']);
         Route::resource('periods', TimesheetPeriodController::class)->except(['show', 'destroy'])->parameters(['periods' => 'period']);
+        Route::get('automations', [AutomationSettingController::class, 'index'])->name('automations.index');
+        Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->name('automations.toggle');
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
     });
 });
