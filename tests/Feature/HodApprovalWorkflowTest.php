@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\TimesheetWorkflowMail;
+use App\Mail\MissingTimesheetReminderMail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
@@ -118,6 +119,67 @@ class HodApprovalWorkflowTest extends TestCase
             ->assertSee('20 / 2026')
             ->assertDontSee('21 / 2026')
             ->assertDontSee('Other Department Employee');
+    }
+
+    public function test_hod_can_send_missing_timesheet_reminders_for_selected_period(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $otherDepartment = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $missingEmployee = $this->userWithRole('employee', [
+            'name' => 'Missing Employee',
+            'department_id' => $department->id,
+        ]);
+        $submittedEmployee = $this->userWithRole('employee', [
+            'name' => 'Submitted Employee',
+            'department_id' => $department->id,
+        ]);
+        $otherDepartmentEmployee = $this->userWithRole('employee', [
+            'name' => 'Other Department Missing',
+            'department_id' => $otherDepartment->id,
+        ]);
+        $period = $this->openPeriod();
+        $this->submittedTimesheet($submittedEmployee, $period, $this->project());
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), ['period_id' => $period->id])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        Mail::assertSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email)
+            && $mail->period->is($period));
+        Mail::assertNotSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($submittedEmployee->email));
+        Mail::assertNotSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($otherDepartmentEmployee->email));
+
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'timesheet_missing_reminder_sent',
+            'auditable_type' => \App\Models\User::class,
+            'auditable_id' => $missingEmployee->id,
+        ]);
+    }
+
+    public function test_hod_can_send_missing_timesheet_reminder_to_one_employee(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $missingEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $otherMissingEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), [
+                'period_id' => $period->id,
+                'employee_id' => $missingEmployee->id,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        Mail::assertSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email));
+        Mail::assertNotSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($otherMissingEmployee->email));
     }
 
     public function test_hod_cannot_approve_own_timesheet(): void

@@ -7,7 +7,10 @@ use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\MissingTimesheetReminderService;
 use App\Services\TimesheetEmailNotificationService;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class HodTimesheetController extends Controller
 {
@@ -85,7 +88,14 @@ class HodTimesheetController extends Controller
 
     public function tracker()
     {
-        $period = TimesheetPeriod::where('status', 'open')->latest('start_date')->first();
+        $periods = TimesheetPeriod::orderByDesc('year')
+            ->orderByDesc('week_number')
+            ->get();
+
+        $period = request('period_id')
+            ? $periods->firstWhere('id', (int) request('period_id'))
+            : TimesheetPeriod::where('status', 'open')->latest('start_date')->first();
+
         $employees = User::with(['timesheets' => fn ($q) => $period ? $q->where('timesheet_period_id', $period->id) : $q])
             ->where('department_id', auth()->user()->department_id)
             ->where('role', 'employee')
@@ -93,7 +103,40 @@ class HodTimesheetController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('hod.tracker', compact('employees', 'period'));
+        return view('hod.tracker', compact('employees', 'period', 'periods'));
+    }
+
+    public function remindMissing(Request $request, MissingTimesheetReminderService $reminders)
+    {
+        $validated = $request->validate([
+            'period_id' => ['required', Rule::exists('timesheet_periods', 'id')],
+            'employee_id' => ['nullable', Rule::exists('users', 'id')],
+        ]);
+
+        $period = TimesheetPeriod::findOrFail($validated['period_id']);
+        $employeeIds = null;
+
+        if (! empty($validated['employee_id'])) {
+            $employee = User::where('department_id', auth()->user()->department_id)
+                ->where('role', 'employee')
+                ->where('is_active', true)
+                ->findOrFail($validated['employee_id']);
+            $employeeIds = [$employee->id];
+        }
+
+        $sent = $reminders->sendForPeriod(
+            period: $period,
+            departmentId: auth()->user()->department_id,
+            source: 'manual_hod',
+            employeeIds: $employeeIds,
+        );
+
+        return back()->with(
+            $sent > 0 ? 'success' : 'warning',
+            $sent > 0
+                ? "Sent {$sent} missing timesheet reminder(s)."
+                : 'No missing timesheet reminders were sent. The selected employee(s) may already be submitted or approved.'
+        );
     }
 
     private function scope($query)

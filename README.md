@@ -129,12 +129,58 @@ The system sends email notifications for core timesheet workflow actions:
 - Employee recalls a submitted timesheet: Head of Department receives a recall email.
 - Head of Department approves a timesheet: employee receives an approval email.
 - Head of Department rejects a timesheet: employee receives a rejection email with the comment.
+- Missing weekly timesheet reminders: employees receive a reminder email when they do not have a submitted or approved timesheet for the selected period.
+
+Head of Department users can send reminders from **Department Submission Tracker** for one missing employee or all missing employees in their department. A scheduled command also sends automatic reminders for the latest past open weekly period:
+
+```bash
+php artisan timesheets:send-missing-reminders
+```
+
+To target a specific open period manually:
+
+```bash
+php artisan timesheets:send-missing-reminders --period_id=1
+```
+
+Each sent reminder is recorded in `audit_logs` with the `timesheet_missing_reminder_sent` action.
+Reminder sending is processed in small batches of 25 employees and the scheduled reminder uses Laravel's overlap protection, so a slow email run will not start a duplicate reminder process.
 
 Local development defaults to logging emails instead of sending them:
 
 ```env
 MAIL_MAILER=log
 ```
+
+### Testing Reminder Emails
+
+To test missing timesheet reminders without sending real emails, temporarily use the log mailer:
+
+```env
+MAIL_MAILER=log
+```
+
+Clear cached configuration and run the reminder command for a specific period:
+
+```bash
+php artisan config:clear
+php artisan timesheets:send-missing-reminders --period_id=1
+```
+
+Replace `1` with the target `timesheet_periods.id`. The email content will be written to:
+
+```text
+storage/logs/laravel.log
+```
+
+After confirming the email content is correct, switch back to SMTP in `.env`, clear config again, and rerun the command:
+
+```bash
+php artisan config:clear
+php artisan timesheets:send-missing-reminders --period_id=1
+```
+
+Verify the result by checking the recipient inbox, the `audit_logs` table for `timesheet_missing_reminder_sent`, and `storage/logs/laravel.log` for SMTP errors if the email does not arrive.
 
 For production SMTP email sending, configure these values in `.env`:
 
@@ -164,7 +210,18 @@ The branded email template is located at:
 
 ```text
 resources/views/emails/timesheet-workflow.blade.php
+resources/views/emails/missing-timesheet-reminder.blade.php
 ```
+
+### cPanel Scheduler
+
+Automation works on cPanel by adding a Cron Job that runs Laravel's scheduler every minute. Replace the path with the production project path:
+
+```cron
+* * * * * cd /home/mecgroup/portal && php artisan schedule:run >> /dev/null 2>&1
+```
+
+Laravel then runs the missing timesheet reminder command every Monday at 09:00 for the latest open period that has already ended.
 
 ## Testing
 

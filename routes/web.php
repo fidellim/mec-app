@@ -39,6 +39,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
         Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');
         Route::get('/tracker', [HodTimesheetController::class, 'tracker'])->name('tracker');
+        Route::post('/tracker/reminders', [HodTimesheetController::class, 'remindMissing'])->name('tracker.reminders');
     });
 
     Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
