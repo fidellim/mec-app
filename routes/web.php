@@ -4,6 +4,7 @@ use App\Http\Controllers\AdminTimesheetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeTimesheetController;
+use App\Http\Controllers\GuideController;
 use App\Http\Controllers\HodTimesheetController;
 use App\Http\Controllers\Manage\DepartmentController;
 use App\Http\Controllers\Manage\AuditLogController;
@@ -22,6 +23,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->n
 
 Route::middleware('auth')->group(function () {
     Route::get('/', DashboardController::class)->name('dashboard');
+    Route::get('/guide', GuideController::class)->name('guide');
 
     Route::middleware('role:employee,hod,admin,super_admin')->prefix('my-timesheets')->name('employee.timesheets.')->group(function () {
         Route::get('/', [EmployeeTimesheetController::class, 'index'])->name('index');

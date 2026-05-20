@@ -368,6 +368,7 @@
                 </div>
                 <nav class="d-grid gap-1">
                     <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')])>Dashboard</a>
+                    <a href="{{ route('guide') }}" @class(['active' => request()->routeIs('guide')])>Guide</a>
                     <a href="{{ route('employee.timesheets.index') }}" @class(['active' => request()->routeIs('employee.timesheets.*')])>My Timesheets</a>
                     @if(auth()->user()->role === 'hod')
                         <a href="{{ route('hod.timesheets.index') }}" @class(['active' => request()->routeIs('hod.timesheets.*')])>Department Timesheets</a>
