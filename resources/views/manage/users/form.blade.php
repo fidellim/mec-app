@@ -10,8 +10,8 @@
         <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" type="email" name="email" value="{{ old('email', $userModel->email) }}" required></div>
         <div class="col-md-4">
             <label class="form-label">Employee Number</label>
-            <input class="form-control" name="employee_code" value="{{ old('employee_code', $userModel->employee_code) }}" placeholder="MEC-HR-2026-095">
-            <div class="form-text">Required for employees and Heads of Department. Use MEC/MCE-HR-YYYY-NNN.</div>
+            <input class="form-control" name="employee_code" value="{{ old('employee_code', $userModel->employee_code) }}" placeholder="MEC-PHIL-HR-2026-095">
+            <div class="form-text">Required for employees and Heads of Department. Use MEC-HR, MCE-HR, or MEC-PHIL-HR followed by YYYY-NNN.</div>
         </div>
         <div class="col-md-4">
             <label class="form-label">Initials</label>

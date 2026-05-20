@@ -41,6 +41,28 @@ class ManagementWorkflowTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
     }
 
+    public function test_super_admin_can_create_user_with_phil_employee_number(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), [
+            'name' => 'Phil Employee',
+            'email' => 'phil.employee@example.com',
+            'password' => 'password123',
+            'employee_code' => 'MEC-PHIL-HR-2026-095',
+            'initials' => 'PE',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'phil.employee@example.com',
+            'employee_code' => 'MEC-PHIL-HR-2026-095',
+        ]);
+    }
+
     public function test_user_initials_are_optional_but_limited(): void
     {
         $superAdmin = $this->userWithRole('super_admin');

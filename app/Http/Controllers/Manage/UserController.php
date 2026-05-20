@@ -113,7 +113,7 @@ class UserController extends Controller
                 'nullable',
                 'string',
                 'max:50',
-                'regex:/^(MEC|MCE)-HR-\d{4}-\d{3,}$/',
+                'regex:/^(MEC|MCE|MEC-PHIL)-HR-\d{4}-\d{3,}$/',
                 Rule::unique('users')->ignore($user),
             ],
             'initials' => ['nullable', 'string', 'max:20'],
@@ -122,7 +122,7 @@ class UserController extends Controller
             'is_active' => ['boolean'],
         ], [
             'employee_code.required' => 'Employee number is required for employees and HODs.',
-            'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN or MCE-HR-YYYY-NNN. The final number must be at least 3 digits.',
+            'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
         ]) + ['is_active' => false];
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;

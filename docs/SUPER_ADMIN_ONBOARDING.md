@@ -67,6 +67,7 @@ Employee numbers are required for Employees and Heads of Department. The accepte
 ```text
 MEC-HR-YYYY-NNN
 MCE-HR-YYYY-NNN
+MEC-PHIL-HR-YYYY-NNN
 ```
 
 The final number must have at least three digits.
