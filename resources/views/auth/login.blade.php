@@ -8,7 +8,6 @@
                 <img class="login-logo" data-theme-logo src="{{ asset('images/mec_logo_light.webp') }}" alt="MEC">
             </div>
             <h1 class="h4 mb-1">Sign in</h1>
-            <p class="text-muted mb-4">Timesheet Management System</p>
             <form method="post" action="{{ route('login') }}">
                 @csrf
                 <div class="mb-3">

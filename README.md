@@ -1,4 +1,4 @@
-# Timesheet Management System
+# MEC Portal
 
 Phase 1 replaces the Excel/email weekly timesheet process with a Laravel web application for employee submission, Head of Department approval, admin monitoring, and export.
 

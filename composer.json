@@ -1,6 +1,6 @@
 {
-  "name": "company/timesheet-program",
-  "description": "Phase 1 Timesheet Management System built with Laravel.",
+  "name": "company/portal",
+  "description": "Company Portal built with Laravel.",
   "type": "project",
   "require": {
     "php": "^8.2",

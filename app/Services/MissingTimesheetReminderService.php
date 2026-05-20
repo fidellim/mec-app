@@ -64,7 +64,7 @@ class MissingTimesheetReminderService
                 employee: $employee,
                 period: $period,
                 actionUrl: route('employee.timesheets.create', ['period_id' => $period->id]),
-                sourceLabel: $source === 'automatic_monday' ? config('app.name', 'Timesheet Management System') : 'your Head of Department',
+                sourceLabel: $source === 'automatic_monday' ? config('app.name', 'Company Portal') : 'your Head of Department',
             ));
         } catch (\Throwable $exception) {
             Log::warning('Missing timesheet reminder email failed.', [
