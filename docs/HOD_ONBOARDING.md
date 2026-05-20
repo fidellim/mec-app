@@ -17,19 +17,20 @@ Heads of Department can access:
 
 | Menu item | What it is for |
 | --- | --- |
-| Dashboard | Shows department submission counts and review shortcuts. |
-| My Timesheets | Shows your personal weekly timesheet history and lets you create your own weekly timesheet. |
-| Department Timesheets | Lets you review employee timesheets in your department. |
-| Submission Tracker | Shows who has submitted and lets you send reminder emails. |
+| ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows department submission counts and review shortcuts. |
+| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history and lets you create your own weekly timesheet. |
+| ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Timesheets** | Lets you review employee timesheets in your department. |
+| ![Submission Tracker](/images/sidebar/submission-tracker.svg) **Submission Tracker** | Shows who has submitted and lets you send reminder emails. |
+| ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
 ## Timesheet Statuses
 
 | Status | Meaning | What happens next |
 | --- | --- | --- |
-| Draft | The timesheet is saved but not submitted. | The owner can keep editing it. |
-| Submitted | The timesheet has been sent for review. | It can be approved or rejected. |
-| Approved | The timesheet has been accepted. | No further action is needed. |
-| Rejected | The timesheet was returned with a comment. | The owner can correct and resubmit it. |
+| ![Draft](/images/status/draft.svg) | The timesheet is saved but not submitted. | The owner can keep editing it. |
+| ![Submitted](/images/status/submitted.svg) | The timesheet has been sent for review. | It can be approved or rejected. |
+| ![Approved](/images/status/approved.svg) | The timesheet has been accepted. | No further action is needed. |
+| ![Rejected](/images/status/rejected.svg) | The timesheet was returned with a comment. | The owner can correct and resubmit it. |
 
 ## Dashboard
 
@@ -106,4 +107,3 @@ MEC Portal sends emails for key workflow events:
 | Cannot approve a timesheet | It may be your own timesheet, another HOD's timesheet, outside your department, or not submitted. | Follow the approval rules above. |
 | Reminder says none were sent | The employee may already have submitted or approved the period. | Check the tracker status for that employee. |
 | Employee says they cannot submit | Their period may be closed, department may be missing, or required fields may be incomplete. | Ask them to check the highlighted form errors or contact the system administrator. |
-

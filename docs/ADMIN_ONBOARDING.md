@@ -17,18 +17,19 @@ Admins can access:
 
 | Menu item | What it is for |
 | --- | --- |
-| Dashboard | Shows company-wide submission counts and department summary. |
-| My Timesheets | Shows your personal weekly timesheet history, if you are assigned to a department. |
-| All Timesheets | Lets you filter, review, approve where allowed, and export timesheets. |
+| ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows company-wide submission counts and department summary. |
+| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
+| ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
+| ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
 ## Timesheet Statuses
 
 | Status | Meaning |
 | --- | --- |
-| Draft | Saved by the owner but not submitted. |
-| Submitted | Sent for review. |
-| Approved | Accepted by an authorized reviewer. |
-| Rejected | Returned to the owner with a comment. |
+| ![Draft](/images/status/draft.svg) | Saved by the owner but not submitted. |
+| ![Submitted](/images/status/submitted.svg) | Sent for review. |
+| ![Approved](/images/status/approved.svg) | Accepted by an authorized reviewer. |
+| ![Rejected](/images/status/rejected.svg) | Returned to the owner with a comment. |
 
 ## Dashboard
 
@@ -109,4 +110,3 @@ The export includes:
 | Export has too many records | Filters were not applied before export. | Apply week, year, department, employee, or status filters first. |
 | Cannot create your own timesheet | No department is assigned or no open period exists. | Contact the system administrator. |
 | Timesheet cannot be edited | Admins do not edit other users' timesheets. | Return it with a rejection comment if correction is allowed. |
-

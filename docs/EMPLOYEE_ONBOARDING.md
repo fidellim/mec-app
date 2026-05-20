@@ -17,17 +17,18 @@ Employees can access:
 
 | Menu item | What it is for |
 | --- | --- |
-| Dashboard | Shows your current period, drafts, rejected timesheets, and recent submissions. |
-| My Timesheets | Shows your personal weekly timesheet history and lets you create a new weekly timesheet. |
+| ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows your current period, drafts, rejected timesheets, and recent submissions. |
+| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history and lets you create a new weekly timesheet. |
+| ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
 ## Timesheet Statuses
 
 | Status | Meaning | What happens next |
 | --- | --- | --- |
-| Draft | The timesheet is saved but not submitted. | You can keep editing it or delete it. |
-| Submitted | The timesheet has been sent for review. | It is locked unless you recall it before review. |
-| Approved | The timesheet has been accepted. | You can view it, but cannot edit it. |
-| Rejected | The timesheet was returned with a comment. | You can edit and resubmit it. |
+| ![Draft](/images/status/draft.svg) | The timesheet is saved but not submitted. | You can keep editing it or delete it. |
+| ![Submitted](/images/status/submitted.svg) | The timesheet has been sent for review. | It is locked unless you recall it before review. |
+| ![Approved](/images/status/approved.svg) | The timesheet has been accepted. | You can view it, but cannot edit it. |
+| ![Rejected](/images/status/rejected.svg) | The timesheet was returned with a comment. | You can edit and resubmit it. |
 
 ## Employee Dashboard
 
@@ -100,4 +101,3 @@ When your timesheet is approved or rejected, you receive an email notification. 
 | Cannot submit a timesheet | Required attendance code/project is missing, no hours were entered, or the period is closed. | Correct the highlighted fields or ask whether the period should be open. |
 | Cannot edit a timesheet | It is submitted or approved. | Recall it if still submitted. |
 | Cannot create another timesheet for the same week | One already exists for that period. | Open and edit the existing draft/rejected timesheet, or view the existing submitted/approved one. |
-

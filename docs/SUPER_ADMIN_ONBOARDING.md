@@ -17,15 +17,25 @@ Super Admins can access:
 
 | Menu item | What it is for |
 | --- | --- |
-| Dashboard | Shows system-wide totals and submission summary. |
-| My Timesheets | Shows your personal weekly timesheet history, if you are assigned to a department. |
-| All Timesheets | Lets you filter, review, approve where allowed, and export timesheets. |
-| Users | Create, edit, activate/deactivate, and delete users. |
-| Departments | Maintain departments and HOD assignment. |
-| Projects | Maintain project/job numbers used in timesheets. |
-| Weekly Periods | Open or close weekly submission windows. |
-| Automations | Enable or disable scheduled background jobs. |
-| Audit Logs | Review important system actions. |
+| ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows system-wide totals and submission summary. |
+| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
+| ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
+| ![Users](/images/sidebar/users.svg) **Users** | Create, edit, activate/deactivate, and delete users. |
+| ![Departments](/images/sidebar/departments.svg) **Departments** | Maintain departments and HOD assignment. |
+| ![Projects](/images/sidebar/projects.svg) **Projects** | Maintain project/job numbers used in timesheets. |
+| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Weekly Periods** | Open or close weekly submission windows. |
+| ![Automations](/images/sidebar/automations.svg) **Automations** | Enable or disable scheduled background jobs. |
+| ![Audit Logs](/images/sidebar/audit-logs.svg) **Audit Logs** | Review important system actions. |
+| ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
+
+## Timesheet Statuses
+
+| Status | Meaning |
+| --- | --- |
+| ![Draft](/images/status/draft.svg) | Saved by the owner but not submitted. |
+| ![Submitted](/images/status/submitted.svg) | Sent for review. |
+| ![Approved](/images/status/approved.svg) | Accepted by an authorized reviewer. |
+| ![Rejected](/images/status/rejected.svg) | Returned to the owner with a comment. |
 
 ## Dashboard
 
@@ -172,4 +182,3 @@ If you are not assigned to a department, MEC Portal disables timesheet creation 
 | Cannot delete a user | The user may be your own account or an assigned HOD without a replacement. | Select a valid replacement HOD or deactivate the user. |
 | Cannot delete a project or department | It has historical usage or assigned users/HOD. | Deactivate it instead. |
 | Automation did not run | It may be disabled or no eligible period exists. | Check **Automations**, **Weekly Periods**, and **Audit Logs**. |
-

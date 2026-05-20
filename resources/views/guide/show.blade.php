@@ -69,6 +69,20 @@
         text-transform: uppercase;
         letter-spacing: .02em;
     }
+    .guide-content img[src^="/images/sidebar/"] {
+        width: 1.1rem;
+        height: 1.1rem;
+        padding: .1rem;
+        border-radius: .35rem;
+        background: var(--app-sidebar-bg);
+        margin-right: .45rem;
+        vertical-align: -.22rem;
+    }
+    .guide-content img[src^="/images/status/"] {
+        height: 1.5rem;
+        width: auto;
+        vertical-align: -.4rem;
+    }
     .guide-content code {
         color: var(--bs-body-color);
         background: var(--app-muted-bg);
