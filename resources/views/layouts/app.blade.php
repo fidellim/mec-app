@@ -500,7 +500,7 @@
 </head>
 <body>
 <div class="container-fluid app-shell">
-    <div class="app-layout">
+    <div class="@auth app-layout @else guest-layout @endauth">
         @auth
             <aside class="sidebar p-3">
                 <div class="sidebar-header mb-4">
@@ -515,7 +515,6 @@
                 </div>
                 <nav class="d-grid gap-1">
                     <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')]) title="Dashboard"><img class="sidebar-icon" src="{{ asset('images/sidebar/dashboard.svg') }}" alt=""><span class="sidebar-label">Dashboard</span></a>
-                    <a href="{{ route('guide') }}" @class(['active' => request()->routeIs('guide')]) title="Guide"><img class="sidebar-icon" src="{{ asset('images/sidebar/guide.svg') }}" alt=""><span class="sidebar-label">Guide</span></a>
                     <a href="{{ route('employee.timesheets.index') }}" @class(['active' => request()->routeIs('employee.timesheets.*')]) title="My Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Timesheets</span></a>
                     @if(auth()->user()->role === 'hod')
                         <a href="{{ route('hod.timesheets.index') }}" @class(['active' => request()->routeIs('hod.timesheets.*')]) title="Department Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Timesheets</span></a>
@@ -532,6 +531,7 @@
                         <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')]) title="Automations"><img class="sidebar-icon" src="{{ asset('images/sidebar/automations.svg') }}" alt=""><span class="sidebar-label">Automations</span></a>
                         <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')]) title="Audit Logs"><img class="sidebar-icon" src="{{ asset('images/sidebar/audit-logs.svg') }}" alt=""><span class="sidebar-label">Audit Logs</span></a>
                     @endif
+                    <a href="{{ route('guide') }}" @class(['active' => request()->routeIs('guide')]) title="Help Guide"><img class="sidebar-icon" src="{{ asset('images/sidebar/guide.svg') }}" alt=""><span class="sidebar-label">Help Guide</span></a>
                 </nav>
             </aside>
         @endauth
