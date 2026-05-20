@@ -9,6 +9,7 @@
             const savedTheme = localStorage.getItem('theme');
             const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
             document.documentElement.setAttribute('data-bs-theme', savedTheme || (prefersDark ? 'dark' : 'light'));
+            document.documentElement.setAttribute('data-sidebar', localStorage.getItem('sidebar') === 'collapsed' ? 'collapsed' : 'expanded');
         })();
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -54,13 +55,60 @@
             font-size: .95rem;
             -webkit-font-smoothing: antialiased;
         }
-        .app-shell { min-height: 100vh; }
+        .app-shell {
+            min-height: 100vh;
+            padding: 0;
+        }
+        .app-layout {
+            --sidebar-width: 17rem;
+            --sidebar-collapsed-width: 5.5rem;
+            min-height: 100vh;
+            display: grid;
+            grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+            transition: grid-template-columns .26s ease;
+        }
+        [data-sidebar="collapsed"] .app-layout {
+            grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
+        }
         .sidebar {
             min-height: 100vh;
             background: var(--app-sidebar-bg);
             position: sticky;
             top: 0;
             align-self: flex-start;
+            overflow: hidden;
+            transition: padding .26s ease;
+        }
+        .sidebar-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            min-width: 0;
+        }
+        .sidebar-collapse-toggle {
+            width: 2.35rem;
+            height: 2.35rem;
+            flex: 0 0 2.35rem;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: .55rem;
+            background: rgba(255, 255, 255, .04);
+            color: var(--app-sidebar-link);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color .15s ease, color .15s ease, transform .26s ease;
+        }
+        .sidebar-collapse-toggle:hover {
+            background: var(--app-sidebar-hover);
+            color: #fff;
+        }
+        .sidebar-collapse-toggle svg {
+            width: 1.05rem;
+            height: 1.05rem;
+        }
+        [data-sidebar="collapsed"] .sidebar-collapse-toggle {
+            transform: rotate(180deg);
         }
         .sidebar a {
             color: var(--app-sidebar-link);
@@ -72,6 +120,7 @@
             border-radius: .55rem;
             font-weight: 500;
             transition: background-color .15s ease, color .15s ease, transform .15s ease;
+            white-space: nowrap;
         }
         .sidebar a:hover, .sidebar a.active {
             background: var(--app-sidebar-hover);
@@ -79,6 +128,55 @@
             transform: translateX(2px);
         }
         .sidebar a.active { background: var(--app-sidebar-active); }
+        .sidebar-icon {
+            width: 1.1rem;
+            height: 1.1rem;
+            flex: 0 0 1.1rem;
+            opacity: .9;
+        }
+        .sidebar-label {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            transition: opacity .18s ease, max-width .26s ease;
+            max-width: 13rem;
+        }
+        [data-sidebar="collapsed"] .sidebar {
+            padding-left: .85rem !important;
+            padding-right: .85rem !important;
+        }
+        [data-sidebar="collapsed"] .sidebar-header {
+            justify-content: center;
+        }
+        [data-sidebar="collapsed"] .brand-logo-wrap {
+            padding: .38rem;
+        }
+        [data-sidebar="collapsed"] .sidebar .brand-logo {
+            width: 2.6rem;
+            max-height: 2.6rem;
+        }
+        [data-sidebar="collapsed"] .sidebar-collapse-toggle {
+            position: absolute;
+            left: 3.8rem;
+            top: 1.15rem;
+            opacity: 0;
+        }
+        [data-sidebar="collapsed"] .sidebar:hover .sidebar-collapse-toggle,
+        [data-sidebar="collapsed"] .sidebar-collapse-toggle:focus-visible {
+            opacity: 1;
+        }
+        [data-sidebar="collapsed"] .sidebar a {
+            justify-content: center;
+            gap: 0;
+            padding-left: .72rem;
+            padding-right: .72rem;
+        }
+        [data-sidebar="collapsed"] .sidebar a:hover {
+            transform: none;
+        }
+        [data-sidebar="collapsed"] .sidebar-label {
+            max-width: 0;
+            opacity: 0;
+        }
         .topbar {
             background: color-mix(in srgb, var(--app-topbar-bg) 92%, transparent);
             backdrop-filter: blur(10px);
@@ -86,6 +184,7 @@
             top: 0;
             z-index: 20;
         }
+        .app-main { min-width: 0; }
         .page-content { padding: 1.5rem; }
         .page-heading {
             letter-spacing: 0;
@@ -167,7 +266,12 @@
             border: 1px solid var(--app-logo-plate-border);
             padding: .45rem .6rem;
         }
-        .sidebar .brand-logo { width: 9.5rem; height: auto; max-height: 3.25rem; }
+        .sidebar .brand-logo {
+            width: 9.5rem;
+            height: auto;
+            max-height: 3.25rem;
+            transition: width .26s ease, max-height .26s ease;
+        }
         .login-logo { height: 4.5rem; max-width: 14rem; object-fit: contain; }
         .table {
             --bs-table-bg: transparent;
@@ -329,10 +433,46 @@
             .timesheet-entry-table { min-width: 1420px; }
         }
         @media (max-width: 767.98px) {
+            .app-layout {
+                display: block;
+                min-height: 0;
+            }
+            [data-sidebar="collapsed"] .app-layout {
+                grid-template-columns: none;
+            }
             .sidebar {
                 min-height: auto;
                 position: static;
                 border-bottom: 1px solid rgba(255, 255, 255, .08);
+            }
+            .sidebar-header {
+                align-items: flex-start;
+            }
+            .sidebar-collapse-toggle {
+                display: none;
+            }
+            [data-sidebar="collapsed"] .sidebar {
+                padding-left: 1rem !important;
+                padding-right: 1rem !important;
+            }
+            [data-sidebar="collapsed"] .sidebar-header {
+                justify-content: flex-start;
+            }
+            [data-sidebar="collapsed"] .brand-logo-wrap {
+                padding: .45rem .6rem;
+            }
+            [data-sidebar="collapsed"] .sidebar .brand-logo {
+                width: 9.5rem;
+                max-height: 3.25rem;
+            }
+            [data-sidebar="collapsed"] .sidebar a {
+                justify-content: flex-start;
+                gap: .55rem;
+                padding: .72rem .85rem;
+            }
+            [data-sidebar="collapsed"] .sidebar-label {
+                max-width: 13rem;
+                opacity: 1;
             }
             .sidebar nav {
                 display: grid !important;
@@ -360,35 +500,42 @@
 </head>
 <body>
 <div class="container-fluid app-shell">
-    <div class="row">
+    <div class="app-layout">
         @auth
-            <aside class="col-md-3 col-xl-2 sidebar p-3">
-                <div class="brand-logo-wrap mb-4">
-                    <img class="brand-logo" data-theme-logo src="{{ asset('images/mec_logo_light.webp') }}" alt="MEC">
+            <aside class="sidebar p-3">
+                <div class="sidebar-header mb-4">
+                    <div class="brand-logo-wrap mb-0">
+                        <img class="brand-logo" data-theme-logo src="{{ asset('images/mec_logo_light.webp') }}" alt="MEC">
+                    </div>
+                    <button class="sidebar-collapse-toggle" type="button" data-sidebar-toggle aria-label="Collapse sidebar" title="Collapse sidebar">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="m15 18-6-6 6-6"/>
+                        </svg>
+                    </button>
                 </div>
                 <nav class="d-grid gap-1">
-                    <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')])>Dashboard</a>
-                    <a href="{{ route('guide') }}" @class(['active' => request()->routeIs('guide')])>Guide</a>
-                    <a href="{{ route('employee.timesheets.index') }}" @class(['active' => request()->routeIs('employee.timesheets.*')])>My Timesheets</a>
+                    <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')]) title="Dashboard"><img class="sidebar-icon" src="{{ asset('images/sidebar/dashboard.svg') }}" alt=""><span class="sidebar-label">Dashboard</span></a>
+                    <a href="{{ route('guide') }}" @class(['active' => request()->routeIs('guide')]) title="Guide"><img class="sidebar-icon" src="{{ asset('images/sidebar/guide.svg') }}" alt=""><span class="sidebar-label">Guide</span></a>
+                    <a href="{{ route('employee.timesheets.index') }}" @class(['active' => request()->routeIs('employee.timesheets.*')]) title="My Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Timesheets</span></a>
                     @if(auth()->user()->role === 'hod')
-                        <a href="{{ route('hod.timesheets.index') }}" @class(['active' => request()->routeIs('hod.timesheets.*')])>Department Timesheets</a>
-                        <a href="{{ route('hod.tracker') }}" @class(['active' => request()->routeIs('hod.tracker')])>Submission Tracker</a>
+                        <a href="{{ route('hod.timesheets.index') }}" @class(['active' => request()->routeIs('hod.timesheets.*')]) title="Department Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Timesheets</span></a>
+                        <a href="{{ route('hod.tracker') }}" @class(['active' => request()->routeIs('hod.tracker')]) title="Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">Submission Tracker</span></a>
                     @endif
                     @if(in_array(auth()->user()->role, ['admin', 'super_admin'], true))
-                        <a href="{{ route('admin.timesheets.index') }}" @class(['active' => request()->routeIs('admin.timesheets.*')])>All Timesheets</a>
+                        <a href="{{ route('admin.timesheets.index') }}" @class(['active' => request()->routeIs('admin.timesheets.*')]) title="All Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Timesheets</span></a>
                     @endif
                     @if(auth()->user()->role === 'super_admin')
-                        <a href="{{ route('manage.users.index') }}" @class(['active' => request()->routeIs('manage.users.*')])>Users</a>
-                        <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')])>Departments</a>
-                        <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')])>Projects</a>
-                        <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')])>Weekly Periods</a>
-                        <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')])>Automations</a>
-                        <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')])>Audit Logs</a>
+                        <a href="{{ route('manage.users.index') }}" @class(['active' => request()->routeIs('manage.users.*')]) title="Users"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Users</span></a>
+                        <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')]) title="Departments"><img class="sidebar-icon" src="{{ asset('images/sidebar/departments.svg') }}" alt=""><span class="sidebar-label">Departments</span></a>
+                        <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')]) title="Projects"><img class="sidebar-icon" src="{{ asset('images/sidebar/projects.svg') }}" alt=""><span class="sidebar-label">Projects</span></a>
+                        <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')]) title="Weekly Periods"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Weekly Periods</span></a>
+                        <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')]) title="Automations"><img class="sidebar-icon" src="{{ asset('images/sidebar/automations.svg') }}" alt=""><span class="sidebar-label">Automations</span></a>
+                        <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')]) title="Audit Logs"><img class="sidebar-icon" src="{{ asset('images/sidebar/audit-logs.svg') }}" alt=""><span class="sidebar-label">Audit Logs</span></a>
                     @endif
                 </nav>
             </aside>
         @endauth
-        <main class="@auth col-md-9 col-xl-10 @else col-12 @endauth p-0">
+        <main class="@auth app-main @else col-12 @endauth p-0">
             @auth
                 <header class="topbar border-bottom px-4 py-3 d-flex justify-content-between align-items-center">
                     <div>
@@ -503,30 +650,51 @@ initializeSearchableSelects();
     const buttons = document.querySelectorAll('[data-theme-toggle]');
     const icons = document.querySelectorAll('[data-theme-icon]');
     const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const desktopSidebar = window.matchMedia('(min-width: 768px)');
     const iconPaths = {
         light: "{{ asset('images/moon-icon.svg') }}",
         dark: "{{ asset('images/sun-icon.svg') }}",
     };
     const logoPaths = {
-        light: "{{ asset('images/mec_logo_light.webp') }}",
-        dark: "{{ asset('images/mec_logo_dark.webp') }}",
+        expanded: {
+            light: "{{ asset('images/mec_logo_light.webp') }}",
+            dark: "{{ asset('images/mec_logo_dark.webp') }}",
+        },
+        collapsed: {
+            light: "{{ asset('images/mec_icon_light.webp') }}",
+            dark: "{{ asset('images/mec_icon_dark.webp') }}",
+        },
     };
 
     const effectiveTheme = () => localStorage.getItem('theme') || (media.matches ? 'dark' : 'light');
+    const sidebarState = () => document.documentElement.getAttribute('data-sidebar') === 'collapsed' ? 'collapsed' : 'expanded';
+    const applySidebarState = (state) => {
+        document.documentElement.setAttribute('data-sidebar', state);
+        document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
+            const isCollapsed = state === 'collapsed';
+            button.setAttribute('aria-label', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+            button.setAttribute('title', isCollapsed ? 'Expand sidebar' : 'Collapse sidebar');
+        });
+    };
+    const applyLogos = (theme) => {
+        const state = desktopSidebar.matches ? sidebarState() : 'expanded';
+        document.querySelectorAll('[data-theme-logo]').forEach((logo) => {
+            logo.src = logoPaths[state][theme];
+        });
+    };
     const applyTheme = (theme) => {
         document.documentElement.setAttribute('data-bs-theme', theme);
         icons.forEach((icon) => {
             icon.src = iconPaths[theme];
         });
-        document.querySelectorAll('[data-theme-logo]').forEach((logo) => {
-            logo.src = logoPaths[theme];
-        });
+        applyLogos(theme);
         buttons.forEach((button) => {
             button.setAttribute('aria-label', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
             button.setAttribute('title', theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode');
         });
     };
 
+    applySidebarState(sidebarState());
     applyTheme(effectiveTheme());
 
     buttons.forEach((button) => {
@@ -541,6 +709,18 @@ initializeSearchableSelects();
         if (!localStorage.getItem('theme')) {
             applyTheme(effectiveTheme());
         }
+    });
+    desktopSidebar.addEventListener('change', () => {
+        applyLogos(effectiveTheme());
+    });
+
+    document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            const nextState = sidebarState() === 'collapsed' ? 'expanded' : 'collapsed';
+            localStorage.setItem('sidebar', nextState);
+            applySidebarState(nextState);
+            applyLogos(effectiveTheme());
+        });
     });
 })();
 
