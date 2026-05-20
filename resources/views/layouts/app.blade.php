@@ -256,6 +256,90 @@
             font-weight: 700;
             font-size: 1rem;
         }
+        .submission-chart-card {
+            --chart-uae-submitted: #0f766e;
+            --chart-uae-missing: #f59e0b;
+            --chart-ph-submitted: #2563eb;
+            --chart-ph-missing: #dc2626;
+            --chart-unknown-submitted: #64748b;
+            --chart-unknown-missing: #7c3aed;
+        }
+        .regional-chart-layout {
+            display: grid;
+            grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
+            gap: 1.25rem;
+            align-items: center;
+        }
+        .submission-donut-wrap {
+            display: flex;
+            justify-content: center;
+        }
+        .submission-donut {
+            width: 13rem;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            box-shadow: inset 0 0 0 1px var(--app-soft-border);
+        }
+        .submission-donut-center {
+            width: 7.25rem;
+            aspect-ratio: 1;
+            border-radius: 50%;
+            background: var(--app-card-bg);
+            border: 1px solid var(--app-soft-border);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: var(--app-shadow-sm);
+        }
+        .regional-stat {
+            border: 1px solid var(--app-soft-border);
+            border-radius: .75rem;
+            padding: .85rem;
+            min-height: 7.25rem;
+            background: color-mix(in srgb, var(--app-muted-bg) 62%, transparent);
+        }
+        .regional-stat-row {
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto;
+            align-items: center;
+            gap: .45rem;
+            margin-top: .55rem;
+            color: var(--bs-secondary-color);
+            font-size: .9rem;
+        }
+        .regional-stat-row strong {
+            color: var(--bs-body-color);
+        }
+        .regional-label {
+            display: flex;
+            align-items: center;
+            gap: .45rem;
+        }
+        .country-flag {
+            width: 1.45rem;
+            height: .95rem;
+            border-radius: .12rem;
+            border: 1px solid color-mix(in srgb, var(--bs-body-color) 18%, transparent);
+            box-shadow: 0 .08rem .18rem rgba(15, 23, 42, .12);
+            flex: 0 0 auto;
+            object-fit: cover;
+        }
+        .chart-key {
+            width: .7rem;
+            height: .7rem;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .chart-key-uae-submitted { background: var(--chart-uae-submitted); }
+        .chart-key-uae-missing { background: var(--chart-uae-missing); }
+        .chart-key-ph-submitted { background: var(--chart-ph-submitted); }
+        .chart-key-ph-missing { background: var(--chart-ph-missing); }
+        .chart-key-unknown-submitted { background: var(--chart-unknown-submitted); }
+        .chart-key-unknown-missing { background: var(--chart-unknown-missing); }
         .brand-logo { display: block; height: 2.75rem; width: auto; object-fit: contain; }
         .brand-logo-wrap {
             display: inline-flex;
@@ -495,6 +579,12 @@
             .action-group .btn,
             .action-group form { width: 100%; }
             .action-group { display: flex; }
+            .regional-chart-layout {
+                grid-template-columns: 1fr;
+            }
+            .submission-donut {
+                width: min(13rem, 72vw);
+            }
         }
     </style>
 </head>

@@ -13,6 +13,12 @@
     <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Active projects</div><div class="stat-value">{{ $activeProjects }}</div></div></div>
     <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Open period</div><div class="fs-5 fw-bold">{{ $period?->start_date?->toDateString() ?? 'None' }}</div><div class="small text-muted">{{ $period?->end_date?->toDateString() ?? '' }}</div></div></div>
 </div>
+<div class="mb-4">
+    @include('dashboards.partials.regional_submission_chart', [
+        'period' => $submissionPeriod,
+        'regionalSubmissionSummary' => $regionalSubmissionSummary,
+    ])
+</div>
 <div class="content-card">
     <div class="content-card-header">
         <h2 class="h5 mb-1">System-wide submission summary</h2>

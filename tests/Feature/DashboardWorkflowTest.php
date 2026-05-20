@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -10,6 +11,13 @@ class DashboardWorkflowTest extends TestCase
 {
     use CreatesTimesheetData;
     use RefreshDatabase;
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+
+        parent::tearDown();
+    }
 
     public function test_dashboard_renders_for_each_role(): void
     {
@@ -26,5 +34,252 @@ class DashboardWorkflowTest extends TestCase
                 ->assertOk()
                 ->assertSee('Dashboard');
         }
+    }
+
+    public function test_admin_dashboard_reports_latest_completed_period_before_current_period(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $project = $this->project();
+        $lastWeek = $this->openPeriod();
+        $currentWeek = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+
+        $this->submittedTimesheet($employee, $lastWeek, $project, ['status' => 'submitted']);
+        $this->submittedTimesheet($employee, $currentWeek, $project, ['status' => 'rejected']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('period', fn ($period) => $period->is($lastWeek))
+            ->assertViewHas('summary', [
+                'submitted' => 1,
+                'approved' => 0,
+                'rejected' => 0,
+            ])
+            ->assertViewHas('missing', 0)
+            ->assertSee('Reporting period:')
+            ->assertSee('Week 20, 2026');
+    }
+
+    public function test_hod_dashboard_reports_latest_completed_period_before_current_period(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $submittedEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $missingEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $otherDepartment = $this->department();
+        $otherEmployee = $this->userWithRole('employee', ['department_id' => $otherDepartment->id]);
+        $project = $this->project();
+        $lastWeek = $this->openPeriod();
+        $currentWeek = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+
+        $this->submittedTimesheet($submittedEmployee, $lastWeek, $project, ['status' => 'approved']);
+        $this->submittedTimesheet($submittedEmployee, $currentWeek, $project, ['status' => 'submitted']);
+        $this->submittedTimesheet($otherEmployee, $lastWeek, $project, ['status' => 'submitted']);
+
+        $this->actingAs($hod)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('period', fn ($period) => $period->is($lastWeek))
+            ->assertViewHas('pending', 0)
+            ->assertViewHas('approved', 1)
+            ->assertViewHas('rejected', 0)
+            ->assertViewHas('missing', 1)
+            ->assertSee('Reporting period:')
+            ->assertSee('Week 20, 2026');
+    }
+
+    public function test_admin_dashboard_falls_back_to_latest_open_period_when_none_completed(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $project = $this->project();
+        $currentWeek = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+
+        $this->submittedTimesheet($employee, $currentWeek, $project, ['status' => 'submitted']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('period', fn ($period) => $period->is($currentWeek))
+            ->assertViewHas('summary', [
+                'submitted' => 1,
+                'approved' => 0,
+                'rejected' => 0,
+            ])
+            ->assertViewHas('missing', 0);
+    }
+
+    public function test_admin_dashboard_returns_zero_counts_without_any_period(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('period', null)
+            ->assertViewHas('summary', [
+                'submitted' => 0,
+                'approved' => 0,
+                'rejected' => 0,
+            ])
+            ->assertViewHas('missing', 0)
+            ->assertSee('No weekly period available');
+    }
+
+    public function test_admin_dashboard_groups_regional_submission_status_for_reporting_period(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $project = $this->project();
+        $lastWeek = $this->openPeriod();
+        $currentWeek = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $uaeSubmitted = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-101',
+        ]);
+        $uaeRejected = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MCE-HR-2026-102',
+        ]);
+        $phApproved = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-103',
+        ]);
+        $phMissing = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-104',
+        ]);
+        $unknownSubmitted = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => null,
+        ]);
+
+        $this->submittedTimesheet($uaeSubmitted, $lastWeek, $project, ['status' => 'submitted']);
+        $this->submittedTimesheet($uaeRejected, $lastWeek, $project, ['status' => 'rejected']);
+        $this->submittedTimesheet($phApproved, $lastWeek, $project, ['status' => 'approved']);
+        $this->submittedTimesheet($unknownSubmitted, $lastWeek, $project, ['status' => 'submitted']);
+        $this->submittedTimesheet($phMissing, $currentWeek, $project, ['status' => 'submitted']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('regionalSubmissionSummary', function (array $summary) {
+                return $summary['total'] === 5
+                    && $summary['submitted'] === 3
+                    && $summary['not_submitted'] === 2
+                    && $summary['regions']['uae']['submitted'] === 1
+                    && $summary['regions']['uae']['not_submitted'] === 1
+                    && $summary['regions']['ph']['submitted'] === 1
+                    && $summary['regions']['ph']['not_submitted'] === 1
+                    && $summary['regions']['unknown']['submitted'] === 1
+                    && $summary['regions']['unknown']['not_submitted'] === 0;
+            })
+            ->assertSee('Regional submission status')
+            ->assertSee('United Arab Emirates')
+            ->assertSee('Philippines');
+    }
+
+    public function test_hod_dashboard_regional_submission_status_is_limited_to_department(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $otherDepartment = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $project = $this->project();
+        $lastWeek = $this->openPeriod();
+        $departmentUaeEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-111',
+        ]);
+        $departmentPhEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-112',
+        ]);
+        $otherDepartmentEmployee = $this->userWithRole('employee', [
+            'department_id' => $otherDepartment->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-113',
+        ]);
+
+        $this->submittedTimesheet($departmentUaeEmployee, $lastWeek, $project, ['status' => 'submitted']);
+        $this->submittedTimesheet($otherDepartmentEmployee, $lastWeek, $project, ['status' => 'submitted']);
+
+        $this->actingAs($hod)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('regionalSubmissionSummary', function (array $summary) {
+                return $summary['total'] === 2
+                    && $summary['submitted'] === 1
+                    && $summary['not_submitted'] === 1
+                    && $summary['regions']['uae']['submitted'] === 1
+                    && $summary['regions']['uae']['not_submitted'] === 0
+                    && $summary['regions']['ph']['submitted'] === 0
+                    && $summary['regions']['ph']['not_submitted'] === 1;
+            });
+    }
+
+    public function test_super_admin_dashboard_has_regional_submission_status_for_reporting_period(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $superAdmin = $this->userWithRole('super_admin');
+        $project = $this->project();
+        $lastWeek = $this->openPeriod();
+        $currentWeek = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $lastWeekEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-121',
+        ]);
+        $currentWeekEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-122',
+        ]);
+
+        $this->submittedTimesheet($lastWeekEmployee, $lastWeek, $project, ['status' => 'approved']);
+        $this->submittedTimesheet($currentWeekEmployee, $currentWeek, $project, ['status' => 'submitted']);
+
+        $this->actingAs($superAdmin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('submissionPeriod', fn ($period) => $period->is($lastWeek))
+            ->assertViewHas('regionalSubmissionSummary', function (array $summary) {
+                return $summary['total'] === 2
+                    && $summary['submitted'] === 1
+                    && $summary['not_submitted'] === 1
+                    && $summary['regions']['ph']['submitted'] === 1
+                    && $summary['regions']['uae']['not_submitted'] === 1;
+            });
     }
 }
