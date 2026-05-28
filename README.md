@@ -106,6 +106,22 @@ timesheet_missing_reminders
 - `timesheet_period_auto_creation` creates the current Monday-to-Sunday weekly period if it does not exist yet.
 - `timesheet_missing_reminders` sends the automatic Monday reminder for employees missing submitted or approved weekly timesheets.
 
+### Automation Audit Actions
+
+Automation runs write audit log actions so Super Admins can see whether scheduled jobs ran, skipped work, or were blocked.
+
+| Automation | Action | When it is recorded |
+| --- | --- | --- |
+| Weekly Period Auto Creation | `timesheet_period_auto_creation_succeeded` | The command ran successfully. `new_values.result` is `created` when a period was created, or `skipped` when the period already existed. |
+| Weekly Period Auto Creation | `timesheet_period_auto_creation_failed` | The command did not run because the automation was disabled. |
+| Weekly Period Auto Creation | `timesheet_period_auto_created` | A new `timesheet_periods` record was created by the automation. |
+| Weekly Period Auto Creation | `timesheet_period_auto_create_skipped` | The automation found an existing period for the target ISO week/year and did not create a duplicate. |
+| Missing Timesheet Reminders | `timesheet_missing_reminders_succeeded` | The reminder command completed for an eligible period. `new_values.sent_count` contains the number of emails sent. |
+| Missing Timesheet Reminders | `timesheet_missing_reminders_failed` | The command did not send reminders because the automation was disabled or no eligible open past period was found. |
+| Missing Timesheet Reminders | `timesheet_missing_reminder_sent` | One reminder email was sent to one employee. This can appear multiple times in a successful reminder run. |
+| Automation Controls | `automation_enabled` | A Super Admin enabled an automation from Manage Automations. |
+| Automation Controls | `automation_disabled` | A Super Admin disabled an automation from Manage Automations. |
+
 ## Main Workflow
 
 1. Super Admin creates departments, users, projects, and weekly periods.
@@ -243,7 +259,8 @@ Expected result:
 
 - if the week does not exist, a new Monday-to-Sunday `open` period is created
 - if the week already exists, no duplicate is created
-- `audit_logs` contains `timesheet_period_auto_created` or `timesheet_period_auto_create_skipped`
+- `audit_logs` contains `timesheet_period_auto_creation_succeeded`
+- `audit_logs` also contains `timesheet_period_auto_created` or `timesheet_period_auto_create_skipped`
 - **Weekly Period Auto Creation** `last_run_at` updates in **Manage Automations**
 
 To test missing timesheet reminders directly, make sure the target weekly period is `open`, has an `end_date` before today, and has at least one active employee without a submitted or approved timesheet. Then run:
@@ -255,6 +272,7 @@ php artisan timesheets:send-missing-reminders --period_id=1
 Expected result:
 
 - reminder email content appears in `storage/logs/laravel.log`
+- `audit_logs` contains `timesheet_missing_reminders_succeeded`
 - `audit_logs` contains `timesheet_missing_reminder_sent`
 - the automation's `last_run_at` updates in **Manage Automations**
 

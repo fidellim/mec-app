@@ -133,6 +133,22 @@ The system includes:
 
 Disabling an automation pauses the scheduled background job.
 
+### Automation Audit Action Names
+
+Use these action names when filtering **Audit Logs** for automation activity.
+
+| Automation | Action name | Meaning |
+| --- | --- | --- |
+| Weekly Period Auto Creation | `timesheet_period_auto_creation_succeeded` | The automation command completed. Details show whether it created a period or skipped because the period already existed. |
+| Weekly Period Auto Creation | `timesheet_period_auto_creation_failed` | The automation command did not run because it was disabled. |
+| Weekly Period Auto Creation | `timesheet_period_auto_created` | A weekly period was created by the automation. |
+| Weekly Period Auto Creation | `timesheet_period_auto_create_skipped` | The target weekly period already existed, so no duplicate was created. |
+| Missing Timesheet Reminders | `timesheet_missing_reminders_succeeded` | The reminder automation completed for an eligible period. Details include how many emails were sent. |
+| Missing Timesheet Reminders | `timesheet_missing_reminders_failed` | The reminder automation did not send emails because it was disabled or no eligible open past period existed. |
+| Missing Timesheet Reminders | `timesheet_missing_reminder_sent` | One missing-timesheet reminder email was sent to one employee. |
+| Automation Controls | `automation_enabled` | A Super Admin enabled an automation. |
+| Automation Controls | `automation_disabled` | A Super Admin disabled an automation. |
+
 ## Audit Logs
 
 Use **Audit Logs** to review important actions such as:
