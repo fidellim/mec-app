@@ -27,6 +27,10 @@ class WeeklyPeriodAutomationWorkflowTest extends TestCase
             'end_date' => '2026-05-31 00:00:00',
             'status' => 'open',
         ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'timesheet_period_auto_creation_succeeded',
+            'auditable_type' => AutomationSetting::class,
+        ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'timesheet_period_auto_created']);
         $this->assertNotNull(AutomationSetting::where('key', AutomationSetting::TIMESHEET_PERIOD_AUTO_CREATION)->firstOrFail()->last_run_at);
 
@@ -51,6 +55,10 @@ class WeeklyPeriodAutomationWorkflowTest extends TestCase
 
         $this->assertSame(1, TimesheetPeriod::where('week_number', 22)->where('year', 2026)->count());
         $this->assertSame('closed', TimesheetPeriod::where('week_number', 22)->where('year', 2026)->firstOrFail()->status);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'timesheet_period_auto_creation_succeeded',
+            'auditable_type' => AutomationSetting::class,
+        ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'timesheet_period_auto_create_skipped']);
 
         Carbon::setTestNow();
@@ -68,6 +76,10 @@ class WeeklyPeriodAutomationWorkflowTest extends TestCase
         $this->assertDatabaseMissing('timesheet_periods', [
             'week_number' => 22,
             'year' => 2026,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'timesheet_period_auto_creation_failed',
+            'auditable_type' => AutomationSetting::class,
         ]);
         $this->assertDatabaseMissing('audit_logs', ['action' => 'timesheet_period_auto_created']);
 

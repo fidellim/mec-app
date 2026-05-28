@@ -18,7 +18,12 @@ class CreateWeeklyTimesheetPeriod extends Command
 
     public function handle(AuditLogService $audit): int
     {
+        $automation = AutomationSetting::where('key', AutomationSetting::TIMESHEET_PERIOD_AUTO_CREATION)->first();
+
         if (! $this->option('force') && ! AutomationSetting::enabled(AutomationSetting::TIMESHEET_PERIOD_AUTO_CREATION)) {
+            $audit->record('timesheet_period_auto_creation_failed', $automation, null, [
+                'reason' => 'automation_disabled',
+            ]);
             $this->info('Weekly period auto creation automation is disabled.');
 
             return self::SUCCESS;
@@ -34,6 +39,13 @@ class CreateWeeklyTimesheetPeriod extends Command
             ->first();
 
         if ($existingPeriod) {
+            $audit->record('timesheet_period_auto_creation_succeeded', $automation, null, [
+                'result' => 'skipped',
+                'reason' => 'period_already_exists',
+                'period_id' => $existingPeriod->id,
+                'week_number' => $weekNumber,
+                'year' => $year,
+            ]);
             $audit->record('timesheet_period_auto_create_skipped', $existingPeriod, null, [
                 'reason' => 'period_already_exists',
                 'week_number' => $weekNumber,
@@ -56,6 +68,14 @@ class CreateWeeklyTimesheetPeriod extends Command
             'status' => 'open',
         ]);
 
+        $audit->record('timesheet_period_auto_creation_succeeded', $automation, null, [
+            'result' => 'created',
+            'period_id' => $period->id,
+            'week_number' => $period->week_number,
+            'year' => $period->year,
+            'start_date' => $period->start_date->toDateString(),
+            'end_date' => $period->end_date->toDateString(),
+        ]);
         $audit->record('timesheet_period_auto_created', $period, null, $period->toArray());
         AutomationSetting::markRan(AutomationSetting::TIMESHEET_PERIOD_AUTO_CREATION);
         $this->info("Created Week {$weekNumber}, {$year}: {$period->start_date->toDateString()} to {$period->end_date->toDateString()}.");

@@ -43,6 +43,10 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             'action' => 'timesheet_missing_reminder_sent',
             'auditable_id' => $missingEmployee->id,
         ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'timesheet_missing_reminders_succeeded',
+            'auditable_type' => AutomationSetting::class,
+        ]);
         $this->assertNotNull(AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->firstOrFail()->last_run_at);
 
         Carbon::setTestNow();
@@ -62,6 +66,10 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             ->assertSuccessful();
 
         Mail::assertNothingSent();
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'timesheet_missing_reminders_failed',
+            'auditable_type' => AutomationSetting::class,
+        ]);
         $this->assertDatabaseMissing('audit_logs', [
             'action' => 'timesheet_missing_reminder_sent',
             'auditable_id' => $employee->id,
@@ -105,6 +113,10 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             ->assertSuccessful();
 
         Mail::assertNothingSent();
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'timesheet_missing_reminders_failed',
+            'auditable_type' => AutomationSetting::class,
+        ]);
 
         Carbon::setTestNow();
     }
