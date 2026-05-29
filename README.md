@@ -175,7 +175,84 @@ The export route is available to Admin and Super Admin:
 /admin/timesheets/export
 ```
 
-It streams a native `.xlsx` workbook using Laravel Excel. The first worksheet is a project summary that combines regular, overtime, and total hours by project across all exported users. The remaining worksheets mirror the employee weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
+It streams a native `.xlsx` workbook using Laravel Excel.
+
+### Timesheet Export Filters
+
+The Admin **All Timesheets** page and export route share the same filters:
+
+- `From Week`
+- `To Week (optional)`
+- `Year`
+- `Project`
+- `Department`
+- `Employee`
+- `Status`
+- `Include individual employee timesheet sheets`
+
+Week filter behavior:
+
+- If only `From Week` is filled, the export targets that one weekly period.
+- If both `From Week` and `To Week` are filled, the export targets the inclusive week range.
+- `To Week` cannot be earlier than `From Week`.
+- `To Week` cannot be used without `From Week`.
+- `Year` is required whenever week filtering is used.
+- The selected week or week range must match at least one actual `timesheet_periods` record for that year.
+- A range can include missing weeks as long as at least one weekly period exists inside the range.
+
+Project filter behavior:
+
+- If no project is selected, the export includes all project hours from the matching timesheets.
+- If a project is selected, the index page only lists timesheets that have entries for that project.
+- If a project is selected, the **Project Weekly Summary** worksheet only includes hours logged to that project.
+- Individual employee timesheet worksheets are still included for matching timesheets.
+
+### Timesheet Export Workbook Layout
+
+The exported workbook contains:
+
+1. **Project Weekly Summary**
+2. Optional individual employee timesheet worksheets
+
+The **Project Weekly Summary** worksheet is grouped by project. Each project group shows employees down the rows and weekly periods across the columns. Each week header is merged above its Regular, Overtime, and Total hour columns and is sized to show both the week number and date range. If an employee logged hours for the project in one exported week but not another, the missing week columns show `0.00`.
+
+Each project group shows:
+
+- Project code
+- Full project name, wrapped so long names remain readable in Excel
+- Client name, when available
+- Employee ID
+- Initials
+- Employee name
+- Week number and week date range
+- Regular hours per week
+- Overtime hours per week
+- Total hours per week
+- Project total row
+
+The bottom of the summary contains a grand total row. Grand totals are calculated for every exported week column group, so exports with Week 12 through Week 15 show separate Regular, Overtime, and Total grand totals for each week.
+
+By default, the export includes only the **Project Weekly Summary** worksheet. This keeps project reports faster to generate and easier to review.
+
+If `Include individual employee timesheet sheets` is selected, the workbook also includes one worksheet per exported employee timesheet. These detail worksheets mirror the weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
+
+### Export Validation Messages
+
+The export/filter validation may return these messages:
+
+| Message | Meaning |
+| --- | --- |
+| `Enter From Week when using To Week.` | `To Week` was filled but `From Week` was blank. |
+| `To Week must be greater than or equal to From Week.` | The selected range is backwards. |
+| `Year is required when filtering by week.` | A week filter was used without a year. |
+| `Selected week period does not exist.` | The selected single week has no matching weekly period for that year. |
+| `Selected week range does not contain any existing periods.` | None of the weeks in the selected range exist for that year. |
+
+### Export UX
+
+The Admin **Export Excel** button shows a small loading spinner and `Preparing export...` label after it is clicked. This gives feedback while Laravel builds the workbook and discourages duplicate clicks on larger exports.
+
+For larger exports, leave `Include individual employee timesheet sheets` unchecked unless detailed timesheet backup sheets are needed. Summary-only exports avoid generating many extra worksheet tabs and reduce server work.
 
 ## Email Notifications
 

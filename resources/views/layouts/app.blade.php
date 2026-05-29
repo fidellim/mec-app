@@ -847,5 +847,6 @@ document.querySelectorAll('form').forEach((form) => {
     });
 });
 </script>
+@stack('scripts')
 </body>
 </html>

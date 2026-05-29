@@ -44,7 +44,7 @@ The **Admin Dashboard** shows:
 ## All Timesheets
 
 1. Go to **All Timesheets**.
-2. Filter by week, year, department, employee, or status.
+2. Filter by week range, year, project, department, employee, or status.
 3. Select **Apply Filters**.
 4. Select **View** to open a timesheet.
 5. Use **Export Excel** to download an Excel workbook using the current filters.
@@ -93,20 +93,40 @@ If you are not assigned to a department, MEC Portal disables timesheet creation 
 Admins can export from **All Timesheets**.
 
 1. Go to **All Timesheets**.
-2. Apply filters for week, year, department, employee, or status if needed.
-3. Select **Export Excel**.
+2. Apply filters for week range, year, project, department, employee, or status if needed.
+3. Leave **Include individual employee timesheet sheets** unchecked for a faster summary-only workbook, or check it when detailed employee sheets are needed.
+4. Select **Export Excel**.
+
+Week range rules:
+
+- Use **From Week** by itself to export one weekly period.
+- Use **From Week** and **To Week** to export an inclusive range.
+- **To Week** is optional, but it cannot be used without **From Week**.
+- **Year** is required when filtering by week.
+- The selected week or range must exist in the weekly periods for that year.
 
 The export includes:
 
-- A project summary worksheet.
-- Individual employee weekly timesheet worksheets.
-- Regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks.
+- A **Project Weekly Summary** worksheet grouped by project with exported weeks shown as columns.
+- Optional individual employee weekly timesheet worksheets.
+- Employee ID, initials, employee name, weekly regular hours, weekly overtime hours, weekly total hours, and project totals in the summary.
+- Regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks in the individual timesheet worksheets.
+
+In the summary, each project appears once, employees are listed down the rows, and exported weeks appear across the columns. Each week header shows the week number and date range above its Regular, Overtime, and Total columns. If an employee worked on the project in one exported week but not another, the missing week shows `0.00`.
+
+The bottom **Grand Total** row also follows the week columns, so every exported week has its own regular, overtime, and total grand totals.
+
+By default, the export only includes the **Project Weekly Summary** worksheet. Select **Include individual employee timesheet sheets** when the workbook also needs one detailed worksheet per employee timesheet.
+
+If a project is selected, the summary only includes employees and hours logged to that project. The export button shows **Preparing export...** while the workbook is being generated.
 
 ## Quick Troubleshooting
 
 | Problem | Likely reason | What to do |
 | --- | --- | --- |
 | Cannot approve a timesheet | Admins can only approve/reject submitted HOD timesheets and cannot approve their own. | Use the correct authorized reviewer. |
-| Export has too many records | Filters were not applied before export. | Apply week, year, department, employee, or status filters first. |
+| Export has too many records | Filters were not applied before export. | Apply week range, year, project, department, employee, or status filters first. |
+| Export has too many worksheet tabs | Individual employee sheets were included. | Leave **Include individual employee timesheet sheets** unchecked for summary-only export. |
+| Week export is rejected | The year is missing or the selected week/range has no matching weekly period. | Enter the year and choose a week that exists in Manage Weekly Periods. |
 | Cannot create your own timesheet | No department is assigned or no open period exists. | Contact the system administrator. |
 | Timesheet cannot be edited | Admins do not edit other users' timesheets. | Return it with a rejection comment if correction is allowed. |

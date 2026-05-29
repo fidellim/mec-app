@@ -24,14 +24,26 @@
             border: 0 !important;
             height: 14px;
         }
-        .summary-header {
-            background: #2e258b;
-            color: #fff;
+        .project-header {
+            background: #eef6ff;
+            font-weight: 700;
+            white-space: normal;
+            word-wrap: break-word;
+        }
+        .week-header {
+            background: #dbeafe;
+            color: #111827;
+            font-weight: 700;
+            text-align: center;
+        }
+        .table-header {
+            background: #e5e7eb;
+            color: #111827;
             font-weight: 700;
             text-align: center;
         }
         .summary-total {
-            background: #f4f4f4;
+            background: #f1f5f9;
             font-weight: 700;
         }
         .right {
@@ -40,48 +52,85 @@
         .center {
             text-align: center;
         }
-        .wrap-text {
-            white-space: normal;
-            word-wrap: break-word;
-            vertical-align: top;
-        }
     </style>
 </head>
 <body>
 <table class="project-summary-export">
     <tr>
-        <td colspan="6" class="summary-title">Project Hours Summary</td>
+        <td colspan="{{ $totalColumns }}" class="summary-title">Project Weekly Summary</td>
     </tr>
     <tr>
-        <td colspan="6" class="summary-spacer"></td>
+        <td colspan="{{ $totalColumns }}" class="summary-spacer"></td>
     </tr>
-    <tr>
-        <th class="summary-header">Project Code</th>
-        <th class="summary-header">Project Name</th>
-        <th class="summary-header">Client</th>
-        <th class="summary-header">Regular Hours</th>
-        <th class="summary-header">Overtime Hours</th>
-        <th class="summary-header">Total Hours</th>
-    </tr>
-    @forelse($rows as $row)
+    @forelse($groups as $group)
         <tr>
-            <td class="center">{{ $row['project_code'] }}</td>
-            <td class="wrap-text">{!! nl2br(e(wordwrap(preg_replace('/\s+/', ' ', trim($row['project_name'])), 62, "\n", false))) !!}</td>
-            <td class="wrap-text">{!! nl2br(e(wordwrap(preg_replace('/\s+/', ' ', trim($row['client_name'])), 22, "\n", false))) !!}</td>
-            <td class="right">{{ number_format($row['regular_hours'], 2) }}</td>
-            <td class="right">{{ number_format($row['overtime_hours'], 2) }}</td>
-            <td class="right">{{ number_format($row['total_hours'], 2) }}</td>
+            <td colspan="{{ $totalColumns }}" class="project-header">
+                {{ $group['project_code'] }} - {{ $group['project_name'] }}
+                @if($group['client_name'])
+                    <br>Client: {{ $group['client_name'] }}
+                @endif
+            </td>
+        </tr>
+        <tr>
+            <th class="week-header"></th>
+            <th class="week-header"></th>
+            <th class="week-header"></th>
+            @foreach($group['weeks'] as $week)
+                <th colspan="3" class="week-header">{{ $week['label'] }}<br>{{ $week['dates'] }}</th>
+            @endforeach
+        </tr>
+        <tr>
+            <th class="table-header">Employee ID</th>
+            <th class="table-header">Initials</th>
+            <th class="table-header">Employee</th>
+            @foreach($group['weeks'] as $week)
+                <th class="table-header">Regular Hours</th>
+                <th class="table-header">Overtime Hours</th>
+                <th class="table-header">Total Hours</th>
+            @endforeach
+        </tr>
+        @foreach($group['employees'] as $employee)
+            <tr>
+                <td class="center">{{ $employee['employee_id'] }}</td>
+                <td class="center">{{ $employee['initials'] }}</td>
+                <td>{{ $employee['employee_name'] }}</td>
+                @foreach($group['weeks'] as $week)
+                    @php($hours = $employee['weeks'][$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
+                    <td class="right">{{ number_format($hours['regular_hours'], 2) }}</td>
+                    <td class="right">{{ number_format($hours['overtime_hours'], 2) }}</td>
+                    <td class="right">{{ number_format($hours['total_hours'], 2) }}</td>
+                @endforeach
+            </tr>
+        @endforeach
+        <tr>
+            <td colspan="3" class="summary-total">Project Total</td>
+            @foreach($group['weeks'] as $week)
+                @php($totals = $group['week_totals'][$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
+                <td class="summary-total right">{{ number_format($totals['regular_hours'], 2) }}</td>
+                <td class="summary-total right">{{ number_format($totals['overtime_hours'], 2) }}</td>
+                <td class="summary-total right">{{ number_format($totals['total_hours'], 2) }}</td>
+            @endforeach
+        </tr>
+        <tr>
+            <td colspan="{{ $totalColumns }}" class="summary-spacer"></td>
         </tr>
     @empty
         <tr>
-            <td colspan="6" class="center">No project hours found for the selected filters.</td>
+            <td colspan="{{ $totalColumns }}" class="center">No project hours found for the selected filters.</td>
         </tr>
     @endforelse
     <tr>
-        <td colspan="3" class="summary-total">Totals</td>
-        <td class="summary-total right">{{ number_format($totalRegular, 2) }}</td>
-        <td class="summary-total right">{{ number_format($totalOvertime, 2) }}</td>
-        <td class="summary-total right">{{ number_format($totalHours, 2) }}</td>
+        <td colspan="3" class="summary-total">Grand Total</td>
+        @forelse($weeks as $week)
+            @php($totals = $grandTotalsByWeek[$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
+            <td class="summary-total right">{{ number_format($totals['regular_hours'], 2) }}</td>
+            <td class="summary-total right">{{ number_format($totals['overtime_hours'], 2) }}</td>
+            <td class="summary-total right">{{ number_format($totals['total_hours'], 2) }}</td>
+        @empty
+            <td class="summary-total right">{{ number_format($totalRegular, 2) }}</td>
+            <td class="summary-total right">{{ number_format($totalOvertime, 2) }}</td>
+            <td class="summary-total right">{{ number_format($totalHours, 2) }}</td>
+        @endforelse
     </tr>
 </table>
 </body>

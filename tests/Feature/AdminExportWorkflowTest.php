@@ -18,16 +18,21 @@ class AdminExportWorkflowTest extends TestCase
     public function test_admin_can_view_all_timesheets_and_filter_by_status(): void
     {
         $department = $this->department(['name' => 'Operations']);
+        $project = $this->project(['project_code' => 'P-FILTER', 'project_name' => 'Filter Project']);
         $employee = $this->userWithRole('employee', [
             'name' => 'Ben Carter',
             'department_id' => $department->id,
         ]);
-        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project());
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $project);
         $admin = $this->userWithRole('admin');
 
         $this->actingAs($admin)
             ->get(route('admin.timesheets.index', ['status' => $timesheet->status]))
             ->assertOk()
+            ->assertSee('From Week')
+            ->assertSee('To Week')
+            ->assertSee('Include individual employee timesheet sheets')
+            ->assertSee('P-FILTER - Filter Project')
             ->assertSee('Ben Carter')
             ->assertSee('Operations');
     }
@@ -144,7 +149,7 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('Rejection comment');
     }
 
-    public function test_admin_can_download_excel_export(): void
+    public function test_admin_can_download_excel_export_summary_only_by_default(): void
     {
         $employee = $this->userWithRole('employee', [
             'department_id' => $this->department()->id,
@@ -162,13 +167,41 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $this->assertSame(1, $spreadsheet->getSheetCount());
+        $this->assertSame('Project Weekly Summary', $spreadsheet->getSheet(0)->getTitle());
+    }
+
+    public function test_admin_can_include_individual_employee_sheets_in_excel_export(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'initials' => 'ZX',
+        ]);
+        $this->submittedTimesheet($employee, $this->openPeriod(), $this->project(), ['status' => 'approved']);
+        $admin = $this->userWithRole('admin');
+
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'week_number' => 20,
+            'year' => 2026,
+            'include_employee_sheets' => 1,
+        ]));
+
+        $response->assertOk();
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $this->assertSame(2, $spreadsheet->getSheetCount());
         $this->assertSame('ZX', $spreadsheet->getSheet(1)->getCell('B4')->getValue());
     }
 
-    public function test_excel_export_includes_project_summary_sheet_with_combined_hours(): void
+    public function test_excel_export_includes_grouped_project_weekly_summary_sheet(): void
     {
         $department = $this->department();
         $period = $this->openPeriod();
+        $nextPeriod = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
         $projectA = $this->project([
             'project_code' => 'P100',
             'project_name' => 'Detailed Engineering Services  for Pipeline Upgrade and Facility Modification Works',
@@ -179,10 +212,21 @@ class AdminExportWorkflowTest extends TestCase
             'project_name' => 'Control Room Fit Out',
             'client_name' => 'ADNOC',
         ]);
-        $employeeA = $this->userWithRole('employee', ['department_id' => $department->id]);
-        $employeeB = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $employeeA = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Ben Carter',
+            'employee_code' => 'EMP-001',
+            'initials' => 'BC',
+        ]);
+        $employeeB = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Alice Santos',
+            'employee_code' => 'EMP-002',
+            'initials' => null,
+        ]);
         $timesheetA = $this->submittedTimesheet($employeeA, $period, $projectA, ['status' => 'approved']);
         $timesheetB = $this->submittedTimesheet($employeeB, $period, $projectA, ['status' => 'approved']);
+        $timesheetC = $this->submittedTimesheet($employeeA, $nextPeriod, $projectA, ['status' => 'approved']);
 
         TimesheetEntry::create([
             'timesheet_id' => $timesheetA->id,
@@ -214,36 +258,293 @@ class AdminExportWorkflowTest extends TestCase
             'overtime_hours' => 0,
         ]);
 
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheetC->id,
+            'work_date' => '2026-05-19',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => $projectA->id,
+            'regular_hours' => 1,
+            'overtime_hours' => 3,
+        ]);
+
+        $admin = $this->userWithRole('admin');
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', ['year' => 2026]));
+
+        $response->assertOk();
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $weekly = $spreadsheet->getSheet(0);
+
+        $this->assertSame('Project Weekly Summary', $weekly->getTitle());
+        $this->assertSame(1, $spreadsheet->getSheetCount());
+        $this->assertTrue($weekly->getStyle('A3')->getAlignment()->getWrapText());
+        $this->assertGreaterThan(20, $weekly->getRowDimension(3)->getRowHeight());
+        $this->assertSame(34.0, $weekly->getColumnDimension('C')->getWidth());
+
+        $this->assertStringContainsString('P100 - Detailed Engineering Services', $weekly->getCell('A3')->getValue());
+        $this->assertStringContainsString("\n", $weekly->getCell('A3')->getValue());
+        $this->assertStringContainsString('Client: ADNOC', $weekly->getCell('A3')->getValue());
+        $this->assertStringNotContainsString('Services  for', $weekly->getCell('A3')->getValue());
+        $this->assertStringContainsString('Week 20, 2026', $weekly->getCell('D4')->getValue());
+        $this->assertStringContainsString('11-May-26 to 17-May-26', $weekly->getCell('D4')->getValue());
+        $this->assertStringContainsString('Week 21, 2026', $weekly->getCell('G4')->getValue());
+        $this->assertGreaterThanOrEqual(36, $weekly->getRowDimension(4)->getRowHeight());
+        $this->assertContains('D4:F4', $weekly->getMergeCells());
+        $this->assertContains('G4:I4', $weekly->getMergeCells());
+        $this->assertSame('Employee ID', $weekly->getCell('A5')->getValue());
+        $this->assertSame('EMP-001', $weekly->getCell('A6')->getValue());
+        $this->assertSame('BC', $weekly->getCell('B6')->getValue());
+        $this->assertSame('Ben Carter', $weekly->getCell('C6')->getValue());
+        $this->assertEquals(8, $weekly->getCell('D6')->getCalculatedValue());
+        $this->assertEquals(2, $weekly->getCell('E6')->getCalculatedValue());
+        $this->assertEquals(10, $weekly->getCell('F6')->getCalculatedValue());
+        $this->assertEquals(9, $weekly->getCell('G6')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('H6')->getCalculatedValue());
+        $this->assertEquals(12, $weekly->getCell('I6')->getCalculatedValue());
+        $this->assertSame('Alice Santos', $weekly->getCell('C7')->getValue());
+        $this->assertSame('AS', $weekly->getCell('B7')->getValue());
+        $this->assertEquals(0, $weekly->getCell('G7')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('H7')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('I7')->getCalculatedValue());
+        $this->assertSame('Project Total', $weekly->getCell('A8')->getValue());
+        $this->assertEquals(16, $weekly->getCell('D8')->getCalculatedValue());
+        $this->assertEquals(2, $weekly->getCell('E8')->getCalculatedValue());
+        $this->assertEquals(18, $weekly->getCell('F8')->getCalculatedValue());
+        $this->assertEquals(9, $weekly->getCell('G8')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('H8')->getCalculatedValue());
+        $this->assertEquals(12, $weekly->getCell('I8')->getCalculatedValue());
+        $this->assertStringContainsString('P200 - Control Room Fit Out', $weekly->getCell('A10')->getValue());
+        $this->assertSame('Grand Total', $weekly->getCell('A16')->getValue());
+        $this->assertEquals(19, $weekly->getCell('D16')->getCalculatedValue());
+        $this->assertEquals(6, $weekly->getCell('E16')->getCalculatedValue());
+        $this->assertEquals(25, $weekly->getCell('F16')->getCalculatedValue());
+        $this->assertEquals(9, $weekly->getCell('G16')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('H16')->getCalculatedValue());
+        $this->assertEquals(12, $weekly->getCell('I16')->getCalculatedValue());
+    }
+
+    public function test_excel_project_summaries_ignore_entries_without_project_or_hours(): void
+    {
+        $department = $this->department();
+        $period = $this->openPeriod();
+        $project = $this->project(['project_code' => 'P300']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'No Hours',
+            'employee_code' => 'EMP-003',
+        ]);
+        $timesheet = $this->submittedTimesheet($employee, $period, $project, ['status' => 'approved']);
+        $timesheet->entries()->delete();
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-11',
+            'day_name' => 'Monday',
+            'attendance_code' => 'O100',
+            'project_id' => $project->id,
+            'regular_hours' => 0,
+            'overtime_hours' => 0,
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-12',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => null,
+            'regular_hours' => 8,
+            'overtime_hours' => 0,
+        ]);
+
         $admin = $this->userWithRole('admin');
         $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
             'week_number' => 20,
             'year' => 2026,
+            'include_employee_sheets' => 1,
         ]));
 
         $response->assertOk();
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
-        $summary = $spreadsheet->getSheet(0);
 
-        $this->assertSame('Project Summary', $summary->getTitle());
-        $this->assertTrue($summary->getStyle('B4')->getAlignment()->getWrapText());
-        $this->assertTrue($summary->getStyle('C4')->getAlignment()->getWrapText());
-        $this->assertGreaterThan(20, $summary->getRowDimension(4)->getRowHeight());
-        $this->assertSame(62.0, $summary->getColumnDimension('B')->getWidth());
-        $this->assertSame('P100', $summary->getCell('A4')->getValue());
-        $this->assertStringContainsString("\n", $summary->getCell('B4')->getValue());
-        $this->assertStringContainsString('Detailed Engineering Services', $summary->getCell('B4')->getValue());
-        $this->assertStringNotContainsString('Services  for', $summary->getCell('B4')->getValue());
-        $this->assertEquals(16, $summary->getCell('D4')->getCalculatedValue());
-        $this->assertEquals(2, $summary->getCell('E4')->getCalculatedValue());
-        $this->assertEquals(18, $summary->getCell('F4')->getCalculatedValue());
-        $this->assertSame('P200', $summary->getCell('A5')->getValue());
-        $this->assertEquals(3, $summary->getCell('D5')->getCalculatedValue());
-        $this->assertEquals(4, $summary->getCell('E5')->getCalculatedValue());
-        $this->assertEquals(7, $summary->getCell('F5')->getCalculatedValue());
-        $this->assertSame('Totals', $summary->getCell('A6')->getValue());
-        $this->assertEquals(19, $summary->getCell('D6')->getCalculatedValue());
-        $this->assertEquals(6, $summary->getCell('E6')->getCalculatedValue());
-        $this->assertEquals(25, $summary->getCell('F6')->getCalculatedValue());
+        $this->assertSame('No project hours found for the selected filters.', $spreadsheet->getSheet(0)->getCell('A3')->getValue());
+        $this->assertSame('Grand Total', $spreadsheet->getSheet(0)->getCell('A4')->getValue());
+        $this->assertEquals(0, $spreadsheet->getSheet(0)->getCell('D4')->getCalculatedValue());
+        $this->assertSame('No Hours W20', $spreadsheet->getSheet(1)->getTitle());
+    }
+
+    public function test_admin_can_filter_and_export_project_summary_by_project_and_week_range(): void
+    {
+        $department = $this->department();
+        $projectA = $this->project(['project_code' => 'PX-100', 'project_name' => 'Selected Project']);
+        $projectB = $this->project(['project_code' => 'PX-200', 'project_name' => 'Other Project']);
+        $week12 = $this->openPeriod(['week_number' => 12, 'start_date' => '2026-03-16', 'end_date' => '2026-03-22']);
+        $week13 = $this->openPeriod(['week_number' => 13, 'start_date' => '2026-03-23', 'end_date' => '2026-03-29']);
+        $week15 = $this->openPeriod(['week_number' => 15, 'start_date' => '2026-04-06', 'end_date' => '2026-04-12']);
+        $employeeA = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Project Worker',
+            'employee_code' => 'EMP-P100',
+            'initials' => 'PW',
+        ]);
+        $employeeB = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Other Worker',
+            'employee_code' => 'EMP-P200',
+            'initials' => 'OW',
+        ]);
+
+        $week12Timesheet = $this->submittedTimesheet($employeeA, $week12, $projectA, ['status' => 'approved']);
+        $week15Timesheet = $this->submittedTimesheet($employeeA, $week15, $projectA, ['status' => 'approved']);
+        $this->submittedTimesheet($employeeB, $week13, $projectB, ['status' => 'approved']);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $week15Timesheet->id,
+            'work_date' => '2026-04-07',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => $projectA->id,
+            'regular_hours' => 0,
+            'overtime_hours' => 3,
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $week12Timesheet->id,
+            'work_date' => '2026-03-17',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => $projectB->id,
+            'regular_hours' => 6,
+            'overtime_hours' => 0,
+        ]);
+
+        $admin = $this->userWithRole('admin');
+        $filters = [
+            'week_from' => 12,
+            'week_to' => 15,
+            'year' => 2026,
+            'project_id' => $projectA->id,
+        ];
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', $filters))
+            ->assertOk()
+            ->assertSee('Project Worker')
+            ->assertDontSee('<td class="fw-semibold">Other Worker</td>', false);
+
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', $filters));
+
+        $response->assertOk();
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $weekly = $spreadsheet->getSheet(0);
+        $this->assertSame(1, $spreadsheet->getSheetCount());
+
+        $this->assertStringContainsString('PX-100 - Selected Project', $weekly->getCell('A3')->getValue());
+        $this->assertStringContainsString('Week 12, 2026', $weekly->getCell('D4')->getValue());
+        $this->assertStringContainsString('16-Mar-26 to 22-Mar-26', $weekly->getCell('D4')->getValue());
+        $this->assertStringContainsString('Week 15, 2026', $weekly->getCell('G4')->getValue());
+        $this->assertStringContainsString('06-Apr-26 to 12-Apr-26', $weekly->getCell('G4')->getValue());
+        $this->assertSame('EMP-P100', $weekly->getCell('A6')->getValue());
+        $this->assertEquals(8, $weekly->getCell('D6')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('E6')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('F6')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('G6')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('H6')->getCalculatedValue());
+        $this->assertEquals(11, $weekly->getCell('I6')->getCalculatedValue());
+        $this->assertSame('Project Total', $weekly->getCell('A7')->getValue());
+        $this->assertSame('Grand Total', $weekly->getCell('A9')->getValue());
+        $this->assertEquals(8, $weekly->getCell('D9')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('E9')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('F9')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('G9')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('H9')->getCalculatedValue());
+        $this->assertEquals(11, $weekly->getCell('I9')->getCalculatedValue());
+
+        foreach (range(1, 9) as $row) {
+            $this->assertStringNotContainsString('PX-200', (string) $weekly->getCell("A{$row}")->getValue());
+            $this->assertStringNotContainsString('Other Worker', (string) $weekly->getCell("C{$row}")->getValue());
+        }
+    }
+
+    public function test_week_to_requires_from_week_on_admin_timesheet_filters_and_export(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['week_to' => 15, 'year' => 2026]))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['week_from']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.export', ['week_to' => 15, 'year' => 2026]))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['week_from']);
+    }
+
+    public function test_include_employee_sheets_option_must_be_boolean(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.export', ['include_employee_sheets' => 'sometimes']))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['include_employee_sheets']);
+    }
+
+    public function test_to_week_must_not_be_before_from_week(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['week_from' => 15, 'week_to' => 12, 'year' => 2026]))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['week_to']);
+    }
+
+    public function test_year_is_required_when_filtering_by_week(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['week_from' => 20]))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['year']);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.export', ['week_from' => 20]))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['year']);
+    }
+
+    public function test_nonexistent_single_week_period_cannot_be_exported(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.export', ['week_from' => 1, 'year' => 2026]))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['week_from']);
+    }
+
+    public function test_week_range_requires_at_least_one_existing_period(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['week_from' => 1, 'week_to' => 3, 'year' => 2026]))
+            ->assertRedirect()
+            ->assertSessionHasErrors(['week_from']);
+    }
+
+    public function test_week_range_can_include_missing_weeks_when_at_least_one_period_exists(): void
+    {
+        $this->openPeriod(['week_number' => 12, 'start_date' => '2026-03-16', 'end_date' => '2026-03-22']);
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['week_from' => 12, 'week_to' => 15, 'year' => 2026]))
+            ->assertOk();
     }
 }

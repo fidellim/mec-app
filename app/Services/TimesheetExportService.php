@@ -16,19 +16,18 @@ class TimesheetExportService
     {
         $timesheets = Timesheet::query()
             ->with(['user', 'department', 'period', 'entries.project', 'approver'])
-            ->when($filters['week_number'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('week_number', $v)))
-            ->when($filters['year'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('year', $v)))
-            ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
-            ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
-            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->tap(fn ($query) => $this->applyFilters($query, $filters))
             ->orderByDesc('id')
             ->get();
 
-        $payload = $timesheets->map(fn (Timesheet $timesheet) => $this->buildWorksheet($timesheet));
-        $projectSummary = $this->buildProjectSummary($timesheets);
+        $includeEmployeeSheets = $this->includeEmployeeSheets($filters);
+        $payload = $includeEmployeeSheets
+            ? $timesheets->map(fn (Timesheet $timesheet) => $this->buildWorksheet($timesheet))
+            : collect();
+        $projectWeeklySummary = $this->buildProjectWeeklySummary($timesheets, $filters['project_id'] ?? null);
         $fileName = 'employee_weekly_timesheets_'.now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new TimesheetsExcelExport($payload, $projectSummary), $fileName, ExcelWriter::XLSX);
+        return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $includeEmployeeSheets), $fileName, ExcelWriter::XLSX);
     }
 
     public function csv(array $filters): StreamedResponse
@@ -45,11 +44,7 @@ class TimesheetExportService
 
             Timesheet::query()
                 ->with(['user', 'department', 'period', 'entries.project', 'approver'])
-                ->when($filters['week_number'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('week_number', $v)))
-                ->when($filters['year'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('year', $v)))
-                ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
-                ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
-                ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+                ->tap(fn ($query) => $this->applyFilters($query, $filters))
                 ->orderByDesc('id')
                 ->chunk(100, function ($timesheets) use ($handle) {
                     foreach ($timesheets as $timesheet) {
@@ -172,30 +167,79 @@ class TimesheetExportService
             ->implode('');
     }
 
-    private function buildProjectSummary($timesheets)
+    private function includeEmployeeSheets(array $filters): bool
+    {
+        return filter_var($filters['include_employee_sheets'] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
+    private function applyFilters($query, array $filters): void
+    {
+        $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
+        $weekTo = $filters['week_to'] ?? $weekFrom;
+
+        $query
+            ->when($weekFrom, fn ($q) => $q->whereHas('period', fn ($p) => $p->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo])))
+            ->when($filters['year'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('year', $v)))
+            ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
+            ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
+            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
+            ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry->where('project_id', $v)));
+    }
+
+    private function buildProjectWeeklySummary($timesheets, $projectId = null)
     {
         return $timesheets
-            ->flatMap(fn (Timesheet $timesheet) => $timesheet->entries)
+            ->flatMap(fn (Timesheet $timesheet) => $timesheet->entries->map(fn ($entry) => [
+                'timesheet' => $timesheet,
+                'entry' => $entry,
+            ]))
             ->filter(function ($entry) {
-                return $entry->project_id
-                    && ((float) $entry->regular_hours > 0 || (float) $entry->overtime_hours > 0);
+                return $entry['entry']->project_id
+                    && ((float) $entry['entry']->regular_hours > 0 || (float) $entry['entry']->overtime_hours > 0);
             })
-            ->groupBy('project_id')
+            ->when($projectId, fn ($entries) => $entries->filter(fn ($entry) => (int) $entry['entry']->project_id === (int) $projectId))
+            ->groupBy(fn ($entry) => implode('|', [
+                $entry['timesheet']->timesheet_period_id,
+                $entry['entry']->project_id,
+                $entry['timesheet']->user_id,
+            ]))
             ->map(function ($entries) {
-                $first = $entries->first();
-                $regular = (float) $entries->sum('regular_hours');
-                $overtime = (float) $entries->sum('overtime_hours');
-
-                return [
-                    'project_code' => $first->project?->project_code ?? '-',
-                    'project_name' => $first->project?->project_name ?? 'Unknown Project',
-                    'client_name' => $first->project?->client_name ?? '',
-                    'regular_hours' => $regular,
-                    'overtime_hours' => $overtime,
-                    'total_hours' => $regular + $overtime,
-                ];
+                return $this->projectEmployeeSummaryRow($entries);
             })
-            ->sortBy('project_code')
+            ->sortBy([
+                ['year', 'asc'],
+                ['week_number', 'asc'],
+                ['project_code', 'asc'],
+                ['total_hours', 'desc'],
+                ['employee_name', 'asc'],
+            ])
             ->values();
+    }
+
+    private function projectEmployeeSummaryRow($entries): array
+    {
+        $first = $entries->first();
+        $timesheet = $first['timesheet'];
+        $entry = $first['entry'];
+        $regular = (float) $entries->sum(fn ($item) => (float) $item['entry']->regular_hours);
+        $overtime = (float) $entries->sum(fn ($item) => (float) $item['entry']->overtime_hours);
+        $user = $timesheet->user;
+
+        return [
+            'week_number' => $timesheet->period->week_number,
+            'year' => $timesheet->period->year,
+            'week_start' => $timesheet->period->start_date,
+            'week_end' => $timesheet->period->end_date,
+            'project_id' => $entry->project_id,
+            'project_code' => $entry->project?->project_code ?? '-',
+            'project_name' => $entry->project?->project_name ?? 'Unknown Project',
+            'client_name' => $entry->project?->client_name ?? '',
+            'employee_id' => $user->employee_code ?? '',
+            'initials' => $user->initials ?: $this->initialsFromName($user->name),
+            'employee_name' => $user->name,
+            'regular_hours' => $regular,
+            'overtime_hours' => $overtime,
+            'total_hours' => $regular + $overtime,
+        ];
     }
 }

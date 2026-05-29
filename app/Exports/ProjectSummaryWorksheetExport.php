@@ -9,6 +9,7 @@ use Maatwebsite\Excel\Concerns\WithColumnWidths;
 use Maatwebsite\Excel\Concerns\WithEvents;
 use Maatwebsite\Excel\Concerns\WithTitle;
 use Maatwebsite\Excel\Events\AfterSheet;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
@@ -21,13 +22,16 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 
     public function title(): string
     {
-        return 'Project Summary';
+        return 'Project Weekly Summary';
     }
 
     public function view(): View
     {
         return view('exports.project_summary_excel', [
-            'rows' => $this->rows,
+            'groups' => $this->groups(),
+            'weeks' => $this->weeks($this->rows),
+            'grandTotalsByWeek' => $this->weekTotals($this->rows, $this->weeks($this->rows)),
+            'totalColumns' => $this->totalColumns(),
             'totalRegular' => $this->rows->sum('regular_hours'),
             'totalOvertime' => $this->rows->sum('overtime_hours'),
             'totalHours' => $this->rows->sum('total_hours'),
@@ -36,14 +40,17 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 
     public function columnWidths(): array
     {
-        return [
-            'A' => 16,
-            'B' => 62,
-            'C' => 22,
-            'D' => 16,
-            'E' => 16,
-            'F' => 16,
+        $widths = [
+            'A' => 22,
+            'B' => 12,
+            'C' => 34,
         ];
+
+        for ($column = 4; $column <= $this->totalColumns(); $column++) {
+            $widths[Coordinate::stringFromColumnIndex($column)] = 15;
+        }
+
+        return $widths;
     }
 
     public function registerEvents(): array
@@ -51,25 +58,21 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
         return [
             AfterSheet::class => function (AfterSheet $event): void {
                 $sheet = $event->sheet->getDelegate();
-                $lastRow = max(5, $this->rows->count() + 4);
+                $lastRow = $this->lastRow();
+                $lastColumn = $this->lastColumn();
 
                 $sheet->getDefaultRowDimension()->setRowHeight(20);
-                $sheet->getStyle("A1:F{$lastRow}")->getFont()->setName('Arial')->setSize(10);
-                $sheet->getStyle("A1:F{$lastRow}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle("A1:{$lastColumn}{$lastRow}")->getFont()->setName('Arial')->setSize(10);
+                $sheet->getStyle("A1:{$lastColumn}{$lastRow}")->getAlignment()->setVertical(Alignment::VERTICAL_CENTER);
+                $sheet->getStyle("A1:{$lastColumn}{$lastRow}")->getAlignment()->setWrapText(true);
 
-                $sheet->mergeCells('A1:F1');
-                $sheet->getStyle('A1:F1')->applyFromArray([
+                $sheet->mergeCells("A1:{$lastColumn}1");
+                $sheet->getStyle("A1:{$lastColumn}1")->applyFromArray([
                     'font' => ['bold' => true, 'size' => 14],
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);
 
-                $sheet->getStyle('A3:F3')->applyFromArray([
-                    'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
-                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF2E258B']],
-                    'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
-                ]);
-
-                $sheet->getStyle("A3:F{$lastRow}")->applyFromArray([
+                $sheet->getStyle("A3:{$lastColumn}{$lastRow}")->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -78,38 +81,249 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     ],
                 ]);
 
-                $sheet->getStyle("D4:F{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
-                $sheet->getStyle("A{$lastRow}:F{$lastRow}")->applyFromArray([
+                $sheet->getStyle("D3:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("A{$lastRow}:{$lastColumn}{$lastRow}")->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF4F4F4']],
                 ]);
 
-                foreach ($this->rows->values() as $index => $row) {
-                    $worksheetRow = $index + 4;
-                    $projectName = $this->wrapCellText((string) ($row['project_name'] ?? ''), 62);
-                    $clientName = $this->wrapCellText((string) ($row['client_name'] ?? ''), 22);
-                    $sheet->setCellValue("B{$worksheetRow}", $projectName);
-                    $sheet->setCellValue("C{$worksheetRow}", $clientName);
-
-                    $projectLineCount = substr_count($projectName, "\n") + 1;
-                    $clientLineCount = substr_count($clientName, "\n") + 1;
-                    $lineCount = max(
-                        1,
-                        $projectLineCount,
-                        $clientLineCount,
-                    );
-
-                    $sheet->getRowDimension($worksheetRow)->setRowHeight(max(20, $lineCount * 15));
+                foreach ($this->projectHeaderRows() as $rowNumber => $height) {
+                    $sheet->mergeCells("A{$rowNumber}:{$lastColumn}{$rowNumber}");
+                    $sheet->getRowDimension($rowNumber)->setRowHeight($height);
+                    $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
+                        'font' => ['bold' => true],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEEF6FF']],
+                        'alignment' => [
+                            'horizontal' => Alignment::HORIZONTAL_LEFT,
+                            'vertical' => Alignment::VERTICAL_TOP,
+                        ],
+                    ]);
                 }
 
-                $sheet->getStyle("B4:C{$lastRow}")->applyFromArray([
-                    'alignment' => [
-                        'wrapText' => true,
-                        'vertical' => Alignment::VERTICAL_TOP,
-                    ],
-                ]);
+                foreach ($this->weekHeaderRows() as $rowNumber) {
+                    $sheet->getRowDimension($rowNumber)->setRowHeight(36);
+                    $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
+                        'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFDBEAFE']],
+                        'alignment' => [
+                            'horizontal' => Alignment::HORIZONTAL_CENTER,
+                            'vertical' => Alignment::VERTICAL_CENTER,
+                            'wrapText' => true,
+                        ],
+                    ]);
+
+                    foreach ($this->weekColumnRanges() as [$startColumn, $endColumn]) {
+                        $sheet->mergeCells("{$startColumn}{$rowNumber}:{$endColumn}{$rowNumber}");
+                    }
+                }
+
+                foreach ($this->tableHeaderRows() as $rowNumber) {
+                    $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
+                        'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE5E7EB']],
+                        'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+                    ]);
+                }
+
+                foreach ($this->projectTotalRows() as $rowNumber) {
+                    $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
+                        'font' => ['bold' => true],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF1F5F9']],
+                    ]);
+                }
             },
         ];
+    }
+
+    private function groups(): Collection
+    {
+        return $this->rows
+            ->groupBy('project_id')
+            ->map(function (Collection $rows) {
+                $first = $rows->first();
+                $weeks = $this->weeks($this->rows);
+                $employees = $this->employees($rows, $weeks);
+
+                return [
+                    'project_code' => $first['project_code'],
+                    'project_name' => $this->wrapCellText((string) $first['project_name'], 96),
+                    'client_name' => $first['client_name'],
+                    'weeks' => $weeks,
+                    'employees' => $employees,
+                    'week_totals' => $this->weekTotals($rows, $weeks),
+                    'regular_hours' => $rows->sum('regular_hours'),
+                    'overtime_hours' => $rows->sum('overtime_hours'),
+                    'total_hours' => $rows->sum('total_hours'),
+                ];
+            })
+            ->sortBy('project_code')
+            ->values();
+    }
+
+    private function weeks(Collection $rows): Collection
+    {
+        return $rows
+            ->groupBy(fn (array $row) => $this->weekKey($row))
+            ->map(function (Collection $weekRows) {
+                $first = $weekRows->first();
+
+                return [
+                    'key' => $this->weekKey($first),
+                    'number' => $first['week_number'],
+                    'year' => $first['year'],
+                    'label' => 'Week '.$first['week_number'].', '.$first['year'],
+                    'dates' => $first['week_start']->format('d-M-y').' to '.$first['week_end']->format('d-M-y'),
+                ];
+            })
+            ->sortBy([
+                ['year', 'asc'],
+                ['number', 'asc'],
+            ])
+            ->values();
+    }
+
+    private function employees(Collection $rows, Collection $weeks): Collection
+    {
+        return $rows
+            ->groupBy(fn (array $row) => implode('|', [
+                $row['employee_id'],
+                $row['initials'],
+                $row['employee_name'],
+            ]))
+            ->map(function (Collection $employeeRows) use ($weeks) {
+                $first = $employeeRows->first();
+                $hoursByWeek = $employeeRows->keyBy(fn (array $row) => $this->weekKey($row));
+
+                return [
+                    'employee_id' => $first['employee_id'],
+                    'initials' => $first['initials'],
+                    'employee_name' => $first['employee_name'],
+                    'weeks' => $weeks->mapWithKeys(function (array $week) use ($hoursByWeek) {
+                        $row = $hoursByWeek->get($week['key']);
+
+                        return [$week['key'] => [
+                            'regular_hours' => $row['regular_hours'] ?? 0,
+                            'overtime_hours' => $row['overtime_hours'] ?? 0,
+                            'total_hours' => $row['total_hours'] ?? 0,
+                        ]];
+                    }),
+                    'total_hours' => $employeeRows->sum('total_hours'),
+                ];
+            })
+            ->sortBy([
+                ['total_hours', 'desc'],
+                ['employee_name', 'asc'],
+            ])
+            ->values();
+    }
+
+    private function weekTotals(Collection $rows, Collection $weeks): Collection
+    {
+        $rowsByWeek = $rows->groupBy(fn (array $row) => $this->weekKey($row));
+
+        return $weeks->mapWithKeys(function (array $week) use ($rowsByWeek) {
+            $weekRows = $rowsByWeek->get($week['key'], collect());
+
+            return [$week['key'] => [
+                'regular_hours' => $weekRows->sum('regular_hours'),
+                'overtime_hours' => $weekRows->sum('overtime_hours'),
+                'total_hours' => $weekRows->sum('total_hours'),
+            ]];
+        });
+    }
+
+    private function totalColumns(): int
+    {
+        $maxWeekCount = $this->weeks($this->rows)->count() ?: 1;
+
+        return max(6, 3 + ($maxWeekCount * 3));
+    }
+
+    private function lastColumn(): string
+    {
+        return Coordinate::stringFromColumnIndex($this->totalColumns());
+    }
+
+    private function lastRow(): int
+    {
+        if ($this->rows->isEmpty()) {
+            return 4;
+        }
+
+        return 3 + $this->groups()->sum(fn (array $group) => $group['employees']->count() + 5);
+    }
+
+    private function projectHeaderRows(): array
+    {
+        $rows = [];
+        $rowNumber = 3;
+
+        foreach ($this->groups() as $group) {
+            $lineCount = substr_count((string) $group['project_name'], "\n") + 1;
+            $clientLine = $group['client_name'] ? 1 : 0;
+            $rows[$rowNumber] = max(32, ($lineCount + $clientLine) * 16);
+            $rowNumber += $group['employees']->count() + 5;
+        }
+
+        return $rows;
+    }
+
+    private function weekHeaderRows(): array
+    {
+        $rows = [];
+        $rowNumber = 4;
+
+        foreach ($this->groups() as $group) {
+            $rows[] = $rowNumber;
+            $rowNumber += $group['employees']->count() + 5;
+        }
+
+        return $rows;
+    }
+
+    private function tableHeaderRows(): array
+    {
+        $rows = [];
+        $rowNumber = 5;
+
+        foreach ($this->groups() as $group) {
+            $rows[] = $rowNumber;
+            $rowNumber += $group['employees']->count() + 5;
+        }
+
+        return $rows;
+    }
+
+    private function projectTotalRows(): array
+    {
+        $rows = [];
+        $rowNumber = 3;
+
+        foreach ($this->groups() as $group) {
+            $rows[] = $rowNumber + $group['employees']->count() + 3;
+            $rowNumber += $group['employees']->count() + 5;
+        }
+
+        return $rows;
+    }
+
+    private function weekColumnRanges(): array
+    {
+        $ranges = [];
+
+        for ($column = 4; $column <= $this->totalColumns(); $column += 3) {
+            $ranges[] = [
+                Coordinate::stringFromColumnIndex($column),
+                Coordinate::stringFromColumnIndex($column + 2),
+            ];
+        }
+
+        return $ranges;
+    }
+
+    private function weekKey(array $row): string
+    {
+        return $row['year'].'-'.$row['week_number'].'-'.$row['week_start']->toDateString();
     }
 
     private function wrapCellText(string $value, int $width): string
