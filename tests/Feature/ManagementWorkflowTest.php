@@ -3,12 +3,14 @@
 namespace Tests\Feature;
 
 use App\Models\AutomationSetting;
+use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\Project;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -331,5 +333,77 @@ class ManagementWorkflowTest extends TestCase
         $this->actingAs($superAdmin)->get(route('manage.periods.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.automations.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.audit-logs.index'))->assertOk();
+    }
+
+    public function test_super_admin_can_download_filtered_audit_logs_excel_export(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $user = $this->userWithRole('employee', [
+            'name' => '=Formula Guard',
+            'email' => 'formula.guard@example.com',
+        ]);
+
+        $matchingLog = AuditLog::create([
+            'user_id' => $user->id,
+            'action' => 'user_updated',
+            'auditable_type' => User::class,
+            'auditable_id' => $user->id,
+            'old_values' => ['name' => 'Old Name'],
+            'new_values' => ['name' => '=Formula Guard', 'notes' => str_repeat('A', 40000)],
+            'ip_address' => '127.0.0.1',
+        ]);
+        $matchingLog->forceFill([
+            'created_at' => '2026-05-15 10:30:00',
+            'updated_at' => '2026-05-15 10:30:00',
+        ])->save();
+
+        $otherLog = AuditLog::create([
+            'user_id' => null,
+            'action' => 'project_created',
+            'auditable_type' => Project::class,
+            'auditable_id' => 999,
+            'old_values' => null,
+            'new_values' => ['project_code' => 'P999'],
+            'ip_address' => null,
+        ]);
+        $otherLog->forceFill([
+            'created_at' => '2026-05-16 09:00:00',
+            'updated_at' => '2026-05-16 09:00:00',
+        ])->save();
+
+        $response = $this->actingAs($superAdmin)->get(route('manage.audit-logs.export', [
+            'action' => 'user_updated',
+            'user_id' => $user->id,
+            'date_from' => '2026-05-15',
+            'date_to' => '2026-05-15',
+        ]));
+
+        $response->assertOk();
+        $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $sheet = $spreadsheet->getActiveSheet();
+
+        $this->assertSame('Date', $sheet->getCell('A1')->getValue());
+        $this->assertSame("'=Formula Guard", $sheet->getCell('B2')->getValue());
+        $this->assertSame('formula.guard@example.com', $sheet->getCell('C2')->getValue());
+        $this->assertSame('user_updated', $sheet->getCell('D2')->getValue());
+        $this->assertSame('User', $sheet->getCell('E2')->getValue());
+        $this->assertStringContainsString('[truncated]', $sheet->getCell('H2')->getValue());
+        $this->assertNull($sheet->getCell('A3')->getValue());
+    }
+
+    public function test_audit_log_export_rejects_invalid_date_ranges(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.audit-logs.index'))
+            ->get(route('manage.audit-logs.export', [
+                'date_from' => '2026-05-20',
+                'date_to' => '2026-05-10',
+            ]))
+            ->assertRedirect(route('manage.audit-logs.index'))
+            ->assertSessionHasErrors('date_to');
     }
 }

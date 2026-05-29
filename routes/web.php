@@ -65,5 +65,6 @@ Route::middleware('auth')->group(function () {
         Route::get('automations', [AutomationSettingController::class, 'index'])->name('automations.index');
         Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->name('automations.toggle');
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
+        Route::get('audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
     });
 });

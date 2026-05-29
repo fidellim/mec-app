@@ -6,6 +6,7 @@
         <h1 class="h3 page-heading mb-1">Audit Logs</h1>
         <div class="text-muted">Review important user, project, department, and timesheet actions.</div>
     </div>
+    <a class="btn btn-outline-success" href="{{ route('manage.audit-logs.export', request()->only(['action', 'user_id', 'date_from', 'date_to'])) }}">Export Excel</a>
 </div>
 
 <form class="filter-card mb-3 row g-2">
@@ -16,6 +17,9 @@
                 <option value="{{ $action }}" @selected(request('action') === $action)>{{ str_replace('_', ' ', ucfirst($action)) }}</option>
             @endforeach
         </select>
+        @error('action')
+            <div class="text-danger small mt-1">{{ $message }}</div>
+        @enderror
     </div>
     <div class="col-md-3">
         <select class="form-select" name="user_id">
@@ -24,12 +28,21 @@
                 <option value="{{ $user->id }}" @selected(request('user_id') == $user->id)>{{ $user->name }}</option>
             @endforeach
         </select>
+        @error('user_id')
+            <div class="text-danger small mt-1">{{ $message }}</div>
+        @enderror
     </div>
     <div class="col-md-2">
         <input class="form-control" type="date" name="date_from" value="{{ request('date_from') }}">
+        @error('date_from')
+            <div class="text-danger small mt-1">{{ $message }}</div>
+        @enderror
     </div>
     <div class="col-md-2">
         <input class="form-control" type="date" name="date_to" value="{{ request('date_to') }}">
+        @error('date_to')
+            <div class="text-danger small mt-1">{{ $message }}</div>
+        @enderror
     </div>
     <div class="col-md-2 d-flex gap-2">
         <button class="btn btn-primary flex-fill">Filter</button>
