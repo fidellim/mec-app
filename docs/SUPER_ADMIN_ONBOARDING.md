@@ -25,7 +25,7 @@ Super Admins can access:
 | ![Projects](/images/sidebar/projects.svg) **Projects** | Maintain project/job numbers used in timesheets. |
 | ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Weekly Periods** | Open or close weekly submission windows. |
 | ![Automations](/images/sidebar/automations.svg) **Automations** | Enable or disable scheduled background jobs. |
-| ![Audit Logs](/images/sidebar/audit-logs.svg) **Audit Logs** | Review important system actions. |
+| ![Audit Logs](/images/sidebar/audit-logs.svg) **Audit Logs** | Review, export, and clean up important system actions. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
 ## Timesheet Statuses
@@ -161,6 +161,16 @@ Use **Audit Logs** to review important actions such as:
 - Missing timesheet reminders.
 
 Audit logs can be filtered by action, user, and date range. Some logs include expandable before/after details.
+
+Use **Export Excel** to download an Excel file of audit logs using the current filters.
+
+To clean up stored audit logs:
+
+1. Select individual log checkboxes, or use the page checkbox to select all logs visible on the current page.
+2. Select **Delete Selected** and confirm in the modal.
+3. To delete every log matching the current filters, tick **I understand this permanently deletes all matching logs**, select **Delete All Matching Filters**, and confirm in the modal.
+
+Only Super Admin users can delete audit logs.
 
 ## All Timesheets And Export
 

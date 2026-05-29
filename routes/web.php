@@ -66,5 +66,7 @@ Route::middleware('auth')->group(function () {
         Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->name('automations.toggle');
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
         Route::get('audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
+        Route::delete('audit-logs/selected', [AuditLogController::class, 'destroySelected'])->name('audit-logs.destroy-selected');
+        Route::delete('audit-logs/matching', [AuditLogController::class, 'destroyMatching'])->name('audit-logs.destroy-matching');
     });
 });

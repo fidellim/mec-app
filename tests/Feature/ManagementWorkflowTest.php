@@ -406,4 +406,229 @@ class ManagementWorkflowTest extends TestCase
             ->assertRedirect(route('manage.audit-logs.index'))
             ->assertSessionHasErrors('date_to');
     }
+
+    public function test_super_admin_can_delete_one_selected_audit_log(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $selected = $this->auditLog(['action' => 'user_updated']);
+        $unselected = $this->auditLog(['action' => 'project_created']);
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.audit-logs.index', ['action' => 'user_updated']))
+            ->delete(route('manage.audit-logs.destroy-selected'), [
+                'audit_log_ids' => [$selected->id],
+                'action' => 'user_updated',
+            ])
+            ->assertRedirect(route('manage.audit-logs.index', ['action' => 'user_updated']))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('audit_logs', ['id' => $selected->id]);
+        $this->assertDatabaseHas('audit_logs', ['id' => $unselected->id]);
+    }
+
+    public function test_super_admin_can_bulk_delete_selected_audit_logs(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $first = $this->auditLog(['action' => 'user_updated']);
+        $second = $this->auditLog(['action' => 'department_updated']);
+        $unselected = $this->auditLog(['action' => 'project_created']);
+
+        $this->actingAs($superAdmin)
+            ->delete(route('manage.audit-logs.destroy-selected'), [
+                'audit_log_ids' => [$first->id, $second->id],
+            ])
+            ->assertRedirect(route('manage.audit-logs.index'))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('audit_logs', ['id' => $first->id]);
+        $this->assertDatabaseMissing('audit_logs', ['id' => $second->id]);
+        $this->assertDatabaseHas('audit_logs', ['id' => $unselected->id]);
+    }
+
+    public function test_deleting_selected_audit_logs_preserves_unselected_logs(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $selected = $this->auditLog(['action' => 'timesheet_submitted']);
+        $unselected = $this->auditLog(['action' => 'timesheet_approved']);
+
+        $this->actingAs($superAdmin)
+            ->delete(route('manage.audit-logs.destroy-selected'), [
+                'audit_log_ids' => [$selected->id],
+            ])
+            ->assertRedirect(route('manage.audit-logs.index'));
+
+        $this->assertDatabaseMissing('audit_logs', ['id' => $selected->id]);
+        $this->assertDatabaseHas('audit_logs', [
+            'id' => $unselected->id,
+            'action' => 'timesheet_approved',
+        ]);
+    }
+
+    public function test_invalid_audit_log_ids_are_rejected_without_partial_delete(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $validLog = $this->auditLog(['action' => 'user_updated']);
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.audit-logs.index'))
+            ->delete(route('manage.audit-logs.destroy-selected'), [
+                'audit_log_ids' => [$validLog->id, 999999],
+            ])
+            ->assertRedirect(route('manage.audit-logs.index'))
+            ->assertSessionHasErrors('audit_log_ids.1');
+
+        $this->assertDatabaseHas('audit_logs', ['id' => $validLog->id]);
+    }
+
+    public function test_admin_and_employee_cannot_delete_audit_logs(): void
+    {
+        $log = $this->auditLog(['action' => 'user_updated']);
+
+        foreach (['admin', 'employee'] as $role) {
+            $user = $this->userWithRole($role);
+
+            $this->actingAs($user)
+                ->delete(route('manage.audit-logs.destroy-selected'), [
+                    'audit_log_ids' => [$log->id],
+                ])
+                ->assertForbidden();
+
+            $this->actingAs($user)
+                ->delete(route('manage.audit-logs.destroy-matching'), [
+                    'action' => 'user_updated',
+                    'confirm_delete_matching' => '1',
+                ])
+                ->assertForbidden();
+        }
+
+        $this->assertDatabaseHas('audit_logs', ['id' => $log->id]);
+    }
+
+    public function test_delete_all_matching_filters_only_deletes_filtered_audit_logs(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $matchingUser = $this->userWithRole('employee');
+        $matching = $this->auditLog([
+            'user_id' => $matchingUser->id,
+            'action' => 'timesheet_missing_reminder_sent',
+            'created_at' => '2026-05-10 08:00:00',
+            'updated_at' => '2026-05-10 08:00:00',
+        ]);
+        $differentAction = $this->auditLog([
+            'user_id' => $matchingUser->id,
+            'action' => 'timesheet_submitted',
+            'created_at' => '2026-05-10 09:00:00',
+            'updated_at' => '2026-05-10 09:00:00',
+        ]);
+        $differentUser = $this->auditLog([
+            'action' => 'timesheet_missing_reminder_sent',
+            'created_at' => '2026-05-10 10:00:00',
+            'updated_at' => '2026-05-10 10:00:00',
+        ]);
+        $differentDate = $this->auditLog([
+            'user_id' => $matchingUser->id,
+            'action' => 'timesheet_missing_reminder_sent',
+            'created_at' => '2026-05-11 08:00:00',
+            'updated_at' => '2026-05-11 08:00:00',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->delete(route('manage.audit-logs.destroy-matching'), [
+                'action' => 'timesheet_missing_reminder_sent',
+                'user_id' => $matchingUser->id,
+                'date_from' => '2026-05-10',
+                'date_to' => '2026-05-10',
+                'confirm_delete_matching' => '1',
+            ])
+            ->assertRedirect(route('manage.audit-logs.index', [
+                'action' => 'timesheet_missing_reminder_sent',
+                'user_id' => $matchingUser->id,
+                'date_from' => '2026-05-10',
+                'date_to' => '2026-05-10',
+            ]))
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseMissing('audit_logs', ['id' => $matching->id]);
+        $this->assertDatabaseHas('audit_logs', ['id' => $differentAction->id]);
+        $this->assertDatabaseHas('audit_logs', ['id' => $differentUser->id]);
+        $this->assertDatabaseHas('audit_logs', ['id' => $differentDate->id]);
+    }
+
+    public function test_empty_audit_log_selection_returns_validation_error(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.audit-logs.index'))
+            ->delete(route('manage.audit-logs.destroy-selected'), [
+                'audit_log_ids' => [],
+            ])
+            ->assertRedirect(route('manage.audit-logs.index'))
+            ->assertSessionHasErrors('audit_log_ids');
+    }
+
+    public function test_delete_matching_requires_explicit_confirmation(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $log = $this->auditLog(['action' => 'user_updated']);
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.audit-logs.index', ['action' => 'user_updated']))
+            ->delete(route('manage.audit-logs.destroy-matching'), [
+                'action' => 'user_updated',
+            ])
+            ->assertRedirect(route('manage.audit-logs.index', ['action' => 'user_updated']))
+            ->assertSessionHasErrors('confirm_delete_matching');
+
+        $this->assertDatabaseHas('audit_logs', ['id' => $log->id]);
+    }
+
+    public function test_audit_log_delete_redirect_preserves_filters_and_page(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $log = $this->auditLog(['action' => 'user_updated']);
+
+        $this->actingAs($superAdmin)
+            ->delete(route('manage.audit-logs.destroy-selected'), [
+                'audit_log_ids' => [$log->id],
+                'action' => 'user_updated',
+                'date_from' => '2026-05-01',
+                'date_to' => '2026-05-31',
+                'page' => 2,
+            ])
+            ->assertRedirect(route('manage.audit-logs.index', [
+                'action' => 'user_updated',
+                'date_from' => '2026-05-01',
+                'date_to' => '2026-05-31',
+                'page' => 2,
+            ]));
+    }
+
+    private function auditLog(array $attributes = []): AuditLog
+    {
+        $attributes = array_merge([
+            'user_id' => null,
+            'action' => 'user_updated',
+            'auditable_type' => User::class,
+            'auditable_id' => null,
+            'old_values' => null,
+            'new_values' => ['changed' => true],
+            'ip_address' => '127.0.0.1',
+        ], $attributes);
+
+        $createdAt = $attributes['created_at'] ?? null;
+        $updatedAt = $attributes['updated_at'] ?? $createdAt;
+        unset($attributes['created_at'], $attributes['updated_at']);
+
+        $log = AuditLog::create($attributes);
+
+        if ($createdAt || $updatedAt) {
+            $log->forceFill([
+                'created_at' => $createdAt ?? $log->created_at,
+                'updated_at' => $updatedAt ?? $log->updated_at,
+            ])->save();
+        }
+
+        return $log;
+    }
 }

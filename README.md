@@ -53,7 +53,7 @@ password123
 ## Role Permissions
 
 - Super Admin: manage users, departments, projects/job numbers, weekly periods, view all timesheets, approve or reject submitted records if needed, and export. Super Admin cannot approve or reject their own timesheet.
-- Super Admin can also manage scheduled automation controls and view audit logs for important system and timesheet actions.
+- Super Admin can also manage scheduled automation controls, view audit logs for important system and timesheet actions, export audit logs to Excel, and delete audit logs when database cleanup is needed.
 - Employee numbers are manually entered by Super Admin and must follow `MEC-HR-YYYY-NNN`, `MCE-HR-YYYY-NNN`, or `MEC-PHIL-HR-YYYY-NNN`; the final number must be at least 3 digits and can grow beyond 999.
 - Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
 - Admin: view all timesheets, filter records, monitor dashboard summaries, export, and approve or reject Head of Department timesheets. Admin cannot approve or reject their own timesheet.
@@ -121,6 +121,16 @@ Automation runs write audit log actions so Super Admins can see whether schedule
 | Missing Timesheet Reminders | `timesheet_missing_reminder_sent` | One reminder email was sent to one employee. This can appear multiple times in a successful reminder run. |
 | Automation Controls | `automation_enabled` | A Super Admin enabled an automation from Manage Automations. |
 | Automation Controls | `automation_disabled` | A Super Admin disabled an automation from Manage Automations. |
+
+## Audit Logs
+
+Super Admin users can review audit logs from **Manage Audit Logs**.
+
+- Audit logs can be filtered by action, user, and date range.
+- **Export Excel** downloads an `.xlsx` file using the current audit-log filters.
+- Use row checkboxes and **Delete Selected** to manually remove selected logs from the current page.
+- Use **Delete All Matching Filters** to remove every audit log matching the current filters. This action requires the explicit acknowledgement checkbox and confirmation modal before the request is submitted.
+- Audit log deletion is restricted to Super Admin users.
 
 ## Main Workflow
 

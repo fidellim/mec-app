@@ -39,6 +39,37 @@ class AuditLogController extends Controller
         return Excel::download(new AuditLogsExport($this->query($filters)->latest()), $fileName, ExcelWriter::XLSX);
     }
 
+    public function destroySelected(Request $request)
+    {
+        $filters = $this->validatedFilters($request);
+        $data = $request->validate([
+            'audit_log_ids' => ['required', 'array', 'min:1'],
+            'audit_log_ids.*' => ['integer', Rule::exists('audit_logs', 'id')],
+        ]);
+
+        $deleted = AuditLog::query()
+            ->whereIn('id', array_unique($data['audit_log_ids']))
+            ->delete();
+
+        return redirect()
+            ->route('manage.audit-logs.index', $this->redirectParameters($request, $filters))
+            ->with('success', $deleted.' audit '.str('log')->plural($deleted).' deleted.');
+    }
+
+    public function destroyMatching(Request $request)
+    {
+        $filters = $this->validatedFilters($request);
+        $request->validate([
+            'confirm_delete_matching' => ['required', 'accepted'],
+        ]);
+
+        $deleted = $this->query($filters)->delete();
+
+        return redirect()
+            ->route('manage.audit-logs.index', $this->redirectParameters($request, $filters))
+            ->with('success', $deleted.' matching audit '.str('log')->plural($deleted).' deleted.');
+    }
+
     private function query(array $filters): Builder
     {
         return AuditLog::query()
@@ -52,10 +83,17 @@ class AuditLogController extends Controller
     private function validatedFilters(Request $request): array
     {
         return $request->validate([
-            'action' => ['nullable', 'string', 'max:255', Rule::exists('audit_logs', 'action')],
+            'action' => ['nullable', 'string', 'max:255'],
             'user_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
         ]);
+    }
+
+    private function redirectParameters(Request $request, array $filters): array
+    {
+        $page = $request->integer('page');
+
+        return $page > 1 ? array_merge($filters, ['page' => $page]) : $filters;
     }
 }
