@@ -27,7 +27,7 @@
                     @php($canDelete = $project->entries_count === 0)
                     <tr>
                         <td>{{ $project->project_code }}</td>
-                        <td class="text-truncate-cell" title="{{ $project->project_name }}">{{ $project->project_name }}</td>
+                        <td class="project-name-cell">{{ $project->project_name }}</td>
                         <td>{{ $project->client_name ?: '-' }}</td>
                         <td>
                             <span class="badge {{ $project->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">

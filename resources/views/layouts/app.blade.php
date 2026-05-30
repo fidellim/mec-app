@@ -376,6 +376,7 @@
         .table > :not(caption) > * > * { vertical-align: middle; }
         .table-fixed { table-layout: fixed; }
         .text-truncate-cell { max-width: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .project-name-cell { white-space: normal; overflow-wrap: anywhere; word-break: normal; line-height: 1.45; }
         .project-select { width: 18rem; max-width: 100%; }
         .attendance-select { width: 13rem; max-width: 100%; }
         .timesheet-entry-table th, .timesheet-entry-table td { white-space: nowrap; }
