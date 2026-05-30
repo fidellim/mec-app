@@ -187,10 +187,13 @@ Use **All Timesheets** to filter, review, and export records.
 
 The export includes:
 
-- A project summary worksheet.
-- Individual employee weekly timesheet worksheets.
+- A **Project Weekly Summary** worksheet for project-chargeable hours.
+- An **Attendance Code Summary** worksheet for leave and other non-project hours.
+- Optional individual employee weekly timesheet worksheets.
 - Employee job title where available, or `-` when blank.
 - Regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks.
+
+Use the Attendance Code Summary to reconcile payroll/manhour totals with project totals when employees submit leave codes without a project/job number.
 
 ## Approval Rules
 

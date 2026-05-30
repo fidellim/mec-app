@@ -140,12 +140,13 @@ Super Admin users can review audit logs from **Manage Audit Logs**.
 2. Employee selects an open weekly period and creates one timesheet for that period.
 3. Employee enters daily rows against project/job numbers.
 4. A day can contain multiple project rows, including overtime-only rows after normal working hours.
-5. Employee saves as draft or submits.
-6. Submitted timesheets are locked for the employee.
-7. Employee can recall a submitted timesheet before Head of Department action, returning it to draft for correction.
-8. Head of Department approves or rejects department timesheets.
-9. Rejected timesheets show the rejection comment and become editable by the employee.
-10. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
+5. Leave attendance codes can carry regular hours without a project/job number, but cannot carry overtime.
+6. Employee saves as draft or submits.
+7. Submitted timesheets are locked for the employee.
+8. Employee can recall a submitted timesheet before Head of Department action, returning it to draft for correction.
+9. Head of Department approves or rejects department timesheets.
+10. Rejected timesheets show the rejection comment and become editable by the employee.
+11. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
 
 ## Open Period Rules
 
@@ -214,7 +215,8 @@ Project filter behavior:
 The exported workbook contains:
 
 1. **Project Weekly Summary**
-2. Optional individual employee timesheet worksheets
+2. **Attendance Code Summary**
+3. Optional individual employee timesheet worksheets
 
 The **Project Weekly Summary** worksheet is grouped by project. Each project group shows employees down the rows and weekly periods across the columns. Each week header is merged above its Regular, Overtime, and Total hour columns and is sized to show both the week number and date range. If an employee logged hours for the project in one exported week but not another, the missing week columns show `0.00`.
 
@@ -235,7 +237,9 @@ Each project group shows:
 
 The bottom of the summary contains a grand total row. Grand totals are calculated for every exported week column group, so exports with Week 12 through Week 15 show separate Regular, Overtime, and Total grand totals for each week.
 
-By default, the export includes only the **Project Weekly Summary** worksheet. This keeps project reports faster to generate and easier to review.
+The **Attendance Code Summary** worksheet lists leave and other non-project hours from the exported timesheets. It includes week, employee, department, job title, attendance code, attendance label, project/job if present, regular hours, overtime hours, total hours, and status. This worksheet explains why payroll/manhour totals may be higher than project-chargeable totals when employees have annual leave, sick leave, emergency leave, unpaid leave, paid holiday leave, maternity leave, paternity leave, compassionate leave, or other non-project hours.
+
+By default, the export includes the **Project Weekly Summary** and **Attendance Code Summary** worksheets. This keeps project reports faster to generate and still gives stakeholders the non-project hour context needed for reconciliation.
 
 If `Include individual employee timesheet sheets` is selected, the workbook also includes one worksheet per exported employee timesheet. These detail worksheets mirror the weekly timesheet layout: employee details including job title, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
 

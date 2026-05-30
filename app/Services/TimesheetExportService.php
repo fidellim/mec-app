@@ -25,9 +25,10 @@ class TimesheetExportService
             ? $timesheets->map(fn (Timesheet $timesheet) => $this->buildWorksheet($timesheet))
             : collect();
         $projectWeeklySummary = $this->buildProjectWeeklySummary($timesheets, $filters['project_id'] ?? null);
+        $attendanceSummary = $this->buildAttendanceSummary($timesheets);
         $fileName = 'employee_weekly_timesheets_'.now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $includeEmployeeSheets), $fileName, ExcelWriter::XLSX);
+        return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $attendanceSummary, $includeEmployeeSheets), $fileName, ExcelWriter::XLSX);
     }
 
     public function csv(array $filters): StreamedResponse
@@ -243,5 +244,67 @@ class TimesheetExportService
             'overtime_hours' => $overtime,
             'total_hours' => $regular + $overtime,
         ];
+    }
+
+    private function buildAttendanceSummary($timesheets)
+    {
+        $leaveCodes = config('timesheet.leave_attendance_codes', []);
+        $attendanceLabels = config('timesheet.attendance_codes', []);
+
+        return $timesheets
+            ->flatMap(fn (Timesheet $timesheet) => $timesheet->entries->map(fn ($entry) => [
+                'timesheet' => $timesheet,
+                'entry' => $entry,
+            ]))
+            ->filter(function ($row) use ($leaveCodes) {
+                $entry = $row['entry'];
+                $hasHours = (float) $entry->regular_hours > 0 || (float) $entry->overtime_hours > 0;
+                $isLeaveCode = in_array($entry->attendance_code, $leaveCodes, true);
+
+                return $hasHours && ($isLeaveCode || ! $entry->project_id);
+            })
+            ->groupBy(fn ($row) => implode('|', [
+                $row['timesheet']->timesheet_period_id,
+                $row['timesheet']->user_id,
+                $row['entry']->attendance_code ?: '-',
+                $row['entry']->project_id ?: '-',
+                $row['timesheet']->status,
+            ]))
+            ->map(function ($rows) use ($attendanceLabels) {
+                $first = $rows->first();
+                $timesheet = $first['timesheet'];
+                $entry = $first['entry'];
+                $user = $timesheet->user;
+                $regular = (float) $rows->sum(fn ($row) => (float) $row['entry']->regular_hours);
+                $overtime = (float) $rows->sum(fn ($row) => (float) $row['entry']->overtime_hours);
+                $attendanceCode = $entry->attendance_code ?: '-';
+
+                return [
+                    'week_number' => $timesheet->period->week_number,
+                    'year' => $timesheet->period->year,
+                    'week_start' => $timesheet->period->start_date,
+                    'week_end' => $timesheet->period->end_date,
+                    'employee_id' => $user->employee_code ?? '',
+                    'initials' => $user->initials ?: $this->initialsFromName($user->name),
+                    'employee_name' => $user->name,
+                    'department_name' => $timesheet->department->name,
+                    'job_title' => $user->job_title ?: '-',
+                    'attendance_code' => $attendanceCode,
+                    'attendance_label' => $attendanceLabels[$attendanceCode] ?? 'Uncoded non-project hours',
+                    'project_code' => $entry->project?->project_code ?? 'Non-project',
+                    'regular_hours' => $regular,
+                    'overtime_hours' => $overtime,
+                    'total_hours' => $regular + $overtime,
+                    'status' => $timesheet->status,
+                ];
+            })
+            ->sortBy([
+                ['year', 'asc'],
+                ['week_number', 'asc'],
+                ['employee_name', 'asc'],
+                ['attendance_code', 'asc'],
+                ['project_code', 'asc'],
+            ])
+            ->values();
     }
 }

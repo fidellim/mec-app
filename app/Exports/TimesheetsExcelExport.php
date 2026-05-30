@@ -10,6 +10,7 @@ class TimesheetsExcelExport implements WithMultipleSheets
     public function __construct(
         private readonly Collection $worksheets,
         private readonly ?Collection $projectWeeklySummaryRows = null,
+        private readonly ?Collection $attendanceSummaryRows = null,
         private readonly bool $includeEmployeeSheets = false
     ) {
     }
@@ -18,6 +19,7 @@ class TimesheetsExcelExport implements WithMultipleSheets
     {
         $sheets = [
             new ProjectSummaryWorksheetExport($this->projectWeeklySummaryRows ?? collect()),
+            new AttendanceSummaryWorksheetExport($this->attendanceSummaryRows ?? collect()),
         ];
 
         if (! $this->includeEmployeeSheets || $this->worksheets->isEmpty()) {

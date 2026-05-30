@@ -168,8 +168,9 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
-        $this->assertSame(1, $spreadsheet->getSheetCount());
+        $this->assertSame(2, $spreadsheet->getSheetCount());
         $this->assertSame('Project Weekly Summary', $spreadsheet->getSheet(0)->getTitle());
+        $this->assertSame('Attendance Code Summary', $spreadsheet->getSheet(1)->getTitle());
     }
 
     public function test_admin_can_include_individual_employee_sheets_in_excel_export(): void
@@ -191,9 +192,9 @@ class AdminExportWorkflowTest extends TestCase
         $response->assertOk();
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
-        $this->assertSame(2, $spreadsheet->getSheetCount());
-        $this->assertSame('ZX', $spreadsheet->getSheet(1)->getCell('B4')->getValue());
-        $this->assertSame('Project Engineer', $spreadsheet->getSheet(1)->getCell('K5')->getValue());
+        $this->assertSame(3, $spreadsheet->getSheetCount());
+        $this->assertSame('ZX', $spreadsheet->getSheet(2)->getCell('B4')->getValue());
+        $this->assertSame('Project Engineer', $spreadsheet->getSheet(2)->getCell('K5')->getValue());
     }
 
     public function test_excel_export_includes_grouped_project_weekly_summary_sheet(): void
@@ -282,7 +283,7 @@ class AdminExportWorkflowTest extends TestCase
         $weekly = $spreadsheet->getSheet(0);
 
         $this->assertSame('Project Weekly Summary', $weekly->getTitle());
-        $this->assertSame(1, $spreadsheet->getSheetCount());
+        $this->assertSame(2, $spreadsheet->getSheetCount());
         $this->assertTrue($weekly->getStyle('A3')->getAlignment()->getWrapText());
         $this->assertGreaterThan(20, $weekly->getRowDimension(3)->getRowHeight());
         $this->assertSame(34.0, $weekly->getColumnDimension('C')->getWidth());
@@ -332,6 +333,92 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(12, $weekly->getCell('J16')->getCalculatedValue());
     }
 
+    public function test_excel_export_includes_attendance_summary_for_leave_and_non_project_hours(): void
+    {
+        $department = $this->department(['name' => 'Engineering']);
+        $period = $this->openPeriod();
+        $project = $this->project(['project_code' => 'P400']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Leave User',
+            'employee_code' => 'EMP-004',
+            'initials' => 'LU',
+            'job_title' => 'Designer',
+        ]);
+        $timesheet = $this->submittedTimesheet($employee, $period, $project, ['status' => 'approved']);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-12',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'L100',
+            'project_id' => null,
+            'regular_hours' => 8,
+            'overtime_hours' => 0,
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-13',
+            'day_name' => 'Wednesday',
+            'attendance_code' => 'L140',
+            'project_id' => null,
+            'regular_hours' => 4,
+            'overtime_hours' => 0,
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-14',
+            'day_name' => 'Thursday',
+            'attendance_code' => 'O100',
+            'project_id' => null,
+            'regular_hours' => 2,
+            'overtime_hours' => 1,
+        ]);
+
+        $admin = $this->userWithRole('admin');
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'week_number' => 20,
+            'year' => 2026,
+        ]));
+
+        $response->assertOk();
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $projectSummary = $spreadsheet->getSheet(0);
+        $attendanceSummary = $spreadsheet->getSheet(1);
+
+        $this->assertSame('Attendance Code Summary', $attendanceSummary->getTitle());
+        $this->assertEquals(8, $projectSummary->getCell('E6')->getCalculatedValue());
+        $this->assertEquals(8, $projectSummary->getCell('G6')->getCalculatedValue());
+
+        $this->assertSame('Week 20, 2026', $attendanceSummary->getCell('A4')->getValue());
+        $this->assertSame('EMP-004', $attendanceSummary->getCell('C4')->getValue());
+        $this->assertSame('LU', $attendanceSummary->getCell('D4')->getValue());
+        $this->assertSame('Leave User', $attendanceSummary->getCell('E4')->getValue());
+        $this->assertSame('Engineering', $attendanceSummary->getCell('F4')->getValue());
+        $this->assertSame('Designer', $attendanceSummary->getCell('G4')->getValue());
+        $this->assertSame('L100', $attendanceSummary->getCell('H4')->getValue());
+        $this->assertSame('Annual Leave', $attendanceSummary->getCell('I4')->getValue());
+        $this->assertSame('Non-project', $attendanceSummary->getCell('J4')->getValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('K4')->getCalculatedValue());
+        $this->assertEquals(0, $attendanceSummary->getCell('L4')->getCalculatedValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('M4')->getCalculatedValue());
+
+        $this->assertSame('L140', $attendanceSummary->getCell('H5')->getValue());
+        $this->assertSame('Paid Holiday Leave', $attendanceSummary->getCell('I5')->getValue());
+        $this->assertEquals(4, $attendanceSummary->getCell('K5')->getCalculatedValue());
+        $this->assertSame('O100', $attendanceSummary->getCell('H6')->getValue());
+        $this->assertSame('Office', $attendanceSummary->getCell('I6')->getValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('K6')->getCalculatedValue());
+        $this->assertEquals(1, $attendanceSummary->getCell('L6')->getCalculatedValue());
+        $this->assertSame('Grand Total', $attendanceSummary->getCell('A7')->getValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('K7')->getCalculatedValue());
+        $this->assertEquals(1, $attendanceSummary->getCell('L7')->getCalculatedValue());
+        $this->assertEquals(15, $attendanceSummary->getCell('M7')->getCalculatedValue());
+    }
+
     public function test_excel_project_summaries_ignore_entries_without_project_or_hours(): void
     {
         $department = $this->department();
@@ -379,7 +466,11 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('No project hours found for the selected filters.', $spreadsheet->getSheet(0)->getCell('A3')->getValue());
         $this->assertSame('Grand Total', $spreadsheet->getSheet(0)->getCell('A4')->getValue());
         $this->assertEquals(0, $spreadsheet->getSheet(0)->getCell('E4')->getCalculatedValue());
-        $this->assertSame('No Hours W20', $spreadsheet->getSheet(1)->getTitle());
+        $this->assertSame('Attendance Code Summary', $spreadsheet->getSheet(1)->getTitle());
+        $this->assertSame('O100', $spreadsheet->getSheet(1)->getCell('H4')->getValue());
+        $this->assertSame('Non-project', $spreadsheet->getSheet(1)->getCell('J4')->getValue());
+        $this->assertEquals(8, $spreadsheet->getSheet(1)->getCell('K4')->getCalculatedValue());
+        $this->assertSame('No Hours W20', $spreadsheet->getSheet(2)->getTitle());
     }
 
     public function test_admin_can_filter_and_export_project_summary_by_project_and_week_range(): void
@@ -448,7 +539,7 @@ class AdminExportWorkflowTest extends TestCase
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
         $weekly = $spreadsheet->getSheet(0);
-        $this->assertSame(1, $spreadsheet->getSheetCount());
+        $this->assertSame(2, $spreadsheet->getSheetCount());
 
         $this->assertStringContainsString('PX-100 - Selected Project', $weekly->getCell('A3')->getValue());
         $this->assertStringContainsString('Week 12, 2026', $weekly->getCell('E4')->getValue());

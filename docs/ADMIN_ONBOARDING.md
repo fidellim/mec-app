@@ -108,6 +108,7 @@ Week range rules:
 The export includes:
 
 - A **Project Weekly Summary** worksheet grouped by project with exported weeks shown as columns.
+- An **Attendance Code Summary** worksheet for leave and other non-project hours.
 - Optional individual employee weekly timesheet worksheets.
 - Employee ID, initials, employee name, job title, weekly regular hours, weekly overtime hours, weekly total hours, and project totals in the summary.
 - Job title, regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks in the individual timesheet worksheets.
@@ -116,7 +117,9 @@ In the summary, each project appears once, employees are listed down the rows, a
 
 The bottom **Grand Total** row also follows the week columns, so every exported week has its own regular, overtime, and total grand totals.
 
-By default, the export only includes the **Project Weekly Summary** worksheet. Select **Include individual employee timesheet sheets** when the workbook also needs one detailed worksheet per employee timesheet.
+The **Attendance Code Summary** shows leave and non-project hours separately from project-chargeable hours. Use it to reconcile payroll/manhour totals with the Project Weekly Summary when employees have annual leave, sick leave, emergency leave, unpaid leave, paid holiday leave, maternity leave, paternity leave, compassionate leave, or other non-project hours.
+
+By default, the export includes the **Project Weekly Summary** and **Attendance Code Summary** worksheets. Select **Include individual employee timesheet sheets** when the workbook also needs one detailed worksheet per employee timesheet.
 
 If a project is selected, the summary only includes employees and hours logged to that project. The export button shows **Preparing export...** while the workbook is being generated.
 
