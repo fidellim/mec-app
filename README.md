@@ -70,6 +70,7 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 - Initials can be entered manually when creating or editing users. If initials are blank, exports fall back to initials derived from the employee name.
 - Job Title can be entered manually when creating or editing users. It is optional, limited to 100 characters, and appears as `-` in exports when blank.
 - Users without a department cannot create or submit their own timesheets. Assign a department first if Admin, Super Admin, Head of Department, or Employee accounts need to submit personal weekly time.
+- When a user's department is changed, their existing draft and rejected timesheets move to the new department. Submitted and approved timesheets remain with the original department for review and historical reporting.
 - Super Admin cannot delete their own account.
 - Deleting a user permanently removes the user and the timesheets owned by that user.
 - Timesheet entries are also deleted because they belong to the deleted user's timesheets.

@@ -56,8 +56,32 @@ class UserController extends Controller
         if ($request->filled('password')) {
             $data['password'] = $request->validate(['password' => ['nullable', 'min:8']])['password'];
         }
-        $user->update($data);
-        $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
+        $oldDepartmentId = $user->department_id;
+
+        DB::transaction(function () use ($user, $data, $old, $oldDepartmentId, $audit) {
+            $user->update($data);
+            $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
+
+            if (
+                array_key_exists('department_id', $data)
+                && $data['department_id']
+                && (int) $oldDepartmentId !== (int) $data['department_id']
+            ) {
+                $movedTimesheets = $user->timesheets()
+                    ->whereIn('status', ['draft', 'rejected'])
+                    ->update(['department_id' => $data['department_id']]);
+
+                if ($movedTimesheets > 0) {
+                    $audit->record('user_pending_timesheets_reassigned', $user, [
+                        'department_id' => $oldDepartmentId,
+                    ], [
+                        'department_id' => $data['department_id'],
+                        'timesheets_count' => $movedTimesheets,
+                        'statuses' => ['draft', 'rejected'],
+                    ]);
+                }
+            }
+        });
 
         return redirect()->route('manage.users.index')->with('success', 'User updated.');
     }

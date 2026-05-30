@@ -79,6 +79,7 @@ Important user rules:
 
 - Inactive users cannot use the system normally.
 - Users without a department cannot create or submit personal timesheets.
+- When a user's department changes, draft and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
 - You cannot delete your own account.
 - Deleting a user permanently deletes that user's timesheets and entries.
 - If a user is assigned as a department HOD, a replacement active HOD in the same department must be selected before deletion.

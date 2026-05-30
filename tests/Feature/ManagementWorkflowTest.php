@@ -6,6 +6,7 @@ use App\Models\AutomationSetting;
 use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\Project;
+use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
@@ -173,6 +174,79 @@ class ManagementWorkflowTest extends TestCase
         $this->assertSame('CUSTOM-OPS', Department::where('name', 'Operations')->firstOrFail()->code);
         $this->assertSame('Production Aisha', User::where('email', 'aisha@example.com')->firstOrFail()->name);
         $this->assertFalse(AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->firstOrFail()->is_enabled);
+    }
+
+    public function test_department_transfer_moves_only_draft_and_rejected_timesheets(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $oldDepartment = $this->department(['name' => 'Old Department']);
+        $newDepartment = $this->department(['name' => 'New Department']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $oldDepartment->id,
+            'employee_code' => 'MEC-HR-2026-201',
+        ]);
+        $period = $this->openPeriod();
+        $nextPeriod = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $thirdPeriod = $this->openPeriod([
+            'week_number' => 22,
+            'start_date' => '2026-05-25',
+            'end_date' => '2026-05-31',
+        ]);
+        $fourthPeriod = $this->openPeriod([
+            'week_number' => 23,
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-06-07',
+        ]);
+
+        $draft = Timesheet::create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'timesheet_period_id' => $period->id,
+            'status' => 'draft',
+        ]);
+        $rejected = Timesheet::create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'timesheet_period_id' => $nextPeriod->id,
+            'status' => 'rejected',
+        ]);
+        $submitted = Timesheet::create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'timesheet_period_id' => $thirdPeriod->id,
+            'status' => 'submitted',
+        ]);
+        $approved = Timesheet::create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'timesheet_period_id' => $fourthPeriod->id,
+            'status' => 'approved',
+        ]);
+
+        $this->actingAs($superAdmin)->put(route('manage.users.update', $employee), [
+            'name' => $employee->name,
+            'email' => $employee->email,
+            'employee_code' => $employee->employee_code,
+            'initials' => $employee->initials,
+            'job_title' => $employee->job_title,
+            'department_id' => $newDepartment->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $this->assertSame($newDepartment->id, $employee->refresh()->department_id);
+        $this->assertSame($newDepartment->id, $draft->refresh()->department_id);
+        $this->assertSame($newDepartment->id, $rejected->refresh()->department_id);
+        $this->assertSame($oldDepartment->id, $submitted->refresh()->department_id);
+        $this->assertSame($oldDepartment->id, $approved->refresh()->department_id);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'user_pending_timesheets_reassigned',
+            'auditable_id' => $employee->id,
+        ]);
     }
 
     public function test_invalid_employee_number_is_rejected(): void
