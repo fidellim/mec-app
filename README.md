@@ -452,11 +452,13 @@ resources/views/emails/missing-timesheet-reminder.blade.php
 
 ### cPanel Scheduler
 
-Automation works on cPanel by adding a Cron Job that runs Laravel's scheduler every minute. Replace the path with the production project path:
+Automation works on cPanel by adding a Cron Job that runs Laravel's scheduler every minute. Use placeholders in documentation and replace them with the actual production project path and PHP binary on the server:
 
 ```cron
-* * * * * cd /home/mecgroup/portal && php artisan schedule:run >> /dev/null 2>&1
+* * * * * cd /home/your-cpanel-user/path-to-project && /usr/local/bin/php artisan schedule:run >> /dev/null 2>&1
 ```
+
+If the hosting provider uses a different PHP path, update `/usr/local/bin/php` to the PHP CLI path shown in cPanel or provided by hosting support.
 
 Laravel then runs the missing timesheet reminder command every Monday at 07:00 for the latest open period that has already ended.
 
