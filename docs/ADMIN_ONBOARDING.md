@@ -109,8 +109,8 @@ The export includes:
 
 - A **Project Weekly Summary** worksheet grouped by project with exported weeks shown as columns.
 - Optional individual employee weekly timesheet worksheets.
-- Employee ID, initials, employee name, weekly regular hours, weekly overtime hours, weekly total hours, and project totals in the summary.
-- Regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks in the individual timesheet worksheets.
+- Employee ID, initials, employee name, job title, weekly regular hours, weekly overtime hours, weekly total hours, and project totals in the summary.
+- Job title, regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks in the individual timesheet worksheets.
 
 In the summary, each project appears once, employees are listed down the rows, and exported weeks appear across the columns. Each week header shows the week number and date range above its Regular, Overtime, and Total columns. If an employee worked on the project in one exported week but not another, the missing week shows `0.00`.
 
@@ -119,6 +119,8 @@ The bottom **Grand Total** row also follows the week columns, so every exported 
 By default, the export only includes the **Project Weekly Summary** worksheet. Select **Include individual employee timesheet sheets** when the workbook also needs one detailed worksheet per employee timesheet.
 
 If a project is selected, the summary only includes employees and hours logged to that project. The export button shows **Preparing export...** while the workbook is being generated.
+
+If an employee does not have a Job Title saved, exports show `-` in that column.
 
 ## Quick Troubleshooting
 

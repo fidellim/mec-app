@@ -44,9 +44,10 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
             'A' => 22,
             'B' => 12,
             'C' => 34,
+            'D' => 28,
         ];
 
-        for ($column = 4; $column <= $this->totalColumns(); $column++) {
+        for ($column = 5; $column <= $this->totalColumns(); $column++) {
             $widths[Coordinate::stringFromColumnIndex($column)] = 15;
         }
 
@@ -81,7 +82,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     ],
                 ]);
 
-                $sheet->getStyle("D3:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("E3:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
                 $sheet->getStyle("A{$lastRow}:{$lastColumn}{$lastRow}")->applyFromArray([
                     'font' => ['bold' => true],
                     'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF4F4F4']],
@@ -189,6 +190,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                 $row['employee_id'],
                 $row['initials'],
                 $row['employee_name'],
+                $row['job_title'],
             ]))
             ->map(function (Collection $employeeRows) use ($weeks) {
                 $first = $employeeRows->first();
@@ -198,6 +200,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     'employee_id' => $first['employee_id'],
                     'initials' => $first['initials'],
                     'employee_name' => $first['employee_name'],
+                    'job_title' => $first['job_title'],
                     'weeks' => $weeks->mapWithKeys(function (array $week) use ($hoursByWeek) {
                         $row = $hoursByWeek->get($week['key']);
 
@@ -236,7 +239,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
     {
         $maxWeekCount = $this->weeks($this->rows)->count() ?: 1;
 
-        return max(6, 3 + ($maxWeekCount * 3));
+        return max(7, 4 + ($maxWeekCount * 3));
     }
 
     private function lastColumn(): string
@@ -311,7 +314,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
     {
         $ranges = [];
 
-        for ($column = 4; $column <= $this->totalColumns(); $column += 3) {
+        for ($column = 5; $column <= $this->totalColumns(); $column += 3) {
             $ranges[] = [
                 Coordinate::stringFromColumnIndex($column),
                 Coordinate::stringFromColumnIndex($column + 2),

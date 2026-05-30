@@ -75,6 +75,7 @@
             <th class="week-header"></th>
             <th class="week-header"></th>
             <th class="week-header"></th>
+            <th class="week-header"></th>
             @foreach($group['weeks'] as $week)
                 <th colspan="3" class="week-header">{{ $week['label'] }}<br>{{ $week['dates'] }}</th>
             @endforeach
@@ -83,6 +84,7 @@
             <th class="table-header">Employee ID</th>
             <th class="table-header">Initials</th>
             <th class="table-header">Employee</th>
+            <th class="table-header">Job Title</th>
             @foreach($group['weeks'] as $week)
                 <th class="table-header">Regular Hours</th>
                 <th class="table-header">Overtime Hours</th>
@@ -94,6 +96,7 @@
                 <td class="center">{{ $employee['employee_id'] }}</td>
                 <td class="center">{{ $employee['initials'] }}</td>
                 <td>{{ $employee['employee_name'] }}</td>
+                <td>{{ $employee['job_title'] }}</td>
                 @foreach($group['weeks'] as $week)
                     @php($hours = $employee['weeks'][$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
                     <td class="right">{{ number_format($hours['regular_hours'], 2) }}</td>
@@ -103,7 +106,7 @@
             </tr>
         @endforeach
         <tr>
-            <td colspan="3" class="summary-total">Project Total</td>
+            <td colspan="4" class="summary-total">Project Total</td>
             @foreach($group['weeks'] as $week)
                 @php($totals = $group['week_totals'][$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
                 <td class="summary-total right">{{ number_format($totals['regular_hours'], 2) }}</td>
@@ -120,7 +123,7 @@
         </tr>
     @endforelse
     <tr>
-        <td colspan="3" class="summary-total">Grand Total</td>
+        <td colspan="4" class="summary-total">Grand Total</td>
         @forelse($weeks as $week)
             @php($totals = $grandTotalsByWeek[$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
             <td class="summary-total right">{{ number_format($totals['regular_hours'], 2) }}</td>

@@ -117,6 +117,7 @@ class UserController extends Controller
                 Rule::unique('users')->ignore($user),
             ],
             'initials' => ['nullable', 'string', 'max:20'],
+            'job_title' => ['nullable', 'string', 'max:100'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
@@ -126,6 +127,7 @@ class UserController extends Controller
         ]) + ['is_active' => false];
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
+        $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
 
         return $data;
     }

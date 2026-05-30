@@ -56,6 +56,7 @@ password123
 - Super Admin can also manage scheduled automation controls, view audit logs for important system and timesheet actions, export audit logs to Excel, and delete audit logs when database cleanup is needed.
 - Employee numbers are manually entered by Super Admin and must follow `MEC-HR-YYYY-NNN`, `MCE-HR-YYYY-NNN`, or `MEC-PHIL-HR-YYYY-NNN`; the final number must be at least 3 digits and can grow beyond 999.
 - Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
+- Job titles are optional user profile details and appear in timesheet exports. Blank job titles export as `-`.
 - Admin: view all timesheets, filter records, monitor dashboard summaries, export, and approve or reject Head of Department timesheets. Admin cannot approve or reject their own timesheet.
 - Head of Department: view only their department employees and timesheets, approve submitted employee timesheets, reject employee timesheets with a required comment, and track missing submissions. Head of Department cannot approve or reject their own timesheet.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, edit only draft or rejected timesheets, and resubmit rejected records.
@@ -67,6 +68,7 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 
 - Employee numbers are entered manually when creating or editing employees and HODs.
 - Initials can be entered manually when creating or editing users. If initials are blank, exports fall back to initials derived from the employee name.
+- Job Title can be entered manually when creating or editing users. It is optional, limited to 100 characters, and appears as `-` in exports when blank.
 - Users without a department cannot create or submit their own timesheets. Assign a department first if Admin, Super Admin, Head of Department, or Employee accounts need to submit personal weekly time.
 - Super Admin cannot delete their own account.
 - Deleting a user permanently removes the user and the timesheets owned by that user.
@@ -224,6 +226,7 @@ Each project group shows:
 - Employee ID
 - Initials
 - Employee name
+- Job title
 - Week number and week date range
 - Regular hours per week
 - Overtime hours per week
@@ -234,7 +237,7 @@ The bottom of the summary contains a grand total row. Grand totals are calculate
 
 By default, the export includes only the **Project Weekly Summary** worksheet. This keeps project reports faster to generate and easier to review.
 
-If `Include individual employee timesheet sheets` is selected, the workbook also includes one worksheet per exported employee timesheet. These detail worksheets mirror the weekly timesheet layout: employee details, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
+If `Include individual employee timesheet sheets` is selected, the workbook also includes one worksheet per exported employee timesheet. These detail worksheets mirror the weekly timesheet layout: employee details including job title, week number, attendance/project codes, weekday RT/OT columns, weekend columns, totals, and remarks.
 
 ### Export Validation Messages
 

@@ -18,6 +18,11 @@
             <input class="form-control" name="initials" value="{{ old('initials', $userModel->initials) }}" maxlength="20" placeholder="ABC">
             <div class="form-text">Optional. Used in timesheet exports.</div>
         </div>
+        <div class="col-md-4">
+            <label class="form-label">Job Title</label>
+            <input class="form-control" name="job_title" value="{{ old('job_title', $userModel->job_title) }}" maxlength="100" placeholder="Project Engineer">
+            <div class="form-text">Optional. Shown in timesheet exports.</div>
+        </div>
         <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
         <div class="col-md-6"><label class="form-label">Password {{ $userModel->exists ? '(leave blank to keep current)' : '' }}</label><input class="form-control" type="password" name="password" {{ $userModel->exists ? '' : 'required' }}></div>

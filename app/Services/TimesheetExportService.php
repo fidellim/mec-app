@@ -37,7 +37,7 @@ class TimesheetExportService
         return response()->streamDownload(function () use ($filters) {
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
-                'employee name', 'employee number', 'department', 'week number', 'year', 'date', 'day', 'attendance code',
+                'employee name', 'employee number', 'job title', 'department', 'week number', 'year', 'date', 'day', 'attendance code',
                 'project code', 'project name', 'regular hours', 'overtime hours', 'total hours',
                 'remarks', 'status', 'approved by', 'approved date',
             ]);
@@ -52,6 +52,7 @@ class TimesheetExportService
                             fputcsv($handle, [
                                 $timesheet->user->name,
                                 $timesheet->user->employee_code,
+                                $timesheet->user->job_title ?: '-',
                                 $timesheet->department->name,
                                 $timesheet->period->week_number,
                                 $timesheet->period->year,
@@ -237,6 +238,7 @@ class TimesheetExportService
             'employee_id' => $user->employee_code ?? '',
             'initials' => $user->initials ?: $this->initialsFromName($user->name),
             'employee_name' => $user->name,
+            'job_title' => $user->job_title ?: '-',
             'regular_hours' => $regular,
             'overtime_hours' => $overtime,
             'total_hours' => $regular + $overtime,

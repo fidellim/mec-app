@@ -128,7 +128,10 @@
         <tr>
             <td class="meta-band">Employment Type :</td>
             <td colspan="2" class="meta-input center">Full Time</td>
-            <td colspan="18" class="meta-band"></td>
+            <td colspan="5" class="meta-band"></td>
+            <td colspan="2" class="meta-band">Job Title :</td>
+            <td colspan="4" class="meta-input">{{ $timesheet->user->job_title ?: '-' }}</td>
+            <td colspan="7" class="meta-band"></td>
         </tr>
         <tr class="spacer"><td colspan="21"></td></tr>
         <tr>

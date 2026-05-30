@@ -30,6 +30,7 @@ class ManagementWorkflowTest extends TestCase
             'password' => 'password123',
             'employee_code' => 'MEC-HR-2026-095',
             'initials' => 'NE',
+            'job_title' => 'Project Engineer',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -39,6 +40,7 @@ class ManagementWorkflowTest extends TestCase
             'email' => 'new.employee@example.com',
             'employee_code' => 'MEC-HR-2026-095',
             'initials' => 'NE',
+            'job_title' => 'Project Engineer',
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
     }
@@ -96,6 +98,61 @@ class ManagementWorkflowTest extends TestCase
             'role' => 'employee',
             'is_active' => '1',
         ])->assertSessionHasErrors('initials');
+    }
+
+    public function test_user_job_title_is_optional_trimmed_and_limited(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), [
+            'name' => 'Titled Employee',
+            'email' => 'titled.employee@example.com',
+            'password' => 'password123',
+            'employee_code' => 'MEC-HR-2026-098',
+            'job_title' => '  Senior Project Engineer  ',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'titled.employee@example.com',
+            'job_title' => 'Senior Project Engineer',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index'))
+            ->assertOk()
+            ->assertSee('Senior Project Engineer');
+
+        $user = User::where('email', 'titled.employee@example.com')->firstOrFail();
+
+        $this->actingAs($superAdmin)->put(route('manage.users.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'employee_code' => $user->employee_code,
+            'job_title' => '',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'titled.employee@example.com',
+            'job_title' => null,
+        ]);
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), [
+            'name' => 'Long Title Employee',
+            'email' => 'long.title@example.com',
+            'password' => 'password123',
+            'employee_code' => 'MEC-HR-2026-099',
+            'job_title' => str_repeat('A', 101),
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertSessionHasErrors('job_title');
     }
 
     public function test_database_seeder_can_be_rerun_without_duplicate_errors(): void

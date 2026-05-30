@@ -16,6 +16,7 @@ class UserFactory extends Factory
             'email_verified_at' => now(),
             'password' => Hash::make('password123'),
             'remember_token' => Str::random(10),
+            'job_title' => null,
             'role' => 'employee',
             'is_active' => true,
         ];

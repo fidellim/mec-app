@@ -57,6 +57,7 @@ For each user, manage:
 - Email.
 - Employee number.
 - Initials.
+- Job Title.
 - Role.
 - Department.
 - Active/inactive status.
@@ -71,6 +72,8 @@ MEC-PHIL-HR-YYYY-NNN
 ```
 
 The final number must have at least three digits.
+
+Job Title is optional and appears in timesheet exports. If it is left blank, exports show `-`.
 
 Important user rules:
 
@@ -186,6 +189,7 @@ The export includes:
 
 - A project summary worksheet.
 - Individual employee weekly timesheet worksheets.
+- Employee job title where available, or `-` when blank.
 - Regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks.
 
 ## Approval Rules
