@@ -51,7 +51,8 @@ As a Head of Department, you can also use **My Timesheets** for your own weekly 
 2. Select **Create Weekly Timesheet**.
 3. Choose an open weekly period.
 4. Enter daily attendance, project/job number, regular hours, overtime hours, and remarks.
-5. Select **Save Draft** or **Submit for Approval**.
+5. For leave codes, use regular hours only and leave the project/job number blank if the time should not be charged to a project.
+6. Select **Save Draft** or **Submit for Approval**.
 
 You need to be assigned to a department before you can create or submit your own timesheet.
 

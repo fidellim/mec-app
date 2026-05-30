@@ -14,4 +14,15 @@ return [
         'L180' => 'Compassionate Leave',
         'L200' => 'Training Seminar',
     ],
+
+    'leave_attendance_codes' => [
+        'L100',
+        'L110',
+        'L120',
+        'L130',
+        'L140',
+        'L160',
+        'L170',
+        'L180',
+    ],
 ];

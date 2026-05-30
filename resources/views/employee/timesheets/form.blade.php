@@ -36,7 +36,7 @@
             </div>
             <div class="col-lg-7">
                 <div class="small text-muted">
-                    Use Add project to split a day across multiple projects. Attendance code and project/job number are required only when hours are entered. Remarks are optional.
+                    Use Add project to split a day across multiple projects. Project/job number is optional for leave codes. Leave codes accept regular hours only. Remarks are optional.
                 </div>
             </div>
         </div>
@@ -112,6 +112,8 @@
 (() => {
     const table = document.getElementById('timesheet-entry-table');
     let nextIndex = {{ count($entries) }};
+    const leaveAttendanceCodes = @json(config('timesheet.leave_attendance_codes', []));
+    const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
 
     const renameRowFields = (row, index) => {
         row.querySelectorAll('[data-field]').forEach((field) => {
@@ -150,11 +152,21 @@
         const hasHours = regular > 0 || overtime > 0;
         const attendanceSelect = row.querySelector('[data-field="attendance_code"]');
         const projectSelect = row.querySelector('[data-field="project_id"]');
+        const overtimeInput = row.querySelector('[data-field="overtime_hours"]');
+        const selectedAttendanceCode = attendanceSelect.tomselect?.getValue() ?? attendanceSelect.value;
+        const isLeave = isLeaveAttendanceCode(selectedAttendanceCode);
 
-        [attendanceSelect, projectSelect].forEach((select) => {
-            select.required = hasHours;
-            select.tomselect?.wrapper.classList.toggle('is-required', hasHours);
-        });
+        attendanceSelect.required = hasHours;
+        attendanceSelect.tomselect?.wrapper.classList.toggle('is-required', hasHours);
+
+        projectSelect.required = hasHours && ! isLeave;
+        projectSelect.tomselect?.wrapper.classList.toggle('is-required', hasHours && ! isLeave);
+
+        if (isLeave) {
+            overtimeInput.value = '0';
+        }
+
+        overtimeInput.disabled = isLeave;
     };
 
     const resequenceRows = () => {
@@ -244,6 +256,15 @@
 
     table.addEventListener('input', (event) => {
         if (event.target.matches('[data-field="regular_hours"], [data-field="overtime_hours"]')) {
+            const row = event.target.closest('[data-entry-row]');
+            updateRowRequirements(row);
+            calculateDayTotals(row.dataset.workDate);
+            calculateWeekTotals();
+        }
+    });
+
+    table.addEventListener('change', (event) => {
+        if (event.target.matches('[data-field="attendance_code"]')) {
             const row = event.target.closest('[data-entry-row]');
             updateRowRequirements(row);
             calculateDayTotals(row.dataset.workDate);

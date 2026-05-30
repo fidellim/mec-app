@@ -273,6 +273,54 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertSame('2.00', Timesheet::firstOrFail()->total_overtime_hours);
     }
 
+    public function test_leave_codes_allow_regular_hours_without_project(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => 'L100',
+                'project_id' => '',
+                'regular_hours' => 8,
+                'overtime_hours' => 0,
+            ],
+        ]);
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertRedirect();
+
+        $timesheet = Timesheet::firstOrFail();
+        $leaveEntry = $timesheet->entries()->where('attendance_code', 'L100')->firstOrFail();
+
+        $this->assertSame('8.00', $timesheet->total_regular_hours);
+        $this->assertNull($leaveEntry->project_id);
+    }
+
+    public function test_leave_codes_do_not_allow_overtime_hours(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => 'L110',
+                'project_id' => '',
+                'regular_hours' => 0,
+                'overtime_hours' => 2,
+            ],
+        ]);
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertSessionHasErrors('entries.0.overtime_hours');
+    }
+
     public function test_work_dates_must_be_inside_the_selected_week(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);

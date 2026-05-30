@@ -49,8 +49,8 @@ If you are not assigned to a department, timesheet creation is disabled and you 
 3. Choose an open weekly period.
 4. Select **Continue**.
 5. Enter daily entries for the week.
-6. Select an attendance code and project/job number for rows where hours are entered.
-7. Enter regular hours, overtime hours, and optional remarks.
+6. Select an attendance code and project/job number for rows where work hours are entered.
+7. For leave codes, enter regular hours and leave the project/job number blank if the time should not be charged to a project.
 8. Select **Save Draft** if you are not ready to submit.
 9. Select **Submit for Approval** when the timesheet is complete.
 
@@ -59,7 +59,9 @@ If you are not assigned to a department, timesheet creation is disabled and you 
 - Regular time is shown as **RT**.
 - Overtime is shown as **OT**.
 - A row with hours must have an attendance code.
-- A row with hours must have a project/job number.
+- A row with work hours must have a project/job number.
+- Leave codes do not require a project/job number.
+- Leave codes accept regular hours only; overtime is not allowed for leave rows.
 - Submission requires at least one row with hours greater than zero.
 - Each entry date must be within the selected weekly period.
 - Hours cannot be negative and cannot exceed 24 per regular or overtime field.
