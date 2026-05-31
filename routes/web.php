@@ -51,7 +51,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/timesheets', [AdminTimesheetController::class, 'index'])->name('timesheets.index');
-        Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->name('timesheets.export');
+        Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->middleware('throttle:exports')->name('timesheets.export');
         Route::get('/timesheets/{timesheet}', [AdminTimesheetController::class, 'show'])->name('timesheets.show');
         Route::middleware('role:admin,super_admin')->group(function () {
             Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
@@ -69,7 +69,7 @@ Route::middleware('auth')->group(function () {
         Route::get('automations', [AutomationSettingController::class, 'index'])->name('automations.index');
         Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->name('automations.toggle');
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
-        Route::get('audit-logs/export', [AuditLogController::class, 'export'])->name('audit-logs.export');
+        Route::get('audit-logs/export', [AuditLogController::class, 'export'])->middleware('throttle:exports')->name('audit-logs.export');
         Route::delete('audit-logs/selected', [AuditLogController::class, 'destroySelected'])->name('audit-logs.destroy-selected');
         Route::delete('audit-logs/matching', [AuditLogController::class, 'destroyMatching'])->name('audit-logs.destroy-matching');
     });

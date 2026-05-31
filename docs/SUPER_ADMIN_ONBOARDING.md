@@ -178,6 +178,8 @@ Audit logs can be filtered by action, user, and date range. Some logs include ex
 
 Use **Export Excel** to download an Excel file of audit logs using the current filters.
 
+Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Portal shows a warning and asks you to wait before trying again.
+
 To clean up stored audit logs:
 
 1. Select individual log checkboxes, or use the page checkbox to select all logs visible on the current page.
@@ -195,6 +197,8 @@ Use **All Timesheets** to filter, review, and export records.
 3. Select **Apply Filters**.
 4. Select **View** to open a timesheet.
 5. Use **Export Excel** to download an Excel workbook using the current filters.
+
+Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Portal shows a warning and asks you to wait before trying again.
 
 The export includes:
 

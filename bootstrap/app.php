@@ -23,11 +23,16 @@ return Application::configure(basePath: dirname(__DIR__))
             if ($response->getStatusCode() === 429 && ! $request->expectsJson()) {
                 $retryAfter = (int) $response->headers->get('Retry-After', 60);
                 $seconds = max(1, $retryAfter);
+                $message = 'Too many attempts. Please wait '.$seconds.' '.Str::plural('second', $seconds).' and try again.';
+
+                if ($request->routeIs('admin.timesheets.export', 'manage.audit-logs.export')) {
+                    return back()->with('warning', $message);
+                }
 
                 return back()
                     ->withInput($request->except('password', 'password_confirmation'))
                     ->withErrors([
-                        'email' => 'Too many attempts. Please wait '.$seconds.' '.Str::plural('second', $seconds).' and try again.',
+                        'email' => $message,
                     ]);
             }
 

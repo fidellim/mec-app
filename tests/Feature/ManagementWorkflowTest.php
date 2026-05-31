@@ -11,6 +11,7 @@ use App\Models\TimesheetPeriod;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -522,6 +523,42 @@ class ManagementWorkflowTest extends TestCase
         $this->assertSame('User', $sheet->getCell('E2')->getValue());
         $this->assertStringContainsString('[truncated]', $sheet->getCell('H2')->getValue());
         $this->assertNull($sheet->getCell('A3')->getValue());
+    }
+
+    public function test_audit_log_export_is_throttled(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this->actingAs($superAdmin)
+                ->withServerVariables(['REMOTE_ADDR' => '10.20.30.20'])
+                ->get(route('manage.audit-logs.export'))
+                ->assertOk();
+        }
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.audit-logs.index'))
+            ->withServerVariables(['REMOTE_ADDR' => '10.20.30.20'])
+            ->get(route('manage.audit-logs.export'))
+            ->assertRedirect(route('manage.audit-logs.index'))
+            ->assertSessionHas('warning');
+    }
+
+    public function test_audit_log_export_warns_when_export_is_already_running(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $lock = Cache::lock('exports:user:'.$superAdmin->id, 120);
+        $this->assertTrue($lock->get());
+
+        try {
+            $this->actingAs($superAdmin)
+                ->from(route('manage.audit-logs.index'))
+                ->get(route('manage.audit-logs.export'))
+                ->assertRedirect(route('manage.audit-logs.index'))
+                ->assertSessionHas('warning', 'An export is already running. Please wait for it to finish before starting another export.');
+        } finally {
+            $lock->release();
+        }
     }
 
     public function test_audit_log_export_rejects_invalid_date_ranges(): void

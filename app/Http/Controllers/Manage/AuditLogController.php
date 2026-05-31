@@ -3,11 +3,13 @@
 namespace App\Http\Controllers\Manage;
 
 use App\Exports\AuditLogsExport;
+use App\Http\Controllers\Concerns\GuardsExports;
 use App\Http\Controllers\Controller;
 use App\Models\AuditLog;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Validation\Rule;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelWriter;
@@ -15,6 +17,8 @@ use Symfony\Component\HttpFoundation\BinaryFileResponse;
 
 class AuditLogController extends Controller
 {
+    use GuardsExports;
+
     public function index(Request $request)
     {
         $filters = $this->validatedFilters($request);
@@ -31,12 +35,14 @@ class AuditLogController extends Controller
         ]);
     }
 
-    public function export(Request $request): BinaryFileResponse
+    public function export(Request $request): BinaryFileResponse|RedirectResponse
     {
-        $filters = $this->validatedFilters($request);
-        $fileName = 'audit_logs_'.now()->format('Ymd_His').'.xlsx';
+        return $this->guardedExport(function () use ($request) {
+            $filters = $this->validatedFilters($request);
+            $fileName = 'audit_logs_'.now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new AuditLogsExport($this->query($filters)->latest()), $fileName, ExcelWriter::XLSX);
+            return Excel::download(new AuditLogsExport($this->query($filters)->latest()), $fileName, ExcelWriter::XLSX);
+        });
     }
 
     public function destroySelected(Request $request)

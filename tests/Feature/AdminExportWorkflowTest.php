@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\TimesheetWorkflowMail;
 use App\Models\TimesheetEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\CreatesTimesheetData;
@@ -171,6 +172,42 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame(2, $spreadsheet->getSheetCount());
         $this->assertSame('Project Weekly Summary', $spreadsheet->getSheet(0)->getTitle());
         $this->assertSame('Attendance Code Summary', $spreadsheet->getSheet(1)->getTitle());
+    }
+
+    public function test_admin_timesheet_export_is_throttled(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this->actingAs($admin)
+                ->withServerVariables(['REMOTE_ADDR' => '10.20.30.10'])
+                ->get(route('admin.timesheets.export'))
+                ->assertOk();
+        }
+
+        $this->actingAs($admin)
+            ->from(route('admin.timesheets.index'))
+            ->withServerVariables(['REMOTE_ADDR' => '10.20.30.10'])
+            ->get(route('admin.timesheets.export'))
+            ->assertRedirect(route('admin.timesheets.index'))
+            ->assertSessionHas('warning');
+    }
+
+    public function test_admin_timesheet_export_warns_when_export_is_already_running(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $lock = Cache::lock('exports:user:'.$admin->id, 120);
+        $this->assertTrue($lock->get());
+
+        try {
+            $this->actingAs($admin)
+                ->from(route('admin.timesheets.index'))
+                ->get(route('admin.timesheets.export'))
+                ->assertRedirect(route('admin.timesheets.index'))
+                ->assertSessionHas('warning', 'An export is already running. Please wait for it to finish before starting another export.');
+        } finally {
+            $lock->release();
+        }
     }
 
     public function test_admin_can_include_individual_employee_sheets_in_excel_export(): void

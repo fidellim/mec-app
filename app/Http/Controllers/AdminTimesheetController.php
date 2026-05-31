@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\Concerns\GuardsExports;
 use App\Models\Department;
 use App\Models\Project;
 use App\Models\Timesheet;
@@ -12,6 +13,8 @@ use Illuminate\Validation\ValidationException;
 
 class AdminTimesheetController extends Controller
 {
+    use GuardsExports;
+
     public function index()
     {
         $filters = $this->validatedFilters();
@@ -31,7 +34,7 @@ class AdminTimesheetController extends Controller
 
     public function export(TimesheetExportService $export)
     {
-        return $export->excel($this->validatedFilters());
+        return $this->guardedExport(fn () => $export->excel($this->validatedFilters()));
     }
 
     private function filtered(array $filters)
