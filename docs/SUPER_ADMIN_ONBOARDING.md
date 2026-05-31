@@ -9,6 +9,8 @@ Welcome to **MEC Portal**. This guide explains how Super Admins manage the porta
 3. Select **Login**.
 4. Use **Logout** from the top bar when finished.
 
+If you forget your password, select **Forgot password?** on the sign-in page. Password reset emails are only sent to active existing user accounts, and each reset link expires after 1 hour.
+
 The top bar shows your name and role. A theme toggle is available if you prefer light or dark mode.
 
 ## Main Menu

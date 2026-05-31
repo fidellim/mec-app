@@ -11,6 +11,8 @@ Welcome to **MEC Portal**. This guide explains how employees use the portal to c
 
 The top bar shows your name and role. A theme toggle is available if you prefer light or dark mode.
 
+If you forget your password, select **Forgot password?** on the sign-in page. Enter your account email, open the reset email, and choose a new password. Reset links expire after 1 hour. Password fields include a show/hide option so you can check what you typed before submitting.
+
 ## Main Menu
 
 Employees can access:
@@ -103,3 +105,4 @@ When your timesheet is approved or rejected, you receive an email notification. 
 | Cannot submit a timesheet | Required attendance code/project is missing, no hours were entered, or the period is closed. | Correct the highlighted fields or ask whether the period should be open. |
 | Cannot edit a timesheet | It is submitted or approved. | Recall it if still submitted. |
 | Cannot create another timesheet for the same week | One already exists for that period. | Open and edit the existing draft/rejected timesheet, or view the existing submitted/approved one. |
+| Password reset link expired | More than 1 hour passed since the link was requested. | Request a new reset link from the sign-in page. |

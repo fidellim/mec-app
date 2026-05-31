@@ -3,6 +3,11 @@
 namespace Tests\Feature;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Auth\Notifications\ResetPassword;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Route;
 use Tests\Support\CreatesTimesheetData;
@@ -34,6 +39,109 @@ class AuthAndAccessTest extends TestCase
             'email' => $inactive->email,
             'password' => 'password123',
         ])->assertSessionHasErrors('email');
+    }
+
+    public function test_login_page_links_to_password_reset_and_can_toggle_password_visibility(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee(route('password.request'))
+            ->assertSee('data-password-toggle="password"', false);
+    }
+
+    public function test_active_user_can_request_password_reset_link(): void
+    {
+        Notification::fake();
+
+        $user = $this->userWithRole('employee', ['email' => 'reset-me@example.com']);
+
+        $this->post(route('password.email'), [
+            'email' => $user->email,
+        ])->assertSessionHas('success');
+
+        Notification::assertSentTo($user, ResetPassword::class);
+        $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
+    }
+
+    public function test_missing_or_inactive_users_cannot_request_password_reset_link(): void
+    {
+        Notification::fake();
+
+        $inactive = $this->userWithRole('employee', [
+            'email' => 'inactive-reset@example.com',
+            'is_active' => false,
+        ]);
+
+        $this->post(route('password.email'), [
+            'email' => 'missing@example.com',
+        ])->assertSessionHasErrors('email');
+
+        $this->post(route('password.email'), [
+            'email' => $inactive->email,
+        ])->assertSessionHasErrors('email');
+
+        Notification::assertNothingSent();
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'missing@example.com']);
+        $this->assertDatabaseMissing('password_reset_tokens', ['email' => $inactive->email]);
+    }
+
+    public function test_password_reset_form_requires_matching_confirmation(): void
+    {
+        $user = $this->userWithRole('employee', ['email' => 'confirm-reset@example.com']);
+        $token = Password::broker()->createToken($user);
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'new-password',
+            'password_confirmation' => 'different-password',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+    }
+
+    public function test_active_user_can_reset_password_with_valid_token(): void
+    {
+        $user = $this->userWithRole('employee', ['email' => 'valid-reset@example.com']);
+        $token = Password::broker()->createToken($user);
+
+        $this->get(route('password.reset', ['token' => $token, 'email' => $user->email]))
+            ->assertOk()
+            ->assertSee('data-password-toggle="password"', false)
+            ->assertSee('data-password-toggle="password_confirmation"', false);
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'fresh-password',
+            'password_confirmation' => 'fresh-password',
+        ])->assertRedirect(route('login'))
+            ->assertSessionHas('success');
+
+        $this->assertTrue(Hash::check('fresh-password', $user->fresh()->password));
+        $this->post(route('login'), [
+            'email' => $user->email,
+            'password' => 'fresh-password',
+        ])->assertRedirect(route('dashboard'));
+    }
+
+    public function test_expired_password_reset_token_is_rejected_after_one_hour(): void
+    {
+        $user = $this->userWithRole('employee', ['email' => 'expired-reset@example.com']);
+        $token = Password::broker()->createToken($user);
+
+        DB::table('password_reset_tokens')
+            ->where('email', $user->email)
+            ->update(['created_at' => now()->subMinutes(61)]);
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'fresh-password',
+            'password_confirmation' => 'fresh-password',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertTrue(Hash::check('password123', $user->fresh()->password));
     }
 
     public function test_role_middleware_limits_management_and_admin_pages(): void

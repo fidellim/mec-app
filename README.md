@@ -79,6 +79,17 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 - The replacement Head of Department must be active and in the same department so department approvals continue to work.
 - If no replacement Head of Department exists, create or update another Head of Department for that department before deleting the current one.
 
+## Password Reset
+
+Employees and admins can reset forgotten passwords from the **Forgot password?** link on the sign-in page.
+
+- Only active existing user accounts can request a password reset email.
+- Reset links are emailed to the user's account address.
+- Password reset links expire after 1 hour.
+- The reset form requires the new password and confirmation to match.
+- Sign-in and reset password fields include a show/hide control so users can review what they typed.
+- Inactive accounts cannot use password reset. A Super Admin must reactivate the account first.
+
 ## Department And Project Management
 
 Super Admin users can manage departments and projects/job numbers from the **Manage** area.
