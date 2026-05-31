@@ -328,7 +328,7 @@ php artisan migrate
 If cPanel does not support Supervisor or another long-running daemon, use a Cron Job that starts a short-lived worker every minute and exits when the queue is empty:
 
 ```cron
-* * * * * cd /home/your-cpanel-user/path-to-project && /usr/local/bin/php artisan queue:work --stop-when-empty --tries=3 --backoff=60 >> /dev/null 2>&1
+* * * * * cd /home/your-cpanel-user/path-to-project && /usr/local/bin/php artisan queue:work --stop-when-empty --max-time=50 --tries=3 --backoff=60 >> /dev/null 2>&1
 ```
 
 If Redis is available, configure:
@@ -366,8 +366,22 @@ If the password contains special characters, keep it inside quotes. If `redis-cl
 Then use this cPanel cron command instead:
 
 ```cron
-* * * * * cd /home/your-cpanel-user/path-to-project && /usr/local/bin/php artisan queue:work redis --stop-when-empty --tries=3 --backoff=60 >> /dev/null 2>&1
+* * * * * cd /home/your-cpanel-user/path-to-project && /usr/local/bin/php artisan queue:work redis --stop-when-empty --max-time=50 --tries=3 --backoff=60 >> /dev/null 2>&1
 ```
+
+Recommended Redis cron parameter meanings:
+
+- `* * * * *` runs the worker every minute so password reset and workflow emails are processed quickly.
+- `cd /home/your-cpanel-user/path-to-project` moves into the Laravel project folder before running Artisan.
+- `/usr/local/bin/php` is the PHP CLI binary. Replace it if cPanel shows a different PHP path.
+- `artisan queue:work redis` processes jobs from the Redis queue connection.
+- `--stop-when-empty` makes the worker exit after all currently available jobs are processed.
+- `--max-time=50` keeps each cron-started worker under 50 seconds, reducing overlap before the next minute starts.
+- `--tries=3` allows a failed job to be attempted up to three times.
+- `--backoff=60` waits 60 seconds before retrying a failed job.
+- `>> /dev/null 2>&1` discards normal output and errors so cPanel does not email output every minute.
+
+If more jobs exist than can be processed in 50 seconds, the remaining jobs stay safely in Redis and the next cron run continues processing them.
 
 If production can run a persistent worker through Supervisor, systemd, or a hosting daemon, use:
 
@@ -404,7 +418,7 @@ Command meanings:
 Useful Laravel queue commands:
 
 ```bash
-php artisan queue:work redis --stop-when-empty --tries=3 --backoff=60
+php artisan queue:work redis --stop-when-empty --max-time=50 --tries=3 --backoff=60
 php artisan queue:restart
 php artisan queue:failed
 php artisan queue:retry all
@@ -414,7 +428,7 @@ php artisan queue:flush
 
 Command meanings:
 
-- `queue:work redis --stop-when-empty` processes Redis jobs and exits when no jobs remain. This is the safest cPanel cron style.
+- `queue:work redis --stop-when-empty --max-time=50` processes Redis jobs, exits when no jobs remain, and caps each cron-started run at 50 seconds.
 - `queue:restart` asks long-running workers to restart after the current job. Use this after deployments if a persistent worker is supported.
 - `queue:failed` lists failed jobs recorded by Laravel.
 - `queue:retry all` retries all failed jobs.
