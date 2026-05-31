@@ -11,6 +11,14 @@ Welcome to **MEC Portal**. This guide explains how Super Admins manage the porta
 
 If you forget your password, select **Forgot password?** on the sign-in page. Password reset emails are only sent to active existing user accounts, and each reset link expires after 1 hour.
 
+For security, public authentication forms use temporary rate limits:
+
+- Login attempts are limited per email address and IP address.
+- Forgot password requests are limited per email address and IP address.
+- Password reset submissions are limited per IP address.
+
+If a user reaches a limit, they are redirected back to the form with a message telling them how long to wait before trying again. This does not mean the account is inactive or locked; it is a temporary cooldown.
+
 The top bar shows your name and role. A theme toggle is available if you prefer light or dark mode.
 
 ## Main Menu

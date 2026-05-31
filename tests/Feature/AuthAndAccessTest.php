@@ -41,6 +41,29 @@ class AuthAndAccessTest extends TestCase
         ])->assertSessionHasErrors('email');
     }
 
+    public function test_login_requests_are_throttled_by_normalized_email_and_ip(): void
+    {
+        $email = 'throttle-login@example.com';
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.10.10.10'])
+                ->post(route('login'), [
+                    'email' => $attempt % 2 === 0 ? strtoupper($email) : ' '.$email.' ',
+                    'password' => 'wrong-password',
+                ])
+                ->assertSessionHasErrors('email');
+        }
+
+        $this->from(route('login'))
+            ->withServerVariables(['REMOTE_ADDR' => '10.10.10.10'])
+            ->post(route('login'), [
+                'email' => $email,
+                'password' => 'wrong-password',
+            ])
+            ->assertRedirect(route('login'))
+            ->assertSessionHasErrors('email');
+    }
+
     public function test_login_page_links_to_password_reset_and_can_toggle_password_visibility(): void
     {
         $this->get(route('login'))
@@ -83,6 +106,31 @@ class AuthAndAccessTest extends TestCase
         Notification::assertNothingSent();
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'missing@example.com']);
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => $inactive->email]);
+    }
+
+    public function test_forgot_password_requests_are_throttled_by_normalized_email_and_ip(): void
+    {
+        Notification::fake();
+
+        $email = 'throttle-forgot@example.com';
+
+        for ($attempt = 0; $attempt < 3; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.10.10.20'])
+                ->post(route('password.email'), [
+                    'email' => $attempt % 2 === 0 ? strtoupper($email) : ' '.$email.' ',
+                ])
+                ->assertSessionHasErrors('email');
+        }
+
+        $this->from(route('password.request'))
+            ->withServerVariables(['REMOTE_ADDR' => '10.10.10.20'])
+            ->post(route('password.email'), [
+                'email' => $email,
+            ])
+            ->assertRedirect(route('password.request'))
+            ->assertSessionHasErrors('email');
+
+        Notification::assertNothingSent();
     }
 
     public function test_password_reset_form_requires_matching_confirmation(): void
@@ -142,6 +190,28 @@ class AuthAndAccessTest extends TestCase
         ])->assertSessionHasErrors('email');
 
         $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+    }
+
+    public function test_reset_password_requests_are_throttled_by_ip(): void
+    {
+        $payload = [
+            'token' => 'invalid-token',
+            'email' => 'throttle-reset@example.com',
+            'password' => 'fresh-password',
+            'password_confirmation' => 'fresh-password',
+        ];
+
+        for ($attempt = 0; $attempt < 5; $attempt++) {
+            $this->withServerVariables(['REMOTE_ADDR' => '10.10.10.30'])
+                ->post(route('password.update'), $payload)
+                ->assertSessionHasErrors('email');
+        }
+
+        $this->from(route('password.reset', ['token' => 'invalid-token', 'email' => $payload['email']]))
+            ->withServerVariables(['REMOTE_ADDR' => '10.10.10.30'])
+            ->post(route('password.update'), $payload)
+            ->assertRedirect(route('password.reset', ['token' => 'invalid-token', 'email' => $payload['email']]))
+            ->assertSessionHasErrors('email');
     }
 
     public function test_role_middleware_limits_management_and_admin_pages(): void
