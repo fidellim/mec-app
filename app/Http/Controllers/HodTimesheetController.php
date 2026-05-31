@@ -92,7 +92,7 @@ class HodTimesheetController extends Controller
         return back()->with('success', 'Timesheet rejected.');
     }
 
-    public function tracker()
+    public function tracker(MissingTimesheetReminderService $reminders)
     {
         $periods = TimesheetPeriod::orderByDesc('year')
             ->orderByDesc('week_number')
@@ -109,7 +109,13 @@ class HodTimesheetController extends Controller
             ->orderBy('name')
             ->get();
 
-        return view('hod.tracker', compact('employees', 'period', 'periods'));
+        $reminderCooldowns = $period
+            ? $employees->mapWithKeys(fn (User $employee) => [
+                $employee->id => $reminders->reminderCooldownLabel($employee, $period),
+            ])
+            : collect();
+
+        return view('hod.tracker', compact('employees', 'period', 'periods', 'reminderCooldowns'));
     }
 
     public function remindMissing(Request $request, MissingTimesheetReminderService $reminders)
@@ -130,12 +136,19 @@ class HodTimesheetController extends Controller
             $employeeIds = [$employee->id];
         }
 
-        $sent = $reminders->sendForPeriod(
+        $result = $reminders->sendForPeriodDetailed(
             period: $period,
             departmentId: auth()->user()->department_id,
             source: 'manual_hod',
             employeeIds: $employeeIds,
         );
+
+        $sent = $result['sent'];
+        $skippedCooldown = $result['skipped_cooldown'];
+
+        if ($sent === 0 && $skippedCooldown > 0) {
+            return back()->with('warning', 'No reminder was sent. The selected employee(s) were already reminded recently.');
+        }
 
         return back()->with(
             $sent > 0 ? 'success' : 'warning',

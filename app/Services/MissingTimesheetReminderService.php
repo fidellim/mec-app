@@ -6,6 +6,8 @@ use App\Mail\MissingTimesheetReminderMail;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 
@@ -26,18 +28,74 @@ class MissingTimesheetReminderService
 
     public function sendForPeriod(TimesheetPeriod $period, ?int $departmentId = null, string $source = 'manual', ?array $employeeIds = null): int
     {
+        return $this->sendForPeriodDetailed($period, $departmentId, $source, $employeeIds)['sent'];
+    }
+
+    public function sendForPeriodDetailed(TimesheetPeriod $period, ?int $departmentId = null, string $source = 'manual', ?array $employeeIds = null): array
+    {
         $sent = 0;
+        $skippedCooldown = 0;
 
         $this->missingEmployeesQuery($period, $departmentId, $employeeIds)
-            ->chunkById(self::BATCH_SIZE, function (Collection $employees) use ($period, $source, &$sent) {
+            ->chunkById(self::BATCH_SIZE, function (Collection $employees) use ($period, $source, &$sent, &$skippedCooldown) {
                 foreach ($employees as $employee) {
+                    if ($this->usesManualCooldown($source) && $this->reminderCooldownUntil($employee, $period)) {
+                        $skippedCooldown++;
+                        continue;
+                    }
+
                     if ($this->sendReminder($employee, $period, $source)) {
                         $sent++;
                     }
                 }
             });
 
-        return $sent;
+        return [
+            'sent' => $sent,
+            'skipped_cooldown' => $skippedCooldown,
+        ];
+    }
+
+    public function reminderCooldownUntil(User $employee, TimesheetPeriod $period): ?Carbon
+    {
+        $expiresAt = Cache::get($this->cooldownKey($employee, $period));
+
+        if (! $expiresAt) {
+            return null;
+        }
+
+        $expiresAt = Carbon::parse($expiresAt);
+
+        if ($expiresAt->isPast()) {
+            Cache::forget($this->cooldownKey($employee, $period));
+
+            return null;
+        }
+
+        return $expiresAt;
+    }
+
+    public function reminderCooldownLabel(User $employee, TimesheetPeriod $period): ?string
+    {
+        $expiresAt = $this->reminderCooldownUntil($employee, $period);
+
+        if (! $expiresAt) {
+            return null;
+        }
+
+        $minutes = max(1, (int) ceil(now()->diffInSeconds($expiresAt) / 60));
+        $hours = intdiv($minutes, 60);
+        $remainingMinutes = $minutes % 60;
+
+        if ($hours > 0 && $remainingMinutes > 0) {
+            return "{$hours}h {$remainingMinutes}m";
+        }
+
+        if ($hours > 0) {
+            return "{$hours}h";
+        }
+
+        return "{$remainingMinutes}m";
     }
 
     private function missingEmployeesQuery(TimesheetPeriod $period, ?int $departmentId = null, ?array $employeeIds = null)
@@ -88,6 +146,37 @@ class MissingTimesheetReminderService
             'recipient_email' => $employee->email,
         ]);
 
+        if ($this->usesManualCooldown($source)) {
+            $this->startReminderCooldown($employee, $period);
+        }
+
         return true;
+    }
+
+    private function startReminderCooldown(User $employee, TimesheetPeriod $period): void
+    {
+        $hours = (int) config('timesheet.manual_reminder_cooldown_hours', 24);
+
+        if ($hours <= 0) {
+            return;
+        }
+
+        $expiresAt = now()->addHours($hours);
+
+        Cache::put(
+            $this->cooldownKey($employee, $period),
+            $expiresAt->toIso8601String(),
+            $expiresAt
+        );
+    }
+
+    private function cooldownKey(User $employee, TimesheetPeriod $period): string
+    {
+        return "missing-timesheet-reminder:period:{$period->id}:employee:{$employee->id}";
+    }
+
+    private function usesManualCooldown(string $source): bool
+    {
+        return $source === 'manual_hod';
     }
 }

@@ -9,6 +9,8 @@
             return ! $timesheet || ! in_array($timesheet->status, ['submitted', 'approved'], true);
         })
         : collect();
+    $cooldownCount = $missingEmployees->filter(fn ($employee) => $reminderCooldowns->get($employee->id))->count();
+    $remindableCount = $missingEmployees->count() - $cooldownCount;
 @endphp
 
 <div class="section-header">
@@ -81,7 +83,12 @@
             <form method="post" action="{{ route('hod.tracker.reminders') }}" data-confirm="Send reminder emails to all missing employees for this period?">
                 @csrf
                 <input type="hidden" name="period_id" value="{{ $period->id }}">
-                <button class="btn btn-warning">Notify All Missing</button>
+                <button class="btn btn-warning" @disabled($remindableCount === 0)>Notify All Missing</button>
+                @if($remindableCount === 0)
+                    <div class="text-muted small mt-1">All missing employees are on reminder cooldown.</div>
+                @elseif($cooldownCount > 0)
+                    <div class="text-muted small mt-1">{{ $cooldownCount }} missing employee(s) are on cooldown and will be skipped.</div>
+                @endif
             </form>
         @endif
     </div>
@@ -99,6 +106,7 @@
                     @php
                         $timesheet = $employee->timesheets->first();
                         $isMissing = $period && (! $timesheet || ! in_array($timesheet->status, ['submitted', 'approved'], true));
+                        $cooldownLabel = $period ? $reminderCooldowns->get($employee->id) : null;
                     @endphp
                     <tr>
                         <td>
@@ -114,12 +122,17 @@
                         </td>
                         <td>
                             @if($isMissing)
-                                <form method="post" action="{{ route('hod.tracker.reminders') }}" data-confirm="Send a missing timesheet reminder to {{ $employee->name }}?">
-                                    @csrf
-                                    <input type="hidden" name="period_id" value="{{ $period->id }}">
-                                    <input type="hidden" name="employee_id" value="{{ $employee->id }}">
-                                    <button class="btn btn-sm btn-outline-warning">Send Reminder</button>
-                                </form>
+                                @if($cooldownLabel)
+                                    <button class="btn btn-sm btn-outline-secondary" disabled>Send Reminder</button>
+                                    <div class="text-muted small mt-1">Available again in {{ $cooldownLabel }}</div>
+                                @else
+                                    <form method="post" action="{{ route('hod.tracker.reminders') }}" data-confirm="Send a missing timesheet reminder to {{ $employee->name }}?">
+                                        @csrf
+                                        <input type="hidden" name="period_id" value="{{ $period->id }}">
+                                        <input type="hidden" name="employee_id" value="{{ $employee->id }}">
+                                        <button class="btn btn-sm btn-outline-warning">Send Reminder</button>
+                                    </form>
+                                @endif
                             @else
                                 <span class="text-muted small">No reminder needed</span>
                             @endif

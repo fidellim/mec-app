@@ -93,6 +93,8 @@ Use **Submission Tracker** to monitor department submission progress.
 
 Submitted and approved timesheets are treated as complete. Employees with no timesheet, a draft, or a rejected timesheet can appear as needing a reminder.
 
+Reminder emails have a temporary cooldown per employee and weekly period. If an employee was already reminded recently, **Send Reminder** is disabled and shows when another reminder can be sent. **Notify All Missing** skips employees who are still on cooldown.
+
 ## Email Notifications
 
 MEC Portal sends emails for key workflow events:
@@ -108,5 +110,5 @@ MEC Portal sends emails for key workflow events:
 | --- | --- | --- |
 | Cannot create your own timesheet | No department is assigned or no open period exists. | Contact the system administrator. |
 | Cannot approve a timesheet | It may be your own timesheet, another HOD's timesheet, outside your department, or not submitted. | Follow the approval rules above. |
-| Reminder says none were sent | The employee may already have submitted or approved the period. | Check the tracker status for that employee. |
+| Reminder says none were sent | The employee may already have submitted or approved the period, or all missing employees may still be on reminder cooldown. | Check the tracker status and cooldown message for that employee. |
 | Employee says they cannot submit | Their period may be closed, department may be missing, or required fields may be incomplete. | Ask them to check the highlighted form errors or contact the system administrator. |

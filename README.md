@@ -299,6 +299,14 @@ php artisan timesheets:send-missing-reminders --period_id=1
 Each sent reminder is recorded in `audit_logs` with the `timesheet_missing_reminder_sent` action.
 Reminder sending is processed in small batches of 25 employees and the scheduled reminder uses Laravel's overlap protection, so a slow email run will not start a duplicate reminder process.
 
+Manual HOD reminders use a per-employee, per-period cooldown to prevent repeated reminder emails. The default cooldown is 24 hours:
+
+```env
+MISSING_TIMESHEET_REMINDER_COOLDOWN_HOURS=24
+```
+
+When an employee is on cooldown, their **Send Reminder** button is disabled in **Submission Tracker** and shows how long remains before another reminder can be sent. **Notify All Missing** skips employees who are on cooldown and sends only to employees who are eligible. If every missing employee is on cooldown, MEC Portal shows a warning instead of sending reminders.
+
 Local development defaults to logging emails instead of sending them:
 
 ```env

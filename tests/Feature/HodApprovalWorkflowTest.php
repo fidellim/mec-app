@@ -182,6 +182,98 @@ class HodApprovalWorkflowTest extends TestCase
         Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($otherMissingEmployee->email));
     }
 
+    public function test_hod_cannot_send_same_missing_reminder_during_cooldown(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $missingEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+
+        $payload = [
+            'period_id' => $period->id,
+            'employee_id' => $missingEmployee->id,
+        ];
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($hod)
+            ->get(route('hod.tracker', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertSee('Available again in')
+            ->assertSee('disabled', false);
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), $payload)
+            ->assertRedirect()
+            ->assertSessionHas('warning', 'No reminder was sent. The selected employee(s) were already reminded recently.');
+
+        Mail::assertQueuedCount(1);
+        $this->assertDatabaseCount('audit_logs', 1);
+    }
+
+    public function test_bulk_missing_reminders_skip_employees_on_cooldown(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $coolingEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $availableEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), [
+                'period_id' => $period->id,
+                'employee_id' => $coolingEmployee->id,
+            ])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), ['period_id' => $period->id])
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Sent 1 missing timesheet reminder(s).');
+
+        Mail::assertQueuedCount(2);
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($coolingEmployee->email));
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($availableEmployee->email));
+        $this->assertDatabaseCount('audit_logs', 2);
+    }
+
+    public function test_bulk_missing_reminders_warn_when_all_missing_employees_are_on_cooldown(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $this->userWithRole('employee', ['department_id' => $department->id]);
+        $this->userWithRole('employee', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), ['period_id' => $period->id])
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Sent 2 missing timesheet reminder(s).');
+
+        $this->actingAs($hod)
+            ->get(route('hod.tracker', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertSee('All missing employees are on reminder cooldown.');
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), ['period_id' => $period->id])
+            ->assertRedirect()
+            ->assertSessionHas('warning', 'No reminder was sent. The selected employee(s) were already reminded recently.');
+
+        Mail::assertQueuedCount(2);
+        $this->assertDatabaseCount('audit_logs', 2);
+    }
+
     public function test_hod_cannot_approve_own_timesheet(): void
     {
         $department = $this->department();

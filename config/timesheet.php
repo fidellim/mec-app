@@ -25,4 +25,6 @@ return [
         'L170',
         'L180',
     ],
+
+    'manual_reminder_cooldown_hours' => env('MISSING_TIMESHEET_REMINDER_COOLDOWN_HOURS', 24),
 ];
