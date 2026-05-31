@@ -35,9 +35,9 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             ->expectsOutput('Sent 1 missing timesheet reminder(s) for Week 20, 2026.')
             ->assertSuccessful();
 
-        Mail::assertSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email)
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email)
             && $mail->period->is($pastPeriod));
-        Mail::assertNotSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->period->is($currentPeriod));
+        Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->period->is($currentPeriod));
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'timesheet_missing_reminder_sent',
@@ -65,7 +65,7 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             ->expectsOutput('Missing timesheet reminders automation is disabled.')
             ->assertSuccessful();
 
-        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'timesheet_missing_reminders_failed',
             'auditable_type' => AutomationSetting::class,
@@ -91,7 +91,7 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             ->expectsOutput('Sent 1 missing timesheet reminder(s) for Week 20, 2026.')
             ->assertSuccessful();
 
-        Mail::assertSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($employee->email)
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($employee->email)
             && $mail->period->is($period));
 
         Carbon::setTestNow();
@@ -112,7 +112,7 @@ class MissingTimesheetReminderWorkflowTest extends TestCase
             ->expectsOutput('No eligible open period found for missing timesheet reminders.')
             ->assertSuccessful();
 
-        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'timesheet_missing_reminders_failed',
             'auditable_type' => AutomationSetting::class,

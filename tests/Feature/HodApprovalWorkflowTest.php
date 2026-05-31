@@ -32,7 +32,7 @@ class HodApprovalWorkflowTest extends TestCase
         $this->assertSame('approved', $timesheet->status);
         $this->assertSame($hod->id, $timesheet->approved_by);
         $this->assertNotNull($timesheet->approved_at);
-        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
             && $mail->headline === 'Timesheet approved');
     }
 
@@ -67,7 +67,7 @@ class HodApprovalWorkflowTest extends TestCase
         $this->assertSame('rejected', $timesheet->status);
         $this->assertSame('Wrong project code.', $timesheet->rejection_comment);
         $this->assertSame($hod->id, $timesheet->rejected_by);
-        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
             && $mail->headline === 'Timesheet rejected'
             && $mail->comment === 'Wrong project code.');
     }
@@ -148,10 +148,10 @@ class HodApprovalWorkflowTest extends TestCase
             ->assertRedirect()
             ->assertSessionHas('success');
 
-        Mail::assertSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email)
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email)
             && $mail->period->is($period));
-        Mail::assertNotSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($submittedEmployee->email));
-        Mail::assertNotSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($otherDepartmentEmployee->email));
+        Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($submittedEmployee->email));
+        Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($otherDepartmentEmployee->email));
 
         $this->assertDatabaseHas('audit_logs', [
             'action' => 'timesheet_missing_reminder_sent',
@@ -178,8 +178,8 @@ class HodApprovalWorkflowTest extends TestCase
             ->assertRedirect()
             ->assertSessionHas('success');
 
-        Mail::assertSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email));
-        Mail::assertNotSent(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($otherMissingEmployee->email));
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email));
+        Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($otherMissingEmployee->email));
     }
 
     public function test_hod_cannot_approve_own_timesheet(): void

@@ -76,7 +76,7 @@ class TimesheetEmailNotificationService
         }
 
         try {
-            Mail::to($recipient->email)->send($mail);
+            Mail::to($recipient->email)->queue($mail);
         } catch (\Throwable $exception) {
             Log::warning('Timesheet email notification failed.', [
                 'recipient_id' => $recipient->id,

@@ -62,7 +62,7 @@ class AdminExportWorkflowTest extends TestCase
 
         $this->assertSame('approved', $timesheet->refresh()->status);
         $this->assertSame($admin->id, $timesheet->approved_by);
-        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
             && $mail->headline === 'Timesheet approved');
     }
 
@@ -83,7 +83,7 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('rejected', $timesheet->status);
         $this->assertSame($admin->id, $timesheet->rejected_by);
         $this->assertSame('Please update the project.', $timesheet->rejection_comment);
-        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
             && $mail->headline === 'Timesheet rejected');
     }
 

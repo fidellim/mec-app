@@ -189,7 +189,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertSame('submitted', $timesheet->status);
         $this->assertNotNull($timesheet->submitted_at);
         $this->actingAs($employee)->get(route('employee.timesheets.edit', $timesheet))->assertForbidden();
-        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
             && $mail->headline === 'Timesheet submitted for approval');
     }
 
@@ -375,7 +375,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertNull($timesheet->rejection_comment);
         $this->assertSame('7.00', $timesheet->total_regular_hours);
         $this->assertSame('1.00', $timesheet->total_overtime_hours);
-        Mail::assertNothingSent();
+        Mail::assertNothingQueued();
     }
 
     public function test_employee_can_recall_own_submitted_timesheet(): void
@@ -395,7 +395,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertRedirect(route('employee.timesheets.edit', $timesheet));
 
         $this->assertSame('draft', $timesheet->refresh()->status);
-        Mail::assertSent(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
             && $mail->headline === 'Timesheet recalled by employee');
     }
 

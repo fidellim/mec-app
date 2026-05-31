@@ -2,8 +2,9 @@
 
 namespace Tests\Feature;
 
+use App\Notifications\QueuedResetPassword;
+use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Auth\Notifications\ResetPassword;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
@@ -82,7 +83,7 @@ class AuthAndAccessTest extends TestCase
             'email' => $user->email,
         ])->assertSessionHas('success');
 
-        Notification::assertSentTo($user, ResetPassword::class);
+        Notification::assertSentTo($user, QueuedResetPassword::class, fn ($notification) => $notification instanceof ShouldQueue);
         $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
     }
 

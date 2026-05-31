@@ -305,6 +305,124 @@ Local development defaults to logging emails instead of sending them:
 MAIL_MAILER=log
 ```
 
+Workflow emails, missing timesheet reminder emails, and password reset emails are queueable. The same code works with different queue connections:
+
+| Queue connection | When to use it | What is required |
+| --- | --- | --- |
+| `sync` | Local development or very simple hosting. Jobs run immediately during the request. | No worker required. Requests may wait while email is sent. |
+| `database` | Production-safe default for small/internal deployments. | Run migrations so the `jobs` and `failed_jobs` tables exist, then run a queue worker. |
+| `redis` | Better performance when Redis is available and reliable. | Configure Redis credentials and run a queue worker against Redis. |
+
+Recommended shared-hosting setup:
+
+```env
+QUEUE_CONNECTION=database
+```
+
+Then run:
+
+```bash
+php artisan migrate
+```
+
+If cPanel does not support Supervisor or another long-running daemon, use a Cron Job that starts a short-lived worker every minute and exits when the queue is empty:
+
+```cron
+* * * * * cd /home/your-cpanel-user/path-to-project && /usr/local/bin/php artisan queue:work --stop-when-empty --tries=3 --backoff=60 >> /dev/null 2>&1
+```
+
+If Redis is available, configure:
+
+```env
+QUEUE_CONNECTION=redis
+REDIS_CLIENT=phpredis
+REDIS_HOST=127.0.0.1
+REDIS_PASSWORD=your_redis_password
+REDIS_PORT=6379
+```
+
+Use the exact host, port, and password shown by cPanel. If cPanel shows a non-standard port such as `42035`, use that value for `REDIS_PORT`.
+
+To test the Redis connection from cPanel Terminal or SSH, use `redis-cli` with the values from cPanel:
+
+```bash
+redis-cli -h 127.0.0.1 -p 6379 -a 'your_redis_password' ping
+```
+
+Expected response:
+
+```text
+PONG
+```
+
+For a custom cPanel port:
+
+```bash
+redis-cli -h 127.0.0.1 -p 42035 -a 'your_redis_password' ping
+```
+
+If the password contains special characters, keep it inside quotes. If `redis-cli` is not available in cPanel Terminal, ask the host whether Redis CLI access is enabled; Laravel can still use Redis if PHP can connect to it.
+
+Then use this cPanel cron command instead:
+
+```cron
+* * * * * cd /home/your-cpanel-user/path-to-project && /usr/local/bin/php artisan queue:work redis --stop-when-empty --tries=3 --backoff=60 >> /dev/null 2>&1
+```
+
+If production can run a persistent worker through Supervisor, systemd, or a hosting daemon, use:
+
+```bash
+php artisan queue:work --tries=3 --backoff=60
+```
+
+For shared cPanel hosting, the `--stop-when-empty` cron approach is usually the safest option. Queueing is still useful on shared hosting because users do not have to wait for SMTP during form submissions, but emails will only be delivered when the cron worker runs successfully. If the host cannot run cron reliably, keep `QUEUE_CONNECTION=sync`.
+
+Useful queue checks:
+
+```bash
+php artisan queue:failed
+php artisan queue:retry all
+php artisan queue:flush
+```
+
+For the `database` queue, pending jobs are visible in the `jobs` table. A healthy worker keeps this table close to empty. Failed jobs are stored in `failed_jobs`. For Redis, use the hosting Redis tools if available, and use `php artisan queue:failed` for recorded failures.
+
+Useful Redis checks:
+
+```bash
+redis-cli -h 127.0.0.1 -p 6379 -a 'your_redis_password' ping
+redis-cli -h 127.0.0.1 -p 6379 -a 'your_redis_password' llen queues:default
+redis-cli -h 127.0.0.1 -p 6379 -a 'your_redis_password' keys '*queues*'
+```
+
+Command meanings:
+
+- `ping` confirms Redis is reachable.
+- `llen queues:default` shows how many jobs are waiting in the default queue.
+- `keys '*queues*'` can help find queue keys, but avoid using broad `keys` commands on large production Redis databases.
+
+Useful Laravel queue commands:
+
+```bash
+php artisan queue:work redis --stop-when-empty --tries=3 --backoff=60
+php artisan queue:restart
+php artisan queue:failed
+php artisan queue:retry all
+php artisan queue:forget {failed_job_id}
+php artisan queue:flush
+```
+
+Command meanings:
+
+- `queue:work redis --stop-when-empty` processes Redis jobs and exits when no jobs remain. This is the safest cPanel cron style.
+- `queue:restart` asks long-running workers to restart after the current job. Use this after deployments if a persistent worker is supported.
+- `queue:failed` lists failed jobs recorded by Laravel.
+- `queue:retry all` retries all failed jobs.
+- `queue:forget {failed_job_id}` removes one failed job.
+- `queue:flush` removes all failed job records.
+
+Successful Redis queue jobs are removed from Redis automatically after the worker processes them.
+
 ### Testing Reminder Emails
 
 To test missing timesheet reminders without sending real emails, temporarily use the log mailer:

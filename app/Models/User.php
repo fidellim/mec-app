@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Notifications\QueuedResetPassword;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -49,5 +50,10 @@ class User extends Authenticatable
     public function isAdminLike(): bool
     {
         return in_array($this->role, ['admin', 'super_admin'], true);
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new QueuedResetPassword($token));
     }
 }

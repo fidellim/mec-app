@@ -60,7 +60,7 @@ class MissingTimesheetReminderService
         }
 
         try {
-            Mail::to($employee->email)->send(new MissingTimesheetReminderMail(
+            Mail::to($employee->email)->queue(new MissingTimesheetReminderMail(
                 employee: $employee,
                 period: $period,
                 actionUrl: route('employee.timesheets.create', ['period_id' => $period->id]),
