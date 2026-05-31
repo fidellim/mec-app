@@ -678,7 +678,7 @@
             </div>
             <div class="modal-body" id="confirmModalMessage">Are you sure?</div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal" id="confirmModalCancelButton">Cancel</button>
                 <button type="button" class="btn btn-primary" id="confirmModalButton">Confirm</button>
             </div>
         </div>
@@ -826,9 +826,23 @@ document.querySelectorAll('form').forEach((form) => {
             return;
         }
         event.preventDefault();
+        const modalElement = document.getElementById('confirmModal');
+        const cancelButton = document.getElementById('confirmModalCancelButton');
+        const closeButton = modalElement.querySelector('.btn-close');
         document.getElementById('confirmModalMessage').textContent = message;
         const button = document.getElementById('confirmModalButton');
+        button.disabled = false;
+        button.textContent = 'Confirm';
+        cancelButton.disabled = false;
+        closeButton.disabled = false;
         button.onclick = () => {
+            button.disabled = true;
+            cancelButton.disabled = true;
+            closeButton.disabled = true;
+            button.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Processing...';
+            form.querySelectorAll('button, input[type="submit"]').forEach((control) => {
+                control.disabled = true;
+            });
             form.dataset.confirmed = 'true';
             if (submitter?.name) {
                 const hidden = document.createElement('input');
@@ -844,7 +858,7 @@ document.querySelectorAll('form').forEach((form) => {
 
             HTMLFormElement.prototype.submit.call(form);
         };
-        new bootstrap.Modal(document.getElementById('confirmModal')).show();
+        new bootstrap.Modal(modalElement).show();
     });
 });
 </script>
