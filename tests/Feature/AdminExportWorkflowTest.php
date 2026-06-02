@@ -33,6 +33,9 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('From Week')
             ->assertSee('To Week')
             ->assertSee('Include individual employee timesheet sheets')
+            ->assertSee('Filters are active. Add a valid week and year to see the configured date range.')
+            ->assertSee('filter-summary-badge')
+            ->assertSee('Status: Submitted')
             ->assertSee('P-FILTER - Filter Project')
             ->assertSee('Ben Carter')
             ->assertSee('Operations');
@@ -567,6 +570,12 @@ class AdminExportWorkflowTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.timesheets.index', $filters))
             ->assertOk()
+            ->assertSee('Showing configured dates from')
+            ->assertSee('Mar 16, 2026')
+            ->assertSee('Apr 12, 2026')
+            ->assertSee('Week: 12 to 15')
+            ->assertSee('Dates: Mar 16, 2026 to Apr 12, 2026')
+            ->assertSee('Project: PX-100')
             ->assertSee('Project Worker')
             ->assertDontSee('<td class="fw-semibold">Other Worker</td>', false);
 
@@ -683,6 +692,27 @@ class AdminExportWorkflowTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('admin.timesheets.index', ['week_from' => 12, 'week_to' => 15, 'year' => 2026]))
-            ->assertOk();
+            ->assertOk()
+            ->assertSee('Showing configured dates from')
+            ->assertSee('Mar 16, 2026')
+            ->assertSee('Some selected weeks do not have configured timesheet periods yet.')
+            ->assertSee('Week: 12 to 15');
+    }
+
+    public function test_admin_timesheet_filter_summary_handles_no_filters_and_year_without_periods(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index'))
+            ->assertOk()
+            ->assertSee('Showing all timesheets.')
+            ->assertSee('No filters applied');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['year' => 2030]))
+            ->assertOk()
+            ->assertSee('Filters are active. Add a valid week and year to see the configured date range.')
+            ->assertSee('Year: 2030');
     }
 }

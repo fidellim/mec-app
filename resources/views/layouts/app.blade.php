@@ -440,6 +440,11 @@
             font-weight: 700;
             letter-spacing: 0;
         }
+        .filter-summary-badge {
+            background: color-mix(in srgb, var(--app-muted-bg) 82%, var(--app-card-bg));
+            border: 1px solid var(--app-border);
+            color: var(--bs-body-color);
+        }
         .alert {
             border: 1px solid var(--app-border);
             border-radius: .75rem;

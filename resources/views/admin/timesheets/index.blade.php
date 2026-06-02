@@ -38,6 +38,66 @@
     </div>
     <div class="col-12 text-end"><button class="btn btn-primary">Apply Filters</button></div>
 </form>
+@php
+    $weekFrom = request('week_from', request('week_number'));
+    $weekTo = request('week_to', $weekFrom);
+    $selectedProject = request('project_id') ? $projects->firstWhere('id', (int) request('project_id')) : null;
+    $selectedDepartment = request('department_id') ? $departments->firstWhere('id', (int) request('department_id')) : null;
+    $selectedEmployee = request('employee_id') ? $employees->firstWhere('id', (int) request('employee_id')) : null;
+    $hasVisibleFilters = $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('status');
+@endphp
+<div class="content-card p-3 mb-3">
+    <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+        <div>
+            <div class="fw-semibold">Current view</div>
+            <div class="text-muted small">
+                @if($selectedPeriodRange)
+                    Showing configured dates from
+                    <span class="fw-semibold text-body">{{ $selectedPeriodRange['start_date']->format('M j, Y') }}</span>
+                    to
+                    <span class="fw-semibold text-body">{{ $selectedPeriodRange['end_date']->format('M j, Y') }}</span>.
+                    @if($selectedPeriodRange['has_missing_weeks'])
+                        Some selected weeks do not have configured timesheet periods yet.
+                    @endif
+                @elseif($hasVisibleFilters)
+                    Filters are active. Add a valid week and year to see the configured date range.
+                @else
+                    Showing all timesheets.
+                @endif
+            </div>
+        </div>
+        <div class="d-flex flex-wrap align-items-start justify-content-lg-end gap-2">
+            @if($weekFrom)
+                <span class="badge filter-summary-badge px-3 py-2">
+                    Week: {{ $weekTo && $weekTo !== $weekFrom ? $weekFrom.' to '.$weekTo : $weekFrom }}
+                </span>
+            @endif
+            @if(request('year'))
+                <span class="badge filter-summary-badge px-3 py-2">Year: {{ request('year') }}</span>
+            @endif
+            @if($selectedPeriodRange)
+                <span class="badge filter-summary-badge px-3 py-2">
+                    Dates: {{ $selectedPeriodRange['start_date']->format('M j, Y') }} to {{ $selectedPeriodRange['end_date']->format('M j, Y') }}
+                </span>
+            @endif
+            @if(request('project_id'))
+                <span class="badge filter-summary-badge px-3 py-2">Project: {{ $selectedProject ? $selectedProject->project_code : 'Selected project' }}</span>
+            @endif
+            @if(request('department_id'))
+                <span class="badge filter-summary-badge px-3 py-2">Department: {{ $selectedDepartment?->name ?? 'Selected department' }}</span>
+            @endif
+            @if(request('employee_id'))
+                <span class="badge filter-summary-badge px-3 py-2">Employee: {{ $selectedEmployee?->name ?? 'Selected employee' }}</span>
+            @endif
+            @if(request('status'))
+                <span class="badge filter-summary-badge px-3 py-2">Status: {{ ucfirst(request('status')) }}</span>
+            @endif
+            @unless($hasVisibleFilters)
+                <span class="badge filter-summary-badge px-3 py-2">No filters applied</span>
+            @endunless
+        </div>
+    </div>
+</div>
 <div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Employee</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
 @forelse($timesheets as $timesheet)
     <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->department->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.timesheets.show', $timesheet) }}">View</a></td></tr>

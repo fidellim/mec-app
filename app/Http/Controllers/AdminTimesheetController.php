@@ -24,6 +24,7 @@ class AdminTimesheetController extends Controller
             'departments' => Department::orderBy('name')->get(),
             'employees' => User::orderBy('name')->get(),
             'projects' => Project::orderBy('project_code')->orderBy('project_name')->get(),
+            'selectedPeriodRange' => $this->selectedPeriodRange($filters),
         ]);
     }
 
@@ -95,5 +96,35 @@ class AdminTimesheetController extends Controller
                     : 'Selected week range does not contain any existing periods.',
             ]);
         }
+    }
+
+    private function selectedPeriodRange(array $filters): ?array
+    {
+        if (! ($filters['year'] ?? null)) {
+            return null;
+        }
+
+        $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
+        $weekTo = $filters['week_to'] ?? $weekFrom;
+
+        $periods = TimesheetPeriod::query()
+            ->where('year', $filters['year'])
+            ->when($weekFrom, fn ($q) => $q->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo]))
+            ->orderBy('week_number')
+            ->get(['week_number', 'year', 'start_date', 'end_date']);
+
+        if ($periods->isEmpty()) {
+            return null;
+        }
+
+        return [
+            'start_date' => $periods->first()->start_date,
+            'end_date' => $periods->last()->end_date,
+            'first_week' => $periods->first()->week_number,
+            'last_week' => $periods->last()->week_number,
+            'requested_week_from' => $weekFrom ? (int) $weekFrom : null,
+            'requested_week_to' => $weekTo ? (int) $weekTo : null,
+            'has_missing_weeks' => $weekFrom && $periods->count() < (((int) $weekTo - (int) $weekFrom) + 1),
+        ];
     }
 }
