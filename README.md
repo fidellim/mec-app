@@ -153,12 +153,13 @@ Super Admin users can review audit logs from **Manage Audit Logs**.
 3. Employee enters daily rows against project/job numbers.
 4. A day can contain multiple project rows, including overtime-only rows after normal working hours.
 5. Leave attendance codes can carry regular hours without a project/job number, but cannot carry overtime.
-6. Employee saves as draft or submits.
-7. Submitted timesheets are locked for the employee.
-8. Employee can recall a submitted timesheet before Head of Department action, returning it to draft for correction.
-9. Head of Department approves or rejects department timesheets.
-10. Rejected timesheets show the rejection comment and become editable by the employee.
-11. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
+6. `L200` Training Seminar can be entered without a project/job number and can include regular or overtime hours.
+7. Employee saves as draft or submits.
+8. Submitted timesheets are locked for the employee.
+9. Employee can recall a submitted timesheet before Head of Department action, returning it to draft for correction.
+10. Head of Department approves or rejects department timesheets.
+11. Rejected timesheets show the rejection comment and become editable by the employee.
+12. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
 
 ## Open Period Rules
 

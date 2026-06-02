@@ -113,7 +113,9 @@
     const table = document.getElementById('timesheet-entry-table');
     let nextIndex = {{ count($entries) }};
     const leaveAttendanceCodes = @json(config('timesheet.leave_attendance_codes', []));
+    const projectOptionalAttendanceCodes = @json(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
     const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
+    const isProjectOptionalAttendanceCode = (value) => projectOptionalAttendanceCodes.includes(value);
 
     const renameRowFields = (row, index) => {
         row.querySelectorAll('[data-field]').forEach((field) => {
@@ -155,12 +157,13 @@
         const overtimeInput = row.querySelector('[data-field="overtime_hours"]');
         const selectedAttendanceCode = attendanceSelect.tomselect?.getValue() ?? attendanceSelect.value;
         const isLeave = isLeaveAttendanceCode(selectedAttendanceCode);
+        const isProjectOptional = isProjectOptionalAttendanceCode(selectedAttendanceCode);
 
         attendanceSelect.required = hasHours;
         attendanceSelect.tomselect?.wrapper.classList.toggle('is-required', hasHours);
 
-        projectSelect.required = hasHours && ! isLeave;
-        projectSelect.tomselect?.wrapper.classList.toggle('is-required', hasHours && ! isLeave);
+        projectSelect.required = hasHours && ! isProjectOptional;
+        projectSelect.tomselect?.wrapper.classList.toggle('is-required', hasHours && ! isProjectOptional);
 
         if (isLeave) {
             overtimeInput.value = '0';

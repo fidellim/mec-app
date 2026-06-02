@@ -300,6 +300,35 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertNull($leaveEntry->project_id);
     }
 
+    public function test_training_code_allows_regular_and_overtime_hours_without_project(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => 'L200',
+                'project_id' => '',
+                'regular_hours' => 6,
+                'overtime_hours' => 2,
+            ],
+        ]);
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertRedirect();
+
+        $timesheet = Timesheet::firstOrFail();
+        $trainingEntry = $timesheet->entries()->where('attendance_code', 'L200')->firstOrFail();
+
+        $this->assertSame('6.00', $timesheet->total_regular_hours);
+        $this->assertSame('2.00', $timesheet->total_overtime_hours);
+        $this->assertSame('8.00', $timesheet->total_hours);
+        $this->assertNull($trainingEntry->project_id);
+    }
+
     public function test_leave_codes_do_not_allow_overtime_hours(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);

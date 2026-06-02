@@ -26,5 +26,17 @@ return [
         'L180',
     ],
 
+    'project_optional_attendance_codes' => [
+        'L100',
+        'L110',
+        'L120',
+        'L130',
+        'L140',
+        'L160',
+        'L170',
+        'L180',
+        'L200',
+    ],
+
     'manual_reminder_cooldown_hours' => env('MISSING_TIMESHEET_REMINDER_COOLDOWN_HOURS', 24),
 ];
