@@ -232,6 +232,8 @@ The exported workbook contains:
 
 The **Project Weekly Summary** worksheet is grouped by project. Each project group shows employees down the rows and weekly periods across the columns. Each week header is merged above its Regular, Overtime, and Total hour columns and is sized to show both the week number and date range. If an employee logged hours for the project in one exported week but not another, the missing week columns show `0.00`.
 
+When more than one weekly period is exported, the Project Weekly Summary also adds a highlighted **Selected Period Total** column group after the week columns. This group shows Regular, Overtime, and Total hours across the full exported range for each employee row, each project total row, and the grand total row. Single-week exports keep the simpler one-week layout and do not show this extra range-total group.
+
 Each project group shows:
 
 - Project code
@@ -245,9 +247,10 @@ Each project group shows:
 - Regular hours per week
 - Overtime hours per week
 - Total hours per week
+- Export range Regular, Overtime, and Total hours when multiple weekly periods are exported
 - Project total row
 
-The bottom of the summary contains a grand total row. Grand totals are calculated for every exported week column group, so exports with Week 12 through Week 15 show separate Regular, Overtime, and Total grand totals for each week.
+The bottom of the summary contains a grand total row. Grand totals are calculated for every exported week column group, so exports with Week 12 through Week 15 show separate Regular, Overtime, and Total grand totals for each week. Multi-week exports also show the highlighted Selected Period Total at the far right, giving the final Regular, Overtime, and Total hours for the whole selected range.
 
 The **Attendance Code Summary** worksheet lists leave and other non-project hours from the exported timesheets. It includes week, employee, department, job title, attendance code, attendance label, project/job if present, regular hours, overtime hours, total hours, and status. This worksheet explains why payroll/manhour totals may be higher than project-chargeable totals when employees have annual leave, sick leave, emergency leave, unpaid leave, paid holiday leave, maternity leave, paternity leave, compassionate leave, or other non-project hours.
 
@@ -269,7 +272,9 @@ The export/filter validation may return these messages:
 
 ### Export UX
 
-The Admin **Export Excel** button shows a small loading spinner and `Preparing export...` label after it is clicked. This gives feedback while Laravel builds the workbook and discourages duplicate clicks on larger exports.
+The Admin **Export Excel** button shows a short `Starting export...` state after it is clicked, then returns to normal while the browser handles the file download. A toast also appears with `Export started. Your Excel file will download when ready.` This avoids implying that the page can track the browser's full download lifecycle.
+
+If Laravel redirects back with a warning, success message, or validation errors, the layout keeps the normal page alert and also shows a toast. Export issues such as duplicate export attempts therefore appear as both a durable alert and a temporary notification.
 
 For larger exports, leave `Include individual employee timesheet sheets` unchecked unless detailed timesheet backup sheets are needed. Summary-only exports avoid generating many extra worksheet tabs and reduce server work.
 

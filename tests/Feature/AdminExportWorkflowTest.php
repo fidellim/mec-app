@@ -8,6 +8,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use PhpOffice\PhpSpreadsheet\Style\Border;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -35,6 +36,11 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('Include individual employee timesheet sheets')
             ->assertSee('Filters are active. Add a valid week and year to see the configured date range.')
             ->assertSee('filter-summary-badge')
+            ->assertSee('Export started. Your Excel file will download when ready.')
+            ->assertSee('Starting export...')
+            ->assertSee('app-toast-success')
+            ->assertSee('bottom-0')
+            ->assertDontSee('Preparing export...')
             ->assertSee('Status: Submitted')
             ->assertSee('P-FILTER - Filter Project')
             ->assertSee('Ben Carter')
@@ -175,6 +181,9 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame(2, $spreadsheet->getSheetCount());
         $this->assertSame('Project Weekly Summary', $spreadsheet->getSheet(0)->getTitle());
         $this->assertSame('Attendance Code Summary', $spreadsheet->getSheet(1)->getTitle());
+        $this->assertSame('G', $spreadsheet->getSheet(0)->getHighestColumn());
+        $this->assertStringContainsString('Week 20, 2026', $spreadsheet->getSheet(0)->getCell('E4')->getValue());
+        $this->assertSame('', (string) $spreadsheet->getSheet(0)->getCell('H4')->getValue());
     }
 
     public function test_admin_timesheet_export_is_throttled(): void
@@ -211,6 +220,20 @@ class AdminExportWorkflowTest extends TestCase
         } finally {
             $lock->release();
         }
+    }
+
+    public function test_admin_timesheet_index_shows_export_problem_toast_from_backend_warning(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->withSession(['warning' => 'An export is already running. Please wait for it to finish before starting another export.'])
+            ->get(route('admin.timesheets.index'))
+            ->assertOk()
+            ->assertSee('data-app-toast', false)
+            ->assertSee('app-toast-warning')
+            ->assertSee('Notice')
+            ->assertSee('An export is already running. Please wait for it to finish before starting another export.');
     }
 
     public function test_admin_can_include_individual_employee_sheets_in_excel_export(): void
@@ -338,8 +361,14 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertGreaterThanOrEqual(36, $weekly->getRowDimension(4)->getRowHeight());
         $this->assertContains('E4:G4', $weekly->getMergeCells());
         $this->assertContains('H4:J4', $weekly->getMergeCells());
+        $this->assertContains('K4:M4', $weekly->getMergeCells());
+        $this->assertSame('Selected Period Total', $weekly->getCell('K4')->getValue());
         $this->assertSame('Employee ID', $weekly->getCell('A5')->getValue());
         $this->assertSame('Job Title', $weekly->getCell('D5')->getValue());
+        $this->assertSame('FFF8CBAD', $weekly->getStyle('K4')->getFill()->getStartColor()->getARGB());
+        $this->assertSame('FFFCE4D6', $weekly->getStyle('K6')->getFill()->getStartColor()->getARGB());
+        $this->assertSame('FFF8DFD0', $weekly->getStyle('K8')->getFill()->getStartColor()->getARGB());
+        $this->assertSame(Border::BORDER_THICK, $weekly->getStyle('K6')->getBorders()->getLeft()->getBorderStyle());
         $this->assertSame('EMP-001', $weekly->getCell('A6')->getValue());
         $this->assertSame('BC', $weekly->getCell('B6')->getValue());
         $this->assertSame('Ben Carter', $weekly->getCell('C6')->getValue());
@@ -350,12 +379,18 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(9, $weekly->getCell('H6')->getCalculatedValue());
         $this->assertEquals(3, $weekly->getCell('I6')->getCalculatedValue());
         $this->assertEquals(12, $weekly->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(17, $weekly->getCell('K6')->getCalculatedValue());
+        $this->assertEquals(5, $weekly->getCell('L6')->getCalculatedValue());
+        $this->assertEquals(22, $weekly->getCell('M6')->getCalculatedValue());
         $this->assertSame('Alice Santos', $weekly->getCell('C7')->getValue());
         $this->assertSame('-', $weekly->getCell('D7')->getValue());
         $this->assertSame('AS', $weekly->getCell('B7')->getValue());
         $this->assertEquals(0, $weekly->getCell('H7')->getCalculatedValue());
         $this->assertEquals(0, $weekly->getCell('I7')->getCalculatedValue());
         $this->assertEquals(0, $weekly->getCell('J7')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('K7')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('L7')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('M7')->getCalculatedValue());
         $this->assertSame('Project Total', $weekly->getCell('A8')->getValue());
         $this->assertEquals(16, $weekly->getCell('E8')->getCalculatedValue());
         $this->assertEquals(2, $weekly->getCell('F8')->getCalculatedValue());
@@ -363,6 +398,9 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(9, $weekly->getCell('H8')->getCalculatedValue());
         $this->assertEquals(3, $weekly->getCell('I8')->getCalculatedValue());
         $this->assertEquals(12, $weekly->getCell('J8')->getCalculatedValue());
+        $this->assertEquals(25, $weekly->getCell('K8')->getCalculatedValue());
+        $this->assertEquals(5, $weekly->getCell('L8')->getCalculatedValue());
+        $this->assertEquals(30, $weekly->getCell('M8')->getCalculatedValue());
         $this->assertStringContainsString('P200 - Control Room Fit Out', $weekly->getCell('A10')->getValue());
         $this->assertSame('Grand Total', $weekly->getCell('A16')->getValue());
         $this->assertEquals(19, $weekly->getCell('E16')->getCalculatedValue());
@@ -371,6 +409,9 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(9, $weekly->getCell('H16')->getCalculatedValue());
         $this->assertEquals(3, $weekly->getCell('I16')->getCalculatedValue());
         $this->assertEquals(12, $weekly->getCell('J16')->getCalculatedValue());
+        $this->assertEquals(28, $weekly->getCell('K16')->getCalculatedValue());
+        $this->assertEquals(9, $weekly->getCell('L16')->getCalculatedValue());
+        $this->assertEquals(37, $weekly->getCell('M16')->getCalculatedValue());
     }
 
     public function test_excel_export_includes_attendance_summary_for_leave_and_non_project_hours(): void
@@ -592,6 +633,8 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertStringContainsString('16-Mar-26 to 22-Mar-26', $weekly->getCell('E4')->getValue());
         $this->assertStringContainsString('Week 15, 2026', $weekly->getCell('H4')->getValue());
         $this->assertStringContainsString('06-Apr-26 to 12-Apr-26', $weekly->getCell('H4')->getValue());
+        $this->assertSame('Selected Period Total', $weekly->getCell('K4')->getValue());
+        $this->assertContains('K4:M4', $weekly->getMergeCells());
         $this->assertSame('EMP-P100', $weekly->getCell('A6')->getValue());
         $this->assertSame('Project Manager', $weekly->getCell('D6')->getValue());
         $this->assertEquals(8, $weekly->getCell('E6')->getCalculatedValue());
@@ -600,7 +643,13 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(8, $weekly->getCell('H6')->getCalculatedValue());
         $this->assertEquals(3, $weekly->getCell('I6')->getCalculatedValue());
         $this->assertEquals(11, $weekly->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(16, $weekly->getCell('K6')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('L6')->getCalculatedValue());
+        $this->assertEquals(19, $weekly->getCell('M6')->getCalculatedValue());
         $this->assertSame('Project Total', $weekly->getCell('A7')->getValue());
+        $this->assertEquals(16, $weekly->getCell('K7')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('L7')->getCalculatedValue());
+        $this->assertEquals(19, $weekly->getCell('M7')->getCalculatedValue());
         $this->assertSame('Grand Total', $weekly->getCell('A9')->getValue());
         $this->assertEquals(8, $weekly->getCell('E9')->getCalculatedValue());
         $this->assertEquals(0, $weekly->getCell('F9')->getCalculatedValue());
@@ -608,6 +657,9 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(8, $weekly->getCell('H9')->getCalculatedValue());
         $this->assertEquals(3, $weekly->getCell('I9')->getCalculatedValue());
         $this->assertEquals(11, $weekly->getCell('J9')->getCalculatedValue());
+        $this->assertEquals(16, $weekly->getCell('K9')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('L9')->getCalculatedValue());
+        $this->assertEquals(19, $weekly->getCell('M9')->getCalculatedValue());
 
         foreach (range(1, 9) as $row) {
             $this->assertStringNotContainsString('PX-200', (string) $weekly->getCell("A{$row}")->getValue());

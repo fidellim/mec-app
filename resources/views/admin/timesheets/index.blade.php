@@ -120,13 +120,19 @@
         const spinner = exportButton.querySelector('.spinner-border');
         const label = exportButton.querySelector('[data-export-label]');
 
-        exportButton.addEventListener('click', function () {
+        exportButton.addEventListener('click', function (event) {
+            if (exportButton.classList.contains('disabled')) {
+                event.preventDefault();
+                return;
+            }
+
             exportButton.classList.add('disabled');
             exportButton.setAttribute('aria-disabled', 'true');
             spinner?.classList.remove('d-none');
+            window.showAppToast?.('Export started. Your Excel file will download when ready.', 'success', 'Export started');
 
             if (label) {
-                label.textContent = 'Preparing export...';
+                label.textContent = 'Starting export...';
             }
 
             window.setTimeout(function () {
@@ -137,7 +143,7 @@
                 if (label) {
                     label.textContent = 'Export Excel';
                 }
-            }, 8000);
+            }, 2000);
         });
     });
 </script>

@@ -445,6 +445,33 @@
             border: 1px solid var(--app-border);
             color: var(--bs-body-color);
         }
+        .app-toast {
+            background: color-mix(in srgb, var(--app-card-bg) 96%, transparent);
+            border: 1px solid var(--app-border);
+            box-shadow: var(--app-shadow-md);
+            color: var(--bs-body-color);
+        }
+        .app-toast-success {
+            border-left: .35rem solid var(--bs-success);
+        }
+        .app-toast-warning {
+            border-left: .35rem solid var(--bs-warning);
+        }
+        .app-toast-error {
+            border-left: .35rem solid var(--bs-danger);
+        }
+        .app-toast-success .toast-header {
+            color: var(--bs-success-text-emphasis);
+            background: color-mix(in srgb, var(--bs-success-bg-subtle) 78%, var(--app-card-bg));
+        }
+        .app-toast-warning .toast-header {
+            color: var(--bs-warning-text-emphasis);
+            background: color-mix(in srgb, var(--bs-warning-bg-subtle) 78%, var(--app-card-bg));
+        }
+        .app-toast-error .toast-header {
+            color: var(--bs-danger-text-emphasis);
+            background: color-mix(in srgb, var(--bs-danger-bg-subtle) 78%, var(--app-card-bg));
+        }
         .alert {
             border: 1px solid var(--app-border);
             border-radius: .75rem;
@@ -674,6 +701,35 @@
         </main>
     </div>
 </div>
+<div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;" id="appToastContainer">
+    @if(session('success'))
+        <div class="toast app-toast app-toast-success" role="status" aria-live="polite" aria-atomic="true" data-app-toast>
+            <div class="toast-header">
+                <strong class="me-auto">Success</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">{{ session('success') }}</div>
+        </div>
+    @endif
+    @if(session('warning'))
+        <div class="toast app-toast app-toast-warning" role="alert" aria-live="assertive" aria-atomic="true" data-app-toast>
+            <div class="toast-header">
+                <strong class="me-auto">Notice</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">{{ session('warning') }}</div>
+        </div>
+    @endif
+    @if($errors->any())
+        <div class="toast app-toast app-toast-error" role="alert" aria-live="assertive" aria-atomic="true" data-app-toast>
+            <div class="toast-header">
+                <strong class="me-auto">Something went wrong</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body">Please check the form and try again.</div>
+        </div>
+    @endif
+</div>
 <div class="modal fade" id="confirmModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
@@ -699,6 +755,53 @@ const initializeTooltips = (scope = document) => {
 };
 
 initializeTooltips();
+
+const appToastContainer = document.getElementById('appToastContainer');
+
+window.showAppToast = (message, type = 'info', title = 'Notice') => {
+    if (!appToastContainer) {
+        return;
+    }
+
+    const toast = document.createElement('div');
+    const typeClass = {
+        success: 'app-toast-success',
+        warning: 'app-toast-warning',
+        error: 'app-toast-error',
+    }[type] || 'app-toast-warning';
+    toast.className = `toast app-toast ${typeClass}`;
+    toast.setAttribute('role', type === 'success' ? 'status' : 'alert');
+    toast.setAttribute('aria-live', type === 'success' ? 'polite' : 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+
+    const header = document.createElement('div');
+    header.className = 'toast-header';
+
+    const titleElement = document.createElement('strong');
+    titleElement.className = 'me-auto';
+    titleElement.textContent = title;
+
+    const closeButton = document.createElement('button');
+    closeButton.type = 'button';
+    closeButton.className = 'btn-close';
+    closeButton.setAttribute('data-bs-dismiss', 'toast');
+    closeButton.setAttribute('aria-label', 'Close');
+
+    const body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = message;
+
+    header.append(titleElement, closeButton);
+    toast.append(header, body);
+    appToastContainer.appendChild(toast);
+
+    toast.addEventListener('hidden.bs.toast', () => toast.remove(), { once: true });
+    bootstrap.Toast.getOrCreateInstance(toast, { delay: 6000 }).show();
+};
+
+document.querySelectorAll('[data-app-toast]').forEach((toast) => {
+    bootstrap.Toast.getOrCreateInstance(toast, { delay: 7000 }).show();
+});
 
 const initializeSearchableSelects = (scope = document) => {
     if (!window.TomSelect) {

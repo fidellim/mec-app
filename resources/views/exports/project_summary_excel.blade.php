@@ -47,6 +47,19 @@
             background: #f1f5f9;
             font-weight: 700;
         }
+        .period-total-header {
+            background: #f8cbad;
+            color: #111827;
+            font-weight: 700;
+            text-align: center;
+        }
+        .period-total-cell {
+            background: #fce4d6;
+        }
+        .period-total-summary {
+            background: #f8dfd0;
+            font-weight: 700;
+        }
         .right {
             text-align: right;
         }
@@ -80,6 +93,9 @@
             @foreach($group['weeks'] as $week)
                 <th colspan="3" class="week-header">{{ $week['label'] }}<br>{{ $week['dates'] }}</th>
             @endforeach
+            @if($showRangeTotals)
+                <th colspan="3" class="period-total-header">Selected Period Total</th>
+            @endif
         </tr>
         <tr>
             <th class="table-header">Employee ID</th>
@@ -87,10 +103,15 @@
             <th class="table-header">Employee</th>
             <th class="table-header">Job Title</th>
             @foreach($group['weeks'] as $week)
+                <th class="period-total-header">Regular Hours</th>
+                <th class="period-total-header">Overtime Hours</th>
+                <th class="period-total-header">Total Hours</th>
+            @endforeach
+            @if($showRangeTotals)
                 <th class="table-header">Regular Hours</th>
                 <th class="table-header">Overtime Hours</th>
                 <th class="table-header">Total Hours</th>
-            @endforeach
+            @endif
         </tr>
         @foreach($group['employees'] as $employee)
             <tr>
@@ -104,6 +125,11 @@
                     <td class="right">{{ number_format($hours['overtime_hours'], 2) }}</td>
                     <td class="right">{{ number_format($hours['total_hours'], 2) }}</td>
                 @endforeach
+                @if($showRangeTotals)
+                    <td class="period-total-cell right">{{ number_format($employee['regular_hours'], 2) }}</td>
+                    <td class="period-total-cell right">{{ number_format($employee['overtime_hours'], 2) }}</td>
+                    <td class="period-total-cell right">{{ number_format($employee['total_hours'], 2) }}</td>
+                @endif
             </tr>
         @endforeach
         <tr>
@@ -114,6 +140,11 @@
                 <td class="summary-total right">{{ number_format($totals['overtime_hours'], 2) }}</td>
                 <td class="summary-total right">{{ number_format($totals['total_hours'], 2) }}</td>
             @endforeach
+            @if($showRangeTotals)
+                <td class="period-total-summary right">{{ number_format($group['regular_hours'], 2) }}</td>
+                <td class="period-total-summary right">{{ number_format($group['overtime_hours'], 2) }}</td>
+                <td class="period-total-summary right">{{ number_format($group['total_hours'], 2) }}</td>
+            @endif
         </tr>
         <tr>
             <td colspan="{{ $totalColumns }}" class="summary-spacer"></td>
@@ -131,10 +162,15 @@
             <td class="summary-total right">{{ number_format($totals['overtime_hours'], 2) }}</td>
             <td class="summary-total right">{{ number_format($totals['total_hours'], 2) }}</td>
         @empty
+            <td class="period-total-summary right">{{ number_format($totalRegular, 2) }}</td>
+            <td class="period-total-summary right">{{ number_format($totalOvertime, 2) }}</td>
+            <td class="period-total-summary right">{{ number_format($totalHours, 2) }}</td>
+        @endforelse
+        @if($showRangeTotals)
             <td class="summary-total right">{{ number_format($totalRegular, 2) }}</td>
             <td class="summary-total right">{{ number_format($totalOvertime, 2) }}</td>
             <td class="summary-total right">{{ number_format($totalHours, 2) }}</td>
-        @endforelse
+        @endif
     </tr>
 </table>
 </body>

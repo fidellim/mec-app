@@ -27,10 +27,13 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 
     public function view(): View
     {
+        $weeks = $this->weeks($this->rows);
+
         return view('exports.project_summary_excel', [
             'groups' => $this->groups(),
-            'weeks' => $this->weeks($this->rows),
-            'grandTotalsByWeek' => $this->weekTotals($this->rows, $this->weeks($this->rows)),
+            'weeks' => $weeks,
+            'showRangeTotals' => $this->showRangeTotals($weeks),
+            'grandTotalsByWeek' => $this->weekTotals($this->rows, $weeks),
             'totalColumns' => $this->totalColumns(),
             'totalRegular' => $this->rows->sum('regular_hours'),
             'totalOvertime' => $this->rows->sum('overtime_hours'),
@@ -144,6 +147,8 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     ]);
                 }
 
+                $this->styleSelectedPeriodTotalColumns($sheet);
+
                 foreach ($this->spacerRows() as $rowNumber) {
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
                         'borders' => [
@@ -156,6 +161,64 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                 }
             },
         ];
+    }
+
+    private function styleSelectedPeriodTotalColumns($sheet): void
+    {
+        $range = $this->selectedPeriodTotalColumnRange();
+
+        if (! $range) {
+            return;
+        }
+
+        [$startColumn, $endColumn] = $range;
+
+        foreach ($this->projectTableRanges() as [$startRow, $endRow]) {
+            $weekHeaderRow = $startRow + 1;
+            $tableHeaderRow = $startRow + 2;
+            $firstBodyRow = $startRow + 3;
+            $projectTotalRow = $endRow;
+
+            $sheet->getStyle("{$startColumn}{$weekHeaderRow}:{$endColumn}{$tableHeaderRow}")->applyFromArray([
+                'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF8CBAD']],
+                'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+            ]);
+
+            if ($firstBodyRow < $projectTotalRow) {
+                $sheet->getStyle("{$startColumn}{$firstBodyRow}:{$endColumn}".($projectTotalRow - 1))->applyFromArray([
+                    'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFFCE4D6']],
+                ]);
+            }
+
+            $sheet->getStyle("{$startColumn}{$projectTotalRow}:{$endColumn}{$projectTotalRow}")->applyFromArray([
+                'font' => ['bold' => true],
+                'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF8DFD0']],
+            ]);
+
+            $sheet->getStyle("{$startColumn}{$weekHeaderRow}:{$startColumn}{$projectTotalRow}")->applyFromArray([
+                'borders' => [
+                    'left' => [
+                        'borderStyle' => Border::BORDER_THICK,
+                        'color' => ['argb' => 'FFC65911'],
+                    ],
+                ],
+            ]);
+        }
+
+        $lastRow = $this->lastRow();
+        $sheet->getStyle("{$startColumn}{$lastRow}:{$endColumn}{$lastRow}")->applyFromArray([
+            'font' => ['bold' => true],
+            'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF8DFD0']],
+        ]);
+        $sheet->getStyle("{$startColumn}{$lastRow}:{$startColumn}{$lastRow}")->applyFromArray([
+            'borders' => [
+                'left' => [
+                    'borderStyle' => Border::BORDER_THICK,
+                    'color' => ['argb' => 'FFC65911'],
+                ],
+            ],
+        ]);
     }
 
     private function groups(): Collection
@@ -232,6 +295,8 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                             'total_hours' => $row['total_hours'] ?? 0,
                         ]];
                     }),
+                    'regular_hours' => $employeeRows->sum('regular_hours'),
+                    'overtime_hours' => $employeeRows->sum('overtime_hours'),
                     'total_hours' => $employeeRows->sum('total_hours'),
                 ];
             })
@@ -259,9 +324,11 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 
     private function totalColumns(): int
     {
-        $maxWeekCount = $this->weeks($this->rows)->count() ?: 1;
+        $weeks = $this->weeks($this->rows);
+        $maxWeekCount = $weeks->count() ?: 1;
+        $rangeTotalColumns = $this->showRangeTotals($weeks) ? 3 : 0;
 
-        return max(7, 4 + ($maxWeekCount * 3));
+        return max(7, 4 + ($maxWeekCount * 3) + $rangeTotalColumns);
     }
 
     private function lastColumn(): string
@@ -364,15 +431,44 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
     private function weekColumnRanges(): array
     {
         $ranges = [];
+        $groupCount = $this->weeks($this->rows)->count();
 
-        for ($column = 5; $column <= $this->totalColumns(); $column += 3) {
+        for ($column = 5; $column < 5 + ($groupCount * 3); $column += 3) {
             $ranges[] = [
                 Coordinate::stringFromColumnIndex($column),
                 Coordinate::stringFromColumnIndex($column + 2),
             ];
         }
 
+        if ($range = $this->selectedPeriodTotalColumnRange()) {
+            $ranges[] = [
+                $range[0],
+                $range[1],
+            ];
+        }
+
         return $ranges;
+    }
+
+    private function selectedPeriodTotalColumnRange(): ?array
+    {
+        $weeks = $this->weeks($this->rows);
+
+        if (! $this->showRangeTotals($weeks)) {
+            return null;
+        }
+
+        $startColumnIndex = 5 + ($weeks->count() * 3);
+
+        return [
+            Coordinate::stringFromColumnIndex($startColumnIndex),
+            Coordinate::stringFromColumnIndex($startColumnIndex + 2),
+        ];
+    }
+
+    private function showRangeTotals(Collection $weeks): bool
+    {
+        return $weeks->count() > 1;
     }
 
     private function weekKey(array $row): string
