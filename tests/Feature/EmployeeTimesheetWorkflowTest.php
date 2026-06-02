@@ -330,6 +330,54 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertNull($trainingEntry->project_id);
     }
 
+    public function test_timesheet_show_groups_entries_by_day_with_non_project_rows(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project([
+            'project_code' => 'P-GROUP',
+            'project_name' => 'Grouped Project Display',
+        ]);
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => 'O100',
+                'project_id' => $project->id,
+                'regular_hours' => 6,
+                'overtime_hours' => 1,
+            ],
+        ]);
+        $entries[] = [
+            'work_date' => '2026-05-11',
+            'attendance_code' => 'L200',
+            'project_id' => '',
+            'regular_hours' => 2,
+            'overtime_hours' => 1,
+            'remarks' => 'Training seminar',
+        ];
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '0',
+            'entries' => $entries,
+        ])->assertRedirect();
+
+        $timesheet = Timesheet::firstOrFail();
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.show', $timesheet))
+            ->assertOk()
+            ->assertSee('Monday')
+            ->assertSee('P-GROUP')
+            ->assertSee('Grouped Project Display')
+            ->assertSee('L200')
+            ->assertSee('Training Seminar')
+            ->assertSee('Non-project')
+            ->assertDontSee('RT 8.00')
+            ->assertDontSee('OT 2.00')
+            ->assertDontSee('<th>Date</th>', false)
+            ->assertDontSee('<th>Day</th>', false);
+    }
+
     public function test_leave_codes_do_not_allow_overtime_hours(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);

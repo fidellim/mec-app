@@ -385,6 +385,11 @@
         .timesheet-entry-table select { min-height: 2.45rem; }
         .timesheet-entry-table tbody tr { border-left: 3px solid transparent; }
         .timesheet-entry-table tbody tr:hover { border-left-color: var(--bs-primary); }
+        .timesheet-day-row > td {
+            background: color-mix(in srgb, var(--app-muted-bg) 78%, var(--app-card-bg));
+            border-top: 1px solid var(--app-border);
+            border-bottom: 1px solid var(--app-border);
+        }
         .form-control,
         .form-select,
         .ts-control {

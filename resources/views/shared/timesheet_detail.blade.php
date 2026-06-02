@@ -19,19 +19,43 @@
         <div class="small text-muted">Daily attendance, project, and overtime records.</div>
     </div>
     <div class="table-responsive">
+        @php
+            $attendanceCodes = config('timesheet.attendance_codes');
+            $entriesByDate = $timesheet->entries
+                ->sortBy(fn ($entry) => $entry->work_date->toDateString().'|'.str_pad((string) $entry->id, 10, '0', STR_PAD_LEFT))
+                ->groupBy(fn ($entry) => $entry->work_date->toDateString());
+        @endphp
         <table class="table table-hover mb-0">
-            <thead><tr><th>Date</th><th>Day</th><th>Attendance Code</th><th>Project</th><th>Regular</th><th>Overtime</th><th>Remarks</th></tr></thead>
+            <thead><tr><th>Attendance Code</th><th>Project / Job</th><th class="text-end">Regular</th><th class="text-end">Overtime</th><th>Remarks</th></tr></thead>
             <tbody>
-            @foreach($timesheet->entries as $entry)
-                <tr>
-                    <td>{{ $entry->work_date->toDateString() }}</td>
-                    <td>{{ $entry->day_name }}</td>
-                    <td>{{ $entry->attendance_code }} - {{ config('timesheet.attendance_codes')[$entry->attendance_code] ?? '' }}</td>
-                    <td>{{ $entry->project?->project_code }} {{ $entry->project?->project_name }}</td>
-                    <td>{{ $entry->regular_hours }}</td>
-                    <td>{{ $entry->overtime_hours }}</td>
-                    <td>{{ $entry->remarks }}</td>
+            @foreach($entriesByDate as $workDate => $dayEntries)
+                <tr class="timesheet-day-row">
+                    <td colspan="5">
+                        <div>
+                            <span class="fw-semibold">{{ $dayEntries->first()->day_name }}</span>
+                            <span class="text-muted ms-2">{{ $workDate }}</span>
+                        </div>
+                    </td>
                 </tr>
+                @foreach($dayEntries as $entry)
+                    <tr>
+                        <td class="timesheet-entry-code">
+                            <div class="fw-semibold">{{ $entry->attendance_code ?: '-' }}</div>
+                            <div class="small text-muted">{{ $attendanceCodes[$entry->attendance_code] ?? 'No attendance code' }}</div>
+                        </td>
+                        <td class="project-name-cell">
+                            @if($entry->project)
+                                <div class="fw-semibold">{{ $entry->project->project_code }}</div>
+                                <div class="small text-muted">{{ $entry->project->project_name }}</div>
+                            @else
+                                <span class="badge filter-summary-badge px-3 py-2">Non-project</span>
+                            @endif
+                        </td>
+                        <td class="text-end fw-semibold">{{ $entry->regular_hours }}</td>
+                        <td class="text-end fw-semibold">{{ $entry->overtime_hours }}</td>
+                        <td>{{ $entry->remarks }}</td>
+                    </tr>
+                @endforeach
             @endforeach
             </tbody>
         </table>
