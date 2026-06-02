@@ -2,8 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Mail\TimesheetWorkflowMail;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -14,6 +18,7 @@ class DashboardWorkflowTest extends TestCase
 
     protected function tearDown(): void
     {
+        Cache::flush();
         Carbon::setTestNow();
 
         parent::tearDown();
@@ -66,6 +71,117 @@ class DashboardWorkflowTest extends TestCase
             ->assertViewHas('missing', 0)
             ->assertSee('Reporting period:')
             ->assertSee('Week 20, 2026');
+    }
+
+    public function test_admin_dashboard_summary_refreshes_after_cache_expiry(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+        $timesheet = $this->submittedTimesheet($employee, $period, $this->project(), ['status' => 'submitted']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('summary', [
+                'submitted' => 1,
+                'approved' => 0,
+                'rejected' => 0,
+            ]);
+
+        DB::table('timesheets')
+            ->where('id', $timesheet->id)
+            ->update(['status' => 'approved']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('summary', [
+                'submitted' => 1,
+                'approved' => 0,
+                'rejected' => 0,
+            ]);
+
+        Carbon::setTestNow('2026-05-20 12:01:01');
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('summary', [
+                'submitted' => 0,
+                'approved' => 1,
+                'rejected' => 0,
+            ]);
+    }
+
+    public function test_hod_dashboard_summary_is_invalidated_after_approval(): void
+    {
+        Mail::fake();
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $department->update(['hod_id' => $hod->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project(), ['status' => 'submitted']);
+
+        $this->actingAs($hod)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('pending', 1)
+            ->assertViewHas('approved', 0);
+
+        $this->actingAs($hod)
+            ->post(route('hod.timesheets.approve', $timesheet))
+            ->assertRedirect();
+
+        $this->actingAs($hod)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('pending', 0)
+            ->assertViewHas('approved', 1);
+
+        Mail::assertQueued(TimesheetWorkflowMail::class);
+    }
+
+    public function test_regional_submission_summary_is_invalidated_after_resubmission(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-130',
+        ]);
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project(), ['status' => 'rejected']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('regionalSubmissionSummary', function (array $summary) {
+                return $summary['submitted'] === 0
+                    && $summary['not_submitted'] === 1
+                    && $summary['regions']['ph']['not_submitted'] === 1;
+            });
+
+        $timesheet->update([
+            'status' => 'submitted',
+            'submitted_at' => now(),
+            'rejection_comment' => null,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertViewHas('regionalSubmissionSummary', function (array $summary) {
+                return $summary['submitted'] === 1
+                    && $summary['not_submitted'] === 0
+                    && $summary['regions']['ph']['submitted'] === 1;
+            });
     }
 
     public function test_hod_dashboard_reports_latest_completed_period_before_current_period(): void

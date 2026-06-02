@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\DashboardSummaryService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -49,7 +50,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $user, AuditLogService $audit)
+    public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard)
     {
         $old = $user->toArray();
         $data = $this->validated($request, $user);
@@ -58,7 +59,7 @@ class UserController extends Controller
         }
         $oldDepartmentId = $user->department_id;
 
-        DB::transaction(function () use ($user, $data, $old, $oldDepartmentId, $audit) {
+        DB::transaction(function () use ($user, $data, $old, $oldDepartmentId, $audit, $dashboard) {
             $user->update($data);
             $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
 
@@ -67,11 +68,20 @@ class UserController extends Controller
                 && $data['department_id']
                 && (int) $oldDepartmentId !== (int) $data['department_id']
             ) {
+                $pendingTimesheets = $user->timesheets()
+                    ->whereIn('status', ['draft', 'rejected'])
+                    ->get(['id', 'department_id', 'timesheet_period_id']);
+
                 $movedTimesheets = $user->timesheets()
                     ->whereIn('status', ['draft', 'rejected'])
                     ->update(['department_id' => $data['department_id']]);
 
                 if ($movedTimesheets > 0) {
+                    $pendingTimesheets->each(function ($timesheet) use ($dashboard, $data, $oldDepartmentId) {
+                        $timesheet->department_id = $data['department_id'];
+                        $dashboard->forgetForTimesheet($timesheet, $oldDepartmentId);
+                    });
+
                     $audit->record('user_pending_timesheets_reassigned', $user, [
                         'department_id' => $oldDepartmentId,
                     ], [

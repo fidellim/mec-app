@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\DashboardSummaryService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
@@ -31,6 +32,25 @@ class Timesheet extends Model
             'total_overtime_hours' => 'decimal:2',
             'total_hours' => 'decimal:2',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saved(function (Timesheet $timesheet) {
+            app(DashboardSummaryService::class)->forgetForTimesheet(
+                $timesheet,
+                $timesheet->getOriginal('department_id'),
+                $timesheet->getOriginal('timesheet_period_id')
+            );
+        });
+
+        static::deleted(function (Timesheet $timesheet) {
+            app(DashboardSummaryService::class)->forgetForTimesheet(
+                $timesheet,
+                $timesheet->getOriginal('department_id'),
+                $timesheet->getOriginal('timesheet_period_id')
+            );
+        });
     }
 
     public function user()
