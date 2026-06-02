@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test';
 
+const employeeEmail = process.env.E2E_EMPLOYEE_EMAIL || 'carla@example.com';
+
 async function login(page, email, password = 'password123') {
   await page.goto('/login');
   await page.locator('input[name="email"]').fill(email);
@@ -56,7 +58,7 @@ test.describe('employee timesheet workflow', () => {
   });
 
   test('employee timesheet form keeps dynamically added project rows usable', async ({ page }) => {
-    await login(page, 'carla@example.com');
+    await login(page, employeeEmail);
     await page.goto('/my-timesheets/create');
     await chooseOpenPeriodWithCreateForm(page);
 
@@ -72,11 +74,25 @@ test.describe('employee timesheet workflow', () => {
     const addProjectButton = page.getByRole('button', { name: /add project/i }).first();
 
     if (await addProjectButton.isVisible()) {
+      const firstWorkDate = await page.locator('[data-entry-row]').first().getAttribute('data-work-date');
+      expect(firstWorkDate).toBeTruthy();
+      const firstDayRows = page.locator(`[data-entry-row][data-work-date="${firstWorkDate}"]`);
+
       await addProjectButton.click();
       await expect(page.getByRole('button', { name: /remove/i }).first()).toBeVisible();
       await expect(page.locator('select[name*="[project_id]"]').nth(1)).toHaveCount(1);
       await expect(firstProjectSelect).toHaveValue(firstProjectValue);
       await expect(page.locator('select[name*="[project_id]"]').nth(1)).toHaveValue('');
+      await expect(firstDayRows).toHaveCount(2);
+      await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
+
+      await firstDayRows.getByRole('button', { name: /add project/i }).click();
+      await expect(firstDayRows).toHaveCount(3);
+      await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
+
+      await firstDayRows.first().getByRole('button', { name: /remove/i }).click();
+      await expect(firstDayRows).toHaveCount(2);
+      await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
     }
   });
 });

@@ -181,11 +181,16 @@
 
             const dateLabel = row.querySelector('[data-date-label]');
             const dayLabel = row.querySelector('[data-day-label]');
+            const addButton = row.querySelector('[data-add-entry]');
             const isFirstForDate = !seenDates.has(row.dataset.workDate);
 
             if (dateLabel && dayLabel) {
                 dateLabel.textContent = isFirstForDate ? row.dataset.workDate : '';
                 dayLabel.textContent = isFirstForDate ? row.dataset.dayName : '';
+            }
+
+            if (addButton) {
+                addButton.classList.toggle('d-none', ! isFirstForDate);
             }
 
             seenDates.add(row.dataset.workDate);

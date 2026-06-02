@@ -62,7 +62,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('2026-05-11')
             ->assertSee('2026-05-17')
-            ->assertDontSee('2026-05-18');
+            ->assertDontSee('2026-05-18')
+            ->assertSee("addButton.classList.toggle('d-none', ! isFirstForDate)", false);
 
         $this->actingAs($employee)
             ->get(route('employee.timesheets.create', ['period_id' => $currentWeek->id]))
