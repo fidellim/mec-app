@@ -73,7 +73,18 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);
 
-                $sheet->getStyle("A3:{$lastColumn}{$lastRow}")->applyFromArray([
+                foreach ($this->projectTableRanges() as [$startRow, $endRow]) {
+                    $sheet->getStyle("A{$startRow}:{$lastColumn}{$endRow}")->applyFromArray([
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => Border::BORDER_THIN,
+                                'color' => ['argb' => 'FF000000'],
+                            ],
+                        ],
+                    ]);
+                }
+
+                $sheet->getStyle("A{$lastRow}:{$lastColumn}{$lastRow}")->applyFromArray([
                     'borders' => [
                         'allBorders' => [
                             'borderStyle' => Border::BORDER_THIN,
@@ -92,8 +103,8 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     $sheet->mergeCells("A{$rowNumber}:{$lastColumn}{$rowNumber}");
                     $sheet->getRowDimension($rowNumber)->setRowHeight($height);
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
-                        'font' => ['bold' => true],
-                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEEF6FF']],
+                        'font' => ['bold' => true, 'color' => ['argb' => 'FFFFFFFF']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FF4F6228']],
                         'alignment' => [
                             'horizontal' => Alignment::HORIZONTAL_LEFT,
                             'vertical' => Alignment::VERTICAL_TOP,
@@ -105,7 +116,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     $sheet->getRowDimension($rowNumber)->setRowHeight(36);
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
                         'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
-                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFDBEAFE']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFD8E4BC']],
                         'alignment' => [
                             'horizontal' => Alignment::HORIZONTAL_CENTER,
                             'vertical' => Alignment::VERTICAL_CENTER,
@@ -121,7 +132,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                 foreach ($this->tableHeaderRows() as $rowNumber) {
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
                         'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
-                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFE5E7EB']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEBF1DE']],
                         'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                     ]);
                 }
@@ -131,6 +142,17 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                         'font' => ['bold' => true],
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF1F5F9']],
                     ]);
+                }
+
+                foreach ($this->spacerRows() as $rowNumber) {
+                    $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
+                        'borders' => [
+                            'allBorders' => [
+                                'borderStyle' => Border::BORDER_NONE,
+                            ],
+                        ],
+                    ]);
+                    $sheet->getRowDimension($rowNumber)->setRowHeight(14);
                 }
             },
         ];
@@ -304,6 +326,35 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 
         foreach ($this->groups() as $group) {
             $rows[] = $rowNumber + $group['employees']->count() + 3;
+            $rowNumber += $group['employees']->count() + 5;
+        }
+
+        return $rows;
+    }
+
+    private function projectTableRanges(): array
+    {
+        $ranges = [];
+        $rowNumber = 3;
+
+        foreach ($this->groups() as $group) {
+            $ranges[] = [
+                $rowNumber,
+                $rowNumber + $group['employees']->count() + 3,
+            ];
+            $rowNumber += $group['employees']->count() + 5;
+        }
+
+        return $ranges;
+    }
+
+    private function spacerRows(): array
+    {
+        $rows = [2];
+        $rowNumber = 3;
+
+        foreach ($this->groups() as $group) {
+            $rows[] = $rowNumber + $group['employees']->count() + 4;
             $rowNumber += $group['employees']->count() + 5;
         }
 

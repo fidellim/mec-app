@@ -20,24 +20,25 @@
             font-weight: 700;
             text-align: center;
         }
-        .summary-spacer {
-            border: 0 !important;
+        .project-summary-export td.summary-spacer {
+            border: none !important;
             height: 14px;
         }
         .project-header {
-            background: #eef6ff;
+            background: #4f6228;
+            color: #fff;
             font-weight: 700;
             white-space: normal;
             word-wrap: break-word;
         }
         .week-header {
-            background: #dbeafe;
+            background: #d8e4bc;
             color: #111827;
             font-weight: 700;
             text-align: center;
         }
         .table-header {
-            background: #e5e7eb;
+            background: #ebf1de;
             color: #111827;
             font-weight: 700;
             text-align: center;
