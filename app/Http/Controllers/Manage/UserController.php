@@ -13,10 +13,37 @@ use Illuminate\Validation\Rule;
 
 class UserController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
+        $filters = $request->validate([
+            'department_id' => [
+                'nullable',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    if ($value === 'unassigned') {
+                        return;
+                    }
+
+                    if (! ctype_digit((string) $value) || ! Department::whereKey($value)->exists()) {
+                        $fail('Select a valid department.');
+                    }
+                },
+            ],
+        ]);
+        $departmentFilter = $filters['department_id'] ?? null;
+
         return view('manage.users.index', [
-            'users' => User::with(['department', 'headedDepartment'])->orderBy('name')->paginate(20),
+            'users' => User::with(['department', 'headedDepartment'])
+                ->when($departmentFilter === 'unassigned', fn ($query) => $query->whereNull('department_id'))
+                ->when(filled($departmentFilter) && $departmentFilter !== 'unassigned', fn ($query) => $query->where('department_id', $departmentFilter))
+                ->orderBy('name')
+                ->paginate(20)
+                ->withQueryString(),
+            'departments' => Department::orderBy('name')->get(),
+            'selectedDepartmentId' => $departmentFilter,
             'replacementHods' => User::where('role', 'hod')
                 ->where('is_active', true)
                 ->orderBy('name')

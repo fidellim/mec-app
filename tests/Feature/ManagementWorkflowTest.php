@@ -157,6 +157,56 @@ class ManagementWorkflowTest extends TestCase
         ])->assertSessionHasErrors('job_title');
     }
 
+    public function test_super_admin_can_filter_users_by_department(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'Platform Admin']);
+        $operations = $this->department(['name' => 'Operations']);
+        $engineering = $this->department(['name' => 'Engineering']);
+        $this->userWithRole('employee', [
+            'name' => 'Operations Employee',
+            'department_id' => $operations->id,
+        ]);
+        $this->userWithRole('employee', [
+            'name' => 'Engineering Employee',
+            'department_id' => $engineering->id,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['department_id' => $operations->id]))
+            ->assertOk()
+            ->assertSee('Operations Employee')
+            ->assertDontSee('Engineering Employee')
+            ->assertSee('value="'.$operations->id.'" selected', false);
+    }
+
+    public function test_super_admin_can_filter_users_without_department(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'Unassigned Admin', 'department_id' => null]);
+        $department = $this->department(['name' => 'Assigned Department']);
+        $this->userWithRole('employee', [
+            'name' => 'Assigned Employee',
+            'department_id' => $department->id,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['department_id' => 'unassigned']))
+            ->assertOk()
+            ->assertSee('Unassigned Admin')
+            ->assertDontSee('Assigned Employee')
+            ->assertSee('value="unassigned" selected', false);
+    }
+
+    public function test_user_department_filter_rejects_invalid_department(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.users.index'))
+            ->get(route('manage.users.index', ['department_id' => '999999']))
+            ->assertRedirect(route('manage.users.index'))
+            ->assertSessionHasErrors('department_id');
+    }
+
     public function test_database_seeder_can_be_rerun_without_duplicate_errors(): void
     {
         $this->seed(DatabaseSeeder::class);

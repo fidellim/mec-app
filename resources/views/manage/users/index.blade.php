@@ -10,6 +10,32 @@
     <a class="btn btn-primary" href="{{ route('manage.users.create') }}">New User</a>
 </div>
 
+<form class="filter-card mb-3 row g-2 align-items-end" method="get" action="{{ route('manage.users.index') }}">
+    <div class="col-12 col-md-5 col-lg-4">
+        <label class="form-label" for="department_id">Department</label>
+        <select class="form-select @error('department_id') is-invalid @enderror" id="department_id" name="department_id">
+            <option value="">All departments</option>
+            <option value="unassigned" @selected($selectedDepartmentId === 'unassigned')>Unassigned</option>
+            @foreach($departments as $department)
+                <option value="{{ $department->id }}" @selected((string) $selectedDepartmentId === (string) $department->id)>
+                    {{ $department->name }}
+                </option>
+            @endforeach
+        </select>
+        @error('department_id')
+            <div class="invalid-feedback">{{ $message }}</div>
+        @enderror
+    </div>
+    <div class="col-12 col-md-auto">
+        <button class="btn btn-primary" type="submit">Apply Filter</button>
+    </div>
+    @if(filled($selectedDepartmentId))
+        <div class="col-12 col-md-auto">
+            <a class="btn btn-outline-secondary" href="{{ route('manage.users.index') }}">Clear</a>
+        </div>
+    @endif
+</form>
+
 <div class="content-card overflow-hidden">
     <div class="table-responsive">
         <table class="table align-middle mb-0">
@@ -57,6 +83,11 @@
                     </tr>
 
                 @endforeach
+                @if($users->isEmpty())
+                    <tr>
+                        <td colspan="9" class="text-center text-muted py-4">No users match the selected department.</td>
+                    </tr>
+                @endif
             </tbody>
         </table>
     </div>
