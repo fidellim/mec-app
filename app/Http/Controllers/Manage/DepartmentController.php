@@ -15,7 +15,7 @@ class DepartmentController extends Controller
     {
         return view('manage.departments.index', [
             'departments' => Department::with(['hod', 'hods'])
-                ->withCount(['users', 'timesheets'])
+                ->withCount(['users', 'timesheets', 'hods'])
                 ->orderBy('name')
                 ->paginate(20),
         ]);

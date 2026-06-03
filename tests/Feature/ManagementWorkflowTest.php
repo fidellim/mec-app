@@ -472,6 +472,28 @@ class ManagementWorkflowTest extends TestCase
         $this->assertDatabaseHas('departments', ['id' => $department->id]);
     }
 
+    public function test_department_index_shows_hod_approver_usage_when_delete_is_blocked(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department(['name' => 'Temporary Department']);
+        $hod = $this->userWithRole('hod');
+        $department->hods()->attach($hod->id);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.departments.index'))
+            ->assertOk()
+            ->assertSee('Temporary Department')
+            ->assertSee('0 users / 0 timesheets / 1 HOD approvers')
+            ->assertSee('This department has users, timesheets, or an assigned Head of Department.');
+
+        $this->actingAs($superAdmin)
+            ->delete(route('manage.departments.destroy', $department))
+            ->assertRedirect(route('manage.departments.index'))
+            ->assertSessionHas('error');
+
+        $this->assertDatabaseHas('departments', ['id' => $department->id]);
+    }
+
     public function test_unused_department_can_be_deleted(): void
     {
         $superAdmin = $this->userWithRole('super_admin');
