@@ -34,7 +34,9 @@
         </div>
         <div class="col-md-4 col-lg-3 d-flex gap-2">
             <button class="btn btn-primary flex-fill">View Period</button>
-            <a class="btn btn-outline-secondary" href="{{ route('hod.tracker') }}">Reset</a>
+            @if(request()->filled('period_id'))
+                <a class="btn btn-outline-secondary" href="{{ route('hod.tracker') }}">Reset</a>
+            @endif
         </div>
     </div>
 </form>

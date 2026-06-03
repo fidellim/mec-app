@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $hasTimesheetFilters = collect(request()->only(['status', 'employee_id', 'week_number', 'year']))
+        ->contains(fn ($value) => filled($value));
+@endphp
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Department Timesheets</h1>
@@ -47,7 +51,9 @@
         </div>
         <div class="col-md-4 col-xl-2 d-flex gap-2">
             <button class="btn btn-primary flex-fill">Filter</button>
-            <a class="btn btn-outline-secondary" href="{{ route('hod.timesheets.index') }}">Reset</a>
+            @if($hasTimesheetFilters)
+                <a class="btn btn-outline-secondary" href="{{ route('hod.timesheets.index') }}">Reset</a>
+            @endif
         </div>
     </div>
 </form>

@@ -522,7 +522,14 @@ class ManagementWorkflowTest extends TestCase
         $this->actingAs($superAdmin)->get(route('manage.projects.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.periods.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.automations.index'))->assertOk();
-        $this->actingAs($superAdmin)->get(route('manage.audit-logs.index'))->assertOk();
+        $this->actingAs($superAdmin)
+            ->get(route('manage.audit-logs.index'))
+            ->assertOk()
+            ->assertDontSee('Reset');
+        $this->actingAs($superAdmin)
+            ->get(route('manage.audit-logs.index', ['action' => 'user_created']))
+            ->assertOk()
+            ->assertSee('Reset');
     }
 
     public function test_super_admin_can_download_filtered_audit_logs_excel_export(): void

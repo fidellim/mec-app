@@ -1,6 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $weekFrom = request('week_from', request('week_number'));
+    $weekTo = request('week_to', $weekFrom);
+    $hasVisibleFilters = $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('status') || request()->boolean('include_employee_sheets');
+@endphp
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">All Timesheets</h1>
@@ -36,15 +41,19 @@
             <div class="form-text">Leave unchecked for a faster project summary export.</div>
         </div>
     </div>
-    <div class="col-12 text-end"><button class="btn btn-primary">Apply Filters</button></div>
+    <div class="col-12 text-end">
+        <div class="d-inline-flex gap-2">
+            @if($hasVisibleFilters)
+                <a class="btn btn-outline-secondary" href="{{ route('admin.timesheets.index') }}">Clear</a>
+            @endif
+            <button class="btn btn-primary">Apply Filters</button>
+        </div>
+    </div>
 </form>
 @php
-    $weekFrom = request('week_from', request('week_number'));
-    $weekTo = request('week_to', $weekFrom);
     $selectedProject = request('project_id') ? $projects->firstWhere('id', (int) request('project_id')) : null;
     $selectedDepartment = request('department_id') ? $departments->firstWhere('id', (int) request('department_id')) : null;
     $selectedEmployee = request('employee_id') ? $employees->firstWhere('id', (int) request('employee_id')) : null;
-    $hasVisibleFilters = $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('status');
 @endphp
 <div class="content-card p-3 mb-3">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">

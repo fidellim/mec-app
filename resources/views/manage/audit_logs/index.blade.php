@@ -3,6 +3,7 @@
 @section('content')
 @php
     $auditLogFilters = request()->only(['action', 'user_id', 'date_from', 'date_to']);
+    $hasAuditLogFilters = collect($auditLogFilters)->contains(fn ($value) => filled($value));
 @endphp
 
 <div class="section-header">
@@ -50,7 +51,9 @@
     </div>
     <div class="col-md-2 d-flex gap-2">
         <button class="btn btn-primary flex-fill">Filter</button>
-        <a class="btn btn-outline-secondary" href="{{ route('manage.audit-logs.index') }}">Reset</a>
+        @if($hasAuditLogFilters)
+            <a class="btn btn-outline-secondary" href="{{ route('manage.audit-logs.index') }}">Reset</a>
+        @endif
     </div>
 </form>
 

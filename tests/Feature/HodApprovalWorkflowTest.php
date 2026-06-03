@@ -109,6 +109,11 @@ class HodApprovalWorkflowTest extends TestCase
         $this->submittedTimesheet($otherEmployee, $week20, $project);
 
         $this->actingAs($hod)
+            ->get(route('hod.timesheets.index'))
+            ->assertOk()
+            ->assertDontSee('Reset');
+
+        $this->actingAs($hod)
             ->get(route('hod.timesheets.index', [
                 'employee_id' => $employee->id,
                 'week_number' => 20,
@@ -117,6 +122,7 @@ class HodApprovalWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Filtered Employee')
             ->assertSee('20 / 2026')
+            ->assertSee('Reset')
             ->assertDontSee('21 / 2026')
             ->assertDontSee('Other Department Employee');
     }
@@ -142,6 +148,16 @@ class HodApprovalWorkflowTest extends TestCase
         ]);
         $period = $this->openPeriod();
         $this->submittedTimesheet($submittedEmployee, $period, $this->project());
+
+        $this->actingAs($hod)
+            ->get(route('hod.tracker'))
+            ->assertOk()
+            ->assertDontSee('Reset');
+
+        $this->actingAs($hod)
+            ->get(route('hod.tracker', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertSee('Reset');
 
         $this->actingAs($hod)
             ->post(route('hod.tracker.reminders'), ['period_id' => $period->id])

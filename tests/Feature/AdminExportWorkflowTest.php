@@ -33,6 +33,8 @@ class AdminExportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('From Week')
             ->assertSee('To Week')
+            ->assertSee('href="'.route('admin.timesheets.index').'"', false)
+            ->assertSee('Clear')
             ->assertSee('Include individual employee timesheet sheets')
             ->assertSee('Filters are active. Add a valid week and year to see the configured date range.')
             ->assertSee('filter-summary-badge')
@@ -759,12 +761,14 @@ class AdminExportWorkflowTest extends TestCase
             ->get(route('admin.timesheets.index'))
             ->assertOk()
             ->assertSee('Showing all timesheets.')
-            ->assertSee('No filters applied');
+            ->assertSee('No filters applied')
+            ->assertDontSee('Clear');
 
         $this->actingAs($admin)
             ->get(route('admin.timesheets.index', ['year' => 2030]))
             ->assertOk()
             ->assertSee('Filters are active. Add a valid week and year to see the configured date range.')
+            ->assertSee('href="'.route('admin.timesheets.index').'"', false)
             ->assertSee('Year: 2030');
     }
 }
