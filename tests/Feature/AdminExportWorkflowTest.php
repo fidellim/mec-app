@@ -476,30 +476,104 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(8, $projectSummary->getCell('E6')->getCalculatedValue());
         $this->assertEquals(8, $projectSummary->getCell('G6')->getCalculatedValue());
 
-        $this->assertSame('Week 20, 2026', $attendanceSummary->getCell('A4')->getValue());
-        $this->assertSame('EMP-004', $attendanceSummary->getCell('C4')->getValue());
-        $this->assertSame('LU', $attendanceSummary->getCell('D4')->getValue());
-        $this->assertSame('Leave User', $attendanceSummary->getCell('E4')->getValue());
-        $this->assertSame('Engineering', $attendanceSummary->getCell('F4')->getValue());
-        $this->assertSame('Designer', $attendanceSummary->getCell('G4')->getValue());
-        $this->assertSame('L100', $attendanceSummary->getCell('H4')->getValue());
-        $this->assertSame('Annual Leave', $attendanceSummary->getCell('I4')->getValue());
-        $this->assertSame('Non-project', $attendanceSummary->getCell('J4')->getValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('K4')->getCalculatedValue());
-        $this->assertEquals(0, $attendanceSummary->getCell('L4')->getCalculatedValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('M4')->getCalculatedValue());
+        $this->assertSame('L100 - Annual Leave', $attendanceSummary->getCell('A3')->getValue());
+        $this->assertStringContainsString('Week 20, 2026', $attendanceSummary->getCell('H4')->getValue());
+        $this->assertSame('Employee ID', $attendanceSummary->getCell('A5')->getValue());
+        $this->assertSame('EMP-004', $attendanceSummary->getCell('A6')->getValue());
+        $this->assertSame('LU', $attendanceSummary->getCell('B6')->getValue());
+        $this->assertSame('Leave User', $attendanceSummary->getCell('C6')->getValue());
+        $this->assertSame('Engineering', $attendanceSummary->getCell('D6')->getValue());
+        $this->assertSame('Designer', $attendanceSummary->getCell('E6')->getValue());
+        $this->assertSame('Non-project', $attendanceSummary->getCell('F6')->getValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('H6')->getCalculatedValue());
+        $this->assertEquals(0, $attendanceSummary->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('J6')->getCalculatedValue());
 
-        $this->assertSame('L140', $attendanceSummary->getCell('H5')->getValue());
-        $this->assertSame('Paid Holiday Leave', $attendanceSummary->getCell('I5')->getValue());
-        $this->assertEquals(4, $attendanceSummary->getCell('K5')->getCalculatedValue());
-        $this->assertSame('O100', $attendanceSummary->getCell('H6')->getValue());
-        $this->assertSame('Office', $attendanceSummary->getCell('I6')->getValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('K6')->getCalculatedValue());
-        $this->assertEquals(1, $attendanceSummary->getCell('L6')->getCalculatedValue());
-        $this->assertSame('Grand Total', $attendanceSummary->getCell('A7')->getValue());
-        $this->assertEquals(14, $attendanceSummary->getCell('K7')->getCalculatedValue());
-        $this->assertEquals(1, $attendanceSummary->getCell('L7')->getCalculatedValue());
-        $this->assertEquals(15, $attendanceSummary->getCell('M7')->getCalculatedValue());
+        $this->assertSame('Attendance Code Total', $attendanceSummary->getCell('A7')->getValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('H7')->getCalculatedValue());
+        $this->assertSame('L140 - Paid Holiday Leave', $attendanceSummary->getCell('A9')->getValue());
+        $this->assertEquals(4, $attendanceSummary->getCell('H12')->getCalculatedValue());
+        $this->assertSame('O100 - Office', $attendanceSummary->getCell('A15')->getValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('H18')->getCalculatedValue());
+        $this->assertEquals(1, $attendanceSummary->getCell('I18')->getCalculatedValue());
+        $this->assertSame('Grand Total', $attendanceSummary->getCell('A21')->getValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('H21')->getCalculatedValue());
+        $this->assertEquals(1, $attendanceSummary->getCell('I21')->getCalculatedValue());
+        $this->assertEquals(15, $attendanceSummary->getCell('J21')->getCalculatedValue());
+    }
+
+    public function test_attendance_summary_places_multiple_weeks_side_by_side_with_totals(): void
+    {
+        $department = $this->department(['name' => 'Engineering']);
+        $week20 = $this->openPeriod();
+        $week21 = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $project = $this->project(['project_code' => 'P401']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Leave Range User',
+            'employee_code' => 'EMP-005',
+            'initials' => 'LRU',
+            'job_title' => 'Engineer',
+        ]);
+        $week20Timesheet = $this->submittedTimesheet($employee, $week20, $project, ['status' => 'approved']);
+        $week21Timesheet = $this->submittedTimesheet($employee, $week21, $project, ['status' => 'approved']);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $week20Timesheet->id,
+            'work_date' => '2026-05-12',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'L100',
+            'project_id' => null,
+            'regular_hours' => 8,
+            'overtime_hours' => 0,
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $week21Timesheet->id,
+            'work_date' => '2026-05-19',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'L100',
+            'project_id' => null,
+            'regular_hours' => 4,
+            'overtime_hours' => 2,
+        ]);
+
+        $admin = $this->userWithRole('admin');
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'week_from' => 20,
+            'week_to' => 21,
+            'year' => 2026,
+        ]));
+
+        $response->assertOk();
+
+        $attendanceSummary = IOFactory::load($response->getFile()->getPathname())->getSheet(1);
+
+        $this->assertSame('L100 - Annual Leave', $attendanceSummary->getCell('A3')->getValue());
+        $this->assertStringContainsString('Week 20, 2026', $attendanceSummary->getCell('H4')->getValue());
+        $this->assertStringContainsString('Week 21, 2026', $attendanceSummary->getCell('K4')->getValue());
+        $this->assertSame('Selected Period Total', $attendanceSummary->getCell('N4')->getValue());
+        $this->assertContains('H4:J4', $attendanceSummary->getMergeCells());
+        $this->assertContains('K4:M4', $attendanceSummary->getMergeCells());
+        $this->assertContains('N4:P4', $attendanceSummary->getMergeCells());
+        $this->assertSame('EMP-005', $attendanceSummary->getCell('A6')->getValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('H6')->getCalculatedValue());
+        $this->assertEquals(0, $attendanceSummary->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(4, $attendanceSummary->getCell('K6')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('L6')->getCalculatedValue());
+        $this->assertEquals(6, $attendanceSummary->getCell('M6')->getCalculatedValue());
+        $this->assertEquals(12, $attendanceSummary->getCell('N6')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('O6')->getCalculatedValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('P6')->getCalculatedValue());
+        $this->assertSame('Grand Total', $attendanceSummary->getCell('A9')->getValue());
+        $this->assertEquals(12, $attendanceSummary->getCell('N9')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('O9')->getCalculatedValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('P9')->getCalculatedValue());
     }
 
     public function test_excel_project_summaries_ignore_entries_without_project_or_hours(): void
@@ -550,9 +624,9 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('Grand Total', $spreadsheet->getSheet(0)->getCell('A4')->getValue());
         $this->assertEquals(0, $spreadsheet->getSheet(0)->getCell('E4')->getCalculatedValue());
         $this->assertSame('Attendance Code Summary', $spreadsheet->getSheet(1)->getTitle());
-        $this->assertSame('O100', $spreadsheet->getSheet(1)->getCell('H4')->getValue());
-        $this->assertSame('Non-project', $spreadsheet->getSheet(1)->getCell('J4')->getValue());
-        $this->assertEquals(8, $spreadsheet->getSheet(1)->getCell('K4')->getCalculatedValue());
+        $this->assertSame('O100 - Office', $spreadsheet->getSheet(1)->getCell('A3')->getValue());
+        $this->assertSame('Non-project', $spreadsheet->getSheet(1)->getCell('F6')->getValue());
+        $this->assertEquals(8, $spreadsheet->getSheet(1)->getCell('H6')->getCalculatedValue());
         $this->assertSame('No Hours W20', $spreadsheet->getSheet(2)->getTitle());
     }
 
