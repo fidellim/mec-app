@@ -6,6 +6,7 @@ use App\Http\Requests\RejectTimesheetRequest;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
+use App\Models\Department;
 use App\Services\AuditLogService;
 use App\Services\MissingTimesheetReminderService;
 use App\Services\TimesheetEmailNotificationService;
@@ -16,7 +17,10 @@ class HodTimesheetController extends Controller
 {
     public function index()
     {
-        $timesheets = $this->scope(Timesheet::with(['user', 'period']))
+        $managedDepartmentIds = $this->managedDepartmentIds();
+        $selectedDepartmentId = $this->selectedDepartmentId($managedDepartmentIds);
+
+        $timesheets = $this->scope(Timesheet::with(['user', 'period', 'department']), $selectedDepartmentId)
             ->when(request('status'), fn ($q, $status) => $q->where('status', $status))
             ->when(request('employee_id'), fn ($q, $employeeId) => $q->where('user_id', $employeeId))
             ->when(request('week_number'), fn ($q, $weekNumber) => $q->whereHas('period', fn ($period) => $period->where('week_number', $weekNumber)))
@@ -25,17 +29,19 @@ class HodTimesheetController extends Controller
             ->paginate(15)
             ->withQueryString();
 
-        $employees = User::where('department_id', auth()->user()->department_id)
+        $employees = User::whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
             ->whereIn('role', ['employee', 'hod'])
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
 
+        $departments = Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get();
+
         $periods = TimesheetPeriod::orderByDesc('year')
             ->orderByDesc('week_number')
             ->get(['week_number', 'year']);
 
-        return view('hod.timesheets.index', compact('timesheets', 'employees', 'periods'));
+        return view('hod.timesheets.index', compact('timesheets', 'employees', 'periods', 'departments', 'selectedDepartmentId'));
     }
 
     public function show(Timesheet $timesheet)
@@ -94,6 +100,9 @@ class HodTimesheetController extends Controller
 
     public function tracker(MissingTimesheetReminderService $reminders)
     {
+        $managedDepartmentIds = $this->managedDepartmentIds();
+        $selectedDepartmentId = $this->selectedDepartmentId($managedDepartmentIds);
+
         $periods = TimesheetPeriod::orderByDesc('year')
             ->orderByDesc('week_number')
             ->get();
@@ -103,11 +112,13 @@ class HodTimesheetController extends Controller
             : TimesheetPeriod::where('status', 'open')->latest('start_date')->first();
 
         $employees = User::with(['timesheets' => fn ($q) => $period ? $q->where('timesheet_period_id', $period->id) : $q])
-            ->where('department_id', auth()->user()->department_id)
+            ->whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
             ->where('role', 'employee')
             ->where('is_active', true)
             ->orderBy('name')
             ->get();
+
+        $departments = Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get();
 
         $reminderCooldowns = $period
             ? $employees->mapWithKeys(fn (User $employee) => [
@@ -115,7 +126,7 @@ class HodTimesheetController extends Controller
             ])
             : collect();
 
-        return view('hod.tracker', compact('employees', 'period', 'periods', 'reminderCooldowns'));
+        return view('hod.tracker', compact('employees', 'period', 'periods', 'reminderCooldowns', 'departments', 'selectedDepartmentId'));
     }
 
     public function remindMissing(Request $request, MissingTimesheetReminderService $reminders)
@@ -128,8 +139,11 @@ class HodTimesheetController extends Controller
         $period = TimesheetPeriod::findOrFail($validated['period_id']);
         $employeeIds = null;
 
+        $managedDepartmentIds = $this->managedDepartmentIds();
+        $selectedDepartmentId = $this->selectedDepartmentId($managedDepartmentIds);
+
         if (! empty($validated['employee_id'])) {
-            $employee = User::where('department_id', auth()->user()->department_id)
+            $employee = User::whereIn('department_id', $managedDepartmentIds)
                 ->where('role', 'employee')
                 ->where('is_active', true)
                 ->findOrFail($validated['employee_id']);
@@ -138,9 +152,10 @@ class HodTimesheetController extends Controller
 
         $result = $reminders->sendForPeriodDetailed(
             period: $period,
-            departmentId: auth()->user()->department_id,
+            departmentId: $selectedDepartmentId,
             source: 'manual_hod',
             employeeIds: $employeeIds,
+            departmentIds: $selectedDepartmentId ? null : $managedDepartmentIds->all(),
         );
 
         $sent = $result['sent'];
@@ -158,13 +173,15 @@ class HodTimesheetController extends Controller
         );
     }
 
-    private function scope($query)
+    private function scope($query, ?int $selectedDepartmentId = null)
     {
         if (auth()->user()->isAdminLike()) {
             return $query;
         }
 
-        return $query->where('department_id', auth()->user()->department_id);
+        $departmentIds = $selectedDepartmentId ? [$selectedDepartmentId] : $this->managedDepartmentIds();
+
+        return $query->whereIn('department_id', $departmentIds);
     }
 
     private function authorizeDepartment(Timesheet $timesheet): void
@@ -173,7 +190,7 @@ class HodTimesheetController extends Controller
             return;
         }
 
-        abort_unless((int) $timesheet->department_id === (int) auth()->user()->department_id, 403);
+        abort_unless($this->managedDepartmentIds()->contains((int) $timesheet->department_id), 403);
     }
 
     private function authorizeApprovalAction(Timesheet $timesheet, string $action): void
@@ -202,12 +219,29 @@ class HodTimesheetController extends Controller
         }
 
         abort_unless($actor->role === 'hod', 403);
-        abort_unless((int) $timesheet->department_id === (int) $actor->department_id, 403);
+        abort_unless($actor->managedDepartmentIds()->contains((int) $timesheet->department_id), 403);
         abort_unless(
             $timesheet->user?->role === 'employee',
             403,
             'Head of Department can only '.$action.' employee timesheets.'
         );
+    }
+
+    private function managedDepartmentIds()
+    {
+        return auth()->user()->managedDepartmentIds();
+    }
+
+    private function selectedDepartmentId($managedDepartmentIds): ?int
+    {
+        if (! request()->filled('department_id')) {
+            return null;
+        }
+
+        $departmentId = (int) request('department_id');
+        abort_unless($managedDepartmentIds->contains($departmentId), 403);
+
+        return $departmentId;
     }
 
     private function isOwnTimesheet(Timesheet $timesheet): bool

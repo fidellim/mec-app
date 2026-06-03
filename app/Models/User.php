@@ -37,6 +37,33 @@ class User extends Authenticatable
         return $this->hasOne(Department::class, 'hod_id');
     }
 
+    public function primaryDepartments()
+    {
+        return $this->hasMany(Department::class, 'hod_id');
+    }
+
+    public function managedDepartments()
+    {
+        return $this->belongsToMany(Department::class, 'department_hod')->withTimestamps();
+    }
+
+    public function managedDepartmentIds()
+    {
+        $ids = $this->managedDepartments()
+            ->pluck('departments.id')
+            ->merge($this->primaryDepartments()->pluck('id'));
+
+        if ($this->department_id) {
+            $ids->push($this->department_id);
+        }
+
+        return $ids
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+    }
+
     public function timesheets()
     {
         return $this->hasMany(Timesheet::class);

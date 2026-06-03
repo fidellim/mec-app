@@ -19,24 +19,24 @@ class MissingTimesheetReminderService
     {
     }
 
-    public function missingEmployees(TimesheetPeriod $period, ?int $departmentId = null, ?array $employeeIds = null): Collection
+    public function missingEmployees(TimesheetPeriod $period, ?int $departmentId = null, ?array $employeeIds = null, ?array $departmentIds = null): Collection
     {
-        return $this->missingEmployeesQuery($period, $departmentId, $employeeIds)
+        return $this->missingEmployeesQuery($period, $departmentId, $employeeIds, $departmentIds)
             ->orderBy('name')
             ->get();
     }
 
-    public function sendForPeriod(TimesheetPeriod $period, ?int $departmentId = null, string $source = 'manual', ?array $employeeIds = null): int
+    public function sendForPeriod(TimesheetPeriod $period, ?int $departmentId = null, string $source = 'manual', ?array $employeeIds = null, ?array $departmentIds = null): int
     {
-        return $this->sendForPeriodDetailed($period, $departmentId, $source, $employeeIds)['sent'];
+        return $this->sendForPeriodDetailed($period, $departmentId, $source, $employeeIds, $departmentIds)['sent'];
     }
 
-    public function sendForPeriodDetailed(TimesheetPeriod $period, ?int $departmentId = null, string $source = 'manual', ?array $employeeIds = null): array
+    public function sendForPeriodDetailed(TimesheetPeriod $period, ?int $departmentId = null, string $source = 'manual', ?array $employeeIds = null, ?array $departmentIds = null): array
     {
         $sent = 0;
         $skippedCooldown = 0;
 
-        $this->missingEmployeesQuery($period, $departmentId, $employeeIds)
+        $this->missingEmployeesQuery($period, $departmentId, $employeeIds, $departmentIds)
             ->chunkById(self::BATCH_SIZE, function (Collection $employees) use ($period, $source, &$sent, &$skippedCooldown) {
                 foreach ($employees as $employee) {
                     if ($this->usesManualCooldown($source) && $this->reminderCooldownUntil($employee, $period)) {
@@ -98,12 +98,16 @@ class MissingTimesheetReminderService
         return "{$remainingMinutes}m";
     }
 
-    private function missingEmployeesQuery(TimesheetPeriod $period, ?int $departmentId = null, ?array $employeeIds = null)
+    private function missingEmployeesQuery(TimesheetPeriod $period, ?int $departmentId = null, ?array $employeeIds = null, ?array $departmentIds = null)
     {
+        $departmentIds = $departmentId
+            ? [$departmentId]
+            : (is_array($departmentIds) ? collect($departmentIds)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all() : null);
+
         return User::with('department')
             ->where('role', 'employee')
             ->where('is_active', true)
-            ->when($departmentId, fn ($query) => $query->where('department_id', $departmentId))
+            ->when(is_array($departmentIds), fn ($query) => $query->whereIn('department_id', $departmentIds))
             ->when($employeeIds, fn ($query) => $query->whereIn('id', $employeeIds))
             ->whereDoesntHave('timesheets', function ($query) use ($period) {
                 $query->where('timesheet_period_id', $period->id)

@@ -83,6 +83,50 @@ class HodApprovalWorkflowTest extends TestCase
         $this->actingAs($hod)->post(route('hod.timesheets.approve', $timesheet))->assertForbidden();
     }
 
+    public function test_hod_can_review_and_approve_timesheets_for_managed_departments(): void
+    {
+        Mail::fake();
+
+        $homeDepartment = $this->department(['name' => 'Home Department']);
+        $managedDepartment = $this->department(['name' => 'Managed Department']);
+        $unmanagedDepartment = $this->department(['name' => 'Unmanaged Department']);
+        $hod = $this->userWithRole('hod', ['department_id' => $homeDepartment->id]);
+        $managedDepartment->hods()->attach($hod->id);
+        $homeEmployee = $this->userWithRole('employee', ['name' => 'Home Employee', 'department_id' => $homeDepartment->id]);
+        $managedEmployee = $this->userWithRole('employee', ['name' => 'Managed Employee', 'department_id' => $managedDepartment->id]);
+        $unmanagedEmployee = $this->userWithRole('employee', ['name' => 'Unmanaged Employee', 'department_id' => $unmanagedDepartment->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $homeTimesheet = $this->submittedTimesheet($homeEmployee, $period, $project);
+        $managedTimesheet = $this->submittedTimesheet($managedEmployee, $period, $project);
+        $unmanagedTimesheet = $this->submittedTimesheet($unmanagedEmployee, $period, $project);
+
+        $this->actingAs($hod)
+            ->get(route('hod.timesheets.index'))
+            ->assertOk()
+            ->assertSee('Department')
+            ->assertSee('Home Employee')
+            ->assertSee('Managed Employee')
+            ->assertSee('Home Department')
+            ->assertSee('Managed Department')
+            ->assertDontSee('Unmanaged Employee');
+
+        $this->actingAs($hod)
+            ->get(route('hod.timesheets.index', ['department_id' => $managedDepartment->id]))
+            ->assertOk()
+            ->assertSee('Managed Employee')
+            ->assertDontSee('Home Employee')
+            ->assertDontSee('Unmanaged Employee');
+
+        $this->actingAs($hod)
+            ->post(route('hod.timesheets.approve', $managedTimesheet))
+            ->assertRedirect();
+
+        $this->assertSame('approved', $managedTimesheet->refresh()->status);
+        $this->assertSame('submitted', $homeTimesheet->refresh()->status);
+        $this->actingAs($hod)->get(route('hod.timesheets.show', $unmanagedTimesheet))->assertForbidden();
+    }
+
     public function test_hod_can_filter_department_timesheets_by_employee_week_and_year(): void
     {
         $department = $this->department();
@@ -174,6 +218,39 @@ class HodApprovalWorkflowTest extends TestCase
             'auditable_type' => \App\Models\User::class,
             'auditable_id' => $missingEmployee->id,
         ]);
+    }
+
+    public function test_hod_tracker_and_reminders_include_managed_departments(): void
+    {
+        Mail::fake();
+
+        $homeDepartment = $this->department(['name' => 'Home Department']);
+        $managedDepartment = $this->department(['name' => 'Managed Department']);
+        $unmanagedDepartment = $this->department(['name' => 'Unmanaged Department']);
+        $hod = $this->userWithRole('hod', ['department_id' => $homeDepartment->id]);
+        $managedDepartment->hods()->attach($hod->id);
+        $homeMissing = $this->userWithRole('employee', ['name' => 'Home Missing', 'department_id' => $homeDepartment->id]);
+        $managedMissing = $this->userWithRole('employee', ['name' => 'Managed Missing', 'department_id' => $managedDepartment->id]);
+        $unmanagedMissing = $this->userWithRole('employee', ['name' => 'Unmanaged Missing', 'department_id' => $unmanagedDepartment->id]);
+        $period = $this->openPeriod();
+
+        $this->actingAs($hod)
+            ->get(route('hod.tracker', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertSee('Home Missing')
+            ->assertSee('Managed Missing')
+            ->assertSee('Home Department')
+            ->assertSee('Managed Department')
+            ->assertDontSee('Unmanaged Missing');
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), ['period_id' => $period->id])
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Sent 2 missing timesheet reminder(s).');
+
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($homeMissing->email));
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($managedMissing->email));
+        Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($unmanagedMissing->email));
     }
 
     public function test_hod_can_send_missing_timesheet_reminder_to_one_employee(): void

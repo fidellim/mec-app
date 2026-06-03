@@ -13,6 +13,10 @@
                 No weekly period available
             @endif
         </div>
+        <div class="small text-muted">
+            Departments:
+            {{ $departments->isNotEmpty() ? $departments->pluck('name')->join(', ') : 'No managed departments assigned' }}
+        </div>
     </div>
     <a class="btn btn-primary" href="{{ route('hod.timesheets.index', ['status' => 'submitted']) }}">Review Pending Approvals</a>
 </div>

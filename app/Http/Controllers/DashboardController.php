@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Department;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Services\DashboardSummaryService;
@@ -28,9 +29,10 @@ class DashboardController extends Controller
                 'departments' => $dashboard->departmentsWithTimesheetCount($reportingPeriod),
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod),
             ]),
-            'hod' => view('dashboards.hod', $dashboard->departmentCounts($reportingPeriod, $user->department_id) + [
+            'hod' => view('dashboards.hod', $dashboard->departmentCountsForDepartmentIds($reportingPeriod, $user->managedDepartmentIds()->all()) + [
                 'period' => $reportingPeriod,
-                'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod, $user->department_id),
+                'departments' => Department::whereIn('id', $user->managedDepartmentIds())->orderBy('name')->get(),
+                'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummaryForDepartmentIds($reportingPeriod, $user->managedDepartmentIds()->all()),
             ]),
             default => view('dashboards.employee', [
                 'period' => $openPeriod,

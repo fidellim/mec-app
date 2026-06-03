@@ -58,7 +58,7 @@ password123
 - Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
 - Job titles are optional user profile details and appear in timesheet exports. Blank job titles export as `-`.
 - Admin: view all timesheets, filter records, monitor dashboard summaries, export, and approve or reject Head of Department timesheets. Admin cannot approve or reject their own timesheet.
-- Head of Department: view only their department employees and timesheets, approve submitted employee timesheets, reject employee timesheets with a required comment, and track missing submissions. Head of Department cannot approve or reject their own timesheet.
+- Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, and track missing submissions. Head of Department cannot approve or reject their own timesheet.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, edit only draft or rejected timesheets, and resubmit rejected records.
 - Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
 
@@ -75,9 +75,9 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 - Deleting a user permanently removes the user and the timesheets owned by that user.
 - Timesheet entries are also deleted because they belong to the deleted user's timesheets.
 - Approval history is preserved where possible: if a deleted user previously approved or rejected another user's timesheet, the approver/rejector reference is set to blank.
-- If the deleted user is assigned as the Head of Department, Super Admin must select a replacement Head of Department before deletion.
-- The replacement Head of Department must be active and in the same department so department approvals continue to work.
-- If no replacement Head of Department exists, create or update another Head of Department for that department before deleting the current one.
+- If the deleted user is assigned as a primary or additional Head of Department for any department, Super Admin must select a replacement Head of Department before deletion.
+- The replacement Head of Department must be an active HOD user. The replacement is attached to every department previously managed by the deleted HOD so approvals continue to work.
+- If no replacement Head of Department exists, create or update another active Head of Department before deleting the current one.
 
 ## Password Reset
 
@@ -100,6 +100,28 @@ Super Admin users can manage departments and projects/job numbers from the **Man
 - Departments can only be permanently deleted when they have no users, no timesheets, and no assigned Head of Department.
 - Projects can only be permanently deleted when they have no timesheet entries.
 - If a department or project already has historical usage, deactivate it instead of deleting it.
+
+### Multiple Head Of Department Approvers
+
+Departments support one primary Head of Department and any number of additional HOD approvers.
+
+- **Head of Department** is the primary HOD stored on the department record. This keeps older workflows and reports compatible.
+- **HOD approvers** is the full list of HOD users who can manage the department. The primary HOD is included automatically in this list.
+- A HOD can manage more than one department, even if their own user profile belongs to only one department.
+- A HOD's managed departments are resolved from three sources: departments where they are selected as primary HOD, departments where they are selected as an additional HOD approver, and their own profile department as a legacy fallback.
+- The HOD dashboard, Department Timesheets, Submission Tracker, missing-timesheet reminders, and submission/recall notification emails use the full managed-department list.
+- HOD timesheet and tracker pages include a department filter when the HOD manages multiple departments. The filter only lists departments that HOD is allowed to manage.
+- HODs can approve or reject submitted employee timesheets only inside their managed departments.
+- HODs still cannot approve or reject their own timesheet or another HOD's timesheet.
+- Employee submission, resubmission, and recall emails are sent to every active HOD approver assigned to the timesheet department, including the primary HOD.
+- When deleting a HOD assigned to one or more departments, Super Admin must select an active replacement HOD. The replacement is assigned to all departments previously managed by the deleted user.
+
+The database change for this feature is additive:
+
+- `departments.hod_id` remains the primary HOD column.
+- `department_hod` stores the many-to-many list of department HOD approvers.
+- The migration backfills existing `departments.hod_id` values into `department_hod`.
+- No existing table should be deleted for this feature.
 
 ## Automation Controls
 
@@ -157,7 +179,7 @@ Super Admin users can review audit logs from **Manage Audit Logs**.
 7. Employee saves as draft or submits.
 8. Submitted timesheets are locked for the employee.
 9. Employee can recall a submitted timesheet before Head of Department action, returning it to draft for correction.
-10. Head of Department approves or rejects department timesheets.
+10. Head of Department approves or rejects employee timesheets for departments they manage.
 11. Rejected timesheets show the rejection comment and become editable by the employee.
 12. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
 
@@ -283,14 +305,14 @@ For larger exports, leave `Include individual employee timesheet sheets` uncheck
 
 The system sends email notifications for core timesheet workflow actions:
 
-- Employee submits a timesheet: Head of Department receives a review email.
-- Employee resubmits a rejected timesheet: Head of Department receives a review email.
-- Employee recalls a submitted timesheet: Head of Department receives a recall email.
+- Employee submits a timesheet: every Head of Department approver for that department receives a review email.
+- Employee resubmits a rejected timesheet: every Head of Department approver for that department receives a review email.
+- Employee recalls a submitted timesheet: every Head of Department approver for that department receives a recall email.
 - Head of Department approves a timesheet: employee receives an approval email.
 - Head of Department rejects a timesheet: employee receives a rejection email with the comment.
 - Missing weekly timesheet reminders: employees receive a reminder email when they do not have a submitted or approved timesheet for the selected period.
 
-Head of Department users can send reminders from **Department Submission Tracker** for one missing employee or all missing employees in their department. A scheduled command also sends automatic reminders for the latest past open weekly period:
+Head of Department users can send reminders from **Department Submission Tracker** for one missing employee or all missing employees in their managed departments. A scheduled command also sends automatic reminders for the latest past open weekly period:
 
 ```bash
 php artisan timesheets:send-missing-reminders

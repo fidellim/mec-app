@@ -36,7 +36,7 @@ class UserController extends Controller
         $departmentFilter = $filters['department_id'] ?? null;
 
         return view('manage.users.index', [
-            'users' => User::with(['department', 'headedDepartment'])
+            'users' => User::with(['department', 'primaryDepartments', 'managedDepartments'])
                 ->when($departmentFilter === 'unassigned', fn ($query) => $query->whereNull('department_id'))
                 ->when(filled($departmentFilter) && $departmentFilter !== 'unassigned', fn ($query) => $query->where('department_id', $departmentFilter))
                 ->orderBy('name')
@@ -127,35 +127,53 @@ class UserController extends Controller
     {
         abort_if((int) $user->id === (int) $request->user()->id, 403, 'You cannot delete your own account.');
 
-        $headedDepartment = $user->headedDepartment;
+        $assignedDepartments = $user->primaryDepartments
+            ->merge($user->managedDepartments)
+            ->unique('id')
+            ->values();
 
-        if ($headedDepartment) {
+        if ($assignedDepartments->isNotEmpty()) {
             $request->validate([
                 'replacement_hod_id' => [
                     'required',
                     Rule::exists('users', 'id')->where(fn ($query) => $query
                         ->where('role', 'hod')
                         ->where('is_active', true)
-                        ->where('department_id', $headedDepartment->id)
                         ->where('id', '!=', $user->id)
                     ),
                 ],
             ], [
                 'replacement_hod_id.required' => 'Select a replacement Head of Department before deleting this user.',
-                'replacement_hod_id.exists' => 'The replacement Head of Department must be active and in the same department.',
+                'replacement_hod_id.exists' => 'The replacement Head of Department must be active.',
             ]);
         }
 
-        $old = $user->load(['department', 'headedDepartment'])->toArray();
+        $old = $user->load(['department', 'primaryDepartments', 'managedDepartments'])->toArray();
         $old['timesheets_count'] = $user->timesheets()->count();
 
-        DB::transaction(function () use ($request, $user, $audit, $headedDepartment, $old) {
-            if ($headedDepartment) {
-                $headedDepartment->update(['hod_id' => $request->integer('replacement_hod_id')]);
+        DB::transaction(function () use ($request, $user, $audit, $assignedDepartments, $old) {
+            if ($assignedDepartments->isNotEmpty()) {
+                $replacementHodId = $request->integer('replacement_hod_id');
+                $assignedDepartmentIds = $assignedDepartments->pluck('id')->all();
+
+                $user->primaryDepartments()->update(['hod_id' => $replacementHodId]);
+
+                foreach ($assignedDepartmentIds as $departmentId) {
+                    DB::table('department_hod')->updateOrInsert(
+                        [
+                            'department_id' => $departmentId,
+                            'user_id' => $replacementHodId,
+                        ],
+                        [
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                        ]
+                    );
+                }
             }
 
             $audit->record('user_deleted', $user, $old, [
-                'replacement_hod_id' => $headedDepartment ? $request->integer('replacement_hod_id') : null,
+                'replacement_hod_id' => $assignedDepartments->isNotEmpty() ? $request->integer('replacement_hod_id') : null,
             ]);
 
             $user->delete();

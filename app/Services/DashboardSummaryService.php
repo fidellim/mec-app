@@ -63,7 +63,14 @@ class DashboardSummaryService
 
     public function departmentCounts(?TimesheetPeriod $period, ?int $departmentId): array
     {
-        if (! $period || ! $departmentId) {
+        return $this->departmentCountsForDepartmentIds($period, $departmentId ? [$departmentId] : []);
+    }
+
+    public function departmentCountsForDepartmentIds(?TimesheetPeriod $period, array $departmentIds): array
+    {
+        $departmentIds = collect($departmentIds)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all();
+
+        if (! $period || empty($departmentIds)) {
             return [
                 'pending' => 0,
                 'approved' => 0,
@@ -72,20 +79,20 @@ class DashboardSummaryService
             ];
         }
 
-        return Cache::remember($this->departmentCountsKey($period->id, $departmentId), self::SUMMARY_TTL_SECONDS, fn () => [
-            'pending' => Timesheet::where('department_id', $departmentId)
+        return Cache::remember($this->departmentCountsKey($period->id, $departmentIds), self::SUMMARY_TTL_SECONDS, fn () => [
+            'pending' => Timesheet::whereIn('department_id', $departmentIds)
                 ->where('timesheet_period_id', $period->id)
                 ->where('status', 'submitted')
                 ->count(),
-            'approved' => Timesheet::where('department_id', $departmentId)
+            'approved' => Timesheet::whereIn('department_id', $departmentIds)
                 ->where('timesheet_period_id', $period->id)
                 ->where('status', 'approved')
                 ->count(),
-            'rejected' => Timesheet::where('department_id', $departmentId)
+            'rejected' => Timesheet::whereIn('department_id', $departmentIds)
                 ->where('timesheet_period_id', $period->id)
                 ->where('status', 'rejected')
                 ->count(),
-            'missing' => User::where('department_id', $departmentId)
+            'missing' => User::whereIn('department_id', $departmentIds)
                 ->where('role', 'employee')
                 ->where('is_active', true)
                 ->whereDoesntHave('timesheets', fn ($t) => $t->where('timesheet_period_id', $period->id))
@@ -95,14 +102,23 @@ class DashboardSummaryService
 
     public function regionalSubmissionSummary(?TimesheetPeriod $period, ?int $departmentId = null): array
     {
+        return $this->regionalSubmissionSummaryForDepartmentIds($period, $departmentId ? [$departmentId] : null);
+    }
+
+    public function regionalSubmissionSummaryForDepartmentIds(?TimesheetPeriod $period, ?array $departmentIds = null): array
+    {
         if (! $period) {
             return $this->emptyRegionalSummary();
         }
 
+        $departmentIds = is_array($departmentIds)
+            ? collect($departmentIds)->filter()->map(fn ($id) => (int) $id)->unique()->values()->all()
+            : null;
+
         return Cache::remember(
-            $this->regionalKey($period->id, $departmentId),
+            $this->regionalKey($period->id, $departmentIds),
             self::REGIONAL_TTL_SECONDS,
-            fn () => $this->calculateRegionalSubmissionSummary($period, $departmentId)
+            fn () => $this->calculateRegionalSubmissionSummary($period, $departmentIds)
         );
     }
 
@@ -118,8 +134,8 @@ class DashboardSummaryService
             Cache::forget($this->regionalKey($periodId));
 
             foreach ($departmentIds as $departmentId) {
-                Cache::forget($this->departmentCountsKey($periodId, $departmentId));
-                Cache::forget($this->regionalKey($periodId, $departmentId));
+                Cache::forget($this->departmentCountsKey($periodId, [$departmentId]));
+                Cache::forget($this->regionalKey($periodId, [$departmentId]));
             }
         }
     }
@@ -129,7 +145,7 @@ class DashboardSummaryService
         Cache::forget($this->superAdminTotalsKey());
     }
 
-    private function calculateRegionalSubmissionSummary(TimesheetPeriod $period, ?int $departmentId = null): array
+    private function calculateRegionalSubmissionSummary(TimesheetPeriod $period, ?array $departmentIds = null): array
     {
         $summary = $this->emptyRegionalSummary()['regions'];
 
@@ -139,7 +155,7 @@ class DashboardSummaryService
         ])
             ->where('role', 'employee')
             ->where('is_active', true)
-            ->when($departmentId, fn ($query) => $query->where('department_id', $departmentId))
+            ->when(is_array($departmentIds), fn ($query) => $query->whereIn('department_id', $departmentIds))
             ->get(['id', 'department_id', 'employee_code'])
             ->each(function (User $employee) use (&$summary) {
                 $region = $this->employeeRegion($employee->employee_code);
@@ -216,13 +232,19 @@ class DashboardSummaryService
         return 'dashboard:departments:period:'.($periodId ?? 'none');
     }
 
-    private function departmentCountsKey(int $periodId, int $departmentId): string
+    private function departmentCountsKey(int $periodId, array $departmentIds): string
     {
-        return "dashboard:hod-counts:period:{$periodId}:department:{$departmentId}";
+        sort($departmentIds);
+
+        return "dashboard:hod-counts:period:{$periodId}:departments:".implode('-', $departmentIds);
     }
 
-    private function regionalKey(int $periodId, ?int $departmentId = null): string
+    private function regionalKey(int $periodId, ?array $departmentIds = null): string
     {
-        return "dashboard:regional:period:{$periodId}:department:".($departmentId ?? 'all');
+        if (is_array($departmentIds)) {
+            sort($departmentIds);
+        }
+
+        return "dashboard:regional:period:{$periodId}:departments:".(is_array($departmentIds) ? implode('-', $departmentIds) : 'all');
     }
 }

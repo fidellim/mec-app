@@ -54,13 +54,12 @@
             </thead>
             <tbody>
                 @foreach($users as $user)
-                    @php($headedDepartment = $user->headedDepartment)
-                    @php($departmentReplacementHods = $headedDepartment ? $replacementHods->where('department_id', $headedDepartment->id)->where('id', '!=', $user->id) : collect())
+                    @php($assignedDepartments = $user->primaryDepartments->merge($user->managedDepartments)->unique('id')->values())
                     <tr>
                         <td>
                             <div class="fw-semibold">{{ $user->name }}</div>
-                            @if($headedDepartment)
-                                <div class="small text-muted">Head of Department for {{ $headedDepartment->name }}</div>
+                            @if($assignedDepartments->isNotEmpty())
+                                <div class="small text-muted">Head of Department for {{ $assignedDepartments->pluck('name')->join(', ') }}</div>
                             @endif
                         </td>
                         <td>{{ $user->employee_code ?: '-' }}</td>
@@ -94,8 +93,8 @@
 </div>
 
 @foreach($users as $user)
-    @php($headedDepartment = $user->headedDepartment)
-    @php($departmentReplacementHods = $headedDepartment ? $replacementHods->where('department_id', $headedDepartment->id)->where('id', '!=', $user->id) : collect())
+    @php($assignedDepartments = $user->primaryDepartments->merge($user->managedDepartments)->unique('id')->values())
+    @php($replacementCandidates = $assignedDepartments->isNotEmpty() ? $replacementHods->where('id', '!=', $user->id) : collect())
     @if((int) $user->id !== (int) auth()->id())
         <div class="modal fade" id="deleteUserModal{{ $user->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
@@ -111,25 +110,25 @@
                             <p class="mb-2">Delete <strong>{{ $user->name }}</strong>?</p>
                             <p class="text-muted mb-3">This will permanently remove the user and all timesheets and entries owned by this user.</p>
 
-                            @if($headedDepartment)
+                            @if($assignedDepartments->isNotEmpty())
                                 <div class="alert alert-warning">
-                                    This user is the Head of Department for {{ $headedDepartment->name }}. Select a replacement Head of Department before deleting.
+                                    This user is assigned as Head of Department for {{ $assignedDepartments->pluck('name')->join(', ') }}. Select a replacement Head of Department before deleting.
                                 </div>
                                 <label class="form-label">Replacement Head of Department</label>
-                                <select class="form-select" name="replacement_hod_id" required data-searchable="false" @disabled($departmentReplacementHods->isEmpty())>
+                                <select class="form-select" name="replacement_hod_id" required data-searchable="false" @disabled($replacementCandidates->isEmpty())>
                                     <option value="">Select replacement</option>
-                                    @foreach($departmentReplacementHods as $replacementHod)
+                                    @foreach($replacementCandidates as $replacementHod)
                                         <option value="{{ $replacementHod->id }}">{{ $replacementHod->name }} - {{ $replacementHod->employee_code }}</option>
                                     @endforeach
                                 </select>
-                                @if($departmentReplacementHods->isEmpty())
-                                    <div class="form-text text-danger">Create or update another active Head of Department in {{ $headedDepartment->name }} before deleting this user.</div>
+                                @if($replacementCandidates->isEmpty())
+                                    <div class="form-text text-danger">Create or update another active Head of Department before deleting this user.</div>
                                 @endif
                             @endif
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="submit" class="btn btn-danger" @disabled($headedDepartment && $departmentReplacementHods->isEmpty())>Delete User</button>
+                            <button type="submit" class="btn btn-danger" @disabled($assignedDepartments->isNotEmpty() && $replacementCandidates->isEmpty())>Delete User</button>
                         </div>
                     </form>
                 </div>

@@ -225,6 +225,39 @@ class ManagementWorkflowTest extends TestCase
         $this->assertSame('CUSTOM-OPS', Department::where('name', 'Operations')->firstOrFail()->code);
         $this->assertSame('Production Aisha', User::where('email', 'aisha@example.com')->firstOrFail()->name);
         $this->assertFalse(AutomationSetting::where('key', AutomationSetting::TIMESHEET_MISSING_REMINDERS)->firstOrFail()->is_enabled);
+        $this->assertTrue(Department::where('name', 'Operations')->firstOrFail()->hods()->where('users.email', 'ops.hod@example.com')->exists());
+        $this->assertTrue(Department::where('name', 'Engineering')->firstOrFail()->hods()->where('users.email', 'eng.hod@example.com')->exists());
+    }
+
+    public function test_super_admin_can_assign_multiple_hod_approvers_to_department(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $primaryHod = $this->userWithRole('hod', ['name' => 'Primary HOD']);
+        $backupHod = $this->userWithRole('hod', ['name' => 'Backup HOD']);
+        $department = $this->department(['name' => 'Managed Department']);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.departments.edit', $department))
+            ->assertOk()
+            ->assertSee('HOD approvers')
+            ->assertSee('name="hod_ids[]"', false);
+
+        $this->actingAs($superAdmin)
+            ->put(route('manage.departments.update', $department), [
+                'name' => $department->name,
+                'code' => $department->code,
+                'hod_id' => $primaryHod->id,
+                'hod_ids' => [$backupHod->id],
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('manage.departments.index'));
+
+        $department->refresh();
+        $this->assertSame($primaryHod->id, $department->hod_id);
+        $this->assertEqualsCanonicalizing(
+            [$primaryHod->id, $backupHod->id],
+            $department->hods()->pluck('users.id')->all()
+        );
     }
 
     public function test_department_transfer_moves_only_draft_and_rejected_timesheets(): void
@@ -327,9 +360,12 @@ class ManagementWorkflowTest extends TestCase
     {
         $superAdmin = $this->userWithRole('super_admin');
         $department = $this->department();
+        $secondDepartment = $this->department();
         $oldHod = $this->userWithRole('hod', ['department_id' => $department->id]);
-        $newHod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $newHod = $this->userWithRole('hod', ['department_id' => $secondDepartment->id]);
         $department->update(['hod_id' => $oldHod->id]);
+        $department->hods()->attach($oldHod->id);
+        $secondDepartment->hods()->attach($oldHod->id);
 
         $this->actingAs($superAdmin)
             ->get(route('manage.users.index'))
@@ -349,6 +385,9 @@ class ManagementWorkflowTest extends TestCase
 
         $this->assertDatabaseMissing('users', ['id' => $oldHod->id]);
         $this->assertSame($newHod->id, $department->refresh()->hod_id);
+        $this->assertTrue($department->hods()->where('users.id', $newHod->id)->exists());
+        $this->assertTrue($secondDepartment->hods()->where('users.id', $newHod->id)->exists());
+        $this->assertFalse($secondDepartment->hods()->where('users.id', $oldHod->id)->exists());
     }
 
     public function test_deleting_user_removes_related_timesheets_and_entries(): void

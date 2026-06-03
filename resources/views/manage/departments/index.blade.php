@@ -28,7 +28,14 @@
                     <tr>
                         <td>{{ $department->name }}</td>
                         <td>{{ $department->code ?: '-' }}</td>
-                        <td>{{ $department->hod?->name ?: '-' }}</td>
+                        <td>
+                            <div>{{ $department->hod?->name ?: '-' }}</div>
+                            @if($department->hods->where('id', '!=', $department->hod_id)->isNotEmpty())
+                                <div class="small text-muted">
+                                    Also: {{ $department->hods->where('id', '!=', $department->hod_id)->pluck('name')->join(', ') }}
+                                </div>
+                            @endif
+                        </td>
                         <td>
                             <span class="badge {{ $department->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">
                                 {{ $department->is_active ? 'Active' : 'Inactive' }}

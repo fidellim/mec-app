@@ -1,6 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $selectedHodIds = collect(old('hod_ids', $department->exists ? $department->hods->pluck('id')->all() : []))
+        ->when(old('hod_id', $department->hod_id), fn ($ids, $primaryHodId) => $ids->push($primaryHodId))
+        ->map(fn ($id) => (int) $id)
+        ->unique();
+@endphp
 <div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $department->exists ? 'Edit Department' : 'New Department' }}</h1><div class="text-muted">Maintain department details and Head of Department assignment.</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $department->exists ? route('manage.departments.update', $department) : route('manage.departments.store') }}">
     @csrf @if($department->exists) @method('put') @endif
@@ -8,6 +14,17 @@
         <div class="col-md-4"><label class="form-label">Name</label><input class="form-control" name="name" value="{{ old('name', $department->name) }}" required></div>
         <div class="col-md-4"><label class="form-label">Code</label><input class="form-control" name="code" value="{{ old('code', $department->code) }}"></div>
         <div class="col-md-4"><label class="form-label">Head of Department</label><select class="form-select" name="hod_id"><option value="">None</option>@foreach($hods as $hod)<option value="{{ $hod->id }}" @selected(old('hod_id', $department->hod_id) == $hod->id)>{{ $hod->name }}</option>@endforeach</select></div>
+        <div class="col-12">
+            <label class="form-label">HOD approvers</label>
+            <select class="form-select" name="hod_ids[]" multiple>
+                @foreach($hods as $hod)
+                    <option value="{{ $hod->id }}" @selected($selectedHodIds->contains((int) $hod->id))>{{ $hod->name }} - {{ $hod->employee_code }}</option>
+                @endforeach
+            </select>
+            <div class="form-text">Select every Head of Department who can manage this department. The primary HOD is included automatically.</div>
+            @error('hod_ids')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+            @error('hod_ids.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+        </div>
         <div class="col-12"><input type="hidden" name="is_active" value="0"><div class="form-check"><input class="form-check-input" type="checkbox" name="is_active" value="1" id="active" @checked(old('is_active', $department->is_active ?? true))><label class="form-check-label" for="active">Active</label></div></div>
     </div>
     <div class="text-end mt-3"><button class="btn btn-primary">Save Department</button></div>

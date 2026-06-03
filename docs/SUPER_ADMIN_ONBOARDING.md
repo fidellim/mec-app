@@ -31,7 +31,7 @@ Super Admins can access:
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
 | ![Users](/images/sidebar/users.svg) **Users** | Create, edit, activate/deactivate, and delete users. |
-| ![Departments](/images/sidebar/departments.svg) **Departments** | Maintain departments and HOD assignment. |
+| ![Departments](/images/sidebar/departments.svg) **Departments** | Maintain departments and HOD assignments. |
 | ![Projects](/images/sidebar/projects.svg) **Projects** | Maintain project/job numbers used in timesheets. |
 | ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Weekly Periods** | Open or close weekly submission windows. |
 | ![Automations](/images/sidebar/automations.svg) **Automations** | Enable or disable scheduled background jobs. |
@@ -92,12 +92,12 @@ Important user rules:
 - When a user's department changes, draft and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
 - You cannot delete your own account.
 - Deleting a user permanently deletes that user's timesheets and entries.
-- If a user is assigned as a department HOD, a replacement active HOD in the same department must be selected before deletion.
+- If a user is assigned as a primary or additional department HOD, a replacement active HOD must be selected before deletion.
 - Deactivate users when history should remain easier to understand.
 
 ## Manage Departments
 
-Use **Departments** to maintain department names, codes, active status, and Head of Department assignment.
+Use **Departments** to maintain department names, codes, active status, and Head of Department assignments.
 
 Important department rules:
 
@@ -105,6 +105,21 @@ Important department rules:
 - Deactivated departments remain on existing users and historical records.
 - Departments with users, timesheets, or an assigned HOD cannot be deleted.
 - Deactivate departments instead of deleting them when they have history.
+
+### Multiple HOD Approvers
+
+Each department can have one primary **Head of Department** and multiple **HOD approvers**.
+
+- The primary **Head of Department** is the main HOD shown for the department.
+- **HOD approvers** are all HOD users who can manage that department.
+- The selected primary HOD is automatically included as an approver.
+- A HOD can manage more than one department.
+- A HOD can approve or reject employee timesheets only for departments they manage.
+- A HOD cannot approve or reject their own timesheet or another HOD's timesheet.
+- Submission, resubmission, and recall emails go to every HOD approver assigned to that employee's department.
+- The HOD dashboard, Department Timesheets page, Submission Tracker, and reminder tools use the full list of departments assigned to the HOD.
+
+When deleting a HOD who manages departments, select an active replacement HOD. The replacement will be assigned to every department the deleted HOD managed, including primary HOD assignments and additional approver assignments.
 
 ## Manage Projects / Job Numbers
 
@@ -228,6 +243,6 @@ If you are not assigned to a department, MEC Portal disables timesheet creation 
 | --- | --- | --- |
 | User cannot create a timesheet | No department is assigned or no open period exists. | Assign a department or open/create the correct weekly period. |
 | User cannot submit a timesheet | Required fields are missing, no hours were entered, or the period is closed. | Ask them to correct form errors or open the period if appropriate. |
-| Cannot delete a user | The user may be your own account or an assigned HOD without a replacement. | Select a valid replacement HOD or deactivate the user. |
+| Cannot delete a user | The user may be your own account or an assigned HOD without a replacement. | Select an active replacement HOD or deactivate the user. |
 | Cannot delete a project or department | It has historical usage or assigned users/HOD. | Deactivate it instead. |
 | Automation did not run | It may be disabled or no eligible period exists. | Check **Automations**, **Weekly Periods**, and **Audit Logs**. |

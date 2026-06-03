@@ -72,6 +72,8 @@ class DatabaseSeeder extends Seeder
 
         $operations->update(['hod_id' => $opsHod->id]);
         $engineering->update(['hod_id' => $engHod->id]);
+        $operations->hods()->syncWithoutDetaching([$opsHod->id]);
+        $engineering->hods()->syncWithoutDetaching([$engHod->id]);
 
         foreach ([
             ['Aisha Khan', 'aisha@example.com', 'MEC-HR-2025-086', 'AK', $operations->id],

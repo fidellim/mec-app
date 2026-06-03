@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $hasTimesheetFilters = collect(request()->only(['status', 'employee_id', 'week_number', 'year']))
+    $hasTimesheetFilters = collect(request()->only(['status', 'employee_id', 'week_number', 'year', 'department_id']))
         ->contains(fn ($value) => filled($value));
 @endphp
 <div class="section-header">
@@ -13,6 +13,15 @@
 </div>
 <form class="filter-card mb-3" method="get">
     <div class="row g-3 align-items-end">
+        <div class="col-md-6 col-xl-3">
+            <label class="form-label">Department</label>
+            <select class="form-select" name="department_id">
+                <option value="">All managed departments</option>
+                @foreach($departments as $department)
+                    <option value="{{ $department->id }}" @selected((int) $selectedDepartmentId === (int) $department->id)>{{ $department->name }}</option>
+                @endforeach
+            </select>
+        </div>
         <div class="col-md-6 col-xl-3">
             <label class="form-label">Status</label>
             <select class="form-select" name="status">
@@ -57,11 +66,11 @@
         </div>
     </div>
 </form>
-<div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Employee</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
+<div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Employee</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
 @forelse($timesheets as $timesheet)
-    <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('hod.timesheets.show', $timesheet) }}">Review</a></td></tr>
+    <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->department?->name ?: '-' }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('hod.timesheets.show', $timesheet) }}">Review</a></td></tr>
 @empty
-    <tr><td colspan="5" class="empty-state">No records found.</td></tr>
+    <tr><td colspan="6" class="empty-state">No records found.</td></tr>
 @endforelse
 </tbody></table></div></div>
 <div class="mt-3">{{ $timesheets->links() }}</div>

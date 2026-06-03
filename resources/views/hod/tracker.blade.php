@@ -32,9 +32,18 @@
                 @endforeach
             </select>
         </div>
+        <div class="col-md-8 col-lg-4">
+            <label class="form-label" for="department_id">Department</label>
+            <select class="form-select" id="department_id" name="department_id">
+                <option value="">All managed departments</option>
+                @foreach($departments as $department)
+                    <option value="{{ $department->id }}" @selected((int) $selectedDepartmentId === (int) $department->id)>{{ $department->name }}</option>
+                @endforeach
+            </select>
+        </div>
         <div class="col-md-4 col-lg-3 d-flex gap-2">
             <button class="btn btn-primary flex-fill">View Period</button>
-            @if(request()->filled('period_id'))
+            @if(request()->filled('period_id') || request()->filled('department_id'))
                 <a class="btn btn-outline-secondary" href="{{ route('hod.tracker') }}">Reset</a>
             @endif
         </div>
@@ -85,6 +94,9 @@
             <form method="post" action="{{ route('hod.tracker.reminders') }}" data-confirm="Send reminder emails to all missing employees for this period?">
                 @csrf
                 <input type="hidden" name="period_id" value="{{ $period->id }}">
+                @if($selectedDepartmentId)
+                    <input type="hidden" name="department_id" value="{{ $selectedDepartmentId }}">
+                @endif
                 <button class="btn btn-warning" @disabled($remindableCount === 0)>Notify All Missing</button>
                 @if($remindableCount === 0)
                     <div class="text-muted small mt-1">All missing employees are on reminder cooldown.</div>
@@ -99,6 +111,7 @@
             <thead>
                 <tr>
                     <th>Employee</th>
+                    <th>Department</th>
                     <th>Period status</th>
                     <th>Reminder</th>
                 </tr>
@@ -115,6 +128,7 @@
                             <div class="fw-semibold">{{ $employee->name }}</div>
                             <div class="text-muted small">{{ $employee->employee_code ?: $employee->email }}</div>
                         </td>
+                        <td>{{ $employee->department?->name ?: '-' }}</td>
                         <td>
                             @if($timesheet)
                                 @include('partials.status', ['status' => $timesheet->status])
@@ -131,6 +145,9 @@
                                     <form method="post" action="{{ route('hod.tracker.reminders') }}" data-confirm="Send a missing timesheet reminder to {{ $employee->name }}?">
                                         @csrf
                                         <input type="hidden" name="period_id" value="{{ $period->id }}">
+                                        @if($selectedDepartmentId)
+                                            <input type="hidden" name="department_id" value="{{ $selectedDepartmentId }}">
+                                        @endif
                                         <input type="hidden" name="employee_id" value="{{ $employee->id }}">
                                         <button class="btn btn-sm btn-outline-warning">Send Reminder</button>
                                     </form>
@@ -142,7 +159,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="3" class="empty-state">No active employees found for your department.</td>
+                        <td colspan="4" class="empty-state">No active employees found for the selected department view.</td>
                     </tr>
                 @endforelse
             </tbody>

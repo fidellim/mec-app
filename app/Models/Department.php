@@ -30,6 +30,11 @@ class Department extends Model
         return $this->belongsTo(User::class, 'hod_id');
     }
 
+    public function hods()
+    {
+        return $this->belongsToMany(User::class, 'department_hod')->withTimestamps();
+    }
+
     public function timesheets()
     {
         return $this->hasMany(Timesheet::class);

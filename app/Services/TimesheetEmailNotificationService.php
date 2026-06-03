@@ -13,9 +13,8 @@ class TimesheetEmailNotificationService
     public function submitted(Timesheet $timesheet, bool $resubmitted = false): void
     {
         $timesheet = $this->loadTimesheet($timesheet);
-        $recipient = $timesheet->department?->hod;
 
-        $this->send($recipient, new TimesheetWorkflowMail(
+        $this->sendToHods($timesheet, fn () => new TimesheetWorkflowMail(
             timesheet: $timesheet,
             headline: $resubmitted ? 'Timesheet resubmitted for approval' : 'Timesheet submitted for approval',
             intro: $timesheet->user->name.' submitted a timesheet for Week '.$timesheet->period->week_number.', '.$timesheet->period->year.'.',
@@ -27,9 +26,8 @@ class TimesheetEmailNotificationService
     public function recalled(Timesheet $timesheet): void
     {
         $timesheet = $this->loadTimesheet($timesheet);
-        $recipient = $timesheet->department?->hod;
 
-        $this->send($recipient, new TimesheetWorkflowMail(
+        $this->sendToHods($timesheet, fn () => new TimesheetWorkflowMail(
             timesheet: $timesheet,
             headline: 'Timesheet recalled by employee',
             intro: $timesheet->user->name.' recalled a submitted timesheet for Week '.$timesheet->period->week_number.', '.$timesheet->period->year.'.',
@@ -38,6 +36,7 @@ class TimesheetEmailNotificationService
                 'employee_id' => $timesheet->user_id,
                 'week_number' => $timesheet->period->week_number,
                 'year' => $timesheet->period->year,
+                'department_id' => $timesheet->department_id,
             ]),
         ));
     }
@@ -87,8 +86,21 @@ class TimesheetEmailNotificationService
         }
     }
 
+    private function sendToHods(Timesheet $timesheet, \Closure $mailFactory): void
+    {
+        $recipients = $timesheet->department?->hods ?? collect();
+
+        if ($timesheet->department?->hod) {
+            $recipients = $recipients->push($timesheet->department->hod);
+        }
+
+        $recipients
+            ->unique('id')
+            ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
+    }
+
     private function loadTimesheet(Timesheet $timesheet): Timesheet
     {
-        return $timesheet->fresh(['user', 'department.hod', 'period']) ?? $timesheet->load(['user', 'department.hod', 'period']);
+        return $timesheet->fresh(['user', 'department.hod', 'department.hods', 'period']) ?? $timesheet->load(['user', 'department.hod', 'department.hods', 'period']);
     }
 }
