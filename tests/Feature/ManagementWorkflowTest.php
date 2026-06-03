@@ -260,6 +260,53 @@ class ManagementWorkflowTest extends TestCase
         );
     }
 
+    public function test_changing_hod_role_to_employee_clears_hod_assignments(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $primaryDepartment = $this->department(['name' => 'Primary Department']);
+        $additionalDepartment = $this->department(['name' => 'Additional Department']);
+        $hod = $this->userWithRole('hod', [
+            'department_id' => $primaryDepartment->id,
+            'employee_code' => 'MEC-HR-2026-301',
+        ]);
+
+        $primaryDepartment->update(['hod_id' => $hod->id]);
+        $primaryDepartment->hods()->attach($hod->id);
+        $additionalDepartment->hods()->attach($hod->id);
+
+        $this->actingAs($superAdmin)
+            ->put(route('manage.users.update', $hod), [
+                'name' => $hod->name,
+                'email' => $hod->email,
+                'employee_code' => $hod->employee_code,
+                'initials' => $hod->initials,
+                'job_title' => $hod->job_title,
+                'department_id' => $primaryDepartment->id,
+                'role' => 'employee',
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $this->assertSame('employee', $hod->refresh()->role);
+        $this->assertNull($primaryDepartment->refresh()->hod_id);
+        $this->assertDatabaseMissing('department_hod', [
+            'department_id' => $primaryDepartment->id,
+            'user_id' => $hod->id,
+        ]);
+        $this->assertDatabaseMissing('department_hod', [
+            'department_id' => $additionalDepartment->id,
+            'user_id' => $hod->id,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'user_hod_assignments_cleared',
+            'auditable_id' => $hod->id,
+        ]);
+
+        $this->actingAs($hod)
+            ->get(route('hod.timesheets.index'))
+            ->assertForbidden();
+    }
+
     public function test_department_transfer_moves_only_draft_and_rejected_timesheets(): void
     {
         $superAdmin = $this->userWithRole('super_admin');

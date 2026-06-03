@@ -118,6 +118,7 @@ Each department can have one primary **Head of Department** and multiple **HOD a
 - A HOD cannot approve or reject their own timesheet or another HOD's timesheet.
 - Submission, resubmission, and recall emails go to every HOD approver assigned to that employee's department.
 - The HOD dashboard, Department Timesheets page, Submission Tracker, and reminder tools use the full list of departments assigned to the HOD.
+- If a HOD user's role is changed back to Employee, Admin, or Super Admin, MEC Portal automatically removes that user from primary HOD and additional HOD approver assignments.
 
 When deleting a HOD who manages departments, select an active replacement HOD. The replacement will be assigned to every department the deleted HOD managed, including primary HOD assignments and additional approver assignments.
 

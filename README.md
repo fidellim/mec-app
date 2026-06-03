@@ -115,6 +115,7 @@ Departments support one primary Head of Department and any number of additional 
 - HODs still cannot approve or reject their own timesheet or another HOD's timesheet.
 - Employee submission, resubmission, and recall emails are sent to every active HOD approver assigned to the timesheet department, including the primary HOD.
 - When deleting a HOD assigned to one or more departments, Super Admin must select an active replacement HOD. The replacement is assigned to all departments previously managed by the deleted user.
+- If a HOD user's role is changed back to Employee, Admin, or Super Admin, their primary HOD assignments and additional HOD approver assignments are cleared automatically.
 
 The database change for this feature is additive:
 

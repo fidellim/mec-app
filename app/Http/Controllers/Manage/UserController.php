@@ -85,10 +85,33 @@ class UserController extends Controller
             $data['password'] = $request->validate(['password' => ['nullable', 'min:8']])['password'];
         }
         $oldDepartmentId = $user->department_id;
+        $oldRole = $user->role;
+        $assignedHodDepartmentIds = $oldRole === 'hod'
+            ? $user->primaryDepartments()->pluck('id')
+                ->merge($user->managedDepartments()->pluck('departments.id'))
+                ->unique()
+                ->values()
+            : collect();
 
-        DB::transaction(function () use ($user, $data, $old, $oldDepartmentId, $audit, $dashboard) {
+        DB::transaction(function () use ($user, $data, $old, $oldDepartmentId, $oldRole, $assignedHodDepartmentIds, $audit, $dashboard) {
             $user->update($data);
             $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
+
+            if ($oldRole === 'hod' && ($data['role'] ?? null) !== 'hod') {
+                $clearedPrimaryDepartments = $user->primaryDepartments()->update(['hod_id' => null]);
+                $detachedApproverDepartments = $user->managedDepartments()->detach();
+
+                if ($clearedPrimaryDepartments > 0 || $detachedApproverDepartments > 0) {
+                    $audit->record('user_hod_assignments_cleared', $user, [
+                        'role' => $oldRole,
+                        'department_ids' => $assignedHodDepartmentIds->all(),
+                    ], [
+                        'role' => $data['role'],
+                        'cleared_primary_departments' => $clearedPrimaryDepartments,
+                        'detached_approver_departments' => $detachedApproverDepartments,
+                    ]);
+                }
+            }
 
             if (
                 array_key_exists('department_id', $data)
