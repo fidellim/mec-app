@@ -24,7 +24,7 @@
             </thead>
             <tbody>
                 @foreach($departments as $department)
-                    @php($canDelete = $department->users_count === 0 && $department->timesheets_count === 0 && ! $department->hod_id && $department->hods_count === 0)
+                    @php($canDelete = (int) $department->users_count === 0 && (int) $department->timesheets_count === 0 && ! $department->hod_id && (int) $department->hods_count === 0)
                     <tr>
                         <td>{{ $department->name }}</td>
                         <td>{{ $department->code ?: '-' }}</td>
@@ -66,7 +66,7 @@
 </div>
 
 @foreach($departments as $department)
-    @php($canDelete = $department->users_count === 0 && $department->timesheets_count === 0 && ! $department->hod_id && $department->hods_count === 0)
+    @php($canDelete = (int) $department->users_count === 0 && (int) $department->timesheets_count === 0 && ! $department->hod_id && (int) $department->hods_count === 0)
     <div class="modal fade" id="deleteDepartmentModal{{ $department->id }}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">

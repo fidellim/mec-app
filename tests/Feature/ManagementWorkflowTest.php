@@ -500,6 +500,12 @@ class ManagementWorkflowTest extends TestCase
         $department = $this->department();
 
         $this->actingAs($superAdmin)
+            ->get(route('manage.departments.index'))
+            ->assertOk()
+            ->assertSee('0 users / 0 timesheets / 0 HOD approvers')
+            ->assertSee('This department has no users, timesheets, or assigned Head of Department');
+
+        $this->actingAs($superAdmin)
             ->delete(route('manage.departments.destroy', $department))
             ->assertRedirect(route('manage.departments.index'));
 
