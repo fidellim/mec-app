@@ -332,6 +332,14 @@ class ManagementWorkflowTest extends TestCase
         $department->update(['hod_id' => $oldHod->id]);
 
         $this->actingAs($superAdmin)
+            ->get(route('manage.users.index'))
+            ->assertOk()
+            ->assertSee('name="replacement_hod_id"', false)
+            ->assertSee('data-searchable="false"', false)
+            ->assertSee($newHod->name.' - '.$newHod->employee_code)
+            ->assertDontSee($oldHod->name.' - '.$oldHod->employee_code);
+
+        $this->actingAs($superAdmin)
             ->delete(route('manage.users.destroy', $oldHod))
             ->assertSessionHasErrors('replacement_hod_id');
 

@@ -116,7 +116,7 @@
                                     This user is the Head of Department for {{ $headedDepartment->name }}. Select a replacement Head of Department before deleting.
                                 </div>
                                 <label class="form-label">Replacement Head of Department</label>
-                                <select class="form-select" name="replacement_hod_id" required @disabled($departmentReplacementHods->isEmpty())>
+                                <select class="form-select" name="replacement_hod_id" required data-searchable="false" @disabled($departmentReplacementHods->isEmpty())>
                                     <option value="">Select replacement</option>
                                     @foreach($departmentReplacementHods as $replacementHod)
                                         <option value="{{ $replacementHod->id }}">{{ $replacementHod->name }} - {{ $replacementHod->employee_code }}</option>
