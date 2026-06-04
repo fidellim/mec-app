@@ -149,6 +149,38 @@ class AuthAndAccessTest extends TestCase
         $this->assertTrue(Hash::check('password123', $user->fresh()->password));
     }
 
+    public function test_password_reset_enforces_password_length_policy(): void
+    {
+        $user = $this->userWithRole('employee', ['email' => 'policy-reset@example.com']);
+        $token = Password::broker()->createToken($user);
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'short',
+            'password_confirmation' => 'short',
+        ])->assertSessionHasErrors('password');
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => str_repeat('a', 65),
+            'password_confirmation' => str_repeat('a', 65),
+        ])->assertSessionHasErrors('password');
+
+        $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+
+        $this->post(route('password.update'), [
+            'token' => $token,
+            'email' => $user->email,
+            'password' => 'valid pass 1!',
+            'password_confirmation' => 'valid pass 1!',
+        ])->assertRedirect(route('login'))
+            ->assertSessionHas('success');
+
+        $this->assertTrue(Hash::check('valid pass 1!', $user->fresh()->password));
+    }
+
     public function test_active_user_can_reset_password_with_valid_token(): void
     {
         $user = $this->userWithRole('employee', ['email' => 'valid-reset@example.com']);
@@ -157,7 +189,8 @@ class AuthAndAccessTest extends TestCase
         $this->get(route('password.reset', ['token' => $token, 'email' => $user->email]))
             ->assertOk()
             ->assertSee('data-password-toggle="password"', false)
-            ->assertSee('data-password-toggle="password_confirmation"', false);
+            ->assertSee('data-password-toggle="password_confirmation"', false)
+            ->assertDontSee('Password must be between 10 and 64 characters.');
 
         $this->post(route('password.update'), [
             'token' => $token,

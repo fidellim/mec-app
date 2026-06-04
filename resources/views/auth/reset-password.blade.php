@@ -19,9 +19,12 @@
                 <div class="mb-3">
                     <label class="form-label" for="password">New password</label>
                     <div class="input-group">
-                        <input class="form-control" id="password" name="password" type="password" required autocomplete="new-password">
+                        <input class="form-control @error('password') is-invalid @enderror" id="password" name="password" type="password" minlength="10" maxlength="64" required autocomplete="new-password">
                         <button class="btn btn-outline-secondary" type="button" data-password-toggle="password" aria-label="Show new password">Show</button>
                     </div>
+                    @error('password')
+                        <div class="invalid-feedback d-block">{{ $message }}</div>
+                    @enderror
                 </div>
                 <div class="mb-4">
                     <label class="form-label" for="password_confirmation">Confirm new password</label>

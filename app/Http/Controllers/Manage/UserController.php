@@ -59,7 +59,10 @@ class UserController extends Controller
     public function store(Request $request, AuditLogService $audit)
     {
         $data = $this->validated($request);
-        $data['password'] = $request->validate(['password' => ['required', 'min:8']])['password'];
+        $data['password'] = $request->validate(
+            ['password' => ['required', 'string', 'min:10', 'max:64']],
+            $this->passwordValidationMessages()
+        )['password'];
         $user = User::create($data);
         $audit->record('user_created', $user, null, $user->toArray());
 
@@ -82,7 +85,10 @@ class UserController extends Controller
         $old = $user->toArray();
         $data = $this->validated($request, $user);
         if ($request->filled('password')) {
-            $data['password'] = $request->validate(['password' => ['nullable', 'min:8']])['password'];
+            $data['password'] = $request->validate(
+                ['password' => ['nullable', 'string', 'min:10', 'max:64']],
+                $this->passwordValidationMessages()
+            )['password'];
         }
         $oldDepartmentId = $user->department_id;
         $oldRole = $user->role;
@@ -232,5 +238,13 @@ class UserController extends Controller
         $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
 
         return $data;
+    }
+
+    private function passwordValidationMessages(): array
+    {
+        return [
+            'password.min' => 'Password must be between 10 and 64 characters. Letters, numbers, symbols, and spaces are allowed.',
+            'password.max' => 'Password must be between 10 and 64 characters. Letters, numbers, symbols, and spaces are allowed.',
+        ];
     }
 }

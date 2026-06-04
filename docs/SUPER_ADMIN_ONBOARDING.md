@@ -73,6 +73,8 @@ For each user, manage:
 - Active/inactive status.
 - Password when creating or resetting a user.
 
+Passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
+
 Employee numbers are required for Employees and Heads of Department. The accepted format is:
 
 ```text

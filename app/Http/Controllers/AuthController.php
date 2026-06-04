@@ -73,9 +73,11 @@ class AuthController extends Controller
                 'email',
                 Rule::exists('users', 'email')->where('is_active', true),
             ],
-            'password' => ['required', 'confirmed', 'min:8'],
+            'password' => ['required', 'string', 'confirmed', 'min:10', 'max:64'],
         ], [
             'email.exists' => 'We could not find an active account with that email address.',
+            'password.min' => 'Password must be between 10 and 64 characters. Letters, numbers, symbols, and spaces are allowed.',
+            'password.max' => 'Password must be between 10 and 64 characters. Letters, numbers, symbols, and spaces are allowed.',
         ]);
 
         $status = Password::reset(

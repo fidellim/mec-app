@@ -69,6 +69,7 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 - Employee numbers are entered manually when creating or editing employees and HODs.
 - Initials can be entered manually when creating or editing users. If initials are blank, exports fall back to initials derived from the employee name.
 - Job Title can be entered manually when creating or editing users. It is optional, limited to 100 characters, and appears as `-` in exports when blank.
+- User passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
 - Users without a department cannot create or submit their own timesheets. Assign a department first if Admin, Super Admin, Head of Department, or Employee accounts need to submit personal weekly time.
 - When a user's department is changed, their existing draft and rejected timesheets move to the new department. Submitted and approved timesheets remain with the original department for review and historical reporting.
 - Super Admin cannot delete their own account.
@@ -87,6 +88,7 @@ Employees and admins can reset forgotten passwords from the **Forgot password?**
 - Reset links are emailed to the user's account address.
 - Password reset links expire after 1 hour.
 - The reset form requires the new password and confirmation to match.
+- New passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
 - Sign-in and reset password fields include a show/hide control so users can review what they typed.
 - Inactive accounts cannot use password reset. A Super Admin must reactivate the account first.
 

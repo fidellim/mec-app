@@ -12,6 +12,7 @@ use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Hash;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -45,6 +46,83 @@ class ManagementWorkflowTest extends TestCase
             'job_title' => 'Project Engineer',
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
+    }
+
+    public function test_super_admin_user_password_policy_is_enforced(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.create'))
+            ->assertOk()
+            ->assertSee('data-password-toggle="password"', false)
+            ->assertDontSee('Password must be between 10 and 64 characters.');
+
+        $basePayload = [
+            'name' => 'Policy Employee',
+            'email' => 'policy.employee@example.com',
+            'employee_code' => 'MEC-HR-2026-195',
+            'initials' => 'PE',
+            'job_title' => 'Project Engineer',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ];
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), $basePayload + [
+            'password' => 'short',
+        ])->assertSessionHasErrors('password');
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), array_merge($basePayload, [
+            'email' => 'long-policy.employee@example.com',
+            'employee_code' => 'MEC-HR-2026-196',
+            'password' => str_repeat('a', 65),
+        ]))->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('users', ['email' => 'policy.employee@example.com']);
+        $this->assertDatabaseMissing('users', ['email' => 'long-policy.employee@example.com']);
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), $basePayload + [
+            'password' => 'valid pass 1!',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $user = User::where('email', 'policy.employee@example.com')->firstOrFail();
+        $this->assertTrue(Hash::check('valid pass 1!', $user->password));
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.edit', $user))
+            ->assertOk()
+            ->assertSee('data-password-toggle="password"', false)
+            ->assertDontSee('Password must be between 10 and 64 characters.');
+
+        $this->actingAs($superAdmin)->put(route('manage.users.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'password' => 'tiny',
+            'employee_code' => $user->employee_code,
+            'initials' => $user->initials,
+            'job_title' => $user->job_title,
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertTrue(Hash::check('valid pass 1!', $user->fresh()->password));
+
+        $this->actingAs($superAdmin)->put(route('manage.users.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'password' => 'updated pass 1!',
+            'employee_code' => $user->employee_code,
+            'initials' => $user->initials,
+            'job_title' => $user->job_title,
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $this->assertTrue(Hash::check('updated pass 1!', $user->fresh()->password));
     }
 
     public function test_super_admin_can_create_user_with_phil_employee_number(): void
