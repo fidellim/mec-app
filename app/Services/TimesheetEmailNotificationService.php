@@ -96,6 +96,7 @@ class TimesheetEmailNotificationService
 
         $recipients
             ->unique('id')
+            ->filter(fn (User $recipient) => $recipient->role === 'hod')
             ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
     }
 

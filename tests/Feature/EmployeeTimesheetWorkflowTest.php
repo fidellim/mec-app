@@ -194,6 +194,44 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             && $mail->headline === 'Timesheet submitted for approval');
     }
 
+    public function test_submitted_timesheet_notifies_all_active_hod_approvers_for_department(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $primaryHod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $coveringHod = $this->userWithRole('hod', ['department_id' => $this->department()->id]);
+        $inactiveHod = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'is_active' => false,
+        ]);
+        $staleEmployeeApprover = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $department->update(['hod_id' => $primaryHod->id]);
+        $department->hods()->attach([
+            $primaryHod->id,
+            $coveringHod->id,
+            $inactiveHod->id,
+            $staleEmployeeApprover->id,
+        ]);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $this->validEntries($project),
+        ])->assertRedirect();
+
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($primaryHod->email)
+            && $mail->headline === 'Timesheet submitted for approval');
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($coveringHod->email)
+            && $mail->headline === 'Timesheet submitted for approval');
+        Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($inactiveHod->email));
+        Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($staleEmployeeApprover->email));
+        Mail::assertQueuedCount(2);
+    }
+
     public function test_employee_cannot_create_second_timesheet_for_same_week(): void
     {
         $department = $this->department();
