@@ -8,7 +8,9 @@ use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
+use App\Services\AuditLogService;
 use App\Services\TimesheetExportService;
+use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
 class AdminTimesheetController extends Controller
@@ -30,12 +32,42 @@ class AdminTimesheetController extends Controller
 
     public function show(Timesheet $timesheet)
     {
-        return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'approver'])]);
+        return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'approver', 'voider'])]);
     }
 
     public function export(TimesheetExportService $export)
     {
         return $this->guardedExport(fn () => $export->excel($this->validatedFilters()));
+    }
+
+    public function voidTimesheet(Request $request, Timesheet $timesheet, AuditLogService $audit)
+    {
+        abort_unless($request->user()?->role === 'super_admin', 403);
+
+        if ((int) $timesheet->user_id === (int) $request->user()->id) {
+            return back()->with('warning', 'You cannot void your own timesheet. Another Super Admin must complete this correction.');
+        }
+
+        abort_unless($timesheet->status === 'approved', 422, 'Only approved timesheets can be voided.');
+
+        $validated = $request->validate([
+            'void_reason' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+
+        $old = $timesheet->toArray();
+
+        $timesheet->update([
+            'status' => Timesheet::STATUS_VOIDED,
+            'voided_at' => now(),
+            'voided_by' => $request->user()->id,
+            'void_reason' => $validated['void_reason'],
+        ]);
+
+        $audit->record('timesheet_voided', $timesheet, $old, $timesheet->fresh()->toArray());
+
+        return redirect()
+            ->route('admin.timesheets.show', $timesheet)
+            ->with('success', 'Timesheet voided. The employee can now create a corrected timesheet for this weekly period.');
     }
 
     private function filtered(array $filters)
@@ -62,7 +94,7 @@ class AdminTimesheetController extends Controller
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'employee_id' => ['nullable', 'integer', 'exists:users,id'],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'status' => ['nullable', 'in:draft,submitted,approved,rejected'],
+            'status' => ['nullable', 'in:draft,submitted,approved,rejected,voided'],
             'include_employee_sheets' => ['nullable', 'boolean'],
         ], [
             'week_from.required_with' => 'Enter From Week when using To Week.',

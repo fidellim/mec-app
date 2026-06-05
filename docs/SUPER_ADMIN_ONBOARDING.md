@@ -46,6 +46,7 @@ Super Admins can access:
 | ![Submitted](/images/status/submitted.svg) | Sent for review. |
 | ![Approved](/images/status/approved.svg) | Accepted by an authorized reviewer. |
 | ![Rejected](/images/status/rejected.svg) | Returned to the owner with a comment. |
+| Voided | Cancelled by a Super Admin because an approved timesheet needs correction. Voided records are kept for audit history and are excluded from corrected submissions and normal exports. |
 
 ## Dashboard
 
@@ -150,7 +151,7 @@ A valid weekly period:
 
 Open periods allow drafts, submissions, and resubmissions. Closed periods block new changes.
 
-Users can only create one timesheet per weekly period, even if the period remains open.
+Users can only create one active timesheet per weekly period, even if the period remains open. If a Super Admin voids an approved timesheet for correction, the owner can create a new timesheet for that same weekly period while the voided record remains visible for audit history.
 
 ## Automations
 
@@ -233,6 +234,25 @@ Use the Attendance Code Summary to reconcile payroll/manhour totals with project
 Super Admins can approve or reject submitted timesheets where needed, but cannot approve or reject their own timesheet.
 
 Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
+
+## Voiding Approved Timesheets
+
+Use voiding when an already approved timesheet has an error that should be replaced by a corrected employee submission.
+
+1. Go to **All Timesheets**.
+2. Open the approved timesheet.
+3. In **Correction action**, enter a clear void reason.
+4. Select **Void timesheet** and confirm.
+
+Important voiding rules:
+
+- Only Super Admins can void timesheets.
+- Only approved timesheets can be voided.
+- Super Admins cannot void their own timesheet.
+- A void reason is required and is stored with the audit log.
+- The original timesheet remains visible with status **Voided**.
+- Voided timesheets are excluded from normal Excel exports and submission-complete checks.
+- The employee can create and submit a corrected timesheet for the same weekly period.
 
 ## Submit Your Own Timesheet
 

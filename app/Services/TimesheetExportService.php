@@ -180,6 +180,7 @@ class TimesheetExportService
         $weekTo = $filters['week_to'] ?? $weekFrom;
 
         $query
+            ->where('status', '!=', Timesheet::STATUS_VOIDED)
             ->when($weekFrom, fn ($q) => $q->whereHas('period', fn ($p) => $p->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo])))
             ->when($filters['year'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('year', $v)))
             ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))

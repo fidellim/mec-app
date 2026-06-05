@@ -10,9 +10,14 @@ class Timesheet extends Model
 {
     use HasFactory;
 
+    public const STATUS_VOIDED = 'voided';
+
+    public const ACTIVE_STATUSES = ['draft', 'submitted', 'approved', 'rejected'];
+
     protected $fillable = [
         'user_id', 'department_id', 'timesheet_period_id', 'status', 'submitted_at',
         'approved_at', 'approved_by', 'rejected_at', 'rejected_by', 'rejection_comment',
+        'voided_at', 'voided_by', 'void_reason',
         'total_regular_hours', 'total_overtime_hours', 'total_hours',
     ];
 
@@ -25,9 +30,11 @@ class Timesheet extends Model
             'timesheet_period_id' => 'integer',
             'approved_by' => 'integer',
             'rejected_by' => 'integer',
+            'voided_by' => 'integer',
             'submitted_at' => 'datetime',
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
+            'voided_at' => 'datetime',
             'total_regular_hours' => 'decimal:2',
             'total_overtime_hours' => 'decimal:2',
             'total_hours' => 'decimal:2',
@@ -83,8 +90,18 @@ class Timesheet extends Model
         return $this->belongsTo(User::class, 'rejected_by');
     }
 
+    public function voider()
+    {
+        return $this->belongsTo(User::class, 'voided_by');
+    }
+
     public function editableBy(User $user): bool
     {
         return (int) $this->user_id === (int) $user->id && in_array($this->status, ['draft', 'rejected'], true);
+    }
+
+    public function isActive(): bool
+    {
+        return in_array($this->status, self::ACTIVE_STATUSES, true);
     }
 }

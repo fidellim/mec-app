@@ -11,6 +11,25 @@
 @if($timesheet->status === 'rejected')
     <div class="alert alert-warning"><strong>Rejection comment:</strong> {{ $timesheet->rejection_comment }}</div>
 @endif
+@if($timesheet->status === 'voided')
+    <div class="alert alert-warning">
+        <strong>Voided timesheet:</strong> This record is kept for audit history and is excluded from corrected submissions and exports.
+        @if($timesheet->void_reason)
+            <div class="mt-2"><strong>Reason:</strong> {{ $timesheet->void_reason }}</div>
+        @endif
+        @if($timesheet->voider || $timesheet->voided_at)
+            <div class="small mt-2">
+                Voided
+                @if($timesheet->voider)
+                    by {{ $timesheet->voider->name }}
+                @endif
+                @if($timesheet->voided_at)
+                    on {{ $timesheet->voided_at->format('M j, Y g:i A') }}
+                @endif
+            </div>
+        @endif
+    </div>
+@endif
 @include('shared.timesheet_detail', ['timesheet' => $timesheet])
 @if($timesheet->status === 'submitted')
     @php
@@ -40,6 +59,35 @@
         </form>
         </div>
     </div>
+    @endif
+@endif
+@if($timesheet->status === 'approved')
+    @php
+        $actor = auth()->user();
+        $isOwnTimesheet = (int) $timesheet->user_id === (int) $actor->id;
+    @endphp
+
+    @if($actor->role === 'super_admin')
+        <div class="content-card mt-3">
+            <div class="content-card-header">
+                <h2 class="h5 mb-1">Correction action</h2>
+                <div class="small text-muted">Void an approved timesheet only when it needs to be replaced with a corrected submission.</div>
+            </div>
+            <div class="content-card-body">
+                @if($isOwnTimesheet)
+                    <div class="alert alert-warning mb-0">You cannot void your own timesheet. Another Super Admin must complete this correction.</div>
+                @else
+                    <form method="post" action="{{ route('admin.timesheets.void', $timesheet) }}" data-confirm="Void this approved timesheet? The employee will be able to create a corrected timesheet for this week.">
+                        @csrf
+                        <label class="form-label" for="void_reason">Void reason</label>
+                        <textarea id="void_reason" class="form-control @error('void_reason') is-invalid @enderror" name="void_reason" rows="3" required placeholder="Explain why this approved timesheet needs to be replaced.">{{ old('void_reason') }}</textarea>
+                        @error('void_reason')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                        <div class="form-text">The original record, reason, Super Admin, and timestamp remain visible in audit history.</div>
+                        <button class="btn btn-warning mt-3">Void timesheet</button>
+                    </form>
+                @endif
+            </div>
+        </div>
     @endif
 @endif
 @endsection

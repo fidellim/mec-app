@@ -42,6 +42,7 @@ class EmployeeTimesheetController extends Controller
 
         $existingTimesheet = Timesheet::where('user_id', auth()->id())
             ->where('timesheet_period_id', $period->id)
+            ->whereIn('status', Timesheet::ACTIVE_STATUSES)
             ->first();
 
         if ($existingTimesheet) {
@@ -73,6 +74,7 @@ class EmployeeTimesheetController extends Controller
 
         $existingTimesheet = Timesheet::where('user_id', $user->id)
             ->where('timesheet_period_id', $period->id)
+            ->whereIn('status', Timesheet::ACTIVE_STATUSES)
             ->first();
 
         if ($existingTimesheet) {

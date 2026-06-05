@@ -31,6 +31,7 @@ Employees can access:
 | ![Submitted](/images/status/submitted.svg) | The timesheet has been sent for review. | It is locked unless you recall it before review. |
 | ![Approved](/images/status/approved.svg) | The timesheet has been accepted. | You can view it, but cannot edit it. |
 | ![Rejected](/images/status/rejected.svg) | The timesheet was returned with a comment. | You can edit and resubmit it. |
+| Voided | A Super Admin cancelled an approved timesheet because it needs correction. | Create a corrected timesheet for the same weekly period if the period is open. |
 
 ## Employee Dashboard
 
@@ -83,6 +84,7 @@ You can:
 - Edit **rejected** timesheets after reading the rejection comment.
 - Recall a **submitted** timesheet before it is reviewed, which returns it to draft.
 - Delete a **draft** timesheet.
+- Create a corrected timesheet for a weekly period after a Super Admin voids the previously approved timesheet.
 
 You cannot:
 
@@ -104,5 +106,5 @@ When your timesheet is approved or rejected, you receive an email notification. 
 | Cannot create a timesheet | No department is assigned or no open period exists. | Contact the system administrator. |
 | Cannot submit a timesheet | Required attendance code/project is missing, no hours were entered, or the period is closed. | Correct the highlighted fields or ask whether the period should be open. |
 | Cannot edit a timesheet | It is submitted or approved. | Recall it if still submitted. |
-| Cannot create another timesheet for the same week | One already exists for that period. | Open and edit the existing draft/rejected timesheet, or view the existing submitted/approved one. |
+| Cannot create another timesheet for the same week | One active timesheet already exists for that period. | Open and edit the existing draft/rejected timesheet, or view the existing submitted/approved one. If an approved timesheet is wrong, a Super Admin must void it first. |
 | Password reset link expired | More than 1 hour passed since the link was requested. | Request a new reset link from the sign-in page. |

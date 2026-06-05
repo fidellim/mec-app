@@ -49,7 +49,9 @@ class DashboardSummaryService
 
         return Cache::remember($this->missingKey($period->id), self::SUMMARY_TTL_SECONDS, fn () => User::where('role', 'employee')
             ->where('is_active', true)
-            ->whereDoesntHave('timesheets', fn ($q) => $q->where('timesheet_period_id', $period->id))
+            ->whereDoesntHave('timesheets', fn ($q) => $q
+                ->where('timesheet_period_id', $period->id)
+                ->whereIn('status', ['submitted', 'approved']))
             ->count());
     }
 
@@ -95,7 +97,9 @@ class DashboardSummaryService
             'missing' => User::whereIn('department_id', $departmentIds)
                 ->where('role', 'employee')
                 ->where('is_active', true)
-                ->whereDoesntHave('timesheets', fn ($t) => $t->where('timesheet_period_id', $period->id))
+                ->whereDoesntHave('timesheets', fn ($t) => $t
+                    ->where('timesheet_period_id', $period->id)
+                    ->whereIn('status', ['submitted', 'approved']))
                 ->count(),
         ]);
     }
