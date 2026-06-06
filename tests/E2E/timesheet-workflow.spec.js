@@ -85,15 +85,44 @@ test.describe('employee timesheet workflow', () => {
       await expect(page.locator('select[name*="[project_id]"]').nth(1)).toHaveValue('');
       await expect(firstDayRows).toHaveCount(2);
       await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
+      await expect(page.locator('.tooltip')).toHaveCount(0);
+
+      await firstDayRows.first().locator('select[name*="[attendance_code]"]').evaluate((select) => {
+        select.tomselect?.setValue('O100');
+        select.value = 'O100';
+      });
+      await firstDayRows.first().locator('input[name*="[regular_hours]"]').fill('3.50');
+      await firstDayRows.first().locator('input[name*="[overtime_hours]"]').fill('1.25');
+      await firstDayRows.first().locator('input[name*="[remarks]"]').fill('Copied row');
+      await firstDayRows.first().getByRole('button', { name: /duplicate/i }).click();
+      await expect(firstDayRows).toHaveCount(3);
+      await expect(page.locator('.tooltip')).toHaveCount(0);
+      await expect(firstDayRows.nth(1).locator('select[name*="[attendance_code]"]')).toHaveValue('O100');
+      await expect(firstDayRows.nth(1).locator('select[name*="[project_id]"]')).toHaveValue(firstProjectValue);
+      await expect(firstDayRows.nth(1).locator('input[name*="[regular_hours]"]')).toHaveValue('3.50');
+      await expect(firstDayRows.nth(1).locator('input[name*="[overtime_hours]"]')).toHaveValue('1.25');
+      await expect(firstDayRows.nth(1).locator('input[name*="[remarks]"]')).toHaveValue('Copied row');
 
       await firstDayRows.getByRole('button', { name: /add project/i }).click();
-      await expect(firstDayRows).toHaveCount(3);
+      await expect(firstDayRows).toHaveCount(4);
+      await expect(page.locator('.tooltip')).toHaveCount(0);
       await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
 
       await firstDayRows.first().getByRole('button', { name: /remove/i }).click();
-      await expect(firstDayRows).toHaveCount(2);
+      await expect(firstDayRows).toHaveCount(3);
+      await expect(page.locator('.tooltip')).toHaveCount(0);
       await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
     }
+  });
+
+  test('employee timesheet form shows full and ISO dates together', async ({ page }) => {
+    await login(page, employeeEmail);
+    await page.goto('/my-timesheets/create');
+    await chooseOpenPeriodWithCreateForm(page);
+
+    const firstDaySummary = page.locator('[data-day-summary-row]').first();
+    await expect(firstDaySummary.locator('[data-date-label]')).toContainText(/^[A-Z][a-z]+ \d{1,2}, 20\d{2}$/);
+    await expect(firstDaySummary).toContainText(/\(\d{4}-\d{2}-\d{2}\)/);
   });
 });
 

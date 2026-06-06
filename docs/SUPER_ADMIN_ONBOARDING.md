@@ -258,6 +258,8 @@ Important voiding rules:
 
 Super Admins can use **My Timesheets** for their own weekly timesheets only if they are assigned to a department.
 
+The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, and **Remove** to clear or delete a row.
+
 If you are not assigned to a department, MEC Portal disables timesheet creation for your account.
 
 ## Quick Troubleshooting

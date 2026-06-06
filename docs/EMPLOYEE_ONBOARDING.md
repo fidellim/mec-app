@@ -57,6 +57,8 @@ If you are not assigned to a department, timesheet creation is disabled and you 
 8. Select **Save Draft** if you are not ready to submit.
 9. Select **Submit for Approval** when the timesheet is complete.
 
+Each day is shown as its own section. The day header shows the full date, ISO date, weekday, and that day's regular time and overtime totals. The entry rows below the header are where you enter attendance code, project/job number, regular hours, overtime hours, remarks, and row actions.
+
 ## Daily Entry Rules
 
 - Regular time is shown as **RT**.
@@ -72,9 +74,13 @@ If you are not assigned to a department, timesheet creation is disabled and you 
 
 ## Splitting One Day Across Projects
 
-Use **Add project** on a daily row when your work for one day needs to be split across multiple project/job numbers.
+Use **Add project** on a daily row when your work for one day needs to be split across multiple project/job numbers. This creates a blank row for the same day with default empty values.
+
+Use **Duplicate** when the next row should start with the same attendance code, project/job number, hours, and remarks as the row you selected. The duplicate row is inserted directly below the selected row so you can quickly adjust only the fields that changed.
 
 If you remove the only row for a day, MEC Portal clears that row instead of deleting the date entirely. This keeps all days in the weekly period visible.
+
+If a day has multiple rows, **Remove** deletes the selected extra row. The day totals update automatically after rows are added, duplicated, removed, or edited.
 
 ## Edit, Recall, Or Delete
 

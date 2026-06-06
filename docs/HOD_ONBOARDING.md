@@ -58,6 +58,8 @@ As a Head of Department, you can also use **My Timesheets** for your own weekly 
 5. For leave codes, use regular hours only and leave the project/job number blank if the time should not be charged to a project.
 6. Select **Save Draft** or **Submit for Approval**.
 
+The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, and **Remove** to clear or delete a row.
+
 You need to be assigned to a department before you can create or submit your own timesheet.
 
 ## Review Department Timesheets
@@ -68,6 +70,8 @@ You need to be assigned to a department before you can create or submit your own
 4. Check the employee, department, regular hours, overtime hours, total hours, attendance codes, project/job numbers, and remarks.
 5. Select **Approve** if the submission is correct.
 6. Enter a rejection comment and select **Reject** if the employee needs to correct it.
+
+Employee entry forms are grouped by day while editing, and submitted timesheets still show daily attendance, project/job, hour, and remarks details for review.
 
 The rejection comment is required and is visible to the employee.
 

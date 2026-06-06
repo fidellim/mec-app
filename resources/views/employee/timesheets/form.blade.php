@@ -54,25 +54,43 @@
         </div>
         <div class="table-responsive content-card-body p-0">
             <table class="table timesheet-entry-table" id="timesheet-entry-table">
-                <thead><tr><th>Date</th><th>Day</th><th>Day Total</th><th>Attendance Code</th><th>Project/Job</th><th>Regular</th><th>Overtime</th><th>Remarks</th><th></th></tr></thead>
+                <thead class="visually-hidden"><tr><th>Attendance Code</th><th>Project/Job</th><th>Regular</th><th>Overtime</th><th>Remarks</th><th>Actions</th></tr></thead>
                 <tbody>
+                @php($renderedDates = [])
                 @foreach($entries as $i => $entry)
                     @php($row = is_array($entry) ? (object) $entry : $entry)
                     @php($workDate = $row->work_date instanceof \Carbon\CarbonInterface ? $row->work_date->toDateString() : $row->work_date)
                     @php($dayName = \Carbon\Carbon::parse($workDate)->format('l'))
                     @php($selectedAttendanceCode = old("entries.$i.attendance_code", $row->attendance_code ?? ''))
+                    @if(! in_array($workDate, $renderedDates, true))
+                        @php($renderedDates[] = $workDate)
+                        <tr class="timesheet-day-summary-row" data-day-summary-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
+                            <td colspan="6">
+                                <div class="timesheet-day-summary">
+                                    <div>
+                                        <span class="fw-semibold" data-date-label>{{ \Carbon\Carbon::parse($workDate)->format('F j, Y') }}</span>
+                                        <span class="text-muted">({{ $workDate }})</span>
+                                        <div class="small text-muted text-uppercase" data-day-label>{{ $dayName }}</div>
+                                    </div>
+                                    <div class="d-flex gap-2 flex-wrap">
+                                        <span class="badge text-bg-light border text-dark px-3 py-2" data-day-regular-total>RT 0.00</span>
+                                        <span class="badge text-bg-light border text-dark px-3 py-2" data-day-overtime-total>OT 0.00</span>
+                                    </div>
+                                </div>
+                            </td>
+                        </tr>
+                        <tr class="timesheet-day-column-row" data-day-column-row data-work-date="{{ $workDate }}">
+                            <th scope="col">Attendance Code</th>
+                            <th scope="col">Project/Job</th>
+                            <th scope="col">Regular</th>
+                            <th scope="col">Overtime</th>
+                            <th scope="col">Remarks</th>
+                            <th scope="col" class="text-end">Actions</th>
+                        </tr>
+                    @endif
                     <tr data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
-                        <td style="min-width: 145px;">
-                            <input type="hidden" name="entries[{{ $i }}][work_date]" value="{{ old("entries.$i.work_date", $workDate) }}" data-field="work_date">
-                            <span class="fw-semibold" data-date-label>{{ old("entries.$i.work_date", $workDate) }}</span>
-                        </td>
-                        <td style="min-width: 110px;">
-                            <span class="text-muted" data-day-label>{{ $dayName }}</span>
-                        </td>
-                        <td style="min-width: 150px;">
-                            <span class="badge text-bg-light border text-dark px-3 py-2" data-day-total></span>
-                        </td>
                         <td>
+                            <input type="hidden" name="entries[{{ $i }}][work_date]" value="{{ old("entries.$i.work_date", $workDate) }}" data-field="work_date">
                             <select class="form-select attendance-select" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code">
                                 <option value="">Select</option>
                                 @foreach($attendanceCodes as $code => $label)
@@ -92,9 +110,16 @@
                         <td style="width: 110px;"><input class="form-control" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][overtime_hours]" data-field="overtime_hours" value="{{ old("entries.$i.overtime_hours", $row->overtime_hours ?? 0) }}"></td>
                         <td class="remarks-cell"><input class="form-control" name="entries[{{ $i }}][remarks]" data-field="remarks" value="{{ old("entries.$i.remarks", $row->remarks) }}"></td>
                         <td>
-                            <div class="d-flex gap-1 justify-content-end">
-                                <button type="button" class="btn btn-sm btn-outline-primary" data-add-entry data-bs-toggle="tooltip" data-bs-title="Add another project row for this specific day">Add project</button>
-                                <button type="button" class="btn btn-sm btn-outline-danger" data-remove-entry>Remove</button>
+                            <div class="timesheet-row-actions">
+                                <button type="button" class="btn btn-sm btn-outline-primary action-icon-button" data-add-entry data-bs-toggle="tooltip" data-bs-title="Add blank project row for this day" aria-label="Add project row for this day">
+                                    <span class="action-icon action-icon-add" aria-hidden="true"></span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary action-icon-button" data-duplicate-entry data-bs-toggle="tooltip" data-bs-title="Duplicate this row below" aria-label="Duplicate this row below">
+                                    <span class="action-icon action-icon-duplicate" aria-hidden="true"></span>
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-danger action-icon-button" data-remove-entry data-bs-toggle="tooltip" data-bs-title="Remove row" aria-label="Remove row">
+                                    <span class="action-icon action-icon-trash" aria-hidden="true"></span>
+                                </button>
                             </div>
                         </td>
                     </tr>
@@ -123,19 +148,100 @@
         });
     };
 
+    const formatDisplayDate = (workDate) => {
+        const date = new Date(`${workDate}T00:00:00`);
+
+        if (Number.isNaN(date.getTime())) {
+            return workDate;
+        }
+
+        return date.toLocaleDateString('en-US', {
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric',
+        });
+    };
+
+    const getSearchableSelectValue = (row, fieldName) => {
+        const select = row.querySelector(`[data-field="${fieldName}"]`);
+
+        return select.tomselect?.getValue() ?? select.value;
+    };
+
+    const setRowFieldValue = (row, fieldName, value) => {
+        const field = row.querySelector(`[data-field="${fieldName}"]`);
+
+        if (!field) {
+            return;
+        }
+
+        if (field.matches('select')) {
+            setSearchableSelectValue(field, value);
+            return;
+        }
+
+        field.value = value;
+    };
+
+    const cloneEntryRow = (currentRow) => {
+        const currentValues = {
+            attendance_code: getSearchableSelectValue(currentRow, 'attendance_code'),
+            project_id: getSearchableSelectValue(currentRow, 'project_id'),
+        };
+
+        destroySearchableSelects(currentRow);
+        const newRow = currentRow.cloneNode(true);
+        initializeSearchableSelects(currentRow);
+        setSearchableSelectValue(currentRow.querySelector('[data-field="attendance_code"]'), currentValues.attendance_code);
+        setSearchableSelectValue(currentRow.querySelector('[data-field="project_id"]'), currentValues.project_id);
+
+        return newRow;
+    };
+
+    const prepareClonedRow = (newRow, values) => {
+        Object.entries(values).forEach(([fieldName, value]) => {
+            setRowFieldValue(newRow, fieldName, value);
+        });
+
+        renameRowFields(newRow, nextIndex++);
+    };
+
+    const removeTooltipElements = () => {
+        document.querySelectorAll('.tooltip').forEach((element) => element.remove());
+    };
+
+    const hideActionTooltip = (button) => {
+        if (!button || !window.bootstrap) {
+            return;
+        }
+
+        const tooltip = bootstrap.Tooltip.getOrCreateInstance(button);
+
+        tooltip.hide();
+        tooltip.dispose();
+        removeTooltipElements();
+        requestAnimationFrame(removeTooltipElements);
+        setTimeout(removeTooltipElements, 150);
+        button.addEventListener('mouseleave', () => bootstrap.Tooltip.getOrCreateInstance(button), { once: true });
+        button.blur();
+    };
+
     const calculateDayTotals = (workDate) => {
         const rows = Array.from(table.querySelectorAll(`[data-entry-row][data-work-date="${workDate}"]`));
         const regular = rows.reduce((sum, row) => sum + (parseFloat(row.querySelector('[data-field="regular_hours"]').value) || 0), 0);
         const overtime = rows.reduce((sum, row) => sum + (parseFloat(row.querySelector('[data-field="overtime_hours"]').value) || 0), 0);
 
-        rows.forEach((row, index) => {
-            const total = row.querySelector('[data-day-total]');
-            if (!total) {
-                return;
-            }
-            total.textContent = index === 0 ? `RT ${regular.toFixed(2)} / OT ${overtime.toFixed(2)}` : '';
-            total.classList.toggle('d-none', index !== 0);
-        });
+        const summaryRow = table.querySelector(`[data-day-summary-row][data-work-date="${workDate}"]`);
+        const regularTotal = summaryRow?.querySelector('[data-day-regular-total]');
+        const overtimeTotal = summaryRow?.querySelector('[data-day-overtime-total]');
+
+        if (regularTotal) {
+            regularTotal.textContent = `RT ${regular.toFixed(2)}`;
+        }
+
+        if (overtimeTotal) {
+            overtimeTotal.textContent = `OT ${overtime.toFixed(2)}`;
+        }
     };
 
     const calculateWeekTotals = () => {
@@ -179,15 +285,8 @@
         rows.forEach((row, index) => {
             renameRowFields(row, index);
 
-            const dateLabel = row.querySelector('[data-date-label]');
-            const dayLabel = row.querySelector('[data-day-label]');
             const addButton = row.querySelector('[data-add-entry]');
             const isFirstForDate = !seenDates.has(row.dataset.workDate);
-
-            if (dateLabel && dayLabel) {
-                dateLabel.textContent = isFirstForDate ? row.dataset.workDate : '';
-                dayLabel.textContent = isFirstForDate ? row.dataset.dayName : '';
-            }
 
             if (addButton) {
                 addButton.classList.toggle('d-none', ! isFirstForDate);
@@ -197,38 +296,39 @@
             updateRowRequirements(row);
         });
 
-        seenDates.forEach((workDate) => calculateDayTotals(workDate));
+        seenDates.forEach((workDate) => {
+            const summaryRow = table.querySelector(`[data-day-summary-row][data-work-date="${workDate}"]`);
+
+            if (summaryRow) {
+                summaryRow.querySelector('[data-date-label]').textContent = formatDisplayDate(workDate);
+                summaryRow.querySelector('[data-day-label]').textContent = summaryRow.dataset.dayName;
+            }
+
+            calculateDayTotals(workDate);
+        });
         calculateWeekTotals();
         nextIndex = rows.length;
     };
 
     table.addEventListener('click', (event) => {
         const addButton = event.target.closest('[data-add-entry]');
+        const duplicateButton = event.target.closest('[data-duplicate-entry]');
         const removeButton = event.target.closest('[data-remove-entry]');
+        const actionButton = addButton || duplicateButton || removeButton;
+
+        hideActionTooltip(actionButton);
 
         if (addButton) {
             const currentRow = addButton.closest('[data-entry-row]');
-            const currentAttendanceValue = currentRow.querySelector('[data-field="attendance_code"]').tomselect?.getValue()
-                ?? currentRow.querySelector('[data-field="attendance_code"]').value;
-            const currentProjectValue = currentRow.querySelector('[data-field="project_id"]').tomselect?.getValue()
-                ?? currentRow.querySelector('[data-field="project_id"]').value;
-
-            destroySearchableSelects(currentRow);
-            const newRow = currentRow.cloneNode(true);
-            initializeSearchableSelects(currentRow);
-            setSearchableSelectValue(currentRow.querySelector('[data-field="attendance_code"]'), currentAttendanceValue);
-            setSearchableSelectValue(currentRow.querySelector('[data-field="project_id"]'), currentProjectValue);
-
-            newRow.querySelector('[data-field="work_date"]').value = currentRow.dataset.workDate;
-            newRow.querySelector('[data-field="attendance_code"]').value = '';
-            newRow.querySelector('[data-field="project_id"]').value = '';
-            newRow.querySelector('[data-field="regular_hours"]').value = '0';
-            newRow.querySelector('[data-field="overtime_hours"]').value = '0';
-            newRow.querySelector('[data-field="remarks"]').value = '';
-            newRow.querySelector('[data-date-label]').textContent = '';
-            newRow.querySelector('[data-day-label]').textContent = '';
-            newRow.querySelector('[data-day-total]').textContent = '';
-            renameRowFields(newRow, nextIndex++);
+            const newRow = cloneEntryRow(currentRow);
+            prepareClonedRow(newRow, {
+                work_date: currentRow.dataset.workDate,
+                attendance_code: '',
+                project_id: '',
+                regular_hours: '0',
+                overtime_hours: '0',
+                remarks: '',
+            });
 
             let insertAfter = currentRow;
             while (insertAfter.nextElementSibling && insertAfter.nextElementSibling.dataset.workDate === currentRow.dataset.workDate) {
@@ -237,6 +337,25 @@
             insertAfter.after(newRow);
             initializeTooltips(newRow);
             initializeSearchableSelects(newRow);
+            resequenceRows();
+        }
+
+        if (duplicateButton) {
+            const currentRow = duplicateButton.closest('[data-entry-row]');
+            const newRow = cloneEntryRow(currentRow);
+            prepareClonedRow(newRow, {
+                work_date: currentRow.dataset.workDate,
+                attendance_code: getSearchableSelectValue(currentRow, 'attendance_code'),
+                project_id: getSearchableSelectValue(currentRow, 'project_id'),
+                regular_hours: currentRow.querySelector('[data-field="regular_hours"]').value || '0',
+                overtime_hours: currentRow.querySelector('[data-field="overtime_hours"]').value || '0',
+                remarks: currentRow.querySelector('[data-field="remarks"]').value || '',
+            });
+
+            currentRow.after(newRow);
+            initializeTooltips(newRow);
+            initializeSearchableSelects(newRow);
+            updateRowRequirements(newRow);
             resequenceRows();
         }
 

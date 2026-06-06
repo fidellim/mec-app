@@ -383,11 +383,88 @@
         .project-select { width: 18rem; max-width: 100%; }
         .attendance-select { width: 13rem; max-width: 100%; }
         .timesheet-entry-table th, .timesheet-entry-table td { white-space: nowrap; }
-        .timesheet-entry-table .remarks-cell { min-width: 14rem; }
+        .timesheet-entry-table .remarks-cell { min-width: 22rem; }
         .timesheet-entry-table input,
         .timesheet-entry-table select { min-height: 2.45rem; }
-        .timesheet-entry-table tbody tr { border-left: 3px solid transparent; }
-        .timesheet-entry-table tbody tr:hover { border-left-color: var(--bs-primary); }
+        .timesheet-entry-table [data-entry-row] { border-left: 3px solid transparent; }
+        .timesheet-entry-table [data-entry-row]:hover { border-left-color: var(--bs-primary); }
+        .timesheet-day-summary-row > td {
+            background: color-mix(in srgb, var(--app-muted-bg) 72%, var(--app-card-bg));
+            border-top: 1px solid var(--app-border);
+            border-bottom: 1px solid var(--app-soft-border);
+            padding: .9rem 1rem .75rem;
+        }
+        .timesheet-entry-table tbody tr + .timesheet-day-summary-row > td {
+            border-top: .85rem solid var(--app-card-bg);
+            box-shadow: inset 0 1px 0 var(--app-border);
+        }
+        .timesheet-day-summary {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+        }
+        .timesheet-day-column-row > th {
+            color: var(--bs-secondary-color);
+            font-size: .72rem;
+            letter-spacing: .02em;
+            text-transform: uppercase;
+            font-weight: 700;
+            background: color-mix(in srgb, var(--app-muted-bg) 45%, transparent);
+            border-bottom: 1px solid var(--app-soft-border);
+            padding: .65rem 1rem;
+        }
+        .timesheet-entry-table [data-entry-row] > td {
+            padding: .8rem 1rem;
+        }
+        .timesheet-row-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: .35rem;
+        }
+        .action-icon-button {
+            width: 2.25rem;
+            height: 2.25rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0;
+            border-width: 1px;
+            color: var(--bs-btn-hover-color);
+            background-color: var(--bs-btn-hover-bg);
+            border-color: var(--bs-btn-hover-border-color);
+        }
+        .action-icon-button:hover,
+        .action-icon-button:focus-visible {
+            color: var(--bs-btn-hover-color);
+            background-color: var(--bs-btn-hover-bg);
+            border-color: color-mix(in srgb, var(--bs-btn-hover-border-color) 72%, #000);
+            box-shadow: 0 0 0 .18rem var(--app-focus-ring);
+        }
+        .action-icon {
+            width: 1rem;
+            height: 1rem;
+            display: inline-block;
+            background-color: currentColor;
+            mask-position: center;
+            mask-repeat: no-repeat;
+            mask-size: contain;
+            -webkit-mask-position: center;
+            -webkit-mask-repeat: no-repeat;
+            -webkit-mask-size: contain;
+        }
+        .action-icon-add {
+            mask-image: url("{{ asset('images/actions/add-icon.svg') }}");
+            -webkit-mask-image: url("{{ asset('images/actions/add-icon.svg') }}");
+        }
+        .action-icon-duplicate {
+            mask-image: url("{{ asset('images/actions/duplicate-icon.svg') }}");
+            -webkit-mask-image: url("{{ asset('images/actions/duplicate-icon.svg') }}");
+        }
+        .action-icon-trash {
+            mask-image: url("{{ asset('images/actions/trash-icon.svg') }}");
+            -webkit-mask-image: url("{{ asset('images/actions/trash-icon.svg') }}");
+        }
         .timesheet-day-row > td {
             background: color-mix(in srgb, var(--app-muted-bg) 78%, var(--app-card-bg));
             border-top: 1px solid var(--app-border);
@@ -555,7 +632,7 @@
             filter: invert(1);
         }
         @media (min-width: 992px) {
-            .timesheet-entry-table { min-width: 1420px; }
+            .timesheet-entry-table { min-width: 980px; }
         }
         @media (max-width: 767.98px) {
             .app-layout {
@@ -609,6 +686,10 @@
             }
             .page-content { padding: 1rem; }
             .content-card-body { padding: 1rem; }
+            .timesheet-day-summary {
+                align-items: flex-start;
+                flex-direction: column;
+            }
             .brand-logo-wrap { margin-bottom: 1rem !important; }
             .section-header {
                 flex-direction: column;
