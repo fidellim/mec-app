@@ -124,6 +124,75 @@ test.describe('employee timesheet workflow', () => {
     await expect(firstDaySummary.locator('[data-date-label]')).toContainText(/^[A-Z][a-z]+ \d{1,2}, 20\d{2}$/);
     await expect(firstDaySummary).toContainText(/\(\d{4}-\d{2}-\d{2}\)/);
   });
+
+  test('employee can copy one day and overwrite selected target days', async ({ page }) => {
+    await login(page, employeeEmail);
+    await page.goto('/my-timesheets/create');
+    await chooseOpenPeriodWithCreateForm(page);
+
+    const projectSelect = page.locator('select[name*="[project_id]"]').first();
+    const projectValue = await projectSelect.locator('option').nth(1).getAttribute('value');
+    expect(projectValue).toBeTruthy();
+
+    const workDates = await page.locator('[data-day-summary-row]').evaluateAll((rows) => rows.map((row) => row.dataset.workDate));
+    expect(workDates.length).toBeGreaterThan(1);
+
+    const sourceDate = workDates[0];
+    const targetDate = workDates[1];
+    const sourceRows = page.locator(`[data-entry-row][data-work-date="${sourceDate}"]`);
+    const targetRows = page.locator(`[data-entry-row][data-work-date="${targetDate}"]`);
+
+    await sourceRows.first().locator('select[name*="[attendance_code]"]').evaluate((select) => {
+      select.tomselect?.setValue('O100');
+      select.value = 'O100';
+    });
+    await sourceRows.first().locator('select[name*="[project_id]"]').evaluate((select, value) => {
+      select.tomselect?.setValue(value);
+      select.value = value;
+    }, projectValue);
+    await sourceRows.first().locator('input[name*="[regular_hours]"]').fill('3.50');
+    await sourceRows.first().locator('input[name*="[overtime_hours]"]').fill('1.25');
+    await sourceRows.first().locator('input[name*="[remarks]"]').fill('Copied first row');
+
+    await sourceRows.first().getByRole('button', { name: /add project/i }).click();
+    await expect(sourceRows).toHaveCount(2);
+    await sourceRows.nth(1).locator('select[name*="[attendance_code]"]').evaluate((select) => {
+      select.tomselect?.setValue('O100');
+      select.value = 'O100';
+    });
+    await sourceRows.nth(1).locator('select[name*="[project_id]"]').evaluate((select, value) => {
+      select.tomselect?.setValue(value);
+      select.value = value;
+    }, projectValue);
+    await sourceRows.nth(1).locator('input[name*="[regular_hours]"]').fill('2.00');
+    await sourceRows.nth(1).locator('input[name*="[remarks]"]').fill('Copied second row');
+
+    await targetRows.first().locator('input[name*="[regular_hours]"]').fill('9.00');
+    await targetRows.first().locator('input[name*="[remarks]"]').fill('Will be replaced');
+
+    await page.locator(`[data-day-summary-row][data-work-date="${sourceDate}"]`).getByRole('button', { name: /copy/i }).click();
+    await expect(page.getByRole('heading', { name: /paste copied day/i })).toBeVisible();
+    await expect(page.getByText(/replace all existing entries/i)).toBeVisible();
+    await expect(page.locator('#copyDayPasteButton')).toBeDisabled();
+
+    await page.locator(`#copyDayModal input[value="${targetDate}"]`).check();
+    await expect(page.locator('#copyDayPasteButton')).toBeEnabled();
+    await page.locator('#copyDayPasteButton').click();
+    await expect(page.getByRole('heading', { name: /paste copied day/i })).toBeHidden();
+
+    await expect(targetRows).toHaveCount(2);
+    await expect(targetRows.first().locator('input[name*="[work_date]"]')).toHaveValue(targetDate);
+    await expect(targetRows.nth(1).locator('input[name*="[work_date]"]')).toHaveValue(targetDate);
+    await expect(targetRows.first().locator('select[name*="[attendance_code]"]')).toHaveValue('O100');
+    await expect(targetRows.first().locator('select[name*="[project_id]"]')).toHaveValue(projectValue);
+    await expect(targetRows.first().locator('input[name*="[regular_hours]"]')).toHaveValue('3.50');
+    await expect(targetRows.first().locator('input[name*="[overtime_hours]"]')).toHaveValue('1.25');
+    await expect(targetRows.first().locator('input[name*="[remarks]"]')).toHaveValue('Copied first row');
+    await expect(targetRows.nth(1).locator('input[name*="[regular_hours]"]')).toHaveValue('2.00');
+    await expect(targetRows.nth(1).locator('input[name*="[remarks]"]')).toHaveValue('Copied second row');
+    await expect(page.locator(`[data-day-summary-row][data-work-date="${targetDate}"] [data-day-regular-total]`)).toContainText('RT 5.50');
+    await expect(page.locator(`[data-day-summary-row][data-work-date="${targetDate}"] [data-day-overtime-total]`)).toContainText('OT 1.25');
+  });
 });
 
 test.describe('approval and admin workflows', () => {

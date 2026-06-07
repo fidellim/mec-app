@@ -58,7 +58,7 @@ As a Head of Department, you can also use **My Timesheets** for your own weekly 
 5. For leave codes, use regular hours only and leave the project/job number blank if the time should not be charged to a project.
 6. Select **Save Draft** or **Submit for Approval**.
 
-The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, and **Remove** to clear or delete a row.
+The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, **Copy Day** to paste one day's rows onto selected target days, and **Remove** to clear or delete a row.
 
 You need to be assigned to a department before you can create or submit your own timesheet.
 

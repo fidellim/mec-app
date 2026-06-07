@@ -75,6 +75,10 @@
                                     <div class="d-flex gap-2 flex-wrap">
                                         <span class="badge text-bg-light border text-dark px-3 py-2" data-day-regular-total>RT 0.00</span>
                                         <span class="badge text-bg-light border text-dark px-3 py-2" data-day-overtime-total>OT 0.00</span>
+                                        <button type="button" class="btn btn-sm btn-outline-primary day-copy-button" data-copy-day data-work-date="{{ $workDate }}" data-bs-toggle="tooltip" data-bs-title="Copy this day's rows" aria-label="Copy {{ $dayName }} entries">
+                                            <span class="action-icon action-icon-duplicate" aria-hidden="true"></span>
+                                            <span>Copy Day</span>
+                                        </button>
                                     </div>
                                 </div>
                             </td>
@@ -133,10 +137,38 @@
         </div>
     </div>
 </form>
+<div class="modal fade" id="copyDayModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div>
+                    <h5 class="modal-title">Paste copied day</h5>
+                    <div class="small text-muted" id="copyDaySourceLabel"></div>
+                </div>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning mb-3">
+                    Pasting will replace all existing entries for the selected day(s). Review your choices before continuing.
+                </div>
+                <div class="copy-day-target-list" id="copyDayTargetList"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="copyDayPasteButton" disabled>Paste to selected days</button>
+            </div>
+        </div>
+    </div>
+</div>
 <script>
 (() => {
     const table = document.getElementById('timesheet-entry-table');
+    const copyDayModalElement = document.getElementById('copyDayModal');
+    const copyDaySourceLabel = document.getElementById('copyDaySourceLabel');
+    const copyDayTargetList = document.getElementById('copyDayTargetList');
+    const copyDayPasteButton = document.getElementById('copyDayPasteButton');
     let nextIndex = {{ count($entries) }};
+    let copiedDay = null;
     const leaveAttendanceCodes = @json(config('timesheet.leave_attendance_codes', []));
     const projectOptionalAttendanceCodes = @json(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
     const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
@@ -204,6 +236,152 @@
         });
 
         renameRowFields(newRow, nextIndex++);
+    };
+
+    const getDayRows = (workDate) => Array.from(table.querySelectorAll(`[data-entry-row][data-work-date="${workDate}"]`));
+
+    const getDaySummaries = () => Array.from(table.querySelectorAll('[data-day-summary-row]'));
+
+    const getDayLabel = (summaryRow) => {
+        const dateLabel = summaryRow.querySelector('[data-date-label]')?.textContent.trim() || summaryRow.dataset.workDate;
+        const dayLabel = summaryRow.querySelector('[data-day-label]')?.textContent.trim() || summaryRow.dataset.dayName;
+
+        return `${dateLabel} (${summaryRow.dataset.workDate}) - ${dayLabel}`;
+    };
+
+    const getRowValues = (row) => ({
+        attendance_code: getSearchableSelectValue(row, 'attendance_code'),
+        project_id: getSearchableSelectValue(row, 'project_id'),
+        regular_hours: row.querySelector('[data-field="regular_hours"]').value || '0',
+        overtime_hours: row.querySelector('[data-field="overtime_hours"]').value || '0',
+        remarks: row.querySelector('[data-field="remarks"]').value || '',
+    });
+
+    const getCopiedRowsForDay = (workDate) => getDayRows(workDate).map(getRowValues);
+
+    const setEntryRowValues = (row, workDate, values) => {
+        row.dataset.workDate = workDate;
+        setRowFieldValue(row, 'work_date', workDate);
+        setRowFieldValue(row, 'attendance_code', values.attendance_code);
+        setRowFieldValue(row, 'project_id', values.project_id);
+        setRowFieldValue(row, 'regular_hours', values.regular_hours);
+        setRowFieldValue(row, 'overtime_hours', values.overtime_hours);
+        setRowFieldValue(row, 'remarks', values.remarks);
+        updateRowRequirements(row);
+    };
+
+    const refreshCopyDayPasteButton = () => {
+        if (!copyDayPasteButton || !copyDayTargetList) {
+            return;
+        }
+
+        copyDayPasteButton.disabled = !copyDayTargetList.querySelector('[data-copy-day-target]:checked');
+    };
+
+    const getCopyDayModal = () => {
+        if (!copyDayModalElement || !window.bootstrap) {
+            return null;
+        }
+
+        return bootstrap.Modal.getOrCreateInstance(copyDayModalElement);
+    };
+
+    const openCopyDayModal = (sourceDate) => {
+        const copyDayModal = getCopyDayModal();
+
+        if (!copyDayModal || !copyDayTargetList || !copyDaySourceLabel) {
+            return;
+        }
+
+        const sourceSummary = table.querySelector(`[data-day-summary-row][data-work-date="${sourceDate}"]`);
+        copiedDay = {
+            sourceDate,
+            sourceLabel: sourceSummary ? getDayLabel(sourceSummary) : sourceDate,
+            rows: getCopiedRowsForDay(sourceDate),
+        };
+
+        copyDaySourceLabel.textContent = `Copied from ${copiedDay.sourceLabel}`;
+        copyDayTargetList.innerHTML = '';
+
+        getDaySummaries()
+            .filter((summaryRow) => summaryRow.dataset.workDate !== sourceDate)
+            .forEach((summaryRow, index) => {
+                const id = `copy-day-target-${index}`;
+                const wrapper = document.createElement('label');
+                wrapper.className = 'copy-day-target';
+                wrapper.setAttribute('for', id);
+
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.className = 'form-check-input';
+                checkbox.id = id;
+                checkbox.value = summaryRow.dataset.workDate;
+                checkbox.dataset.copyDayTarget = 'true';
+
+                const labelText = document.createElement('span');
+                labelText.textContent = getDayLabel(summaryRow);
+
+                wrapper.append(checkbox, labelText);
+                copyDayTargetList.appendChild(wrapper);
+            });
+
+        refreshCopyDayPasteButton();
+        copyDayModal.show();
+    };
+
+    const pasteCopiedDayToTargets = () => {
+        if (!copiedDay || !copyDayTargetList) {
+            return;
+        }
+
+        const targetDates = Array.from(copyDayTargetList.querySelectorAll('[data-copy-day-target]:checked'))
+            .map((checkbox) => checkbox.value)
+            .filter((workDate) => workDate && workDate !== copiedDay.sourceDate);
+
+        if (!targetDates.length) {
+            refreshCopyDayPasteButton();
+            return;
+        }
+
+        targetDates.forEach((workDate) => {
+            const targetRows = getDayRows(workDate);
+            const firstTargetRow = targetRows[0];
+
+            if (!firstTargetRow) {
+                return;
+            }
+
+            targetRows.slice(1).forEach((row) => {
+                destroySearchableSelects(row);
+                row.remove();
+            });
+
+            setEntryRowValues(firstTargetRow, workDate, copiedDay.rows[0] ?? {
+                attendance_code: '',
+                project_id: '',
+                regular_hours: '0',
+                overtime_hours: '0',
+                remarks: '',
+            });
+
+            let insertAfter = firstTargetRow;
+
+            copiedDay.rows.slice(1).forEach((values) => {
+                const newRow = cloneEntryRow(firstTargetRow);
+                prepareClonedRow(newRow, {
+                    work_date: workDate,
+                    ...values,
+                });
+                insertAfter.after(newRow);
+                insertAfter = newRow;
+                initializeTooltips(newRow);
+                initializeSearchableSelects(newRow);
+                updateRowRequirements(newRow);
+            });
+        });
+
+        getCopyDayModal()?.hide();
+        resequenceRows();
     };
 
     const removeTooltipElements = () => {
@@ -314,9 +492,15 @@
         const addButton = event.target.closest('[data-add-entry]');
         const duplicateButton = event.target.closest('[data-duplicate-entry]');
         const removeButton = event.target.closest('[data-remove-entry]');
+        const copyDayButton = event.target.closest('[data-copy-day]');
         const actionButton = addButton || duplicateButton || removeButton;
 
         hideActionTooltip(actionButton);
+
+        if (copyDayButton) {
+            hideActionTooltip(copyDayButton);
+            openCopyDayModal(copyDayButton.dataset.workDate);
+        }
 
         if (addButton) {
             const currentRow = addButton.closest('[data-entry-row]');
@@ -380,6 +564,14 @@
             resequenceRows();
         }
     });
+
+    copyDayTargetList?.addEventListener('change', (event) => {
+        if (event.target.matches('[data-copy-day-target]')) {
+            refreshCopyDayPasteButton();
+        }
+    });
+
+    copyDayPasteButton?.addEventListener('click', pasteCopiedDayToTargets);
 
     table.addEventListener('input', (event) => {
         if (event.target.matches('[data-field="regular_hours"], [data-field="overtime_hours"]')) {

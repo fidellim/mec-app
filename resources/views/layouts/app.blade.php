@@ -404,6 +404,24 @@
             justify-content: space-between;
             gap: 1rem;
         }
+        .day-copy-button {
+            display: inline-flex;
+            align-items: center;
+            gap: .45rem;
+            min-height: 2rem;
+            padding-inline: .75rem;
+            color: var(--bs-btn-hover-color);
+            background-color: var(--bs-btn-hover-bg);
+            border-color: var(--bs-btn-hover-border-color);
+            white-space: nowrap;
+        }
+        .day-copy-button:hover,
+        .day-copy-button:focus-visible {
+            color: var(--bs-btn-hover-color);
+            background-color: var(--bs-btn-hover-bg);
+            border-color: color-mix(in srgb, var(--bs-btn-hover-border-color) 72%, #000);
+            box-shadow: 0 0 0 .18rem var(--app-focus-ring);
+        }
         .timesheet-day-column-row > th {
             color: var(--bs-secondary-color);
             font-size: .72rem;
@@ -464,6 +482,23 @@
         .action-icon-trash {
             mask-image: url("{{ asset('images/actions/trash-icon.svg') }}");
             -webkit-mask-image: url("{{ asset('images/actions/trash-icon.svg') }}");
+        }
+        .copy-day-target-list {
+            display: grid;
+            gap: .5rem;
+        }
+        .copy-day-target {
+            display: flex;
+            align-items: center;
+            gap: .7rem;
+            padding: .75rem .85rem;
+            border: 1px solid var(--app-border);
+            border-radius: .65rem;
+            background: color-mix(in srgb, var(--app-muted-bg) 50%, var(--app-card-bg));
+            cursor: pointer;
+        }
+        .copy-day-target:hover {
+            border-color: var(--bs-primary);
         }
         .timesheet-day-row > td {
             background: color-mix(in srgb, var(--app-muted-bg) 78%, var(--app-card-bg));

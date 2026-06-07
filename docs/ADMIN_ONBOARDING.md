@@ -88,7 +88,7 @@ Admins can use **My Timesheets** for their own weekly timesheets only if they ar
 4. Enter daily attendance, project/job number, regular hours, overtime hours, and remarks.
 5. Select **Save Draft** or **Submit for Approval**.
 
-The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, and **Remove** to clear or delete a row.
+The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, **Copy Day** to paste one day's rows onto selected target days, and **Remove** to clear or delete a row.
 
 If you are not assigned to a department, MEC Portal disables timesheet creation for your account.
 

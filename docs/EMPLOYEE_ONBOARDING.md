@@ -78,9 +78,11 @@ Use **Add project** on a daily row when your work for one day needs to be split 
 
 Use **Duplicate** when the next row should start with the same attendance code, project/job number, hours, and remarks as the row you selected. The duplicate row is inserted directly below the selected row so you can quickly adjust only the fields that changed.
 
+Use **Copy Day** when another day should use the same set of rows. Select **Copy Day** in the source day's header, choose one or more target days in the modal, then select **Paste to selected days**. Pasting replaces all existing entries on each selected target day, so review the warning and selected days before confirming. The pasted rows keep the target day's date while copying attendance code, project/job number, regular hours, overtime hours, and remarks from the copied day.
+
 If you remove the only row for a day, MEC Portal clears that row instead of deleting the date entirely. This keeps all days in the weekly period visible.
 
-If a day has multiple rows, **Remove** deletes the selected extra row. The day totals update automatically after rows are added, duplicated, removed, or edited.
+If a day has multiple rows, **Remove** deletes the selected extra row. The day totals update automatically after rows are added, duplicated, copied, pasted, removed, or edited.
 
 ## Edit, Recall, Or Delete
 

@@ -65,6 +65,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertSee('2026-05-17')
             ->assertDontSee('2026-05-18')
             ->assertSee('data-duplicate-entry', false)
+            ->assertSee('data-copy-day', false)
+            ->assertSee('Paste to selected days')
             ->assertSee("addButton.classList.toggle('d-none', ! isFirstForDate)", false);
 
         $this->actingAs($employee)
