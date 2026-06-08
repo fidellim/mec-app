@@ -4,17 +4,19 @@
 @php
     $weekFrom = request('week_from', request('week_number'));
     $weekTo = request('week_to', $weekFrom);
-    $hasVisibleFilters = $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('status') || request()->boolean('include_employee_sheets');
+    $hasVisibleFilters = $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request()->boolean('include_employee_sheets');
 @endphp
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">All Timesheets</h1>
         <div class="text-muted">Filter, review, and export submitted weekly records.</div>
     </div>
-    <a class="btn btn-outline-success" id="timesheetExportButton" href="{{ route('admin.timesheets.export', request()->query()) }}">
-        <span class="spinner-border spinner-border-sm me-2 d-none" aria-hidden="true"></span>
-        <span data-export-label>Export Excel</span>
-    </a>
+    @unless($showingNotSubmitted)
+        <a class="btn btn-outline-success" id="timesheetExportButton" href="{{ route('admin.timesheets.export', request()->query()) }}">
+            <span class="spinner-border spinner-border-sm me-2 d-none" aria-hidden="true"></span>
+            <span data-export-label>Export Excel</span>
+        </a>
+    @endunless
 </div>
 <form class="filter-card mb-3 row g-2">
     <div class="col-md-2">
@@ -31,8 +33,9 @@
     <div class="col-md-2"><label class="form-label small text-muted" for="year">Year</label><input id="year" class="form-control" name="year" placeholder="Year" value="{{ request('year') }}"></div>
     <div class="col-md-3"><label class="form-label small text-muted" for="project_id">Project</label><select id="project_id" class="form-select" name="project_id"><option value="">All projects</option>@foreach($projects as $project)<option value="{{ $project->id }}" @selected(request('project_id') == $project->id)>{{ $project->project_code }} - {{ $project->project_name }}</option>@endforeach</select></div>
     <div class="col-md-3"><label class="form-label small text-muted" for="department_id">Department</label><select id="department_id" class="form-select" name="department_id"><option value="">All departments</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(request('department_id') == $department->id)>{{ $department->name }}</option>@endforeach</select></div>
-    <div class="col-md-3"><label class="form-label small text-muted" for="employee_id">Employee</label><select id="employee_id" class="form-select" name="employee_id"><option value="">All employees</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected(request('employee_id') == $employee->id)>{{ $employee->name }}</option>@endforeach</select></div>
-    <div class="col-md-2"><label class="form-label small text-muted" for="status">Status</label><select id="status" class="form-select" name="status"><option value="">All statuses</option>@foreach(['draft','submitted','approved','rejected','voided'] as $status)<option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>@endforeach</select></div>
+    <div class="col-md-3"><label class="form-label small text-muted" for="employee_id">User</label><select id="employee_id" class="form-select" name="employee_id"><option value="">All users</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected(request('employee_id') == $employee->id)>{{ $employee->name }}</option>@endforeach</select></div>
+    <div class="col-md-2"><label class="form-label small text-muted" for="role">Role</label><select id="role" class="form-select" name="role"><option value="">All roles</option>@foreach($roleLabels as $role => $label)<option value="{{ $role }}" @selected(request('role') === $role)>{{ $label }}</option>@endforeach</select></div>
+    <div class="col-md-2"><label class="form-label small text-muted" for="status">Status</label><select id="status" class="form-select" name="status"><option value="">All statuses</option>@foreach(['draft' => 'Draft','submitted' => 'Submitted','approved' => 'Approved','rejected' => 'Rejected','voided' => 'Voided','not_submitted' => 'Not Submitted'] as $status => $label)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $label }}</option>@endforeach</select></div>
     <div class="col-md-4 d-flex align-items-end">
         <div class="form-check mb-2">
             <input type="hidden" name="include_employee_sheets" value="0">
@@ -54,6 +57,7 @@
     $selectedProject = request('project_id') ? $projects->firstWhere('id', (int) request('project_id')) : null;
     $selectedDepartment = request('department_id') ? $departments->firstWhere('id', (int) request('department_id')) : null;
     $selectedEmployee = request('employee_id') ? $employees->firstWhere('id', (int) request('employee_id')) : null;
+    $selectedRole = request('role') ? ($roleLabels[request('role')] ?? request('role')) : null;
 @endphp
 <div class="content-card p-3 mb-3">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
@@ -68,6 +72,8 @@
                     @if($selectedPeriodRange['has_missing_weeks'])
                         Some selected weeks do not have configured timesheet periods yet.
                     @endif
+                @elseif($showingNotSubmitted)
+                    Select a valid week and year to view users who have not submitted.
                 @elseif($hasVisibleFilters)
                     Filters are active. Add a valid week and year to see the configured date range.
                 @else
@@ -96,10 +102,13 @@
                 <span class="badge filter-summary-badge px-3 py-2">Department: {{ $selectedDepartment?->name ?? 'Selected department' }}</span>
             @endif
             @if(request('employee_id'))
-                <span class="badge filter-summary-badge px-3 py-2">Employee: {{ $selectedEmployee?->name ?? 'Selected employee' }}</span>
+                <span class="badge filter-summary-badge px-3 py-2">User: {{ $selectedEmployee?->name ?? 'Selected user' }}</span>
+            @endif
+            @if(request('role'))
+                <span class="badge filter-summary-badge px-3 py-2">Role: {{ $selectedRole }}</span>
             @endif
             @if(request('status'))
-                <span class="badge filter-summary-badge px-3 py-2">Status: {{ ucfirst(request('status')) }}</span>
+                <span class="badge filter-summary-badge px-3 py-2">Status: {{ str_replace('_', ' ', ucfirst(request('status'))) }}</span>
             @endif
             @unless($hasVisibleFilters)
                 <span class="badge filter-summary-badge px-3 py-2">No filters applied</span>
@@ -107,12 +116,20 @@
         </div>
     </div>
 </div>
-<div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Employee</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
-@forelse($timesheets as $timesheet)
-    <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->department->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.timesheets.show', $timesheet) }}">View</a></td></tr>
-@empty
-    <tr><td colspan="6" class="empty-state">No records found.</td></tr>
-@endforelse
+<div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>User</th><th>Role</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
+@if($showingNotSubmitted)
+    @forelse($timesheets as $row)
+        <tr><td class="fw-semibold">{{ $row->user->name }}</td><td>{{ $roleLabels[$row->user->role] ?? $row->user->role }}</td><td>{{ $row->department?->name ?: '-' }}</td><td>{{ $row->period->week_number }} / {{ $row->period->year }}</td><td>@include('partials.status', ['status' => 'not_submitted'])</td><td><span class="fw-semibold">0.00</span></td><td></td></tr>
+    @empty
+        <tr><td colspan="7" class="empty-state">No users match the not submitted filters.</td></tr>
+    @endforelse
+@else
+    @forelse($timesheets as $timesheet)
+        <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $roleLabels[$timesheet->user->role] ?? $timesheet->user->role }}</td><td>{{ $timesheet->department->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.timesheets.show', $timesheet) }}">View</a></td></tr>
+    @empty
+        <tr><td colspan="7" class="empty-state">No records found.</td></tr>
+    @endforelse
+@endif
 </tbody></table></div></div>
 <div class="mt-3">{{ $timesheets->links() }}</div>
 @endsection

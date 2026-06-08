@@ -46,10 +46,14 @@ The **Admin Dashboard** shows:
 ## All Timesheets
 
 1. Go to **All Timesheets**.
-2. Filter by week range, year, project, department, employee, or status.
+2. Filter by week range, year, project, department, user, role, or status.
 3. Select **Apply Filters**.
 4. Select **View** to open a timesheet.
 5. Use **Export Excel** to download an Excel workbook using the current filters.
+
+Use the **Role** filter to focus on Employees, Heads of Department, Admins, or Super Admins.
+
+Use **Status: Not Submitted** with a week and year to show active department-assigned users who do not have a submitted or approved timesheet for that weekly period. This is useful for checking whether Heads of Department, Admins, or Super Admins assigned to departments still need to submit their own timesheets.
 
 ## Review A Timesheet
 
@@ -103,7 +107,7 @@ If you are not assigned to a department, MEC Portal disables timesheet creation 
 Admins can export from **All Timesheets**.
 
 1. Go to **All Timesheets**.
-2. Apply filters for week range, year, project, department, employee, or status if needed.
+2. Apply filters for week range, year, project, department, user, role, or status if needed.
 3. Leave **Include individual employee timesheet sheets** unchecked for a faster summary-only workbook, or check it when detailed employee sheets are needed.
 4. Select **Export Excel**.
 
@@ -140,7 +144,7 @@ If an employee does not have a Job Title saved, exports show `-` in that column.
 | Problem | Likely reason | What to do |
 | --- | --- | --- |
 | Cannot approve a timesheet | Admins can only approve/reject submitted HOD timesheets and cannot approve their own. | Use the correct authorized reviewer. |
-| Export has too many records | Filters were not applied before export. | Apply week range, year, project, department, employee, or status filters first. |
+| Export has too many records | Filters were not applied before export. | Apply week range, year, project, department, user, role, or status filters first. |
 | Export has too many worksheet tabs | Individual employee sheets were included. | Leave **Include individual employee timesheet sheets** unchecked for summary-only export. |
 | Week export is rejected | The year is missing or the selected week/range has no matching weekly period. | Enter the year and choose a week that exists in Manage Weekly Periods. |
 | Cannot create your own timesheet | No department is assigned or no open period exists. | Contact the system administrator. |

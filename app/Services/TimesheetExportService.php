@@ -185,6 +185,7 @@ class TimesheetExportService
             ->when($filters['year'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('year', $v)))
             ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
             ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
+            ->when($filters['role'] ?? null, fn ($q, $v) => $q->whereHas('user', fn ($user) => $user->where('role', $v)))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry->where('project_id', $v)));
     }

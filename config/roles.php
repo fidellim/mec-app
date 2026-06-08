@@ -7,4 +7,5 @@ return [
         'hod' => 'Head of Department',
         'employee' => 'Employee',
     ],
+    'timesheet_submitters' => ['employee', 'hod', 'admin', 'super_admin'],
 ];

@@ -214,10 +214,14 @@ Only Super Admin users can delete audit logs.
 Use **All Timesheets** to filter, review, and export records.
 
 1. Go to **All Timesheets**.
-2. Filter by week, year, department, employee, or status.
+2. Filter by week, year, department, user, role, or status.
 3. Select **Apply Filters**.
 4. Select **View** to open a timesheet.
 5. Use **Export Excel** to download an Excel workbook using the current filters.
+
+Use the **Role** filter to focus on Employees, Heads of Department, Admins, or Super Admins.
+
+Use **Status: Not Submitted** with a week and year to show active department-assigned users who do not have a submitted or approved timesheet for that weekly period. This helps identify Heads of Department, Admins, or Super Admins assigned to departments who still need to submit their own timesheets.
 
 Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Portal shows a warning and asks you to wait before trying again.
 

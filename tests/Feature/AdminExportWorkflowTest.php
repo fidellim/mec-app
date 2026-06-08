@@ -49,6 +49,108 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('Operations');
     }
 
+    public function test_admin_can_filter_all_timesheets_by_role(): void
+    {
+        $department = $this->department(['name' => 'Role Filter Department']);
+        $project = $this->project();
+        $employee = $this->userWithRole('employee', [
+            'name' => 'Role Filter Employee',
+            'department_id' => $department->id,
+        ]);
+        $hod = $this->userWithRole('hod', [
+            'name' => 'Role Filter HOD',
+            'department_id' => $department->id,
+        ]);
+        $this->submittedTimesheet($employee, $this->openPeriod(), $project);
+        $this->submittedTimesheet($hod, $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]), $project);
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['role' => 'hod']))
+            ->assertOk()
+            ->assertSee('Role: Head of Department')
+            ->assertSee('Role Filter HOD')
+            ->assertDontSee('<td class="fw-semibold">Role Filter Employee</td>', false);
+    }
+
+    public function test_admin_can_view_not_submitted_users_by_week_and_role(): void
+    {
+        $department = $this->department(['name' => 'Missing Department']);
+        $otherDepartment = $this->department(['name' => 'Other Missing Department']);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $submittedEmployee = $this->userWithRole('employee', [
+            'name' => 'Submitted Employee',
+            'department_id' => $department->id,
+        ]);
+        $missingHod = $this->userWithRole('hod', [
+            'name' => 'Missing HOD',
+            'department_id' => $department->id,
+        ]);
+        $missingAdmin = $this->userWithRole('admin', [
+            'name' => 'Missing Admin',
+            'department_id' => $department->id,
+        ]);
+        $missingSuperAdmin = $this->userWithRole('super_admin', [
+            'name' => 'Missing Super Admin',
+            'department_id' => $department->id,
+        ]);
+        $this->userWithRole('admin', [
+            'name' => 'Inactive Missing Admin',
+            'department_id' => $department->id,
+            'is_active' => false,
+        ]);
+        $this->userWithRole('hod', [
+            'name' => 'Other Department HOD',
+            'department_id' => $otherDepartment->id,
+        ]);
+        $this->submittedTimesheet($submittedEmployee, $period, $project);
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'status' => 'not_submitted',
+                'week_from' => 20,
+                'year' => 2026,
+                'department_id' => $department->id,
+            ]))
+            ->assertOk()
+            ->assertSee('Status: Not submitted')
+            ->assertSee('Missing HOD')
+            ->assertSee('Missing Admin')
+            ->assertSee('Missing Super Admin')
+            ->assertDontSee('<td class="fw-semibold">Submitted Employee</td>', false)
+            ->assertDontSee('<td class="fw-semibold">Inactive Missing Admin</td>', false)
+            ->assertDontSee('<td class="fw-semibold">Other Department HOD</td>', false)
+            ->assertDontSee('id="timesheetExportButton"', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'status' => 'not_submitted',
+                'week_from' => 20,
+                'year' => 2026,
+                'department_id' => $department->id,
+                'role' => 'hod',
+            ]))
+            ->assertOk()
+            ->assertSee('Missing HOD')
+            ->assertDontSee('<td class="fw-semibold">Missing Admin</td>', false)
+            ->assertDontSee('<td class="fw-semibold">Missing Super Admin</td>', false);
+    }
+
+    public function test_not_submitted_filter_requires_week_and_year(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['status' => 'not_submitted']))
+            ->assertSessionHasErrors(['week_from', 'year']);
+    }
+
     public function test_admin_cannot_approve_non_hod_timesheets(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);

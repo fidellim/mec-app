@@ -11,6 +11,8 @@ use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\TimesheetExportService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class AdminTimesheetController extends Controller
@@ -20,13 +22,18 @@ class AdminTimesheetController extends Controller
     public function index()
     {
         $filters = $this->validatedFilters();
+        $showingNotSubmitted = ($filters['status'] ?? null) === 'not_submitted';
 
         return view('admin.timesheets.index', [
-            'timesheets' => $this->filtered($filters)->with(['user', 'department', 'period'])->latest()->paginate(20)->withQueryString(),
+            'timesheets' => $showingNotSubmitted
+                ? $this->missingSubmissionRows($filters)
+                : $this->filtered($filters)->with(['user', 'department', 'period'])->latest()->paginate(20)->withQueryString(),
             'departments' => Department::orderBy('name')->get(),
             'employees' => User::orderBy('name')->get(),
             'projects' => Project::orderBy('project_code')->orderBy('project_name')->get(),
             'selectedPeriodRange' => $this->selectedPeriodRange($filters),
+            'roleLabels' => config('roles.labels'),
+            'showingNotSubmitted' => $showingNotSubmitted,
         ]);
     }
 
@@ -80,6 +87,7 @@ class AdminTimesheetController extends Controller
             ->when($filters['year'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('year', $v)))
             ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
             ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
+            ->when($filters['role'] ?? null, fn ($q, $v) => $q->whereHas('user', fn ($user) => $user->where('role', $v)))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry->where('project_id', $v)));
     }
@@ -93,8 +101,9 @@ class AdminTimesheetController extends Controller
             'year' => ['nullable', 'integer', 'between:2000,2100', 'required_with:week_number,week_from,week_to'],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'employee_id' => ['nullable', 'integer', 'exists:users,id'],
+            'role' => ['nullable', Rule::in(array_keys(config('roles.labels')))],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'status' => ['nullable', 'in:draft,submitted,approved,rejected,voided'],
+            'status' => ['nullable', 'in:draft,submitted,approved,rejected,voided,not_submitted'],
             'include_employee_sheets' => ['nullable', 'boolean'],
         ], [
             'week_from.required_with' => 'Enter From Week when using To Week.',
@@ -102,9 +111,24 @@ class AdminTimesheetController extends Controller
             'year.required_with' => 'Year is required when filtering by week.',
         ]);
 
+        $this->validateNotSubmittedFilters($filters);
         $this->validateWeekPeriodExists($filters);
 
         return $filters;
+    }
+
+    private function validateNotSubmittedFilters(array $filters): void
+    {
+        if (($filters['status'] ?? null) !== 'not_submitted') {
+            return;
+        }
+
+        if (! ($filters['year'] ?? null) || ! (($filters['week_from'] ?? null) || ($filters['week_number'] ?? null))) {
+            throw ValidationException::withMessages([
+                'week_from' => 'Select a week and year to view users who have not submitted.',
+                'year' => 'Select a week and year to view users who have not submitted.',
+            ]);
+        }
     }
 
     private function validateWeekPeriodExists(array $filters): void
@@ -158,5 +182,71 @@ class AdminTimesheetController extends Controller
             'requested_week_to' => $weekTo ? (int) $weekTo : null,
             'has_missing_weeks' => $weekFrom && $periods->count() < (((int) $weekTo - (int) $weekFrom) + 1),
         ];
+    }
+
+    private function selectedPeriods(array $filters)
+    {
+        if (! ($filters['year'] ?? null)) {
+            return collect();
+        }
+
+        $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
+        $weekTo = $filters['week_to'] ?? $weekFrom;
+
+        return TimesheetPeriod::query()
+            ->where('year', $filters['year'])
+            ->when($weekFrom, fn ($q) => $q->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo]))
+            ->orderBy('week_number')
+            ->get();
+    }
+
+    private function missingSubmissionRows(array $filters): LengthAwarePaginator
+    {
+        $periods = $this->selectedPeriods($filters);
+        $users = User::with('department')
+            ->whereIn('role', config('roles.timesheet_submitters'))
+            ->where('is_active', true)
+            ->whereNotNull('department_id')
+            ->when($filters['department_id'] ?? null, fn ($query, $departmentId) => $query->where('department_id', $departmentId))
+            ->when($filters['employee_id'] ?? null, fn ($query, $employeeId) => $query->where('id', $employeeId))
+            ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('role', $role))
+            ->orderBy('name')
+            ->get();
+
+        $completedUserIdsByPeriod = Timesheet::query()
+            ->whereIn('timesheet_period_id', $periods->pluck('id'))
+            ->whereIn('status', ['submitted', 'approved'])
+            ->get(['user_id', 'timesheet_period_id'])
+            ->groupBy('timesheet_period_id')
+            ->map(fn ($timesheets) => $timesheets->pluck('user_id')->map(fn ($id) => (int) $id)->all());
+
+        $rows = $periods
+            ->flatMap(fn (TimesheetPeriod $period) => $users
+                ->reject(fn (User $user) => in_array((int) $user->id, $completedUserIdsByPeriod->get($period->id, []), true))
+                ->map(fn (User $user) => (object) [
+                    'user' => $user,
+                    'department' => $user->department,
+                    'period' => $period,
+                ]))
+            ->sortBy([
+                fn ($row) => $row->period->year,
+                fn ($row) => $row->period->week_number,
+                fn ($row) => $row->user->name,
+            ])
+            ->values();
+
+        $perPage = 20;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+
+        return new LengthAwarePaginator(
+            $rows->forPage($page, $perPage)->values(),
+            $rows->count(),
+            $perPage,
+            $page,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
     }
 }
