@@ -128,6 +128,38 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame($superAdmin->id, $timesheet->approved_by);
     }
 
+    public function test_super_admin_approval_and_rejection_notify_hod_timesheet_owner(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+        $nextPeriod = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $project = $this->project();
+        $approvedTimesheet = $this->submittedTimesheet($hod, $period, $project);
+        $rejectedTimesheet = $this->submittedTimesheet($hod, $nextPeriod, $project);
+        $superAdmin = $this->userWithRole('super_admin');
+
+        $this->actingAs($superAdmin)
+            ->post(route('admin.timesheets.approve', $approvedTimesheet))
+            ->assertRedirect();
+
+        $this->actingAs($superAdmin)
+            ->post(route('admin.timesheets.reject', $rejectedTimesheet), ['rejection_comment' => 'Please revise.'])
+            ->assertRedirect();
+
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+            && $mail->headline === 'Timesheet approved');
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+            && $mail->headline === 'Timesheet rejected'
+            && $mail->comment === 'Please revise.');
+    }
+
     public function test_super_admin_cannot_approve_own_timesheet(): void
     {
         $superAdmin = $this->userWithRole('super_admin', ['department_id' => $this->department()->id]);

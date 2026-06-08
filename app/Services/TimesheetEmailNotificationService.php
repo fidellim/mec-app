@@ -14,6 +14,26 @@ class TimesheetEmailNotificationService
     {
         $timesheet = $this->loadTimesheet($timesheet);
 
+        if ($timesheet->user?->role === 'hod') {
+            $this->sendToAdmins(fn () => new TimesheetWorkflowMail(
+                timesheet: $timesheet,
+                headline: $resubmitted ? 'HOD timesheet resubmitted for approval' : 'HOD timesheet submitted for approval',
+                intro: $timesheet->user->name.' submitted a timesheet for Week '.$timesheet->period->week_number.', '.$timesheet->period->year.'.',
+                actionLabel: 'Review Timesheet',
+                actionUrl: route('admin.timesheets.show', $timesheet),
+            ));
+
+            $this->send($timesheet->user, new TimesheetWorkflowMail(
+                timesheet: $timesheet,
+                headline: $resubmitted ? 'Your timesheet was resubmitted' : 'Your timesheet was submitted',
+                intro: 'Your timesheet for Week '.$timesheet->period->week_number.', '.$timesheet->period->year.' was submitted for admin approval.',
+                actionLabel: 'View Timesheet',
+                actionUrl: route('employee.timesheets.show', $timesheet),
+            ));
+
+            return;
+        }
+
         $this->sendToHods($timesheet, fn () => new TimesheetWorkflowMail(
             timesheet: $timesheet,
             headline: $resubmitted ? 'Timesheet resubmitted for approval' : 'Timesheet submitted for approval',
@@ -97,6 +117,21 @@ class TimesheetEmailNotificationService
         $recipients
             ->unique('id')
             ->filter(fn (User $recipient) => $recipient->role === 'hod')
+            ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
+    }
+
+    private function sendToAdmins(\Closure $mailFactory): void
+    {
+        User::where(function ($query) {
+            $query->where('role', 'admin')
+                ->orWhere(function ($query) {
+                    $query->where('role', 'super_admin')
+                        ->where('receives_hod_timesheet_submission_emails', true);
+                });
+        })
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->get()
             ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
     }
 

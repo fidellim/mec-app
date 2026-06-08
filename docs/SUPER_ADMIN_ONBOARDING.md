@@ -72,6 +72,7 @@ For each user, manage:
 - Role.
 - Department.
 - Active/inactive status.
+- Whether a Super Admin receives HOD timesheet submission emails.
 - Password when creating or resetting a user.
 
 Passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
@@ -91,6 +92,7 @@ Job Title is optional and appears in timesheet exports. If it is left blank, exp
 Important user rules:
 
 - Inactive users cannot use the system normally.
+- Super Admins can turn off **Receive HOD timesheet submission emails** on a Super Admin account if that user should not receive HOD approval-request emails.
 - Users without a department cannot create or submit personal timesheets.
 - When a user's department changes, draft and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
 - You cannot delete your own account.
@@ -234,6 +236,10 @@ Use the Attendance Code Summary to reconcile payroll/manhour totals with project
 Super Admins can approve or reject submitted timesheets where needed, but cannot approve or reject their own timesheet.
 
 Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
+
+When a Head of Department submits or resubmits their own timesheet, active Admins receive an email notification. Active Super Admins also receive that email unless **Receive HOD timesheet submission emails** is turned off on their user account.
+
+When a Super Admin approves or rejects a Head of Department timesheet, the Head of Department receives an approval or rejection email for that weekly period.
 
 ## Voiding Approved Timesheets
 

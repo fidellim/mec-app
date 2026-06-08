@@ -236,6 +236,43 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         Mail::assertQueuedCount(2);
     }
 
+    public function test_hod_submission_notifies_admins_and_confirms_to_submitting_hod(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $otherHodApprover = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $admin = $this->userWithRole('admin');
+        $superAdmin = $this->userWithRole('super_admin', ['receives_hod_timesheet_submission_emails' => true]);
+        $optedOutSuperAdmin = $this->userWithRole('super_admin', ['receives_hod_timesheet_submission_emails' => false]);
+        $inactiveAdmin = $this->userWithRole('admin', ['is_active' => false]);
+        $department->update(['hod_id' => $otherHodApprover->id]);
+        $department->hods()->attach($otherHodApprover->id);
+        $period = $this->openPeriod();
+        $project = $this->project();
+
+        $this->actingAs($hod)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $this->validEntries($project),
+        ])->assertRedirect();
+
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($admin->email)
+            && $mail->headline === 'HOD timesheet submitted for approval'
+            && str_contains($mail->actionUrl, '/admin/timesheets/'));
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($superAdmin->email)
+            && $mail->headline === 'HOD timesheet submitted for approval'
+            && str_contains($mail->actionUrl, '/admin/timesheets/'));
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
+            && $mail->headline === 'Your timesheet was submitted'
+            && str_contains($mail->actionUrl, '/my-timesheets/'));
+        Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($otherHodApprover->email));
+        Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($optedOutSuperAdmin->email));
+        Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($inactiveAdmin->email));
+        Mail::assertQueuedCount(3);
+    }
+
     public function test_employee_cannot_create_second_timesheet_for_same_week(): void
     {
         $department = $this->department();

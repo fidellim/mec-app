@@ -62,6 +62,8 @@ The weekly timesheet form groups entries by day. Each day header shows the full 
 
 You need to be assigned to a department before you can create or submit your own timesheet.
 
+When you submit or resubmit your own timesheet, MEC Portal emails active Admins and eligible Super Admins so they can review it. You also receive a confirmation email that your own timesheet was submitted.
+
 ## Review Department Timesheets
 
 1. Go to **Department Timesheets**.
@@ -114,6 +116,8 @@ MEC Portal sends emails for key workflow events:
 
 - You receive an email when an employee in one of your managed departments submits or resubmits a timesheet for review.
 - You receive an email when an employee in one of your managed departments recalls a submitted timesheet.
+- You receive a confirmation email when you submit or resubmit your own Head of Department timesheet.
+- You receive an email when an Admin or Super Admin approves or rejects your own Head of Department timesheet for that weekly period.
 - Employees receive an email when you approve or reject their timesheet.
 - Employees receive reminder emails when you send reminders from **Submission Tracker**.
 

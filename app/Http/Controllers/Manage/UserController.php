@@ -229,10 +229,14 @@ class UserController extends Controller
             'department_id' => ['nullable', 'exists:departments,id'],
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
+            'receives_hod_timesheet_submission_emails' => ['boolean'],
         ], [
             'employee_code.required' => 'Employee number is required for employees and HODs.',
             'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
-        ]) + ['is_active' => false];
+        ]) + [
+            'is_active' => false,
+            'receives_hod_timesheet_submission_emails' => false,
+        ];
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
         $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;

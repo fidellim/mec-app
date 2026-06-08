@@ -125,6 +125,30 @@ class ManagementWorkflowTest extends TestCase
         $this->assertTrue(Hash::check('updated pass 1!', $user->fresh()->password));
     }
 
+    public function test_super_admin_can_update_hod_submission_email_preference(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $target = $this->userWithRole('super_admin', [
+            'receives_hod_timesheet_submission_emails' => true,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->put(route('manage.users.update', $target), [
+                'name' => $target->name,
+                'email' => $target->email,
+                'employee_code' => $target->employee_code,
+                'initials' => $target->initials,
+                'job_title' => $target->job_title,
+                'department_id' => $target->department_id,
+                'role' => 'super_admin',
+                'is_active' => '1',
+                'receives_hod_timesheet_submission_emails' => '0',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $this->assertFalse($target->refresh()->receives_hod_timesheet_submission_emails);
+    }
+
     public function test_super_admin_can_create_user_with_phil_employee_number(): void
     {
         $superAdmin = $this->userWithRole('super_admin');

@@ -23,8 +23,15 @@
             <input class="form-control" name="job_title" value="{{ old('job_title', $userModel->job_title) }}" maxlength="100" placeholder="Project Engineer">
             <div class="form-text">Optional. Shown in timesheet exports.</div>
         </div>
-        <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
+        <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role" id="roleSelect">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
+        <div class="col-md-4 d-flex align-items-end" data-super-admin-option>
+            <div class="form-check">
+                <input type="hidden" name="receives_hod_timesheet_submission_emails" value="0">
+                <input class="form-check-input" type="checkbox" name="receives_hod_timesheet_submission_emails" value="1" id="receivesHodSubmissionEmails" @checked(old('receives_hod_timesheet_submission_emails', $userModel->receives_hod_timesheet_submission_emails ?? true))>
+                <label class="form-check-label" for="receivesHodSubmissionEmails">Receive HOD timesheet submission emails</label>
+            </div>
+        </div>
         <div class="col-md-6">
             <label class="form-label">Password {{ $userModel->exists ? '(leave blank to keep current)' : '' }}</label>
             <div class="input-group">
@@ -52,5 +59,17 @@ document.querySelectorAll('[data-password-toggle]').forEach((button) => {
         button.setAttribute('aria-label', isHidden ? 'Hide password' : 'Show password');
     });
 });
+
+const roleSelect = document.getElementById('roleSelect');
+const superAdminOption = document.querySelector('[data-super-admin-option]');
+
+if (roleSelect && superAdminOption) {
+    const syncSuperAdminOption = () => {
+        superAdminOption.classList.toggle('d-none', roleSelect.value !== 'super_admin');
+    };
+
+    roleSelect.addEventListener('change', syncSuperAdminOption);
+    syncSuperAdminOption();
+}
 </script>
 @endpush

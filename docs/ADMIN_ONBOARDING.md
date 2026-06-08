@@ -69,6 +69,8 @@ The timesheet detail page shows:
 
 Admins can approve or reject submitted Head of Department timesheets.
 
+When a Head of Department submits or resubmits their own timesheet, active Admins receive an email notification so they can review it from **All Timesheets**.
+
 Admins cannot:
 
 - Approve or reject their own timesheet.
@@ -77,6 +79,8 @@ Admins cannot:
 - Manage users, departments, projects, weekly periods, automations, or audit logs.
 
 Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
+
+When an Admin approves or rejects a Head of Department timesheet, the Head of Department receives an approval or rejection email for that weekly period.
 
 ## Submit Your Own Timesheet
 
