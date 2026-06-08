@@ -34,6 +34,10 @@ class TimesheetEmailNotificationService
             return;
         }
 
+        if ($timesheet->user?->role !== 'employee') {
+            return;
+        }
+
         $this->sendToHods($timesheet, fn () => new TimesheetWorkflowMail(
             timesheet: $timesheet,
             headline: $resubmitted ? 'Timesheet resubmitted for approval' : 'Timesheet submitted for approval',
@@ -122,13 +126,8 @@ class TimesheetEmailNotificationService
 
     private function sendToAdmins(\Closure $mailFactory): void
     {
-        User::where(function ($query) {
-            $query->where('role', 'admin')
-                ->orWhere(function ($query) {
-                    $query->where('role', 'super_admin')
-                        ->where('receives_hod_timesheet_submission_emails', true);
-                });
-        })
+        User::whereIn('role', ['admin', 'super_admin'])
+            ->where('receives_hod_timesheet_submission_emails', true)
             ->where('is_active', true)
             ->orderBy('id')
             ->get()

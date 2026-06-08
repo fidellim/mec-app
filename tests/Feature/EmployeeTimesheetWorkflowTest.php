@@ -243,7 +243,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $department = $this->department();
         $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
         $otherHodApprover = $this->userWithRole('hod', ['department_id' => $department->id]);
-        $admin = $this->userWithRole('admin');
+        $admin = $this->userWithRole('admin', ['receives_hod_timesheet_submission_emails' => true]);
+        $optedOutAdmin = $this->userWithRole('admin', ['receives_hod_timesheet_submission_emails' => false]);
         $superAdmin = $this->userWithRole('super_admin', ['receives_hod_timesheet_submission_emails' => true]);
         $optedOutSuperAdmin = $this->userWithRole('super_admin', ['receives_hod_timesheet_submission_emails' => false]);
         $inactiveAdmin = $this->userWithRole('admin', ['is_active' => false]);
@@ -268,9 +269,42 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             && $mail->headline === 'Your timesheet was submitted'
             && str_contains($mail->actionUrl, '/my-timesheets/'));
         Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($otherHodApprover->email));
+        Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($optedOutAdmin->email));
         Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($optedOutSuperAdmin->email));
         Mail::assertNotQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($inactiveAdmin->email));
         Mail::assertQueuedCount(3);
+    }
+
+    public function test_admin_and_super_admin_submissions_do_not_send_review_notification_emails(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $adminSubmitter = $this->userWithRole('admin', ['department_id' => $department->id]);
+        $superAdminSubmitter = $this->userWithRole('super_admin', ['department_id' => $department->id]);
+        $department->update(['hod_id' => $hod->id]);
+        $period = $this->openPeriod();
+        $nextPeriod = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $project = $this->project();
+
+        $this->actingAs($adminSubmitter)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $this->validEntries($project),
+        ])->assertRedirect();
+
+        $this->actingAs($superAdminSubmitter)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $nextPeriod->id,
+            'submit' => '1',
+            'entries' => $this->validEntries($project),
+        ])->assertRedirect();
+
+        Mail::assertNothingQueued();
     }
 
     public function test_employee_cannot_create_second_timesheet_for_same_week(): void

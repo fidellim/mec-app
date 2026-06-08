@@ -69,7 +69,7 @@ The timesheet detail page shows:
 
 Admins can approve or reject submitted Head of Department timesheets.
 
-When a Head of Department submits or resubmits their own timesheet, active Admins receive an email notification so they can review it from **All Timesheets**.
+When a Head of Department submits or resubmits their own timesheet, active Admins receive an email notification so they can review it from **All Timesheets**. A Super Admin can turn off **Receive HOD timesheet submission emails** on an Admin account if that Admin should not receive those approval-request emails.
 
 Admins cannot:
 
@@ -85,6 +85,8 @@ When an Admin approves or rejects a Head of Department timesheet, the Head of De
 ## Submit Your Own Timesheet
 
 Admins can use **My Timesheets** for their own weekly timesheets only if they are assigned to a department.
+
+Submitting your own Admin timesheet does not send a timesheet-submitted email to yourself or to HOD approvers.
 
 1. Go to **My Timesheets**.
 2. Select **Create Weekly Timesheet**.

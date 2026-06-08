@@ -72,7 +72,7 @@ For each user, manage:
 - Role.
 - Department.
 - Active/inactive status.
-- Whether a Super Admin receives HOD timesheet submission emails.
+- Whether an Admin or Super Admin receives HOD timesheet submission emails.
 - Password when creating or resetting a user.
 
 Passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
@@ -92,7 +92,7 @@ Job Title is optional and appears in timesheet exports. If it is left blank, exp
 Important user rules:
 
 - Inactive users cannot use the system normally.
-- Super Admins can turn off **Receive HOD timesheet submission emails** on a Super Admin account if that user should not receive HOD approval-request emails.
+- Super Admins can turn off **Receive HOD timesheet submission emails** on Admin and Super Admin accounts if that user should not receive HOD approval-request emails.
 - Users without a department cannot create or submit personal timesheets.
 - When a user's department changes, draft and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
 - You cannot delete your own account.
@@ -237,7 +237,7 @@ Super Admins can approve or reject submitted timesheets where needed, but cannot
 
 Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
 
-When a Head of Department submits or resubmits their own timesheet, active Admins receive an email notification. Active Super Admins also receive that email unless **Receive HOD timesheet submission emails** is turned off on their user account.
+When a Head of Department submits or resubmits their own timesheet, active Admins and Super Admins receive an email notification unless **Receive HOD timesheet submission emails** is turned off on their user account.
 
 When a Super Admin approves or rejects a Head of Department timesheet, the Head of Department receives an approval or rejection email for that weekly period.
 
@@ -263,6 +263,8 @@ Important voiding rules:
 ## Submit Your Own Timesheet
 
 Super Admins can use **My Timesheets** for their own weekly timesheets only if they are assigned to a department.
+
+Submitting your own Super Admin timesheet does not send a timesheet-submitted email to yourself or to HOD approvers.
 
 The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, **Copy Day** to paste one day's rows onto selected target days, and **Remove** to clear or delete a row.
 

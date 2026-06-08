@@ -25,7 +25,7 @@
         </div>
         <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role" id="roleSelect">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
-        <div class="col-md-4 d-flex align-items-end" data-super-admin-option>
+        <div class="col-md-4 d-flex align-items-end" data-admin-email-option>
             <div class="form-check">
                 <input type="hidden" name="receives_hod_timesheet_submission_emails" value="0">
                 <input class="form-check-input" type="checkbox" name="receives_hod_timesheet_submission_emails" value="1" id="receivesHodSubmissionEmails" @checked(old('receives_hod_timesheet_submission_emails', $userModel->receives_hod_timesheet_submission_emails ?? true))>
@@ -61,15 +61,15 @@ document.querySelectorAll('[data-password-toggle]').forEach((button) => {
 });
 
 const roleSelect = document.getElementById('roleSelect');
-const superAdminOption = document.querySelector('[data-super-admin-option]');
+const adminEmailOption = document.querySelector('[data-admin-email-option]');
 
-if (roleSelect && superAdminOption) {
-    const syncSuperAdminOption = () => {
-        superAdminOption.classList.toggle('d-none', roleSelect.value !== 'super_admin');
+if (roleSelect && adminEmailOption) {
+    const syncAdminEmailOption = () => {
+        adminEmailOption.classList.toggle('d-none', ! ['admin', 'super_admin'].includes(roleSelect.value));
     };
 
-    roleSelect.addEventListener('change', syncSuperAdminOption);
-    syncSuperAdminOption();
+    roleSelect.addEventListener('change', syncAdminEmailOption);
+    syncAdminEmailOption();
 }
 </script>
 @endpush
