@@ -220,6 +220,25 @@ class HodApprovalWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_hod_missing_timesheet_reminders_do_not_target_hods(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $missingEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $missingHod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $period = $this->openPeriod();
+
+        $this->actingAs($hod)
+            ->post(route('hod.tracker.reminders'), ['period_id' => $period->id])
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Sent 1 missing timesheet reminder(s).');
+
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingEmployee->email));
+        Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($missingHod->email));
+    }
+
     public function test_hod_tracker_and_reminders_include_managed_departments(): void
     {
         Mail::fake();

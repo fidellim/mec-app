@@ -769,6 +769,8 @@
                     @endif
                     @if(in_array(auth()->user()->role, ['admin', 'super_admin'], true))
                         <a href="{{ route('admin.timesheets.index') }}" @class(['active' => request()->routeIs('admin.timesheets.*')]) title="All Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Timesheets</span></a>
+                        <a href="{{ route('admin.hod-timesheets.index') }}" @class(['active' => request()->routeIs('admin.hod-timesheets.*')]) title="HOD Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">HOD Timesheets</span></a>
+                        <a href="{{ route('admin.hod-tracker') }}" @class(['active' => request()->routeIs('admin.hod-tracker')]) title="HOD Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">HOD Tracker</span></a>
                     @endif
                     @if(auth()->user()->role === 'super_admin')
                         <a href="{{ route('manage.users.index') }}" @class(['active' => request()->routeIs('manage.users.*')]) title="Users"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Users</span></a>

@@ -29,7 +29,7 @@
                         <td style="padding:10px 28px 8px;">
                             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border-collapse:collapse;background:#f8fafc;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;">
                                 <tr>
-                                    <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;">Employee</td>
+                                    <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;color:#64748b;font-size:12px;font-weight:700;text-transform:uppercase;">User</td>
                                     <td style="padding:14px 16px;border-bottom:1px solid #e5e7eb;text-align:right;font-size:14px;font-weight:700;">{{ $employee->name }}</td>
                                 </tr>
                                 <tr>

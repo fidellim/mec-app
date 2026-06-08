@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminTimesheetController;
+use App\Http\Controllers\AdminHodTimesheetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeTimesheetController;
@@ -54,6 +55,9 @@ Route::middleware('auth')->group(function () {
         Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->middleware('throttle:exports')->name('timesheets.export');
         Route::get('/timesheets/{timesheet}', [AdminTimesheetController::class, 'show'])->name('timesheets.show');
         Route::post('/timesheets/{timesheet}/void', [AdminTimesheetController::class, 'voidTimesheet'])->middleware('role:super_admin')->name('timesheets.void');
+        Route::get('/hod-timesheets', [AdminHodTimesheetController::class, 'index'])->name('hod-timesheets.index');
+        Route::get('/hod-submission-tracker', [AdminHodTimesheetController::class, 'tracker'])->name('hod-tracker');
+        Route::post('/hod-submission-tracker/reminders', [AdminHodTimesheetController::class, 'remindMissing'])->name('hod-tracker.reminders');
         Route::middleware('role:admin,super_admin')->group(function () {
             Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
             Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');

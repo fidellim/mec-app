@@ -30,6 +30,8 @@ Super Admins can access:
 | ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows system-wide totals and submission summary. |
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
+| ![Department Timesheets](/images/sidebar/department-timesheets.svg) **HOD Timesheets** | Shows Head of Department timesheets that Admins and Super Admins can review. |
+| ![Submission Tracker](/images/sidebar/submission-tracker.svg) **HOD Tracker** | Shows which Heads of Department have submitted for a selected weekly period. |
 | ![Users](/images/sidebar/users.svg) **Users** | Create, edit, activate/deactivate, and delete users. |
 | ![Departments](/images/sidebar/departments.svg) **Departments** | Maintain departments and HOD assignments. |
 | ![Projects](/images/sidebar/projects.svg) **Projects** | Maintain project/job numbers used in timesheets. |
@@ -234,6 +236,25 @@ The export includes:
 - Regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks.
 
 Use the Attendance Code Summary to reconcile payroll/manhour totals with project totals when employees submit leave codes without a project/job number.
+
+## HOD Timesheets And Tracker
+
+Use **HOD Timesheets** when you only need to review Head of Department submissions. The page excludes ordinary employee, Admin, and Super Admin timesheets.
+
+1. Go to **HOD Timesheets**.
+2. Filter by department, HOD, status, week, or year.
+3. Select **Review** to open the timesheet.
+4. Approve or reject submitted HOD timesheets from the detail page.
+
+Use **HOD Tracker** to monitor HOD submissions for a selected weekly period.
+
+1. Go to **HOD Tracker**.
+2. Select a weekly period.
+3. Optionally filter by department.
+4. Review each HOD's period status.
+5. Use **Send Reminder** for one missing HOD or **Notify All Missing** for all missing HODs in the selected view.
+
+Submitted and approved HOD timesheets are treated as complete. Draft, rejected, and missing records are treated as needing action. Reminder emails are sent only to active HODs with an email address, and a manual cooldown prevents repeated reminders for the same HOD and weekly period.
 
 ## Approval Rules
 
