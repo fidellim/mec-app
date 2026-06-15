@@ -77,6 +77,33 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertDontSee('2026-05-11');
     }
 
+    public function test_timesheet_create_and_edit_forms_prevent_enter_key_submission(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $createPeriod = $this->openPeriod();
+        $editPeriod = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        $project = $this->project();
+        $timesheet = $this->submittedTimesheet($employee, $editPeriod, $project, ['status' => 'draft']);
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.create', ['period_id' => $createPeriod->id]))
+            ->assertOk()
+            ->assertSee('data-prevent-enter-submit', false)
+            ->assertSee("event.key !== 'Enter'", false)
+            ->assertSee('event.preventDefault()', false);
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.edit', $timesheet))
+            ->assertOk()
+            ->assertSee('data-prevent-enter-submit', false)
+            ->assertSee("event.key !== 'Enter'", false)
+            ->assertSee('event.preventDefault()', false);
+    }
+
     public function test_users_without_department_cannot_open_timesheet_create_flow(): void
     {
         $this->openPeriod();

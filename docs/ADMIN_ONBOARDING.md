@@ -128,6 +128,8 @@ Submitting your own Admin timesheet does not send a timesheet-submitted email to
 
 The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, **Copy Day** to paste one day's rows onto selected target days, and **Remove** to clear or delete a row.
 
+Pressing **Enter** while editing a timesheet row does not save or submit the form. Use **Save Draft** or **Submit for Approval** when you are ready.
+
 If you are not assigned to a department, MEC Portal disables timesheet creation for your account.
 
 ## Export Guide

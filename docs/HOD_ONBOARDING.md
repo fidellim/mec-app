@@ -60,6 +60,8 @@ As a Head of Department, you can also use **My Timesheets** for your own weekly 
 
 The weekly timesheet form groups entries by day. Each day header shows the full date, ISO date, weekday, and RT/OT totals. Use **Add project** for a blank same-day row, **Duplicate** to copy a row directly below it, **Copy Day** to paste one day's rows onto selected target days, and **Remove** to clear or delete a row.
 
+Pressing **Enter** while editing a timesheet row does not save or submit the form. Use **Save Draft** or **Submit for Approval** when you are ready.
+
 You need to be assigned to a department before you can create or submit your own timesheet.
 
 When you submit or resubmit your own timesheet, MEC Portal emails active Admins and eligible Super Admins so they can review it. You also receive a confirmation email that your own timesheet was submitted.

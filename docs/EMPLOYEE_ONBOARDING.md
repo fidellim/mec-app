@@ -59,6 +59,8 @@ If you are not assigned to a department, timesheet creation is disabled and you 
 
 Each day is shown as its own section. The day header shows the full date, ISO date, weekday, and that day's regular time and overtime totals. The entry rows below the header are where you enter attendance code, project/job number, regular hours, overtime hours, remarks, and row actions.
 
+Pressing **Enter** while editing a timesheet row does not save or submit the form. Use **Save Draft** or **Submit for Approval** when you are ready.
+
 ## Daily Entry Rules
 
 - Regular time is shown as **RT**.

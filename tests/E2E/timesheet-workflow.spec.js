@@ -125,6 +125,25 @@ test.describe('employee timesheet workflow', () => {
     await expect(firstDaySummary).toContainText(/\(\d{4}-\d{2}-\d{2}\)/);
   });
 
+  test('employee timesheet form does not submit when Enter is pressed in an entry field', async ({ page }) => {
+    await login(page, employeeEmail);
+    await page.goto('/my-timesheets/create');
+    await chooseOpenPeriodWithCreateForm(page);
+
+    const regularHours = page.locator('input[name*="[regular_hours]"]').first();
+    await expect(regularHours).toBeVisible();
+
+    const formUrl = page.url();
+    await regularHours.fill('4.00');
+    await regularHours.press('Enter');
+    await page.waitForTimeout(500);
+
+    expect(page.url()).toBe(formUrl);
+    await expect(page.getByRole('button', { name: /save draft/i })).toBeVisible();
+    await expect(page.getByRole('button', { name: /submit for approval/i })).toBeVisible();
+    await expect(regularHours).toHaveValue('4.00');
+  });
+
   test('employee can copy one day and overwrite selected target days', async ({ page }) => {
     await login(page, employeeEmail);
     await page.goto('/my-timesheets/create');

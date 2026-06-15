@@ -19,7 +19,7 @@
         <div>{{ $timesheet->rejection_comment }}</div>
     </div>
 @endif
-<form method="post" action="{{ $isEdit ? route('employee.timesheets.update', $timesheet) : route('employee.timesheets.store') }}">
+<form method="post" action="{{ $isEdit ? route('employee.timesheets.update', $timesheet) : route('employee.timesheets.store') }}" data-prevent-enter-submit>
     @csrf
     @if($isEdit) @method('put') @endif
     <div class="toolbar-card p-3 mb-3">
@@ -132,8 +132,8 @@
             </table>
         </div>
         <div class="sticky-actions d-flex flex-column flex-sm-row gap-2 justify-content-end p-3">
-            <button class="btn btn-outline-secondary" name="submit" value="0">Save Draft</button>
-            <button class="btn btn-primary" name="submit" value="1" data-confirm="Submit this timesheet for approval?">Submit for Approval</button>
+            <button type="submit" class="btn btn-outline-secondary" name="submit" value="0">Save Draft</button>
+            <button type="submit" class="btn btn-primary" name="submit" value="1" data-confirm="Submit this timesheet for approval?">Submit for Approval</button>
         </div>
     </div>
 </form>
@@ -163,6 +163,7 @@
 <script>
 (() => {
     const table = document.getElementById('timesheet-entry-table');
+    const form = document.querySelector('[data-prevent-enter-submit]');
     const copyDayModalElement = document.getElementById('copyDayModal');
     const copyDaySourceLabel = document.getElementById('copyDaySourceLabel');
     const copyDayTargetList = document.getElementById('copyDayTargetList');
@@ -173,6 +174,22 @@
     const projectOptionalAttendanceCodes = @json(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
     const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
     const isProjectOptionalAttendanceCode = (value) => projectOptionalAttendanceCodes.includes(value);
+
+    form?.addEventListener('keydown', (event) => {
+        if (event.key !== 'Enter' || event.isComposing) {
+            return;
+        }
+
+        const target = event.target;
+
+        if (!target || target.closest('button, textarea, .ts-control')) {
+            return;
+        }
+
+        if (target.matches('input, select')) {
+            event.preventDefault();
+        }
+    });
 
     const renameRowFields = (row, index) => {
         row.querySelectorAll('[data-field]').forEach((field) => {
