@@ -19,10 +19,13 @@ class AdminTimesheetController extends Controller
 {
     use GuardsExports;
 
-    public function index()
+    private const SUMMARY_PREVIEW_MAX_WEEKS = 6;
+
+    public function index(TimesheetExportService $export)
     {
         $filters = $this->validatedFilters();
         $showingNotSubmitted = ($filters['status'] ?? null) === 'not_submitted';
+        $summaryPreviewState = $this->summaryPreviewState($filters, $showingNotSubmitted);
 
         return view('admin.timesheets.index', [
             'timesheets' => $showingNotSubmitted
@@ -34,6 +37,10 @@ class AdminTimesheetController extends Controller
             'selectedPeriodRange' => $this->selectedPeriodRange($filters),
             'roleLabels' => config('roles.labels'),
             'showingNotSubmitted' => $showingNotSubmitted,
+            'summaryPreviewState' => $summaryPreviewState,
+            'summaryPreview' => $summaryPreviewState['requested'] && $summaryPreviewState['can_preview']
+                ? $export->summaryPreview($filters)
+                : null,
         ]);
     }
 
@@ -182,6 +189,43 @@ class AdminTimesheetController extends Controller
             'requested_week_to' => $weekTo ? (int) $weekTo : null,
             'has_missing_weeks' => $weekFrom && $periods->count() < (((int) $weekTo - (int) $weekFrom) + 1),
         ];
+    }
+
+    private function summaryPreviewState(array $filters, bool $showingNotSubmitted): array
+    {
+        $requested = request('preview') === 'summary';
+        $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
+        $weekTo = $filters['week_to'] ?? $weekFrom;
+        $weekCount = $weekFrom && $weekTo ? ((int) $weekTo - (int) $weekFrom) + 1 : null;
+
+        $state = [
+            'requested' => $requested,
+            'can_preview' => false,
+            'week_count' => $weekCount,
+            'message' => null,
+        ];
+
+        if ($showingNotSubmitted) {
+            $state['message'] = 'Summary Report Preview is not available for Not Submitted status. Use submitted or approved records for report summaries.';
+
+            return $state;
+        }
+
+        if (! ($filters['year'] ?? null) || ! $weekFrom) {
+            $state['message'] = 'Select a From Week and Year to enable Summary Report Preview.';
+
+            return $state;
+        }
+
+        if ($weekCount > self::SUMMARY_PREVIEW_MAX_WEEKS) {
+            $state['message'] = 'Summary Report Preview is available for up to 6 weekly periods. Please narrow the week range, or use Export Excel for larger reports.';
+
+            return $state;
+        }
+
+        $state['can_preview'] = true;
+
+        return $state;
     }
 
     private function selectedPeriods(array $filters)

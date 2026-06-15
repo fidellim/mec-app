@@ -979,4 +979,89 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('href="'.route('admin.timesheets.index').'"', false)
             ->assertSee('Year: 2030');
     }
+
+    public function test_summary_report_preview_is_available_for_one_to_six_selected_weeks(): void
+    {
+        $department = $this->department(['name' => 'Preview Department']);
+        $project = $this->project(['project_code' => 'PREVIEW-100', 'project_name' => 'Preview Project']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Preview Employee',
+            'job_title' => 'Engineer',
+        ]);
+        $this->submittedTimesheet($employee, $this->openPeriod(), $project, ['status' => 'approved']);
+        $admin = $this->userWithRole('admin');
+        $filters = [
+            'week_from' => 20,
+            'week_to' => 25,
+            'year' => 2026,
+            'status' => 'approved',
+        ];
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', $filters))
+            ->assertOk()
+            ->assertSee('Summary Report Preview')
+            ->assertSee('preview=summary', false)
+            ->assertDontSee('id="summary-report-preview"', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', array_merge($filters, ['preview' => 'summary'])))
+            ->assertOk()
+            ->assertSee('id="summary-report-preview"', false)
+            ->assertSee('Project Summary')
+            ->assertSee('Attendance Summary')
+            ->assertSee('PREVIEW-100')
+            ->assertSee('Preview Employee')
+            ->assertSee('8.00');
+    }
+
+    public function test_summary_report_preview_is_hidden_for_more_than_six_selected_weeks(): void
+    {
+        $this->openPeriod();
+        $admin = $this->userWithRole('admin');
+        $filters = [
+            'week_from' => 20,
+            'week_to' => 26,
+            'year' => 2026,
+        ];
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', $filters))
+            ->assertOk()
+            ->assertSee('Summary Report Preview is available when you select a Year and 1 to 6 weekly periods.')
+            ->assertDontSee('preview=summary', false)
+            ->assertDontSee('Please narrow the week range, or use Export Excel for larger reports.')
+            ->assertDontSee('id="summary-report-preview"', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', array_merge($filters, ['preview' => 'summary'])))
+            ->assertOk()
+            ->assertSee('Please narrow the week range, or use Export Excel for larger reports.')
+            ->assertDontSee('id="summary-report-preview"', false);
+    }
+
+    public function test_summary_report_preview_requires_week_year_and_submitted_statuses(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index'))
+            ->assertOk()
+            ->assertSee('Summary Report Preview is available when you select a Year and 1 to 6 weekly periods.')
+            ->assertDontSee('preview=summary', false);
+
+        $this->openPeriod();
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'status' => 'not_submitted',
+                'week_from' => 20,
+                'year' => 2026,
+            ]))
+            ->assertOk()
+            ->assertDontSee('Summary Report Preview is available when you select a Year and 1 to 6 weekly periods.')
+            ->assertDontSee('Summary Report Preview is not available for Not Submitted status.')
+            ->assertDontSee('preview=summary', false);
+    }
 }

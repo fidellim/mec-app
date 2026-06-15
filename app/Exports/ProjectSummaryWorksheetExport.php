@@ -27,9 +27,14 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 
     public function view(): View
     {
+        return view('exports.project_summary_excel', $this->data());
+    }
+
+    public function data(): array
+    {
         $weeks = $this->weeks($this->rows);
 
-        return view('exports.project_summary_excel', [
+        return [
             'groups' => $this->groups(),
             'weeks' => $weeks,
             'showRangeTotals' => $this->showRangeTotals($weeks),
@@ -38,7 +43,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
             'totalRegular' => $this->rows->sum('regular_hours'),
             'totalOvertime' => $this->rows->sum('overtime_hours'),
             'totalHours' => $this->rows->sum('total_hours'),
-        ]);
+        ];
     }
 
     public function columnWidths(): array

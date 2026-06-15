@@ -27,9 +27,14 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
 
     public function view(): View
     {
+        return view('exports.attendance_summary_excel', $this->data());
+    }
+
+    public function data(): array
+    {
         $weeks = $this->weeks($this->rows);
 
-        return view('exports.attendance_summary_excel', [
+        return [
             'groups' => $this->groups(),
             'weeks' => $weeks,
             'showRangeTotals' => $this->showRangeTotals($weeks),
@@ -38,7 +43,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
             'totalRegular' => $this->rows->sum('regular_hours'),
             'totalOvertime' => $this->rows->sum('overtime_hours'),
             'totalHours' => $this->rows->sum('total_hours'),
-        ]);
+        ];
     }
 
     public function columnWidths(): array

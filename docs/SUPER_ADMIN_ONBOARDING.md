@@ -219,13 +219,16 @@ Use **All Timesheets** to filter, review, and export records.
 2. Filter by week, year, department, user, role, or status.
 3. Select **Apply Filters**.
 4. Select **View** to open a timesheet.
-5. Use **Export Excel** to download an Excel workbook using the current filters.
+5. Use **Summary Report Preview** to review summary totals in the portal when the selected week range is 1 to 6 weekly periods.
+6. Use **Export Excel** to download an Excel workbook using the current filters.
 
 Use the **Role** filter to focus on Employees, Heads of Department, Admins, or Super Admins.
 
 Use **Status: Not Submitted** with a week and year to show active department-assigned users who do not have a submitted or approved timesheet for that weekly period. This helps identify Heads of Department, Admins, or Super Admins assigned to departments who still need to submit their own timesheets.
 
 Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Portal shows a warning and asks you to wait before trying again.
+
+The **Summary Report Preview** button appears when the current filters include a year and a week range of 1 to 6 weekly periods. The preview shows only the **Project Summary** and **Attendance Summary** tables in MEC Portal, so Super Admins can check totals before downloading Excel. If more than 6 weekly periods are selected, MEC Portal hides the preview and shows a notice asking you to narrow the week range or use **Export Excel**.
 
 The export includes:
 
@@ -301,6 +304,7 @@ If you are not assigned to a department, MEC Portal disables timesheet creation 
 | --- | --- | --- |
 | User cannot create a timesheet | No department is assigned or no open period exists. | Assign a department or open/create the correct weekly period. |
 | User cannot submit a timesheet | Required fields are missing, no hours were entered, or the period is closed. | Ask them to correct form errors or open the period if appropriate. |
+| Summary Report Preview is hidden | No week/year was selected, Status is Not Submitted, or the selected week range is more than 6 weekly periods. | Select a year and a 1 to 6 week range, then apply filters. |
 | Cannot delete a user | The user may be your own account or an assigned HOD without a replacement. | Select an active replacement HOD or deactivate the user. |
 | Cannot delete a project or department | It has historical usage or assigned users/HOD. | Deactivate it instead. |
 | Automation did not run | It may be disabled or no eligible period exists. | Check **Automations**, **Weekly Periods**, and **Audit Logs**. |

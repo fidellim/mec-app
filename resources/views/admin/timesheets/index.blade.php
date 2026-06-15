@@ -6,16 +6,48 @@
     $weekTo = request('week_to', $weekFrom);
     $hasVisibleFilters = $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request()->boolean('include_employee_sheets');
 @endphp
+<style>
+    .summary-preview-info-button {
+        width: 1.25rem;
+        height: 1.25rem;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 0;
+        border: 0;
+        color: var(--bs-secondary-color);
+        background: transparent;
+    }
+    .summary-preview-info-button:hover,
+    .summary-preview-info-button:focus-visible {
+        color: var(--bs-primary);
+        background: transparent;
+        box-shadow: none;
+    }
+    .summary-preview-info-icon {
+        width: 1.25rem;
+        height: 1.25rem;
+        display: inline-block;
+        background-color: currentColor;
+        mask: url("{{ asset('images/status/info-icon.svg') }}") center / contain no-repeat;
+        -webkit-mask: url("{{ asset('images/status/info-icon.svg') }}") center / contain no-repeat;
+    }
+</style>
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">All Timesheets</h1>
         <div class="text-muted">Filter, review, and export submitted weekly records.</div>
     </div>
     @unless($showingNotSubmitted)
-        <a class="btn btn-outline-success" id="timesheetExportButton" href="{{ route('admin.timesheets.export', request()->query()) }}">
-            <span class="spinner-border spinner-border-sm me-2 d-none" aria-hidden="true"></span>
-            <span data-export-label>Export Excel</span>
-        </a>
+        <div class="action-group">
+            @if($summaryPreviewState['can_preview'])
+                <a class="btn btn-outline-primary" href="{{ route('admin.timesheets.index', array_merge(request()->query(), ['preview' => 'summary'])) }}#summary-report-preview">Summary Report Preview</a>
+            @endif
+            <a class="btn btn-outline-success" id="timesheetExportButton" href="{{ route('admin.timesheets.export', request()->except('preview')) }}">
+                <span class="spinner-border spinner-border-sm me-2 d-none" aria-hidden="true"></span>
+                <span data-export-label>Export Excel</span>
+            </a>
+        </div>
     @endunless
 </div>
 <form class="filter-card mb-3 row g-2">
@@ -62,7 +94,14 @@
 <div class="content-card p-3 mb-3">
     <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
         <div>
-            <div class="fw-semibold">Current view</div>
+            <div class="d-flex align-items-center gap-2">
+                <div class="fw-semibold">Current view</div>
+                @unless($showingNotSubmitted)
+                    <button class="btn btn-sm rounded-circle summary-preview-info-button" type="button" data-bs-toggle="tooltip" data-bs-placement="top" title="Summary Report Preview is available when you select a Year and 1 to 6 weekly periods. It is not available for Not Submitted status. Use Export Excel for larger ranges." aria-label="Summary Report Preview information">
+                        <span class="summary-preview-info-icon" aria-hidden="true"></span>
+                    </button>
+                @endunless
+            </div>
             <div class="text-muted small">
                 @if($selectedPeriodRange)
                     Showing configured dates from
@@ -116,6 +155,14 @@
         </div>
     </div>
 </div>
+@if($summaryPreviewState['requested'] && $summaryPreviewState['message'])
+    <div class="alert alert-warning mb-3">
+        {{ $summaryPreviewState['message'] }}
+    </div>
+@endif
+@if($summaryPreview)
+    @include('admin.timesheets._summary_preview', ['summaryPreview' => $summaryPreview])
+@endif
 <div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>User</th><th>Role</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
 @if($showingNotSubmitted)
     @forelse($timesheets as $row)

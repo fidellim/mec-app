@@ -51,7 +51,8 @@ The **Admin Dashboard** shows:
 2. Filter by week range, year, project, department, user, role, or status.
 3. Select **Apply Filters**.
 4. Select **View** to open a timesheet.
-5. Use **Export Excel** to download an Excel workbook using the current filters.
+5. Use **Summary Report Preview** to review summary totals in the portal when the selected week range is 1 to 6 weekly periods.
+6. Use **Export Excel** to download an Excel workbook using the current filters.
 
 Use the **Role** filter to focus on Employees, Heads of Department, Admins, or Super Admins.
 
@@ -136,7 +137,8 @@ Admins can export from **All Timesheets**.
 1. Go to **All Timesheets**.
 2. Apply filters for week range, year, project, department, user, role, or status if needed.
 3. Leave **Include individual employee timesheet sheets** unchecked for a faster summary-only workbook, or check it when detailed employee sheets are needed.
-4. Select **Export Excel**.
+4. Select **Summary Report Preview** when you want to check the Project Weekly Summary and Attendance Code Summary before downloading.
+5. Select **Export Excel**.
 
 Week range rules:
 
@@ -162,6 +164,13 @@ The **Attendance Code Summary** shows leave and non-project hours separately fro
 
 By default, the export includes the **Project Weekly Summary** and **Attendance Code Summary** worksheets. Select **Include individual employee timesheet sheets** when the workbook also needs one detailed worksheet per employee timesheet.
 
+The **Summary Report Preview** button appears when the current filters include a year and a week range of 1 to 6 weekly periods. The preview shows only the summary report tables inside MEC Portal:
+
+- **Project Summary**, matching the Project Weekly Summary export.
+- **Attendance Summary**, matching the Attendance Code Summary export.
+
+If more than 6 weekly periods are selected, MEC Portal hides the preview and shows a notice asking you to narrow the week range or use **Export Excel**. This keeps the page responsive and avoids loading very large all-time summaries in the browser.
+
 If a project is selected, the summary only includes employees and hours logged to that project. The export button shows **Preparing export...** while the workbook is being generated.
 
 If an employee does not have a Job Title saved, exports show `-` in that column.
@@ -172,6 +181,7 @@ If an employee does not have a Job Title saved, exports show `-` in that column.
 | --- | --- | --- |
 | Cannot approve a timesheet | Admins can only approve/reject submitted HOD timesheets and cannot approve their own. | Use the correct authorized reviewer. |
 | Export has too many records | Filters were not applied before export. | Apply week range, year, project, department, user, role, or status filters first. |
+| Summary Report Preview is hidden | No week/year was selected, Status is Not Submitted, or the selected week range is more than 6 weekly periods. | Select a year and a 1 to 6 week range, then apply filters. |
 | Export has too many worksheet tabs | Individual employee sheets were included. | Leave **Include individual employee timesheet sheets** unchecked for summary-only export. |
 | Week export is rejected | The year is missing or the selected week/range has no matching weekly period. | Enter the year and choose a week that exists in Manage Weekly Periods. |
 | Cannot create your own timesheet | No department is assigned or no open period exists. | Contact the system administrator. |

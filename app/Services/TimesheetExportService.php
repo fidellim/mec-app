@@ -2,9 +2,12 @@
 
 namespace App\Services;
 
+use App\Exports\AttendanceSummaryWorksheetExport;
+use App\Exports\ProjectSummaryWorksheetExport;
 use App\Exports\TimesheetsExcelExport;
 use App\Models\Timesheet;
 use Carbon\CarbonPeriod;
+use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -29,6 +32,21 @@ class TimesheetExportService
         $fileName = 'employee_weekly_timesheets_'.now()->format('Ymd_His').'.xlsx';
 
         return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $attendanceSummary, $includeEmployeeSheets), $fileName, ExcelWriter::XLSX);
+    }
+
+    public function summaryPreview(array $filters): array
+    {
+        $timesheets = $this->summaryTimesheets($filters);
+        $projectSummaryRows = $this->buildProjectWeeklySummary($timesheets, $filters['project_id'] ?? null);
+        $attendanceSummaryRows = $this->buildAttendanceSummary($timesheets);
+
+        return [
+            'project' => (new ProjectSummaryWorksheetExport($projectSummaryRows))->data(),
+            'attendance' => (new AttendanceSummaryWorksheetExport($attendanceSummaryRows))->data(),
+            'timesheet_count' => $timesheets->count(),
+            'project_row_count' => $projectSummaryRows->count(),
+            'attendance_row_count' => $attendanceSummaryRows->count(),
+        ];
     }
 
     public function csv(array $filters): StreamedResponse
@@ -172,6 +190,15 @@ class TimesheetExportService
     private function includeEmployeeSheets(array $filters): bool
     {
         return filter_var($filters['include_employee_sheets'] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
+    private function summaryTimesheets(array $filters): Collection
+    {
+        return Timesheet::query()
+            ->with(['user', 'department', 'period', 'entries.project'])
+            ->tap(fn ($query) => $this->applyFilters($query, $filters))
+            ->orderByDesc('id')
+            ->get();
     }
 
     private function applyFilters($query, array $filters): void
