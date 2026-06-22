@@ -33,6 +33,8 @@ Heads of Department can access:
 | ![Submitted](/images/status/submitted.svg) | The timesheet has been sent for review. | It can be approved or rejected. |
 | ![Approved](/images/status/approved.svg) | The timesheet has been accepted. | No further action is needed. |
 | ![Rejected](/images/status/rejected.svg) | The timesheet was returned with a comment. | The owner can correct and resubmit it. |
+| Withdrawn | The owner withdrew a submitted timesheet before approval. | The owner can edit and resubmit it. |
+| Recalled | An approved timesheet was sent back for correction. | The owner can correct and resubmit it. |
 
 ## Dashboard
 
@@ -74,14 +76,17 @@ When you submit or resubmit your own timesheet, MEC Portal emails active Admins 
 4. Check the employee, department, regular hours, overtime hours, total hours, attendance codes, project/job numbers, and remarks.
 5. Select **Approve** if the submission is correct.
 6. Enter a rejection comment and select **Reject** if the employee needs to correct it.
+7. For an already approved timesheet that needs correction, enter a recall reason and select **Recall approved timesheet**.
 
 Employee entry forms are grouped by day while editing, and submitted timesheets still show daily attendance, project/job, hour, and remarks details for review.
 
 The rejection comment is required and is visible to the employee.
+The approved-recall reason is also required. MEC Portal emails the employee and stores the reviewer, timestamp, reason, and IP address in the timesheet history. IP addresses are visible only to Super Admin users.
 
 ## Approval Rules
 
 You can approve or reject employee timesheets in departments assigned to you.
+You can recall approved employee timesheets in departments assigned to you when a correction is needed after approval.
 
 Your managed departments can include:
 
@@ -92,9 +97,11 @@ Your managed departments can include:
 You cannot:
 
 - Approve or reject your own timesheet.
+- Recall your own approved timesheet.
 - Approve or reject another Head of Department's timesheet.
 - Review departments outside your managed departments.
 - Approve or reject timesheets that are not currently submitted.
+- Recall timesheets that are not currently approved.
 
 ## Submission Tracker
 
@@ -108,7 +115,7 @@ Use **Submission Tracker** to monitor submission progress for departments you ma
 6. Use **Send Reminder** for one missing employee.
 7. Use **Notify All Missing** to remind all missing employees for that period and selected department.
 
-Submitted and approved timesheets are treated as complete. Employees with no timesheet, a draft, or a rejected timesheet can appear as needing a reminder.
+Submitted and approved timesheets are treated as complete. Employees with no timesheet, a draft, rejected, withdrawn, or recalled timesheet can appear as needing a reminder.
 
 Reminder emails have a temporary cooldown per employee and weekly period. If an employee was already reminded recently, **Send Reminder** is disabled and shows when another reminder can be sent. **Notify All Missing** skips employees who are still on cooldown.
 
@@ -117,10 +124,10 @@ Reminder emails have a temporary cooldown per employee and weekly period. If an 
 MEC Portal sends emails for key workflow events:
 
 - You receive an email when an employee in one of your managed departments submits or resubmits a timesheet for review.
-- You receive an email when an employee in one of your managed departments recalls a submitted timesheet.
 - You receive a confirmation email when you submit or resubmit your own Head of Department timesheet.
 - You receive an email when an Admin or Super Admin approves or rejects your own Head of Department timesheet for that weekly period.
-- Employees receive an email when you approve or reject their timesheet.
+- You receive an email when an Admin or Super Admin recalls your approved Head of Department timesheet.
+- Employees receive an email when you approve, reject, or recall their approved timesheet.
 - Employees receive reminder emails when you send reminders from **Submission Tracker**.
 
 ## Quick Troubleshooting

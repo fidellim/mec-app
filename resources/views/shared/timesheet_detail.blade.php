@@ -61,3 +61,4 @@
         </table>
     </div>
 </div>
+@include('shared.timesheet_history', ['timesheet' => $timesheet])

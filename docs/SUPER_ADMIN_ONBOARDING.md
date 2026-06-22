@@ -48,6 +48,8 @@ Super Admins can access:
 | ![Submitted](/images/status/submitted.svg) | Sent for review. |
 | ![Approved](/images/status/approved.svg) | Accepted by an authorized reviewer. |
 | ![Rejected](/images/status/rejected.svg) | Returned to the owner with a comment. |
+| Withdrawn | The owner withdrew a submitted timesheet before approval. |
+| Recalled | An approved timesheet was sent back for correction with a required reason. |
 | Voided | Cancelled by a Super Admin because an approved timesheet needs correction. Voided records are kept for audit history and are excluded from corrected submissions and normal exports. |
 
 ## Dashboard
@@ -96,7 +98,7 @@ Important user rules:
 - Inactive users cannot use the system normally.
 - Super Admins can turn off **Receive HOD timesheet submission emails** on Admin and Super Admin accounts if that user should not receive HOD approval-request emails.
 - Users without a department cannot create or submit personal timesheets.
-- When a user's department changes, draft and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
+- When a user's department changes, draft, withdrawn, recalled, and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
 - You cannot delete your own account.
 - Deleting a user permanently deletes that user's timesheets and entries.
 - If a user is assigned as a primary or additional department HOD, a replacement active HOD must be selected before deletion.
@@ -121,9 +123,9 @@ Each department can have one primary **Head of Department** and multiple **HOD a
 - **HOD approvers** are all HOD users who can manage that department.
 - The selected primary HOD is automatically included as an approver.
 - A HOD can manage more than one department.
-- A HOD can approve or reject employee timesheets only for departments they manage.
-- A HOD cannot approve or reject their own timesheet or another HOD's timesheet.
-- Submission, resubmission, and recall emails go to every HOD approver assigned to that employee's department.
+- A HOD can approve, reject, or recall approved employee timesheets only for departments they manage.
+- A HOD cannot approve, reject, or recall their own timesheet or another HOD's timesheet.
+- Submission and resubmission emails go to every HOD approver assigned to that employee's department.
 - The HOD dashboard, Department Timesheets page, Submission Tracker, and reminder tools use the full list of departments assigned to the HOD.
 - If a HOD user's role is changed back to Employee, Admin, or Super Admin, MEC Portal automatically removes that user from primary HOD and additional HOD approver assignments.
 
@@ -153,9 +155,9 @@ A valid weekly period:
 - Contains exactly 7 days.
 - Is either open or closed.
 
-Open periods allow drafts, submissions, and resubmissions. Closed periods block new changes.
+Open periods allow drafts, submissions, and resubmissions. Closed periods block new changes except when an approved timesheet has been recalled for correction.
 
-Users can only create one active timesheet per weekly period, even if the period remains open. If a Super Admin voids an approved timesheet for correction, the owner can create a new timesheet for that same weekly period while the voided record remains visible for audit history.
+Users can only create one active timesheet per weekly period, even if the period remains open. Withdrawn and recalled timesheets remain active so the owner corrects the same record. If a Super Admin voids an approved timesheet for replacement, the owner can create a new timesheet for that same weekly period while the voided record remains visible for audit history.
 
 ## Automations
 
@@ -193,11 +195,11 @@ Use **Audit Logs** to review important actions such as:
 - User creation, updates, and deletion.
 - Department and project changes.
 - Weekly period changes.
-- Timesheet submission, recall, approval, rejection, resubmission, and deletion.
+- Timesheet submission, withdrawal, approved recall, approval, rejection, resubmission, voiding, and deletion.
 - Automation enable/disable actions.
 - Missing timesheet reminders.
 
-Audit logs can be filtered by action, user, and date range. Some logs include expandable before/after details.
+Audit logs can be filtered by action, user, and date range. Some logs include expandable before/after details. Timesheet history is also shown under each timesheet's entry table from a dedicated history table, so it remains available even if general audit logs are later cleaned up. Only Super Admin users can see stored IP addresses in that history.
 
 Use **Export Excel** to download an Excel file of audit logs using the current filters.
 
@@ -248,6 +250,7 @@ Use **HOD Timesheets** when you only need to review Head of Department submissio
 2. Filter by department, HOD, status, week, or year.
 3. Select **Review** to open the timesheet.
 4. Approve or reject submitted HOD timesheets from the detail page.
+5. Recall approved HOD timesheets with a required reason when a correction is needed after approval.
 
 Use **HOD Tracker** to monitor HOD submissions for a selected weekly period.
 
@@ -257,21 +260,37 @@ Use **HOD Tracker** to monitor HOD submissions for a selected weekly period.
 4. Review each HOD's period status.
 5. Use **Send Reminder** for one missing HOD or **Notify All Missing** for all missing HODs in the selected view.
 
-Submitted and approved HOD timesheets are treated as complete. Draft, rejected, and missing records are treated as needing action. Reminder emails are sent only to active HODs with an email address, and a manual cooldown prevents repeated reminders for the same HOD and weekly period.
+Submitted and approved HOD timesheets are treated as complete. Draft, rejected, withdrawn, recalled, and missing records are treated as needing action. Reminder emails are sent only to active HODs with an email address, and a manual cooldown prevents repeated reminders for the same HOD and weekly period.
 
 ## Approval Rules
 
-Super Admins can approve or reject submitted timesheets where needed, but cannot approve or reject their own timesheet.
+Super Admins can approve or reject submitted timesheets where needed, but cannot approve or reject their own timesheet. Super Admins can recall approved timesheets where needed, but cannot recall their own approved timesheet.
 
-Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
+Rejecting or recalling a timesheet requires a comment. The comment is visible to the timesheet owner and stored in the timesheet history.
 
 When a Head of Department submits or resubmits their own timesheet, active Admins and Super Admins receive an email notification unless **Receive HOD timesheet submission emails** is turned off on their user account.
 
-When a Super Admin approves or rejects a Head of Department timesheet, the Head of Department receives an approval or rejection email for that weekly period.
+When a Super Admin approves, rejects, or recalls a Head of Department timesheet, the Head of Department receives an email for that weekly period.
 
-## Voiding Approved Timesheets
+## Recalling Or Voiding Approved Timesheets
 
-Use voiding when an already approved timesheet has an error that should be replaced by a corrected employee submission.
+Use recall when an approved timesheet needs to be corrected by the same owner while preserving one active record for that weekly period.
+
+1. Go to **All Timesheets**.
+2. Open the approved timesheet.
+3. In **Recall approved timesheet**, enter a clear recall reason.
+4. Select **Recall approved timesheet** and confirm.
+
+Important recall rules:
+
+- Super Admins can recall approved timesheets, except their own.
+- Admins can recall approved Head of Department timesheets only.
+- HODs can recall approved employee timesheets in departments they manage.
+- A recall reason is required.
+- The employee receives an email with the reason and can correct and resubmit the same timesheet.
+- The reason, actor, timestamp, and IP address are stored in timesheet history. IP addresses are visible only to Super Admin users.
+
+Use voiding when an already approved timesheet should be cancelled and replaced by a corrected employee submission.
 
 1. Go to **All Timesheets**.
 2. Open the approved timesheet.
@@ -283,7 +302,7 @@ Important voiding rules:
 - Only Super Admins can void timesheets.
 - Only approved timesheets can be voided.
 - Super Admins cannot void their own timesheet.
-- A void reason is required and is stored with the audit log.
+- A void reason is required and is stored with the timesheet history and audit log.
 - The original timesheet remains visible with status **Voided**.
 - Voided timesheets are excluded from normal Excel exports and submission-complete checks.
 - The employee can create and submit a corrected timesheet for the same weekly period.

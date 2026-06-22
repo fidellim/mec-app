@@ -52,14 +52,14 @@ password123
 
 ## Role Permissions
 
-- Super Admin: manage users, departments, projects/job numbers, weekly periods, view all timesheets, approve or reject submitted records if needed, and export. Super Admin cannot approve or reject their own timesheet.
+- Super Admin: manage users, departments, projects/job numbers, weekly periods, view all timesheets, approve/reject submitted records, recall approved records when correction is needed, void approved records when replacement is needed, and export. Super Admin cannot approve, reject, recall, or void their own timesheet.
 - Super Admin can also manage scheduled automation controls, view audit logs for important system and timesheet actions, export audit logs to Excel, and delete audit logs when database cleanup is needed.
 - Employee numbers are manually entered by Super Admin and must follow `MEC-HR-YYYY-NNN`, `MCE-HR-YYYY-NNN`, or `MEC-PHIL-HR-YYYY-NNN`; the final number must be at least 3 digits and can grow beyond 999.
 - Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
 - Job titles are optional user profile details and appear in timesheet exports. Blank job titles export as `-`.
-- Admin: view all timesheets, filter records, monitor dashboard summaries, export, and approve or reject Head of Department timesheets. Admin cannot approve or reject their own timesheet.
-- Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, and track missing submissions. Head of Department cannot approve or reject their own timesheet.
-- Employee: create weekly timesheets, save drafts, submit for approval, view history, edit only draft or rejected timesheets, and resubmit rejected records.
+- Admin: view all timesheets, filter records, monitor dashboard summaries, export, approve/reject Head of Department timesheets, and recall approved Head of Department timesheets. Admin cannot approve, reject, or recall their own timesheet.
+- Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, and track missing submissions. Head of Department cannot approve, reject, or recall their own timesheet.
+- Employee: create weekly timesheets, save drafts, submit for approval, view history, withdraw submitted timesheets before approval, edit draft/rejected/withdrawn/recalled timesheets, and resubmit corrected records.
 - Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
 
 ## User Management
@@ -71,7 +71,7 @@ Super Admin users can create, edit, activate/deactivate, and delete users from *
 - Job Title can be entered manually when creating or editing users. It is optional, limited to 100 characters, and appears as `-` in exports when blank.
 - User passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
 - Users without a department cannot create or submit their own timesheets. Assign a department first if Admin, Super Admin, Head of Department, or Employee accounts need to submit personal weekly time.
-- When a user's department is changed, their existing draft and rejected timesheets move to the new department. Submitted and approved timesheets remain with the original department for review and historical reporting.
+- When a user's department is changed, their existing draft, withdrawn, recalled, and rejected timesheets move to the new department. Submitted and approved timesheets remain with the original department for review and historical reporting.
 - Super Admin cannot delete their own account.
 - Deleting a user permanently removes the user and the timesheets owned by that user.
 - Timesheet entries are also deleted because they belong to the deleted user's timesheets.
@@ -113,9 +113,9 @@ Departments support one primary Head of Department and any number of additional 
 - A HOD's managed departments are resolved from three sources: departments where they are selected as primary HOD, departments where they are selected as an additional HOD approver, and their own profile department as a legacy fallback.
 - The HOD dashboard, Department Timesheets, Submission Tracker, missing-timesheet reminders, and submission/recall notification emails use the full managed-department list.
 - HOD timesheet and tracker pages include a department filter when the HOD manages multiple departments. The filter only lists departments that HOD is allowed to manage.
-- HODs can approve or reject submitted employee timesheets only inside their managed departments.
-- HODs still cannot approve or reject their own timesheet or another HOD's timesheet.
-- Employee submission, resubmission, and recall emails are sent to every active HOD approver assigned to the timesheet department, including the primary HOD.
+- HODs can approve, reject, or recall approved employee timesheets only inside their managed departments.
+- HODs still cannot approve, reject, or recall their own timesheet or another HOD's timesheet.
+- Employee submission and resubmission emails are sent to every active HOD approver assigned to the timesheet department, including the primary HOD.
 - When deleting a HOD assigned to one or more departments, Super Admin must select an active replacement HOD. The replacement is assigned to all departments previously managed by the deleted user.
 - If a HOD user's role is changed back to Employee, Admin, or Super Admin, their primary HOD assignments and additional HOD approver assignments are cleared automatically.
 
@@ -171,6 +171,8 @@ Super Admin users can review audit logs from **Manage Audit Logs**.
 - Use **Delete All Matching Filters** to remove every audit log matching the current filters. This action requires the explicit acknowledgement checkbox and confirmation modal before the request is submitted.
 - Audit log deletion is restricted to Super Admin users.
 
+Timesheet workflow history is stored separately in `timesheet_status_histories` so the history shown under a timesheet remains available even if general audit logs are later cleaned up. The migration backfills existing timesheet-related audit rows into this table, and new workflow actions write to both the dedicated history table and the general audit log.
+
 ## Main Workflow
 
 1. Super Admin creates departments, users, projects, and weekly periods.
@@ -181,10 +183,11 @@ Super Admin users can review audit logs from **Manage Audit Logs**.
 6. `L200` Training Seminar can be entered without a project/job number and can include regular or overtime hours.
 7. Employee saves as draft or submits.
 8. Submitted timesheets are locked for the employee.
-9. Employee can recall a submitted timesheet before Head of Department action, returning it to draft for correction.
+9. Employee can withdraw a submitted timesheet before approval, marking it withdrawn for correction without sending an email to themselves.
 10. Head of Department approves or rejects employee timesheets for departments they manage.
 11. Rejected timesheets show the rejection comment and become editable by the employee.
-12. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
+12. Approved timesheets can be recalled by an authorized reviewer with a required reason; the owner receives an email and can correct and resubmit the same record.
+13. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.
 
 ## Open Period Rules
 
@@ -193,8 +196,8 @@ Employees can create timesheets for any weekly period that is marked `open`.
 - Past periods can remain open when late submissions are allowed.
 - Current periods can remain open for normal weekly submission.
 - Future periods can be opened early when advance submissions are allowed.
-- Closed periods cannot accept new drafts, submissions, or resubmissions.
-- Employees can still only have one timesheet per weekly period.
+- Closed periods cannot accept new drafts, submissions, or resubmissions unless an approved timesheet has been recalled for correction.
+- Employees can still only have one active timesheet per weekly period. Voided records are excluded so a replacement can be created.
 
 Super Admin controls availability from **Manage Weekly Periods**. To allow last week or next week, keep or set that period to `open`; to stop new changes, set the period to `closed`.
 
@@ -310,9 +313,10 @@ The system sends email notifications for core timesheet workflow actions:
 
 - Employee submits a timesheet: every Head of Department approver for that department receives a review email.
 - Employee resubmits a rejected timesheet: every Head of Department approver for that department receives a review email.
-- Employee recalls a submitted timesheet: every Head of Department approver for that department receives a recall email.
+- Employee withdraws a submitted timesheet: no email is sent, but the action is stored in timesheet history.
 - Head of Department approves a timesheet: employee receives an approval email.
 - Head of Department rejects a timesheet: employee receives a rejection email with the comment.
+- Authorized reviewer recalls an approved timesheet: employee receives a recall email with the reason.
 - Missing weekly timesheet reminders: employees receive a reminder email when they do not have a submitted or approved timesheet for the selected period.
 
 Head of Department users can send reminders from **Department Submission Tracker** for one missing employee or all missing employees in their managed departments. A scheduled command also sends automatic reminders for the latest past open weekly period:
@@ -676,7 +680,7 @@ These tests exercise real Laravel routes, middleware, validation, database write
 - login and inactive user access
 - role-based access control
 - dashboard rendering for each role
-- employee timesheet creation, draft, submission, recall, rejection, and resubmission
+- employee timesheet creation, draft, submission, withdrawal, rejection, approved recall, and resubmission
 - timesheet edge cases such as duplicate weeks, closed periods, blank weekend attendance, missing project/code, and invalid dates
 - Head of Department approval and rejection rules
 - admin and Super Admin approval/export access
@@ -814,7 +818,7 @@ When a bug is found, add or update a test that reproduces the bug first, then fi
 
 - Registration is disabled; Super Admin creates users.
 - Export uses Laravel Excel and generates native `.xlsx` files.
-- Approved timesheet correction is intentionally not implemented.
+- Approved timesheet correction is implemented through required-reason recall, employee resubmission, dedicated timesheet history, audit logging, and Super Admin-only IP visibility.
 - Notifications, payroll, leave management, Teams integration, Power BI, mobile app, and advanced analytics are outside Phase 1.
 - User deletion is permanent in Phase 1; deactivate a user instead if historical ownership should be retained.
 - Department and project deletion is restricted to unused records; use deactivate/archive for anything with history.
@@ -826,4 +830,4 @@ When a bug is found, add or update a test that reproduces the bug first, then fi
 - Delegated approval and temporary Head of Department coverage.
 - Payroll integration and locked payroll periods.
 - Rich reporting dashboards and Power BI dataset sync.
-- Correction workflow for approved timesheets with audit approval.
+- Optional second-level approval for approved-timesheet corrections.

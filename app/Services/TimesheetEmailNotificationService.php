@@ -47,21 +47,17 @@ class TimesheetEmailNotificationService
         ));
     }
 
-    public function recalled(Timesheet $timesheet): void
+    public function approvedRecalled(Timesheet $timesheet, string $reason): void
     {
         $timesheet = $this->loadTimesheet($timesheet);
 
-        $this->sendToHods($timesheet, fn () => new TimesheetWorkflowMail(
+        $this->send($timesheet->user, new TimesheetWorkflowMail(
             timesheet: $timesheet,
-            headline: 'Timesheet recalled by employee',
-            intro: $timesheet->user->name.' recalled a submitted timesheet for Week '.$timesheet->period->week_number.', '.$timesheet->period->year.'.',
-            actionLabel: 'View Department Timesheets',
-            actionUrl: route('hod.timesheets.index', [
-                'employee_id' => $timesheet->user_id,
-                'week_number' => $timesheet->period->week_number,
-                'year' => $timesheet->period->year,
-                'department_id' => $timesheet->department_id,
-            ]),
+            headline: 'Approved timesheet recalled',
+            intro: 'Your approved timesheet for Week '.$timesheet->period->week_number.', '.$timesheet->period->year.' was recalled and needs your correction.',
+            actionLabel: 'Edit Timesheet',
+            actionUrl: route('employee.timesheets.edit', $timesheet),
+            comment: $reason,
         ));
     }
 

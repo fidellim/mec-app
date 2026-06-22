@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Mail\TimesheetWorkflowMail;
+use App\Models\AuditLog;
 use App\Models\Timesheet;
+use App\Models\TimesheetStatusHistory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
@@ -35,6 +37,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertSame('draft', $timesheet->status);
         $this->assertSame('8.00', $timesheet->total_regular_hours);
         $this->assertNull($weekendEntry->attendance_code);
+        $this->assertSame(0, AuditLog::where('action', 'timesheet_created')->count());
+        $this->assertSame(0, TimesheetStatusHistory::where('action', 'timesheet_created')->count());
     }
 
     public function test_employee_can_choose_from_multiple_open_periods_before_creating_timesheet(): void
@@ -596,7 +600,33 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         Mail::assertNothingQueued();
     }
 
-    public function test_employee_can_recall_own_submitted_timesheet(): void
+    public function test_draft_only_updates_and_deletes_do_not_create_timesheet_logs(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $timesheet = $this->submittedTimesheet($employee, $period, $project, ['status' => 'draft']);
+
+        $this->actingAs($employee)->put(route('employee.timesheets.update', $timesheet), [
+            'timesheet_period_id' => $period->id,
+            'entries' => $this->validEntries($project, [
+                '2026-05-11' => ['regular_hours' => 6],
+            ]),
+        ])->assertRedirect(route('employee.timesheets.show', $timesheet));
+
+        $this->assertSame('draft', $timesheet->refresh()->status);
+        $this->assertSame(0, AuditLog::where('action', 'timesheet_updated')->count());
+        $this->assertSame(0, TimesheetStatusHistory::where('action', 'timesheet_updated')->count());
+
+        $this->actingAs($employee)
+            ->delete(route('employee.timesheets.destroy', $timesheet))
+            ->assertRedirect(route('employee.timesheets.index'));
+
+        $this->assertSame(0, AuditLog::where('action', 'timesheet_deleted')->count());
+        $this->assertSame(0, TimesheetStatusHistory::count());
+    }
+
+    public function test_employee_can_withdraw_own_submitted_timesheet_without_email(): void
     {
         Mail::fake();
 
@@ -609,12 +639,27 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $timesheet = $this->submittedTimesheet($employee, $period, $project);
 
         $this->actingAs($employee)
-            ->post(route('employee.timesheets.recall', $timesheet))
+            ->withServerVariables(['REMOTE_ADDR' => '10.11.12.13'])
+            ->post(route('employee.timesheets.recall', $timesheet), [
+                'withdrawal_comment' => 'Need to correct Thursday overtime.',
+            ])
             ->assertRedirect(route('employee.timesheets.edit', $timesheet));
 
-        $this->assertSame('draft', $timesheet->refresh()->status);
-        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($hod->email)
-            && $mail->headline === 'Timesheet recalled by employee');
+        $this->assertSame('withdrawn', $timesheet->refresh()->status);
+        $this->assertNull($timesheet->submitted_at);
+        $this->assertSame(1, AuditLog::where('action', 'timesheet_withdrawn')->count());
+        $log = AuditLog::where('action', 'timesheet_withdrawn')->firstOrFail();
+        $this->assertSame($employee->id, $log->user_id);
+        $this->assertSame('10.11.12.13', $log->ip_address);
+        $this->assertSame('Need to correct Thursday overtime.', $log->new_values['withdrawal_comment']);
+        $history = TimesheetStatusHistory::where('action', 'timesheet_withdrawn')->firstOrFail();
+        $this->assertSame($timesheet->id, $history->timesheet_id);
+        $this->assertSame($employee->id, $history->actor_id);
+        $this->assertSame('submitted', $history->old_status);
+        $this->assertSame('withdrawn', $history->new_status);
+        $this->assertSame('Need to correct Thursday overtime.', $history->comment);
+        $this->assertSame('10.11.12.13', $history->ip_address);
+        Mail::assertNothingQueued();
     }
 
     public function test_employee_cannot_view_or_edit_another_employees_timesheet(): void

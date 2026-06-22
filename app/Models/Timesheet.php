@@ -10,9 +10,22 @@ class Timesheet extends Model
 {
     use HasFactory;
 
+    public const STATUS_DRAFT = 'draft';
+    public const STATUS_SUBMITTED = 'submitted';
+    public const STATUS_APPROVED = 'approved';
+    public const STATUS_REJECTED = 'rejected';
+    public const STATUS_WITHDRAWN = 'withdrawn';
+    public const STATUS_RECALLED = 'recalled';
     public const STATUS_VOIDED = 'voided';
 
-    public const ACTIVE_STATUSES = ['draft', 'submitted', 'approved', 'rejected'];
+    public const ACTIVE_STATUSES = [
+        self::STATUS_DRAFT,
+        self::STATUS_SUBMITTED,
+        self::STATUS_APPROVED,
+        self::STATUS_REJECTED,
+        self::STATUS_WITHDRAWN,
+        self::STATUS_RECALLED,
+    ];
 
     protected $fillable = [
         'user_id', 'department_id', 'timesheet_period_id', 'status', 'submitted_at',
@@ -80,6 +93,16 @@ class Timesheet extends Model
         return $this->hasMany(TimesheetEntry::class);
     }
 
+    public function auditLogs()
+    {
+        return $this->morphMany(AuditLog::class, 'auditable')->latest();
+    }
+
+    public function statusHistories()
+    {
+        return $this->hasMany(TimesheetStatusHistory::class)->latest('occurred_at');
+    }
+
     public function approver()
     {
         return $this->belongsTo(User::class, 'approved_by');
@@ -97,7 +120,8 @@ class Timesheet extends Model
 
     public function editableBy(User $user): bool
     {
-        return (int) $this->user_id === (int) $user->id && in_array($this->status, ['draft', 'rejected'], true);
+        return (int) $this->user_id === (int) $user->id
+            && in_array($this->status, [self::STATUS_DRAFT, self::STATUS_REJECTED, self::STATUS_WITHDRAWN, self::STATUS_RECALLED], true);
     }
 
     public function isActive(): bool

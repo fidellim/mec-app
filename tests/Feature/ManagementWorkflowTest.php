@@ -427,7 +427,7 @@ class ManagementWorkflowTest extends TestCase
             ->assertForbidden();
     }
 
-    public function test_department_transfer_moves_only_draft_and_rejected_timesheets(): void
+    public function test_department_transfer_moves_only_editable_timesheets(): void
     {
         $superAdmin = $this->userWithRole('super_admin');
         $oldDepartment = $this->department(['name' => 'Old Department']);
@@ -452,6 +452,16 @@ class ManagementWorkflowTest extends TestCase
             'start_date' => '2026-06-01',
             'end_date' => '2026-06-07',
         ]);
+        $fifthPeriod = $this->openPeriod([
+            'week_number' => 24,
+            'start_date' => '2026-06-08',
+            'end_date' => '2026-06-14',
+        ]);
+        $sixthPeriod = $this->openPeriod([
+            'week_number' => 25,
+            'start_date' => '2026-06-15',
+            'end_date' => '2026-06-21',
+        ]);
 
         $draft = Timesheet::create([
             'user_id' => $employee->id,
@@ -464,6 +474,18 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $oldDepartment->id,
             'timesheet_period_id' => $nextPeriod->id,
             'status' => 'rejected',
+        ]);
+        $withdrawn = Timesheet::create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'timesheet_period_id' => $fifthPeriod->id,
+            'status' => 'withdrawn',
+        ]);
+        $recalled = Timesheet::create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'timesheet_period_id' => $sixthPeriod->id,
+            'status' => 'recalled',
         ]);
         $submitted = Timesheet::create([
             'user_id' => $employee->id,
@@ -492,6 +514,8 @@ class ManagementWorkflowTest extends TestCase
         $this->assertSame($newDepartment->id, $employee->refresh()->department_id);
         $this->assertSame($newDepartment->id, $draft->refresh()->department_id);
         $this->assertSame($newDepartment->id, $rejected->refresh()->department_id);
+        $this->assertSame($newDepartment->id, $withdrawn->refresh()->department_id);
+        $this->assertSame($newDepartment->id, $recalled->refresh()->department_id);
         $this->assertSame($oldDepartment->id, $submitted->refresh()->department_id);
         $this->assertSame($oldDepartment->id, $approved->refresh()->department_id);
         $this->assertDatabaseHas('audit_logs', [

@@ -10,6 +10,8 @@ use App\Models\Department;
 use App\Services\AuditLogService;
 use App\Services\MissingTimesheetReminderService;
 use App\Services\TimesheetEmailNotificationService;
+use App\Services\TimesheetRecallService;
+use App\Services\TimesheetStatusHistoryService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -50,7 +52,16 @@ class HodTimesheetController extends Controller
         return view('hod.timesheets.show', ['timesheet' => $timesheet->load(['user', 'entries.project', 'period', 'department'])]);
     }
 
-    public function approve(Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
+    public function history(Timesheet $timesheet)
+    {
+        $this->authorizeDepartment($timesheet);
+
+        return view('shared.timesheet_history_timeline', [
+            'timesheet' => $timesheet->load('statusHistories.user'),
+        ]);
+    }
+
+    public function approve(Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history)
     {
         if ($this->isOwnTimesheet($timesheet)) {
             return back()->with('warning', $this->ownTimesheetApprovalMessage());
@@ -68,13 +79,15 @@ class HodTimesheetController extends Controller
             'rejected_by' => null,
             'rejection_comment' => null,
         ]);
-        $audit->record('timesheet_approved', $timesheet, $old, $timesheet->fresh()->toArray());
+        $new = $timesheet->fresh()->toArray();
+        $audit->record('timesheet_approved', $timesheet, $old, $new);
+        $history->record('timesheet_approved', $timesheet, $old, $new);
         $emails->approved($timesheet);
 
         return back()->with('success', 'Timesheet approved.');
     }
 
-    public function reject(RejectTimesheetRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
+    public function reject(RejectTimesheetRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history)
     {
         if ($this->isOwnTimesheet($timesheet)) {
             return back()->with('warning', $this->ownTimesheetApprovalMessage());
@@ -92,10 +105,30 @@ class HodTimesheetController extends Controller
             'approved_at' => null,
             'approved_by' => null,
         ]);
-        $audit->record('timesheet_rejected', $timesheet, $old, $timesheet->fresh()->toArray());
+        $new = $timesheet->fresh()->toArray();
+        $audit->record('timesheet_rejected', $timesheet, $old, $new);
+        $history->record('timesheet_rejected', $timesheet, $old, $new);
         $emails->rejected($timesheet);
 
         return back()->with('success', 'Timesheet rejected.');
+    }
+
+    public function recallApproved(Request $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetRecallService $recalls, TimesheetStatusHistoryService $history)
+    {
+        if ($this->isOwnTimesheet($timesheet)) {
+            return back()->with('warning', 'You cannot recall your own approved timesheet. Another authorized reviewer must complete this correction.');
+        }
+
+        $this->authorizeApprovalAction($timesheet, 'recall');
+        abort_unless($timesheet->status === Timesheet::STATUS_APPROVED, 422, 'Only approved timesheets can be recalled.');
+
+        $validated = $request->validate([
+            'recall_reason' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+
+        $recalls->recallApproved($timesheet, $request->user(), $validated['recall_reason'], $audit, $emails, $history);
+
+        return back()->with('success', 'Approved timesheet recalled. The employee has been notified to correct and resubmit it.');
     }
 
     public function tracker(MissingTimesheetReminderService $reminders)

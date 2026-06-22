@@ -34,6 +34,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/', [EmployeeTimesheetController::class, 'index'])->name('index');
         Route::get('/create', [EmployeeTimesheetController::class, 'create'])->name('create');
         Route::post('/', [EmployeeTimesheetController::class, 'store'])->name('store');
+        Route::get('/{timesheet}/history', [EmployeeTimesheetController::class, 'history'])->name('history');
         Route::get('/{timesheet}', [EmployeeTimesheetController::class, 'show'])->name('show');
         Route::get('/{timesheet}/edit', [EmployeeTimesheetController::class, 'edit'])->name('edit');
         Route::put('/{timesheet}', [EmployeeTimesheetController::class, 'update'])->name('update');
@@ -43,9 +44,11 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:hod')->prefix('department')->name('hod.')->group(function () {
         Route::get('/timesheets', [HodTimesheetController::class, 'index'])->name('timesheets.index');
+        Route::get('/timesheets/{timesheet}/history', [HodTimesheetController::class, 'history'])->name('timesheets.history');
         Route::get('/timesheets/{timesheet}', [HodTimesheetController::class, 'show'])->name('timesheets.show');
         Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
         Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');
+        Route::post('/timesheets/{timesheet}/recall-approved', [HodTimesheetController::class, 'recallApproved'])->name('timesheets.recall-approved');
         Route::get('/tracker', [HodTimesheetController::class, 'tracker'])->name('tracker');
         Route::post('/tracker/reminders', [HodTimesheetController::class, 'remindMissing'])->name('tracker.reminders');
     });
@@ -53,7 +56,9 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
         Route::get('/timesheets', [AdminTimesheetController::class, 'index'])->name('timesheets.index');
         Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->middleware('throttle:exports')->name('timesheets.export');
+        Route::get('/timesheets/{timesheet}/history', [AdminTimesheetController::class, 'history'])->name('timesheets.history');
         Route::get('/timesheets/{timesheet}', [AdminTimesheetController::class, 'show'])->name('timesheets.show');
+        Route::post('/timesheets/{timesheet}/recall-approved', [AdminTimesheetController::class, 'recallApproved'])->name('timesheets.recall-approved');
         Route::post('/timesheets/{timesheet}/void', [AdminTimesheetController::class, 'voidTimesheet'])->middleware('role:super_admin')->name('timesheets.void');
         Route::get('/hod-timesheets', [AdminHodTimesheetController::class, 'index'])->name('hod-timesheets.index');
         Route::get('/hod-submission-tracker', [AdminHodTimesheetController::class, 'tracker'])->name('hod-tracker');

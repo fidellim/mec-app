@@ -34,6 +34,8 @@ Admins can access:
 | ![Submitted](/images/status/submitted.svg) | Sent for review. |
 | ![Approved](/images/status/approved.svg) | Accepted by an authorized reviewer. |
 | ![Rejected](/images/status/rejected.svg) | Returned to the owner with a comment. |
+| Withdrawn | The owner withdrew a submitted timesheet before approval. |
+| Recalled | An approved timesheet was sent back for correction with a required reason. |
 
 ## Dashboard
 
@@ -96,10 +98,13 @@ The timesheet detail page shows:
 - Project/job numbers.
 - Remarks.
 - Rejection comment, if one exists.
+- Timesheet history under the entry table, including status changes, comments, actors, and timestamps.
 
 ## Approval Rules
 
 Admins can approve or reject submitted Head of Department timesheets.
+
+Admins can also recall approved Head of Department timesheets when a correction is needed after approval. A recall reason is required, the Head of Department receives an email, and the status changes from **Approved** to **Recalled**. The Head of Department can then correct and resubmit the same timesheet. Use recall for normal corrections and reserve voiding for records that should be cancelled and replaced.
 
 When a Head of Department submits or resubmits their own timesheet, active Admins receive an email notification so they can review it from **All Timesheets**. A Super Admin can turn off **Receive HOD timesheet submission emails** on an Admin account if that Admin should not receive those approval-request emails.
 
@@ -107,12 +112,15 @@ Admins cannot:
 
 - Approve or reject their own timesheet.
 - Approve or reject ordinary employee timesheets.
+- Recall ordinary employee timesheets from the Admin area.
 - Edit another user's timesheet.
 - Manage users, departments, projects, weekly periods, automations, or audit logs.
 
 Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
 
 When an Admin approves or rejects a Head of Department timesheet, the Head of Department receives an approval or rejection email for that weekly period.
+
+When an Admin recalls an approved Head of Department timesheet, the recall reason, Admin, timestamp, and IP address are stored in the history log. IP addresses are visible only to Super Admin users.
 
 ## Submit Your Own Timesheet
 
@@ -187,4 +195,4 @@ If an employee does not have a Job Title saved, exports show `-` in that column.
 | Export has too many worksheet tabs | Individual employee sheets were included. | Leave **Include individual employee timesheet sheets** unchecked for summary-only export. |
 | Week export is rejected | The year is missing or the selected week/range has no matching weekly period. | Enter the year and choose a week that exists in Manage Weekly Periods. |
 | Cannot create your own timesheet | No department is assigned or no open period exists. | Contact the system administrator. |
-| Timesheet cannot be edited | Admins do not edit other users' timesheets. | Return it with a rejection comment if correction is allowed. |
+| Timesheet cannot be edited | Admins do not edit other users' timesheets. | Reject submitted HOD timesheets, or recall approved HOD timesheets with a required reason. |

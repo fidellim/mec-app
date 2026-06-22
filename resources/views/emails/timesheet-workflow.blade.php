@@ -49,7 +49,7 @@
                         <tr>
                             <td style="padding:14px 28px 0;">
                                 <div style="background:#fff7ed;border:1px solid #fed7aa;border-radius:10px;padding:14px 16px;">
-                                    <div style="font-size:12px;font-weight:700;color:#9a3412;text-transform:uppercase;margin-bottom:6px;">Rejection comment</div>
+                                    <div style="font-size:12px;font-weight:700;color:#9a3412;text-transform:uppercase;margin-bottom:6px;">Comment</div>
                                     <div style="font-size:14px;line-height:1.5;color:#7c2d12;">{{ $comment }}</div>
                                 </div>
                             </td>

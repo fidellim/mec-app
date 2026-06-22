@@ -15,7 +15,7 @@ class AdminHodTimesheetController extends Controller
     public function index()
     {
         $filters = request()->validate([
-            'status' => ['nullable', 'in:draft,submitted,approved,rejected,voided'],
+            'status' => ['nullable', 'in:draft,submitted,approved,rejected,withdrawn,recalled,voided'],
             'hod_id' => ['nullable', Rule::exists('users', 'id')->where('role', 'hod')],
             'department_id' => ['nullable', Rule::exists('departments', 'id')],
             'week_number' => ['nullable', 'integer', 'between:1,53'],

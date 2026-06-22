@@ -8,7 +8,9 @@ use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Services\AuditLogService;
 use App\Services\TimesheetEmailNotificationService;
+use App\Services\TimesheetStatusHistoryService;
 use Carbon\CarbonPeriod;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeTimesheetController extends Controller
@@ -60,7 +62,7 @@ class EmployeeTimesheetController extends Controller
         ]);
     }
 
-    public function store(TimesheetSaveRequest $request, AuditLogService $audit, TimesheetEmailNotificationService $emails)
+    public function store(TimesheetSaveRequest $request, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history)
     {
         $user = $request->user();
         if (! $user->department_id) {
@@ -83,7 +85,7 @@ class EmployeeTimesheetController extends Controller
                 ->with('warning', 'You already have a timesheet for this week. You cannot create another one.');
         }
 
-        $timesheet = DB::transaction(function () use ($request, $user, $period, $audit) {
+        $timesheet = DB::transaction(function () use ($request, $user, $period, $audit, $history) {
             $timesheet = Timesheet::create([
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
@@ -94,7 +96,12 @@ class EmployeeTimesheetController extends Controller
 
             $this->syncEntries($timesheet, $request->entries);
             $this->recalculate($timesheet);
-            $audit->record($request->boolean('submit') ? 'timesheet_submitted' : 'timesheet_created', $timesheet, null, $timesheet->fresh()->toArray());
+            if ($request->boolean('submit')) {
+                $new = $timesheet->fresh()->toArray();
+                $audit->record('timesheet_submitted', $timesheet, null, $new);
+                $history->record('timesheet_submitted', $timesheet, null, $new);
+            }
+
             return $timesheet;
         });
 
@@ -111,6 +118,15 @@ class EmployeeTimesheetController extends Controller
         return view('employee.timesheets.show', ['timesheet' => $timesheet->load(['entries.project', 'period', 'department'])]);
     }
 
+    public function history(Timesheet $timesheet)
+    {
+        $this->authorizeOwner($timesheet);
+
+        return view('shared.timesheet_history_timeline', [
+            'timesheet' => $timesheet->load('statusHistories.user'),
+        ]);
+    }
+
     public function edit(Timesheet $timesheet)
     {
         $this->authorizeOwner($timesheet);
@@ -125,7 +141,7 @@ class EmployeeTimesheetController extends Controller
         ]);
     }
 
-    public function update(TimesheetSaveRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
+    public function update(TimesheetSaveRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history)
     {
         $this->authorizeOwner($timesheet);
         abort_unless($timesheet->editableBy($request->user()), 403);
@@ -134,56 +150,72 @@ class EmployeeTimesheetController extends Controller
                 ->route('employee.timesheets.index')
                 ->with('warning', $this->missingDepartmentMessage());
         }
-        abort_if($timesheet->period->status === 'closed', 422, 'Closed periods cannot accept submissions.');
+        abort_if($timesheet->period->status === 'closed' && $timesheet->status !== Timesheet::STATUS_RECALLED, 422, 'Closed periods cannot accept submissions.');
 
         $old = $timesheet->load('entries')->toArray();
         $wasRejected = $timesheet->status === 'rejected';
+        $wasRecalled = $timesheet->status === Timesheet::STATUS_RECALLED;
 
-        DB::transaction(function () use ($request, $timesheet, $audit, $old, $wasRejected) {
+        DB::transaction(function () use ($request, $timesheet, $audit, $history, $old, $wasRejected, $wasRecalled) {
             $timesheet->update([
                 'status' => $request->boolean('submit') ? 'submitted' : 'draft',
                 'submitted_at' => $request->boolean('submit') ? now() : $timesheet->submitted_at,
                 'rejection_comment' => $request->boolean('submit') ? null : $timesheet->rejection_comment,
+                'approved_at' => ($request->boolean('submit') || $wasRecalled) ? null : $timesheet->approved_at,
+                'approved_by' => ($request->boolean('submit') || $wasRecalled) ? null : $timesheet->approved_by,
             ]);
             $this->syncEntries($timesheet, $request->entries);
             $this->recalculate($timesheet);
-            $action = $request->boolean('submit') && $wasRejected ? 'timesheet_resubmitted' : ($request->boolean('submit') ? 'timesheet_submitted' : 'timesheet_updated');
-            $audit->record($action, $timesheet, $old, $timesheet->fresh('entries')->toArray());
+            $action = match (true) {
+                $request->boolean('submit') && ($wasRejected || $wasRecalled) => 'timesheet_resubmitted',
+                $request->boolean('submit') => 'timesheet_submitted',
+                default => null,
+            };
+
+            if ($action) {
+                $new = $timesheet->fresh('entries')->toArray();
+                $audit->record($action, $timesheet, $old, $new);
+                $history->record($action, $timesheet, $old, $new);
+            }
         });
 
         if ($request->boolean('submit')) {
-            $emails->submitted($timesheet, $wasRejected);
+            $emails->submitted($timesheet, $wasRejected || $wasRecalled);
         }
 
         return redirect()->route('employee.timesheets.show', $timesheet)->with('success', 'Timesheet updated.');
     }
 
-    public function recall(Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails)
+    public function recall(Request $request, Timesheet $timesheet, AuditLogService $audit, TimesheetStatusHistoryService $history)
     {
         $this->authorizeOwner($timesheet);
         abort_unless($timesheet->status === 'submitted', 403, 'Only submitted timesheets can be recalled.');
 
+        $validated = $request->validate([
+            'withdrawal_comment' => ['nullable', 'string', 'max:2000'],
+        ]);
+
         $old = $timesheet->toArray();
         $timesheet->update([
-            'status' => 'draft',
+            'status' => Timesheet::STATUS_WITHDRAWN,
             'submitted_at' => null,
         ]);
 
-        $audit->record('timesheet_recalled', $timesheet, $old, $timesheet->fresh()->toArray());
-        $emails->recalled($timesheet);
+        $new = $timesheet->fresh()->toArray();
+        $new['withdrawal_comment'] = $validated['withdrawal_comment'] ?? null;
+        $audit->record('timesheet_withdrawn', $timesheet, $old, $new);
+        $history->record('timesheet_withdrawn', $timesheet, $old, $new);
 
         return redirect()
             ->route('employee.timesheets.edit', $timesheet)
-            ->with('warning', 'Your submitted timesheet has been recalled. You can now edit and resubmit it.');
+            ->with('warning', 'Your submitted timesheet has been withdrawn. You can now edit and resubmit it.');
     }
 
-    public function destroy(Timesheet $timesheet, AuditLogService $audit)
+    public function destroy(Timesheet $timesheet)
     {
         $this->authorizeOwner($timesheet);
         abort_unless($timesheet->status === 'draft', 403);
-        $old = $timesheet->toArray();
         $timesheet->delete();
-        $audit->record('timesheet_deleted', null, $old);
 
         return redirect()->route('employee.timesheets.index')->with('success', 'Draft deleted.');
     }

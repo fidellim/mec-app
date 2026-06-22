@@ -31,6 +31,8 @@ Employees can access:
 | ![Submitted](/images/status/submitted.svg) | The timesheet has been sent for review. | It is locked unless you recall it before review. |
 | ![Approved](/images/status/approved.svg) | The timesheet has been accepted. | You can view it, but cannot edit it. |
 | ![Rejected](/images/status/rejected.svg) | The timesheet was returned with a comment. | You can edit and resubmit it. |
+| Withdrawn | You withdrew your own submitted timesheet before approval. | You can edit and resubmit it. |
+| Recalled | An authorized reviewer recalled an approved timesheet for correction. | Review the history comment, edit, and resubmit it. |
 | Voided | A Super Admin cancelled an approved timesheet because it needs correction. | Create a corrected timesheet for the same weekly period if the period is open. |
 
 ## Employee Dashboard
@@ -92,22 +94,25 @@ You can:
 
 - Edit **draft** timesheets.
 - Edit **rejected** timesheets after reading the rejection comment.
-- Recall a **submitted** timesheet before it is reviewed, which returns it to draft.
+- Withdraw a **submitted** timesheet before it is approved, which marks it as withdrawn and lets you edit it again.
+- Edit **recalled** timesheets after reading the recall reason in the history log.
 - Delete a **draft** timesheet.
 - Create a corrected timesheet for a weekly period after a Super Admin voids the previously approved timesheet.
 
 You cannot:
 
 - Create two timesheets for the same weekly period.
-- Edit submitted timesheets unless they are recalled first.
+- Edit submitted timesheets unless you withdraw them first.
 - Edit approved timesheets.
-- Submit or resubmit for closed weekly periods.
+- Submit or resubmit for closed weekly periods, unless an approved timesheet for that period was specifically recalled for correction.
+
+If an approved timesheet is recalled by a Head of Department, Admin, or Super Admin, MEC Portal emails you with the reason and keeps the reviewer, timestamp, and comment in the timesheet history under the entry table.
 
 ## After Submission
 
 When you submit or resubmit a timesheet, your reviewer receives an email notification.
 
-When your timesheet is approved or rejected, you receive an email notification. Rejection emails include the comment explaining what needs to be corrected.
+When your timesheet is approved, rejected, or recalled after approval, you receive an email notification. Rejection and approved-recall emails include the comment explaining what needs to be corrected. Withdrawing your own submitted timesheet does not send an email to you.
 
 ## Quick Troubleshooting
 
@@ -115,6 +120,6 @@ When your timesheet is approved or rejected, you receive an email notification. 
 | --- | --- | --- |
 | Cannot create a timesheet | No department is assigned or no open period exists. | Contact the system administrator. |
 | Cannot submit a timesheet | Required attendance code/project is missing, no hours were entered, or the period is closed. | Correct the highlighted fields or ask whether the period should be open. |
-| Cannot edit a timesheet | It is submitted or approved. | Recall it if still submitted. |
-| Cannot create another timesheet for the same week | One active timesheet already exists for that period. | Open and edit the existing draft/rejected timesheet, or view the existing submitted/approved one. If an approved timesheet is wrong, a Super Admin must void it first. |
+| Cannot edit a timesheet | It is submitted or approved. | Withdraw it if still submitted, or ask an authorized reviewer to recall it if it was already approved. |
+| Cannot create another timesheet for the same week | One active timesheet already exists for that period. | Open and edit the existing draft/rejected/withdrawn/recalled timesheet, or view the existing submitted/approved one. If an approved timesheet needs replacement instead of correction, a Super Admin can void it. |
 | Password reset link expired | More than 1 hour passed since the link was requested. | Request a new reset link from the sign-in page. |

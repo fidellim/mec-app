@@ -505,6 +505,94 @@
             border-top: 1px solid var(--app-border);
             border-bottom: 1px solid var(--app-border);
         }
+        .timeline-list {
+            list-style: none;
+            margin: 0;
+            padding: 0;
+        }
+        .timeline-item {
+            position: relative;
+            display: grid;
+            grid-template-columns: 2.5rem minmax(0, 1fr);
+            gap: .55rem;
+            min-height: 5rem;
+        }
+        .timeline-item:not(:last-child)::before {
+            content: "";
+            position: absolute;
+            left: 1.25rem;
+            top: 2.3rem;
+            bottom: .15rem;
+            width: 1px;
+            background: var(--app-border);
+            transform: translateX(-50%);
+        }
+        .timeline-marker {
+            width: 1.45rem;
+            height: 1.45rem;
+            margin-top: .1rem;
+            border-radius: 50%;
+            background: var(--timeline-marker-bg, #4f5df5);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 0 .2rem color-mix(in srgb, var(--timeline-marker-bg, #4f5df5) 14%, transparent);
+            z-index: 1;
+            justify-self: center;
+        }
+        .timeline-marker svg {
+            width: .78rem;
+            height: .78rem;
+            display: block;
+            flex: 0 0 auto;
+            overflow: visible;
+            transform-box: fill-box;
+            transform-origin: center;
+        }
+        .timeline-marker-icon-send { transform: translate(-.02rem, .02rem) scale(.9); }
+        .timeline-marker-icon-check-circle { transform: scale(1.04); }
+        .timeline-marker-icon-x-circle { transform: scale(1.04); }
+        .timeline-marker-icon-undo { transform: translate(.01rem, 0) scale(.96); }
+        .timeline-marker-icon-rotate-left { transform: translate(.01rem, .01rem) scale(.94); }
+        .timeline-marker-icon-ban { transform: scale(1.02); }
+        .timeline-marker-neutral { --timeline-marker-bg: #64748b; }
+        .timeline-marker-info { --timeline-marker-bg: #2563eb; }
+        .timeline-marker-success { --timeline-marker-bg: #15803d; }
+        .timeline-marker-danger { --timeline-marker-bg: #dc2626; }
+        .timeline-marker-warning { --timeline-marker-bg: #b45309; }
+        .timeline-marker-recall { --timeline-marker-bg: #7c3aed; }
+        .timeline-marker-void { --timeline-marker-bg: #475569; }
+        .timeline-marker-muted { --timeline-marker-bg: #0f766e; }
+        .timeline-content {
+            padding-bottom: 1.1rem;
+        }
+        .timeline-date {
+            color: var(--bs-secondary-color);
+            font-size: .9rem;
+            margin-bottom: .18rem;
+        }
+        .timeline-title {
+            font-weight: 700;
+            color: var(--bs-body-color);
+        }
+        .timeline-copy,
+        .timeline-meta {
+            color: var(--bs-secondary-color);
+            font-size: .92rem;
+        }
+        .timeline-comment {
+            margin-top: .5rem;
+            padding: .65rem .75rem;
+            border: 1px solid var(--app-border);
+            border-radius: .6rem;
+            background: color-mix(in srgb, var(--app-muted-bg) 70%, var(--app-card-bg));
+            color: var(--bs-body-color);
+            overflow-wrap: anywhere;
+        }
+        .timeline-meta {
+            margin-top: .35rem;
+        }
         .form-control,
         .form-select,
         .ts-control {
@@ -970,6 +1058,59 @@ const setSearchableSelectValue = (select, value) => {
 };
 
 initializeSearchableSelects();
+
+document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
+    const toggle = card.querySelector('[data-history-toggle]');
+    const panel = card.querySelector('[data-history-panel]');
+    const content = card.querySelector('[data-history-content]');
+    const url = card.dataset.historyUrl;
+
+    if (!toggle || !panel || !content || !url) {
+        return;
+    }
+
+    const setVisible = (visible) => {
+        panel.classList.toggle('d-none', !visible);
+        toggle.textContent = visible ? 'Hide history' : 'Show history';
+        toggle.setAttribute('aria-expanded', visible ? 'true' : 'false');
+    };
+
+    toggle.setAttribute('aria-expanded', 'false');
+
+    toggle.addEventListener('click', async () => {
+        if (card.dataset.loaded === 'true') {
+            setVisible(panel.classList.contains('d-none'));
+            return;
+        }
+
+        panel.classList.remove('d-none');
+        toggle.disabled = true;
+        toggle.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading...';
+
+        try {
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'text/html',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error('Unable to load timesheet history.');
+            }
+
+            content.innerHTML = await response.text();
+            card.dataset.loaded = 'true';
+            initializeTooltips(content);
+            setVisible(true);
+        } catch (error) {
+            content.innerHTML = '<div class="alert alert-warning mb-0">Timesheet history could not be loaded. Please try again.</div>';
+            toggle.textContent = 'Retry';
+        } finally {
+            toggle.disabled = false;
+        }
+    });
+});
 
 (() => {
     const buttons = document.querySelectorAll('[data-theme-toggle]');

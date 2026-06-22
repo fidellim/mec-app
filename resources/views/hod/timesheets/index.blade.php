@@ -26,7 +26,7 @@
             <label class="form-label">Status</label>
             <select class="form-select" name="status">
                 <option value="">All statuses</option>
-                @foreach(['submitted','approved','rejected','draft'] as $status)
+                @foreach(['submitted','approved','rejected','withdrawn','recalled','draft'] as $status)
                     <option value="{{ $status }}" @selected(request('status') === $status)>{{ ucfirst($status) }}</option>
                 @endforeach
             </select>

@@ -10,6 +10,9 @@ use App\Models\TimesheetPeriod;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\TimesheetExportService;
+use App\Services\TimesheetEmailNotificationService;
+use App\Services\TimesheetRecallService;
+use App\Services\TimesheetStatusHistoryService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
@@ -49,12 +52,19 @@ class AdminTimesheetController extends Controller
         return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'approver', 'voider'])]);
     }
 
+    public function history(Timesheet $timesheet)
+    {
+        return view('shared.timesheet_history_timeline', [
+            'timesheet' => $timesheet->load('statusHistories.user'),
+        ]);
+    }
+
     public function export(TimesheetExportService $export)
     {
         return $this->guardedExport(fn () => $export->excel($this->validatedFilters()));
     }
 
-    public function voidTimesheet(Request $request, Timesheet $timesheet, AuditLogService $audit)
+    public function voidTimesheet(Request $request, Timesheet $timesheet, AuditLogService $audit, TimesheetStatusHistoryService $history)
     {
         abort_unless($request->user()?->role === 'super_admin', 403);
 
@@ -77,11 +87,44 @@ class AdminTimesheetController extends Controller
             'void_reason' => $validated['void_reason'],
         ]);
 
-        $audit->record('timesheet_voided', $timesheet, $old, $timesheet->fresh()->toArray());
+        $new = $timesheet->fresh()->toArray();
+        $audit->record('timesheet_voided', $timesheet, $old, $new);
+        $history->record('timesheet_voided', $timesheet, $old, $new);
 
         return redirect()
             ->route('admin.timesheets.show', $timesheet)
             ->with('success', 'Timesheet voided. The employee can now create a corrected timesheet for this weekly period.');
+    }
+
+    public function recallApproved(Request $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetRecallService $recalls, TimesheetStatusHistoryService $history)
+    {
+        if ((int) $timesheet->user_id === (int) $request->user()->id) {
+            return back()->with('warning', 'You cannot recall your own approved timesheet. Another authorized reviewer must complete this correction.');
+        }
+
+        $timesheet->loadMissing('user');
+
+        if ($request->user()->role === 'admin') {
+            abort_unless(
+                $timesheet->user?->role === 'hod',
+                403,
+                'Admin can only recall Head of Department timesheets.'
+            );
+        } else {
+            abort_unless($request->user()->role === 'super_admin', 403);
+        }
+
+        abort_unless($timesheet->status === Timesheet::STATUS_APPROVED, 422, 'Only approved timesheets can be recalled.');
+
+        $validated = $request->validate([
+            'recall_reason' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+
+        $recalls->recallApproved($timesheet, $request->user(), $validated['recall_reason'], $audit, $emails, $history);
+
+        return redirect()
+            ->route('admin.timesheets.show', $timesheet)
+            ->with('success', 'Approved timesheet recalled. The employee has been notified to correct and resubmit it.');
     }
 
     private function filtered(array $filters)
@@ -110,7 +153,7 @@ class AdminTimesheetController extends Controller
             'employee_id' => ['nullable', 'integer', 'exists:users,id'],
             'role' => ['nullable', Rule::in(array_keys(config('roles.labels')))],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
-            'status' => ['nullable', 'in:draft,submitted,approved,rejected,voided,not_submitted'],
+            'status' => ['nullable', 'in:draft,submitted,approved,rejected,withdrawn,recalled,voided,not_submitted'],
             'include_employee_sheets' => ['nullable', 'boolean'],
         ], [
             'week_from.required_with' => 'Enter From Week when using To Week.',

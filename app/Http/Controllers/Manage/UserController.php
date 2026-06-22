@@ -124,12 +124,14 @@ class UserController extends Controller
                 && $data['department_id']
                 && (int) $oldDepartmentId !== (int) $data['department_id']
             ) {
+                $editableStatuses = ['draft', 'rejected', 'withdrawn', 'recalled'];
+
                 $pendingTimesheets = $user->timesheets()
-                    ->whereIn('status', ['draft', 'rejected'])
+                    ->whereIn('status', $editableStatuses)
                     ->get(['id', 'department_id', 'timesheet_period_id']);
 
                 $movedTimesheets = $user->timesheets()
-                    ->whereIn('status', ['draft', 'rejected'])
+                    ->whereIn('status', $editableStatuses)
                     ->update(['department_id' => $data['department_id']]);
 
                 if ($movedTimesheets > 0) {
@@ -143,7 +145,7 @@ class UserController extends Controller
                     ], [
                         'department_id' => $data['department_id'],
                         'timesheets_count' => $movedTimesheets,
-                        'statuses' => ['draft', 'rejected'],
+                        'statuses' => $editableStatuses,
                     ]);
                 }
             }
