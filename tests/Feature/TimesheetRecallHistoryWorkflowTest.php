@@ -182,6 +182,21 @@ class TimesheetRecallHistoryWorkflowTest extends TestCase
             && $mail->headline === 'Approved timesheet recalled');
     }
 
+    public function test_admin_can_see_recall_action_for_employee_timesheet(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project(), [
+            'status' => 'approved',
+        ]);
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.show', $timesheet))
+            ->assertOk()
+            ->assertSee('Recall approved timesheet')
+            ->assertSee('Recall reason');
+    }
+
     public function test_employee_cannot_directly_recall_approved_timesheet(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);

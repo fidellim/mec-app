@@ -41,7 +41,7 @@
         $actor = auth()->user();
         $isOwnTimesheet = (int) $timesheet->user_id === (int) $actor->id;
         $canTakeApprovalAction = ! $isOwnTimesheet
-            && ($actor->role === 'super_admin' || ($actor->role === 'admin' && $timesheet->user?->role === 'hod'));
+            && ($actor->role === 'super_admin' || $actor->role === 'admin');
     @endphp
 
     @if($isOwnTimesheet)
@@ -71,7 +71,7 @@
         $actor = auth()->user();
         $isOwnTimesheet = (int) $timesheet->user_id === (int) $actor->id;
         $canRecallApproved = ! $isOwnTimesheet
-            && ($actor->role === 'super_admin' || ($actor->role === 'admin' && $timesheet->user?->role === 'hod'));
+            && ($actor->role === 'super_admin' || $actor->role === 'admin');
     @endphp
 
     @if($canRecallApproved)

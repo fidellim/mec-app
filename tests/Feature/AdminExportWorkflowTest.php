@@ -324,6 +324,19 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('Rejection comment');
     }
 
+    public function test_admin_can_see_approval_actions_for_employee_timesheet(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project());
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.show', $timesheet))
+            ->assertOk()
+            ->assertSee('Approve this timesheet?')
+            ->assertSee('Rejection comment');
+    }
+
     public function test_admin_can_download_excel_export_summary_only_by_default(): void
     {
         $employee = $this->userWithRole('employee', [
