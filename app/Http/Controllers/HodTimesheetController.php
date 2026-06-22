@@ -242,12 +242,6 @@ class HodTimesheetController extends Controller
         }
 
         if ($actor->role === 'admin') {
-            abort_unless(
-                $timesheet->user?->role === 'hod',
-                403,
-                'Admin can only '.$action.' Head of Department timesheets.'
-            );
-
             return;
         }
 

@@ -57,7 +57,7 @@ password123
 - Employee numbers are manually entered by Super Admin and must follow `MEC-HR-YYYY-NNN`, `MCE-HR-YYYY-NNN`, or `MEC-PHIL-HR-YYYY-NNN`; the final number must be at least 3 digits and can grow beyond 999.
 - Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
 - Job titles are optional user profile details and appear in timesheet exports. Blank job titles export as `-`.
-- Admin: view all timesheets, filter records, monitor dashboard summaries, export, approve/reject Head of Department timesheets, and recall approved Head of Department timesheets. Admin cannot approve, reject, or recall their own timesheet.
+- Admin: view all timesheets, filter records, monitor dashboard summaries, export, approve/reject Employee and Head of Department timesheets, and recall approved Employee and Head of Department timesheets. Admin cannot approve, reject, or recall their own timesheet.
 - Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, and track missing submissions. Head of Department cannot approve, reject, or recall their own timesheet.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, withdraw submitted timesheets before approval, edit draft/rejected/withdrawn/recalled timesheets, and resubmit corrected records.
 - Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
@@ -184,7 +184,7 @@ Timesheet workflow history is stored separately in `timesheet_status_histories` 
 7. Employee saves as draft or submits.
 8. Submitted timesheets are locked for the employee.
 9. Employee can withdraw a submitted timesheet before approval, marking it withdrawn for correction without sending an email to themselves.
-10. Head of Department approves or rejects employee timesheets for departments they manage.
+10. Head of Department approves or rejects employee timesheets for departments they manage; Admin and Super Admin can also approve or reject Employee and Head of Department timesheets.
 11. Rejected timesheets show the rejection comment and become editable by the employee.
 12. Approved timesheets can be recalled by an authorized reviewer with a required reason; the owner receives an email and can correct and resubmit the same record.
 13. Admin and Super Admin monitor all records and export native XLSX timesheet workbooks.

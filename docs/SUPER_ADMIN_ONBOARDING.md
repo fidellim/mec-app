@@ -284,7 +284,7 @@ Use recall when an approved timesheet needs to be corrected by the same owner wh
 Important recall rules:
 
 - Super Admins can recall approved timesheets, except their own.
-- Admins can recall approved Head of Department timesheets only.
+- Admins can recall approved Employee and Head of Department timesheets, except their own.
 - HODs can recall approved employee timesheets in departments they manage.
 - A recall reason is required.
 - The employee receives an email with the reason and can correct and resubmit the same timesheet.

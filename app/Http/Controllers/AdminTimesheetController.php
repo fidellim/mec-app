@@ -104,15 +104,7 @@ class AdminTimesheetController extends Controller
 
         $timesheet->loadMissing('user');
 
-        if ($request->user()->role === 'admin') {
-            abort_unless(
-                $timesheet->user?->role === 'hod',
-                403,
-                'Admin can only recall Head of Department timesheets.'
-            );
-        } else {
-            abort_unless($request->user()->role === 'super_admin', 403);
-        }
+        abort_unless($request->user()->role === 'admin' || $request->user()->role === 'super_admin', 403);
 
         abort_unless($timesheet->status === Timesheet::STATUS_APPROVED, 422, 'Only approved timesheets can be recalled.');
 

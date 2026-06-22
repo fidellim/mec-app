@@ -151,13 +151,42 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSessionHasErrors(['week_from', 'year']);
     }
 
-    public function test_admin_cannot_approve_non_hod_timesheets(): void
+    public function test_admin_can_approve_employee_timesheet(): void
     {
+        Mail::fake();
+
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
         $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project());
         $admin = $this->userWithRole('admin');
 
-        $this->actingAs($admin)->post(route('admin.timesheets.approve', $timesheet))->assertForbidden();
+        $this->actingAs($admin)
+            ->post(route('admin.timesheets.approve', $timesheet))
+            ->assertRedirect();
+
+        $this->assertSame('approved', $timesheet->refresh()->status);
+        $this->assertSame($admin->id, $timesheet->approved_by);
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
+            && $mail->headline === 'Timesheet approved');
+    }
+
+    public function test_admin_can_reject_employee_timesheet(): void
+    {
+        Mail::fake();
+
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project());
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('admin.timesheets.reject', $timesheet), ['rejection_comment' => 'Please correct Tuesday overtime.'])
+            ->assertRedirect();
+
+        $timesheet->refresh();
+        $this->assertSame('rejected', $timesheet->status);
+        $this->assertSame($admin->id, $timesheet->rejected_by);
+        $this->assertSame('Please correct Tuesday overtime.', $timesheet->rejection_comment);
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
+            && $mail->headline === 'Timesheet rejected');
     }
 
     public function test_admin_can_approve_hod_timesheet(): void

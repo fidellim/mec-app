@@ -144,7 +144,7 @@ class TimesheetRecallHistoryWorkflowTest extends TestCase
         $this->assertSame('submitted', $submitted->refresh()->status);
     }
 
-    public function test_admin_can_recall_hod_timesheet_but_not_employee_timesheet(): void
+    public function test_admin_can_recall_hod_and_employee_timesheets(): void
     {
         Mail::fake();
 
@@ -175,9 +175,11 @@ class TimesheetRecallHistoryWorkflowTest extends TestCase
             ->post(route('admin.timesheets.recall-approved', $employeeTimesheet), [
                 'recall_reason' => 'Employee correction.',
             ])
-            ->assertForbidden();
+            ->assertRedirect(route('admin.timesheets.show', $employeeTimesheet));
 
-        $this->assertSame('approved', $employeeTimesheet->refresh()->status);
+        $this->assertSame('recalled', $employeeTimesheet->refresh()->status);
+        Mail::assertQueued(TimesheetWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
+            && $mail->headline === 'Approved timesheet recalled');
     }
 
     public function test_employee_cannot_directly_recall_approved_timesheet(): void
