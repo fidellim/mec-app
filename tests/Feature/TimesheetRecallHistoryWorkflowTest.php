@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Timesheet;
 use App\Models\TimesheetStatusHistory;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -234,5 +235,27 @@ class TimesheetRecallHistoryWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Approved Timesheet Recalled')
             ->assertDontSee('IP 192.0.2.25');
+    }
+
+    public function test_history_backfill_skips_audit_logs_for_deleted_timesheets(): void
+    {
+        $actor = $this->userWithRole('super_admin');
+
+        AuditLog::create([
+            'user_id' => $actor->id,
+            'action' => 'timesheet_submitted',
+            'auditable_type' => Timesheet::class,
+            'auditable_id' => 999999,
+            'old_values' => ['status' => 'draft'],
+            'new_values' => ['status' => 'submitted'],
+            'ip_address' => '111.235.89.215',
+        ]);
+
+        Schema::dropIfExists('timesheet_status_histories');
+
+        $migration = include database_path('migrations/2026_06_22_000002_create_timesheet_status_histories_table.php');
+        $migration->up();
+
+        $this->assertDatabaseCount('timesheet_status_histories', 0);
     }
 }

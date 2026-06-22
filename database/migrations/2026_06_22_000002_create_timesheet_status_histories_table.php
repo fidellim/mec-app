@@ -20,23 +20,25 @@ return new class extends Migration
 
     public function up(): void
     {
-        Schema::create('timesheet_status_histories', function (Blueprint $table) {
-            $table->id();
-            $table->foreignId('timesheet_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
-            $table->string('action');
-            $table->string('old_status')->nullable();
-            $table->string('new_status')->nullable();
-            $table->text('comment')->nullable();
-            $table->string('ip_address', 45)->nullable();
-            $table->json('metadata')->nullable();
-            $table->timestamp('occurred_at')->nullable();
-            $table->timestamps();
+        if (! Schema::hasTable('timesheet_status_histories')) {
+            Schema::create('timesheet_status_histories', function (Blueprint $table) {
+                $table->id();
+                $table->foreignId('timesheet_id')->constrained()->cascadeOnDelete();
+                $table->foreignId('actor_id')->nullable()->constrained('users')->nullOnDelete();
+                $table->string('action');
+                $table->string('old_status')->nullable();
+                $table->string('new_status')->nullable();
+                $table->text('comment')->nullable();
+                $table->string('ip_address', 45)->nullable();
+                $table->json('metadata')->nullable();
+                $table->timestamp('occurred_at')->nullable();
+                $table->timestamps();
 
-            $table->index(['timesheet_id', 'occurred_at']);
-            $table->index('action');
-            $table->index('actor_id');
-        });
+                $table->index(['timesheet_id', 'occurred_at']);
+                $table->index('action');
+                $table->index('actor_id');
+            });
+        }
 
         $this->backfillFromAuditLogs();
     }
@@ -49,32 +51,54 @@ return new class extends Migration
     private function backfillFromAuditLogs(): void
     {
         DB::table('audit_logs')
+            ->join('timesheets', 'audit_logs.auditable_id', '=', 'timesheets.id')
+            ->leftJoin('users', 'audit_logs.user_id', '=', 'users.id')
+            ->select('audit_logs.*', 'users.id as existing_actor_id')
             ->where('auditable_type', Timesheet::class)
             ->whereIn('action', self::TIMESHEET_HISTORY_ACTIONS)
-            ->orderBy('id')
+            ->orderBy('audit_logs.id')
             ->chunkById(200, function ($logs) {
                 foreach ($logs as $log) {
                     $oldValues = $this->decodeJson($log->old_values);
                     $newValues = $this->decodeJson($log->new_values);
+                    $metadata = json_encode([
+                        'source' => 'audit_log_backfill',
+                        'audit_log_id' => (string) $log->id,
+                    ]);
+
+                    if ($this->backfilledAuditLogExists($log, $metadata)) {
+                        continue;
+                    }
 
                     DB::table('timesheet_status_histories')->insert([
                         'timesheet_id' => $log->auditable_id,
-                        'actor_id' => $log->user_id,
+                        'actor_id' => $log->existing_actor_id,
                         'action' => $log->action,
                         'old_status' => $oldValues['status'] ?? null,
                         'new_status' => $newValues['status'] ?? null,
                         'comment' => $this->commentFrom($newValues),
                         'ip_address' => $log->ip_address,
-                        'metadata' => json_encode([
-                            'source' => 'audit_log_backfill',
-                            'audit_log_id' => $log->id,
-                        ]),
+                        'metadata' => $metadata,
                         'occurred_at' => $log->created_at,
                         'created_at' => now(),
                         'updated_at' => now(),
                     ]);
                 }
-            });
+            }, 'audit_logs.id', 'id');
+    }
+
+    private function backfilledAuditLogExists(object $log, string $metadata): bool
+    {
+        return DB::table('timesheet_status_histories')
+            ->where('timesheet_id', $log->auditable_id)
+            ->where('action', $log->action)
+            ->where('occurred_at', $log->created_at)
+            ->where(function ($query) use ($log, $metadata) {
+                $query->where('metadata', $metadata)
+                    ->orWhere('metadata', 'like', '%"audit_log_id":"'.$log->id.'"%')
+                    ->orWhere('metadata', 'like', '%"audit_log_id":'.$log->id.'%');
+            })
+            ->exists();
     }
 
     private function decodeJson(mixed $value): array
