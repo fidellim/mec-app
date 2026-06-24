@@ -108,7 +108,7 @@
     <div class="section-header">
         <div>
             <h1 class="h3 page-heading mb-1">My Guide</h1>
-            <div class="text-muted">{{ $roleLabel }} guide for using MEC Portal.</div>
+            <div class="text-muted">{{ $roleLabel }} guide for using MEC Group Portal.</div>
         </div>
         <div class="badge text-bg-light border text-dark px-3 py-2">
             Updated {{ date('M d, Y', $updatedAt) }}

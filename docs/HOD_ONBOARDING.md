@@ -1,10 +1,10 @@
 # Head Of Department Onboarding Guide
 
-Welcome to **MEC Portal**. This guide explains how Heads of Department use the portal to manage their own weekly timesheets, review department submissions, and remind employees with missing submissions.
+Welcome to **MEC Group Portal**. This guide explains how Heads of Department use the portal to manage their own weekly timesheets, review department submissions, and remind employees with missing submissions.
 
 ## Signing In
 
-1. Open the MEC Portal URL provided by the company.
+1. Open the MEC Group Portal URL provided by the company.
 2. Enter your email and password on the **Sign in** page.
 3. Select **Login**.
 4. Use **Logout** from the top bar when finished.
@@ -66,7 +66,7 @@ Pressing **Enter** while editing a timesheet row does not save or submit the for
 
 You need to be assigned to a department before you can create or submit your own timesheet.
 
-When you submit or resubmit your own timesheet, MEC Portal emails active Admins and eligible Super Admins so they can review it. You also receive a confirmation email that your own timesheet was submitted.
+When you submit or resubmit your own timesheet, MEC Group Portal emails active Admins and eligible Super Admins so they can review it. You also receive a confirmation email that your own timesheet was submitted.
 
 ## Review Department Timesheets
 
@@ -81,7 +81,7 @@ When you submit or resubmit your own timesheet, MEC Portal emails active Admins 
 Employee entry forms are grouped by day while editing, and submitted timesheets still show daily attendance, project/job, hour, and remarks details for review.
 
 The rejection comment is required and is visible to the employee.
-The approved-recall reason is also required. MEC Portal emails the employee and stores the reviewer, timestamp, reason, and IP address in the timesheet history. IP addresses are visible only to Super Admin users.
+The approved-recall reason is also required. MEC Group Portal emails the employee and stores the reviewer, timestamp, reason, and IP address in the timesheet history. IP addresses are visible only to Super Admin users.
 
 ## Approval Rules
 
@@ -121,7 +121,7 @@ Reminder emails have a temporary cooldown per employee and weekly period. If an 
 
 ## Email Notifications
 
-MEC Portal sends emails for key workflow events:
+MEC Group Portal sends emails for key workflow events:
 
 - You receive an email when an employee in one of your managed departments submits or resubmits a timesheet for review.
 - You receive a confirmation email when you submit or resubmit your own Head of Department timesheet.

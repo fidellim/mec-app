@@ -1,10 +1,10 @@
 # Employee Onboarding Guide
 
-Welcome to **MEC Portal**. This guide explains how employees use the portal to create, save, submit, and track weekly timesheets.
+Welcome to **MEC Group Portal**. This guide explains how employees use the portal to create, save, submit, and track weekly timesheets.
 
 ## Signing In
 
-1. Open the MEC Portal URL provided by the company.
+1. Open the MEC Group Portal URL provided by the company.
 2. Enter your email and password on the **Sign in** page.
 3. Select **Login**.
 4. Use **Logout** from the top bar when finished.
@@ -84,7 +84,7 @@ Use **Duplicate** when the next row should start with the same attendance code, 
 
 Use **Copy Day** when another day should use the same set of rows. Select **Copy Day** in the source day's header, choose one or more target days in the modal, then select **Paste to selected days**. Pasting replaces all existing entries on each selected target day, so review the warning and selected days before confirming. The pasted rows keep the target day's date while copying attendance code, project/job number, regular hours, overtime hours, and remarks from the copied day.
 
-If you remove the only row for a day, MEC Portal clears that row instead of deleting the date entirely. This keeps all days in the weekly period visible.
+If you remove the only row for a day, MEC Group Portal clears that row instead of deleting the date entirely. This keeps all days in the weekly period visible.
 
 If a day has multiple rows, **Remove** deletes the selected extra row. The day totals update automatically after rows are added, duplicated, copied, pasted, removed, or edited.
 
@@ -106,7 +106,7 @@ You cannot:
 - Edit approved timesheets.
 - Submit or resubmit for closed weekly periods, unless an approved timesheet for that period was specifically recalled for correction.
 
-If an approved timesheet is recalled by a Head of Department, Admin, or Super Admin, MEC Portal emails you with the reason and keeps the reviewer, timestamp, and comment in the timesheet history under the entry table.
+If an approved timesheet is recalled by a Head of Department, Admin, or Super Admin, MEC Group Portal emails you with the reason and keeps the reviewer, timestamp, and comment in the timesheet history under the entry table.
 
 ## After Submission
 

@@ -1,4 +1,4 @@
-# MEC Portal
+# MEC Group Portal
 
 Phase 1 replaces the Excel/email weekly timesheet process with a Laravel web application for employee submission, Head of Department approval, admin monitoring, and export.
 
@@ -340,7 +340,7 @@ Manual HOD reminders use a per-employee, per-period cooldown to prevent repeated
 MISSING_TIMESHEET_REMINDER_COOLDOWN_HOURS=24
 ```
 
-When an employee is on cooldown, their **Send Reminder** button is disabled in **Submission Tracker** and shows how long remains before another reminder can be sent. **Notify All Missing** skips employees who are on cooldown and sends only to employees who are eligible. If every missing employee is on cooldown, MEC Portal shows a warning instead of sending reminders.
+When an employee is on cooldown, their **Send Reminder** button is disabled in **Submission Tracker** and shows how long remains before another reminder can be sent. **Notify All Missing** skips employees who are on cooldown and sends only to employees who are eligible. If every missing employee is on cooldown, MEC Group Portal shows a warning instead of sending reminders.
 
 Local development defaults to logging emails instead of sending them:
 

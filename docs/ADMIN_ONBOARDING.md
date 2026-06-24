@@ -1,10 +1,10 @@
 # Admin Onboarding Guide
 
-Welcome to **MEC Portal**. This guide explains how Admin users monitor timesheets, review records, export Excel workbooks, and handle allowed approval actions.
+Welcome to **MEC Group Portal**. This guide explains how Admin users monitor timesheets, review records, export Excel workbooks, and handle allowed approval actions.
 
 ## Signing In
 
-1. Open the MEC Portal URL provided by the company.
+1. Open the MEC Group Portal URL provided by the company.
 2. Enter your email and password on the **Sign in** page.
 3. Select **Login**.
 4. Use **Logout** from the top bar when finished.
@@ -137,7 +137,7 @@ The weekly timesheet form groups entries by day. Each day header shows the full 
 
 Pressing **Enter** while editing a timesheet row does not save or submit the form. Use **Save Draft** or **Submit for Approval** when you are ready.
 
-If you are not assigned to a department, MEC Portal disables timesheet creation for your account.
+If you are not assigned to a department, MEC Group Portal disables timesheet creation for your account.
 
 ## Export Guide
 
@@ -173,12 +173,12 @@ The **Attendance Code Summary** shows leave and non-project hours separately fro
 
 By default, the export includes the **Project Weekly Summary** and **Attendance Code Summary** worksheets. Select **Include individual employee timesheet sheets** when the workbook also needs one detailed worksheet per employee timesheet.
 
-The **Summary Report Preview** button appears when the current filters include a year and a week range of 1 to 6 weekly periods. The preview shows only the summary report tables inside MEC Portal:
+The **Summary Report Preview** button appears when the current filters include a year and a week range of 1 to 6 weekly periods. The preview shows only the summary report tables inside MEC Group Portal:
 
 - **Project Summary**, matching the Project Weekly Summary export.
 - **Attendance Summary**, matching the Attendance Code Summary export.
 
-If more than 6 weekly periods are selected, MEC Portal hides the preview and shows a notice asking you to narrow the week range or use **Export Excel**. This keeps the page responsive and avoids loading very large all-time summaries in the browser.
+If more than 6 weekly periods are selected, MEC Group Portal hides the preview and shows a notice asking you to narrow the week range or use **Export Excel**. This keeps the page responsive and avoids loading very large all-time summaries in the browser.
 
 If a project is selected, the summary only includes employees and hours logged to that project. The export button shows **Preparing export...** while the workbook is being generated.
 

@@ -8,7 +8,7 @@
                 <img class="login-logo" data-theme-logo src="{{ asset('images/mec_logo_light.webp') }}" alt="MEC">
             </div>
             <h1 class="h4 mb-1">Create new password</h1>
-            <p class="text-muted mb-4">Choose a new password for your MEC Portal account.</p>
+            <p class="text-muted mb-4">Choose a new password for your MEC Group Portal account.</p>
             <form method="post" action="{{ route('password.update') }}">
                 @csrf
                 <input type="hidden" name="token" value="{{ $token }}">

@@ -24,7 +24,7 @@ class GuideWorkflowTest extends TestCase
             ->get(route('guide'))
             ->assertOk()
             ->assertSee('My Guide')
-            ->assertSee('Employee guide for using MEC Portal.')
+            ->assertSee('Employee guide for using MEC Group Portal.')
             ->assertSee('Splitting One Day Across Projects')
             ->assertDontSee('Submission Tracker')
             ->assertDontSee('Automation did not run');
@@ -37,7 +37,7 @@ class GuideWorkflowTest extends TestCase
         $this->actingAs($hod)
             ->get(route('guide'))
             ->assertOk()
-            ->assertSee('Head of Department guide for using MEC Portal.')
+            ->assertSee('Head of Department guide for using MEC Group Portal.')
             ->assertSee('Submission Tracker')
             ->assertDontSee('Automation did not run');
     }
@@ -49,7 +49,7 @@ class GuideWorkflowTest extends TestCase
         $this->actingAs($admin)
             ->get(route('guide'))
             ->assertOk()
-            ->assertSee('Admin guide for using MEC Portal.')
+            ->assertSee('Admin guide for using MEC Group Portal.')
             ->assertSee('handle allowed approval actions')
             ->assertDontSee('Manage Users')
             ->assertDontSee('Automation did not run');
@@ -62,7 +62,7 @@ class GuideWorkflowTest extends TestCase
         $this->actingAs($superAdmin)
             ->get(route('guide'))
             ->assertOk()
-            ->assertSee('Super Admin guide for using MEC Portal.')
+            ->assertSee('Super Admin guide for using MEC Group Portal.')
             ->assertSee('Automation did not run')
             ->assertSee('Manage Users');
     }

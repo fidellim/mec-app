@@ -12,7 +12,7 @@
                 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:640px;background:#ffffff;border:1px solid #e5e7eb;border-radius:14px;overflow:hidden;">
                     <tr>
                         <td style="background:#182230;padding:22px 28px;">
-                            <div style="color:#ffffff;font-size:18px;font-weight:700;">{{ config('app.name', 'Company Portal') }}</div>
+                            <div style="color:#ffffff;font-size:18px;font-weight:700;">{{ config('app.name', 'MEC Group Portal') }}</div>
                             <div style="color:#cbd5e1;font-size:13px;margin-top:4px;">Weekly timesheet reminder</div>
                         </td>
                     </tr>
@@ -50,7 +50,7 @@
                     </tr>
                     <tr>
                         <td style="background:#f8fafc;border-top:1px solid #e5e7eb;padding:16px 28px;color:#64748b;font-size:12px;line-height:1.5;">
-                            This is an automated message from {{ config('app.name', 'Company Portal') }}. Please do not reply to this email.
+                            This is an automated message from {{ config('app.name', 'MEC Group Portal') }}. Please do not reply to this email.
                         </td>
                     </tr>
                 </table>

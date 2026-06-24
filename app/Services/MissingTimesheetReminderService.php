@@ -188,7 +188,7 @@ class MissingTimesheetReminderService
     private function sourceLabel(string $source): string
     {
         return match ($source) {
-            'automatic_monday' => config('app.name', 'Company Portal'),
+            'automatic_monday' => config('app.name', 'MEC Group Portal'),
             'manual_admin' => 'your Admin team',
             default => 'your Head of Department',
         };

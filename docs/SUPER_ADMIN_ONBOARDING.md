@@ -1,10 +1,10 @@
 # Super Admin Onboarding Guide
 
-Welcome to **MEC Portal**. This guide explains how Super Admins manage the portal setup, monitor records, export timesheets, control automations, and review audit logs.
+Welcome to **MEC Group Portal**. This guide explains how Super Admins manage the portal setup, monitor records, export timesheets, control automations, and review audit logs.
 
 ## Signing In
 
-1. Open the MEC Portal URL provided by the company.
+1. Open the MEC Group Portal URL provided by the company.
 2. Enter your email and password on the **Sign in** page.
 3. Select **Login**.
 4. Use **Logout** from the top bar when finished.
@@ -127,7 +127,7 @@ Each department can have one primary **Head of Department** and multiple **HOD a
 - A HOD cannot approve, reject, or recall their own timesheet or another HOD's timesheet.
 - Submission and resubmission emails go to every HOD approver assigned to that employee's department.
 - The HOD dashboard, Department Timesheets page, Submission Tracker, and reminder tools use the full list of departments assigned to the HOD.
-- If a HOD user's role is changed back to Employee, Admin, or Super Admin, MEC Portal automatically removes that user from primary HOD and additional HOD approver assignments.
+- If a HOD user's role is changed back to Employee, Admin, or Super Admin, MEC Group Portal automatically removes that user from primary HOD and additional HOD approver assignments.
 
 When deleting a HOD who manages departments, select an active replacement HOD. The replacement will be assigned to every department the deleted HOD managed, including primary HOD assignments and additional approver assignments.
 
@@ -203,7 +203,7 @@ Audit logs can be filtered by action, user, and date range. Some logs include ex
 
 Use **Export Excel** to download an Excel file of audit logs using the current filters.
 
-Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Portal shows a warning and asks you to wait before trying again.
+Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Group Portal shows a warning and asks you to wait before trying again.
 
 To clean up stored audit logs:
 
@@ -228,9 +228,9 @@ Use the **Role** filter to focus on Employees, Heads of Department, Admins, or S
 
 Use **Status: Not Submitted** with a week and year to show active department-assigned users who do not have a submitted or approved timesheet for that weekly period. This helps identify Heads of Department, Admins, or Super Admins assigned to departments who still need to submit their own timesheets.
 
-Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Portal shows a warning and asks you to wait before trying again.
+Exports are protected from repeated or duplicate requests. If an export is already running, or too many exports are requested in a short time, MEC Group Portal shows a warning and asks you to wait before trying again.
 
-The **Summary Report Preview** button appears when the current filters include a year and a week range of 1 to 6 weekly periods. The preview shows only the **Project Summary** and **Attendance Summary** tables in MEC Portal, so Super Admins can check totals before downloading Excel. If more than 6 weekly periods are selected, MEC Portal hides the preview and shows a notice asking you to narrow the week range or use **Export Excel**.
+The **Summary Report Preview** button appears when the current filters include a year and a week range of 1 to 6 weekly periods. The preview shows only the **Project Summary** and **Attendance Summary** tables in MEC Group Portal, so Super Admins can check totals before downloading Excel. If more than 6 weekly periods are selected, MEC Group Portal hides the preview and shows a notice asking you to narrow the week range or use **Export Excel**.
 
 The export includes:
 
@@ -317,7 +317,7 @@ The weekly timesheet form groups entries by day. Each day header shows the full 
 
 Pressing **Enter** while editing a timesheet row does not save or submit the form. Use **Save Draft** or **Submit for Approval** when you are ready.
 
-If you are not assigned to a department, MEC Portal disables timesheet creation for your account.
+If you are not assigned to a department, MEC Group Portal disables timesheet creation for your account.
 
 ## Quick Troubleshooting
 

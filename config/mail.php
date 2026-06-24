@@ -23,6 +23,6 @@ return [
 
     'from' => [
         'address' => env('MAIL_FROM_ADDRESS', 'timesheets@example.com'),
-        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'Company Portal')),
+        'name' => env('MAIL_FROM_NAME', env('APP_NAME', 'MEC Group Portal')),
     ],
 ];
