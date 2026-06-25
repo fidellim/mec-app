@@ -58,6 +58,18 @@
             font-size: .95rem;
             -webkit-font-smoothing: antialiased;
         }
+        .d-none { display: none !important; }
+        .visually-hidden {
+            position: absolute !important;
+            width: 1px !important;
+            height: 1px !important;
+            padding: 0 !important;
+            margin: -1px !important;
+            overflow: hidden !important;
+            clip: rect(0, 0, 0, 0) !important;
+            white-space: nowrap !important;
+            border: 0 !important;
+        }
         .app-shell {
             min-height: 100vh;
             padding: 0;
@@ -109,6 +121,27 @@
         .sidebar-collapse-toggle svg {
             width: 1.05rem;
             height: 1.05rem;
+        }
+        .mobile-sidebar-toggle {
+            display: none;
+            width: 2.5rem;
+            height: 2.5rem;
+            flex: 0 0 2.5rem;
+            border: 1px solid rgba(255, 255, 255, .08);
+            border-radius: .55rem;
+            background: rgba(255, 255, 255, .04);
+            color: var(--app-sidebar-link);
+            align-items: center;
+            justify-content: center;
+        }
+        .mobile-sidebar-toggle:hover,
+        .mobile-sidebar-toggle:focus-visible {
+            background: var(--app-sidebar-hover);
+            color: #fff;
+        }
+        .mobile-sidebar-toggle svg {
+            width: 1.15rem;
+            height: 1.15rem;
         }
         [data-sidebar="collapsed"] .sidebar-collapse-toggle {
             transform: rotate(180deg);
@@ -771,10 +804,14 @@
                 border-bottom: 1px solid rgba(255, 255, 255, .08);
             }
             .sidebar-header {
-                align-items: flex-start;
+                align-items: center;
+                margin-bottom: 0 !important;
             }
             .sidebar-collapse-toggle {
                 display: none;
+            }
+            .mobile-sidebar-toggle {
+                display: inline-flex;
             }
             [data-sidebar="collapsed"] .sidebar {
                 padding-left: 1rem !important;
@@ -802,6 +839,26 @@
             .sidebar nav {
                 display: grid !important;
                 grid-template-columns: repeat(2, minmax(0, 1fr));
+                max-height: 0;
+                opacity: 0;
+                overflow: hidden;
+                padding-top: 0;
+                pointer-events: none;
+                transition: max-height .24s ease, opacity .18s ease, padding-top .24s ease;
+            }
+            [data-mobile-sidebar="open"] .sidebar nav {
+                max-height: 36rem;
+                opacity: 1;
+                padding-top: 1rem;
+                pointer-events: auto;
+            }
+            .sidebar a {
+                min-width: 0;
+                white-space: normal;
+            }
+            .sidebar-label {
+                min-width: 0;
+                overflow-wrap: anywhere;
             }
             .topbar {
                 position: static;
@@ -812,8 +869,69 @@
             .timesheet-day-summary {
                 align-items: flex-start;
                 flex-direction: column;
+                gap: .75rem;
+            }
+            .timesheet-entry-table,
+            .timesheet-entry-table tbody,
+            .timesheet-entry-table tr,
+            .timesheet-entry-table td {
+                display: block;
+                width: 100%;
+            }
+            .timesheet-entry-table {
+                border-collapse: separate;
+                border-spacing: 0;
+            }
+            .timesheet-day-column-row {
+                display: none !important;
+            }
+            .timesheet-entry-table [data-entry-row] {
+                border-left: 0;
+                border-top: 1px solid var(--app-soft-border);
+                padding: .85rem 1rem;
+                background: var(--app-card-bg);
+            }
+            .timesheet-entry-table [data-entry-row]:hover {
+                border-left-color: transparent;
+            }
+            .timesheet-entry-table [data-entry-row] > td {
+                border: 0;
+                padding: .45rem 0;
+                white-space: normal;
+            }
+            .timesheet-entry-table [data-entry-row] > td::before {
+                display: block;
+                margin-bottom: .3rem;
+                color: var(--bs-secondary-color);
+                font-size: .72rem;
+                font-weight: 700;
+                letter-spacing: .02em;
+                text-transform: uppercase;
+            }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(1)::before { content: "Attendance Code"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(2)::before { content: "Project/Job"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(3)::before { content: "Regular"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(4)::before { content: "Overtime"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(5)::before { content: "Remarks"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(6)::before { content: "Actions"; }
+            .timesheet-entry-table .remarks-cell {
+                min-width: 0;
+            }
+            .attendance-select,
+            .project-select {
+                width: 100%;
+            }
+            .timesheet-row-actions {
+                justify-content: flex-start;
+            }
+            .timesheet-day-summary-row > td {
+                padding: .9rem 1rem;
+            }
+            .timesheet-entry-table tbody tr + .timesheet-day-summary-row > td {
+                border-top-width: .85rem;
             }
             .brand-logo-wrap { margin-bottom: 1rem !important; }
+            .sidebar-header .brand-logo-wrap { margin-bottom: 0 !important; }
             .section-header {
                 flex-direction: column;
                 align-items: stretch;
@@ -842,6 +960,13 @@
                     <div class="brand-logo-wrap mb-0">
                         <img class="brand-logo" data-theme-logo src="{{ asset('images/mec_logo_light.webp') }}" alt="MEC">
                     </div>
+                    <button class="mobile-sidebar-toggle" type="button" data-mobile-sidebar-toggle aria-label="Open navigation menu" aria-expanded="false" title="Open navigation menu">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                            <path d="M4 6h16"/>
+                            <path d="M4 12h16"/>
+                            <path d="M4 18h16"/>
+                        </svg>
+                    </button>
                     <button class="sidebar-collapse-toggle" type="button" data-sidebar-toggle aria-label="Collapse sidebar" title="Collapse sidebar">
                         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                             <path d="m15 18-6-6 6-6"/>
@@ -963,6 +1088,10 @@
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
 <script>
 const initializeTooltips = (scope = document) => {
+    if (!window.bootstrap?.Tooltip) {
+        return;
+    }
+
     scope.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((element) => {
         bootstrap.Tooltip.getOrCreateInstance(element);
     });
@@ -1010,11 +1139,11 @@ window.showAppToast = (message, type = 'info', title = 'Notice') => {
     appToastContainer.appendChild(toast);
 
     toast.addEventListener('hidden.bs.toast', () => toast.remove(), { once: true });
-    bootstrap.Toast.getOrCreateInstance(toast, { delay: 6000 }).show();
+    window.bootstrap?.Toast?.getOrCreateInstance(toast, { delay: 6000 }).show();
 };
 
 document.querySelectorAll('[data-app-toast]').forEach((toast) => {
-    bootstrap.Toast.getOrCreateInstance(toast, { delay: 7000 }).show();
+    window.bootstrap?.Toast?.getOrCreateInstance(toast, { delay: 7000 }).show();
 });
 
 const initializeSearchableSelects = (scope = document) => {
@@ -1134,6 +1263,14 @@ document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
 
     const effectiveTheme = () => localStorage.getItem('theme') || (media.matches ? 'dark' : 'light');
     const sidebarState = () => document.documentElement.getAttribute('data-sidebar') === 'collapsed' ? 'collapsed' : 'expanded';
+    const applyMobileSidebarState = (open) => {
+        document.documentElement.setAttribute('data-mobile-sidebar', open ? 'open' : 'closed');
+        document.querySelectorAll('[data-mobile-sidebar-toggle]').forEach((button) => {
+            button.setAttribute('aria-expanded', open ? 'true' : 'false');
+            button.setAttribute('aria-label', open ? 'Close navigation menu' : 'Open navigation menu');
+            button.setAttribute('title', open ? 'Close navigation menu' : 'Open navigation menu');
+        });
+    };
     const applySidebarState = (state) => {
         document.documentElement.setAttribute('data-sidebar', state);
         document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
@@ -1161,6 +1298,7 @@ document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
     };
 
     applySidebarState(sidebarState());
+    applyMobileSidebarState(false);
     applyTheme(effectiveTheme());
 
     buttons.forEach((button) => {
@@ -1178,6 +1316,7 @@ document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
     });
     desktopSidebar.addEventListener('change', () => {
         applyLogos(effectiveTheme());
+        applyMobileSidebarState(false);
     });
 
     document.querySelectorAll('[data-sidebar-toggle]').forEach((button) => {
@@ -1186,6 +1325,12 @@ document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
             localStorage.setItem('sidebar', nextState);
             applySidebarState(nextState);
             applyLogos(effectiveTheme());
+        });
+    });
+
+    document.querySelectorAll('[data-mobile-sidebar-toggle]').forEach((button) => {
+        button.addEventListener('click', () => {
+            applyMobileSidebarState(document.documentElement.getAttribute('data-mobile-sidebar') !== 'open');
         });
     });
 })();
@@ -1233,6 +1378,14 @@ document.querySelectorAll('form').forEach((form) => {
 
             HTMLFormElement.prototype.submit.call(form);
         };
+        if (!window.bootstrap?.Modal) {
+            if (window.confirm(message)) {
+                form.dataset.confirmed = 'true';
+                form.requestSubmit ? form.requestSubmit(submitter) : HTMLFormElement.prototype.submit.call(form);
+            }
+            return;
+        }
+
         new bootstrap.Modal(modalElement).show();
     });
 });
