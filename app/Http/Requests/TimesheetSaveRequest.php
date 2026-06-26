@@ -28,6 +28,27 @@ class TimesheetSaveRequest extends FormRequest
         ];
     }
 
+    public function attributes(): array
+    {
+        $attributes = [
+            'timesheet_period_id' => 'weekly period',
+            'entries' => 'daily entries',
+        ];
+
+        foreach ($this->input('entries', []) as $index => $entry) {
+            $label = $this->entryLabel($index, $entry);
+
+            $attributes["entries.$index.work_date"] = "$label work date";
+            $attributes["entries.$index.attendance_code"] = "$label attendance code";
+            $attributes["entries.$index.project_id"] = "$label project/job number";
+            $attributes["entries.$index.regular_hours"] = "$label regular hours";
+            $attributes["entries.$index.overtime_hours"] = "$label overtime hours";
+            $attributes["entries.$index.remarks"] = "$label remarks";
+        }
+
+        return $attributes;
+    }
+
     public function after(): array
     {
         return [
@@ -36,6 +57,7 @@ class TimesheetSaveRequest extends FormRequest
                 $hasHours = false;
 
                 foreach ($this->input('entries', []) as $index => $entry) {
+                    $entryLabel = ucfirst($this->entryLabel($index, $entry));
                     $regular = (float) ($entry['regular_hours'] ?? 0);
                     $overtime = (float) ($entry['overtime_hours'] ?? 0);
                     $attendanceCode = $entry['attendance_code'] ?? null;
@@ -48,15 +70,15 @@ class TimesheetSaveRequest extends FormRequest
                     }
 
                     if (($regular > 0 || $overtime > 0) && ! $isProjectOptionalCode && empty($entry['project_id'])) {
-                        $validator->errors()->add("entries.$index.project_id", 'Project/job number is required when hours are entered.');
+                        $validator->errors()->add("entries.$index.project_id", "$entryLabel needs a project/job number when hours are entered.");
                     }
 
                     if (($regular > 0 || $overtime > 0) && empty($attendanceCode)) {
-                        $validator->errors()->add("entries.$index.attendance_code", 'Attendance code is required when hours are entered.');
+                        $validator->errors()->add("entries.$index.attendance_code", "$entryLabel needs an attendance code when hours are entered.");
                     }
 
                     if ($isLeaveCode && $overtime > 0) {
-                        $validator->errors()->add("entries.$index.overtime_hours", 'Overtime hours are not allowed for leave attendance codes.');
+                        $validator->errors()->add("entries.$index.overtime_hours", "$entryLabel cannot have overtime hours with a leave attendance code.");
                     }
                 }
 
@@ -65,5 +87,14 @@ class TimesheetSaveRequest extends FormRequest
                 }
             },
         ];
+    }
+
+    private function entryLabel(int $index, array $entry): string
+    {
+        if (! empty($entry['work_date'])) {
+            return 'row for '.$entry['work_date'];
+        }
+
+        return 'row '.($index + 1);
     }
 }

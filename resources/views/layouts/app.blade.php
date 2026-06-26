@@ -421,6 +421,11 @@
         .timesheet-entry-table select { min-height: 2.45rem; }
         .timesheet-entry-table [data-entry-row] { border-left: 3px solid transparent; }
         .timesheet-entry-table [data-entry-row]:hover { border-left-color: var(--bs-primary); }
+        .timesheet-entry-table .timesheet-entry-row-invalid,
+        .timesheet-entry-table .timesheet-entry-row-client-invalid {
+            border-left-color: var(--bs-warning);
+            background: color-mix(in srgb, var(--bs-warning-bg-subtle) 34%, transparent);
+        }
         .timesheet-day-summary-row > td {
             background: color-mix(in srgb, var(--app-muted-bg) 72%, var(--app-card-bg));
             border-top: 1px solid var(--app-border);
@@ -670,6 +675,10 @@
         .ts-wrapper.required .ts-control,
         .ts-wrapper.is-required .ts-control {
             border-color: var(--app-border);
+        }
+        .ts-wrapper.timesheet-client-invalid .ts-control,
+        .ts-wrapper.is-invalid .ts-control {
+            border-color: var(--bs-form-invalid-border-color);
         }
         .btn {
             border-radius: .55rem;

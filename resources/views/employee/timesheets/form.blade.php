@@ -1,7 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
-@php($isEdit = (bool) $timesheet)
+@php
+    $isEdit = (bool) $timesheet;
+    $timesheetEntryErrors = collect($errors->getMessages())
+        ->filter(fn ($messages, $key) => $key === 'entries' || str_starts_with($key, 'entries.'));
+@endphp
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
     <div>
         <h1 class="h3 page-heading mb-1">{{ $isEdit ? 'Edit Timesheet' : 'Create Weekly Timesheet' }}</h1>
@@ -19,9 +23,27 @@
         <div>{{ $timesheet->rejection_comment }}</div>
     </div>
 @endif
-<form method="post" action="{{ $isEdit ? route('employee.timesheets.update', $timesheet) : route('employee.timesheets.store') }}" data-prevent-enter-submit>
+@if($timesheetEntryErrors->isNotEmpty())
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">Timesheet could not be saved or submitted</div>
+        <div class="mb-2">Please correct the highlighted daily entries, then try Save Draft or Submit for Approval again.</div>
+        <ul class="mb-0">
+            @foreach($timesheetEntryErrors as $messages)
+                @foreach($messages as $message)
+                    <li>{{ $message }}</li>
+                @endforeach
+            @endforeach
+        </ul>
+    </div>
+@endif
+<form method="post" action="{{ $isEdit ? route('employee.timesheets.update', $timesheet) : route('employee.timesheets.store') }}" data-prevent-enter-submit novalidate>
     @csrf
     @if($isEdit) @method('put') @endif
+    <div class="alert alert-warning d-none" data-timesheet-client-warning role="alert" tabindex="-1">
+        <div class="fw-semibold mb-1">Timesheet could not be saved or submitted</div>
+        <div class="mb-2">Please correct the highlighted daily entries, then try Save Draft or Submit for Approval again.</div>
+        <ul class="mb-0" data-timesheet-client-warning-list></ul>
+    </div>
     <div class="toolbar-card p-3 mb-3">
         <div class="row g-3 align-items-end">
             <div class="col-lg-5">
@@ -62,6 +84,7 @@
                     @php($workDate = $row->work_date instanceof \Carbon\CarbonInterface ? $row->work_date->toDateString() : $row->work_date)
                     @php($dayName = \Carbon\Carbon::parse($workDate)->format('l'))
                     @php($selectedAttendanceCode = old("entries.$i.attendance_code", $row->attendance_code ?? ''))
+                    @php($rowHasErrors = $errors->has("entries.$i.*"))
                     @if(! in_array($workDate, $renderedDates, true))
                         @php($renderedDates[] = $workDate)
                         <tr class="timesheet-day-summary-row" data-day-summary-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
@@ -92,27 +115,42 @@
                             <th scope="col" class="text-end">Actions</th>
                         </tr>
                     @endif
-                    <tr data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
+                    <tr @class(['timesheet-entry-row-invalid' => $rowHasErrors]) data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
                         <td>
                             <input type="hidden" name="entries[{{ $i }}][work_date]" value="{{ old("entries.$i.work_date", $workDate) }}" data-field="work_date">
-                            <select class="form-select attendance-select" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code">
+                            <select class="form-select attendance-select @error("entries.$i.attendance_code") is-invalid @enderror" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code">
                                 <option value="">Select</option>
                                 @foreach($attendanceCodes as $code => $label)
                                     <option value="{{ $code }}" @selected($selectedAttendanceCode === $code)>{{ $code }} - {{ $label }}</option>
                                 @endforeach
                             </select>
+                            @error("entries.$i.attendance_code")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            <div class="invalid-feedback d-block d-none" data-client-error-for="attendance_code"></div>
                         </td>
                         <td>
-                            <select class="form-select project-select" name="entries[{{ $i }}][project_id]" data-field="project_id">
+                            <select class="form-select project-select @error("entries.$i.project_id") is-invalid @enderror" name="entries[{{ $i }}][project_id]" data-field="project_id">
                                 <option value="">Select</option>
                                 @foreach($projects as $project)
                                     <option value="{{ $project->id }}" title="{{ $project->project_name }}" @selected(old("entries.$i.project_id", $row->project_id) == $project->id)>{{ $project->project_code }}</option>
                                 @endforeach
                             </select>
+                            @error("entries.$i.project_id")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            <div class="invalid-feedback d-block d-none" data-client-error-for="project_id"></div>
                         </td>
-                        <td style="width: 110px;"><input class="form-control" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][regular_hours]" data-field="regular_hours" value="{{ old("entries.$i.regular_hours", $row->regular_hours ?? 0) }}"></td>
-                        <td style="width: 110px;"><input class="form-control" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][overtime_hours]" data-field="overtime_hours" value="{{ old("entries.$i.overtime_hours", $row->overtime_hours ?? 0) }}"></td>
-                        <td class="remarks-cell"><input class="form-control" name="entries[{{ $i }}][remarks]" data-field="remarks" value="{{ old("entries.$i.remarks", $row->remarks) }}"></td>
+                        <td style="width: 110px;">
+                            <input class="form-control @error("entries.$i.regular_hours") is-invalid @enderror" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][regular_hours]" data-field="regular_hours" value="{{ old("entries.$i.regular_hours", $row->regular_hours ?? 0) }}">
+                            @error("entries.$i.regular_hours")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            <div class="invalid-feedback d-block d-none" data-client-error-for="regular_hours"></div>
+                        </td>
+                        <td style="width: 110px;">
+                            <input class="form-control @error("entries.$i.overtime_hours") is-invalid @enderror" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][overtime_hours]" data-field="overtime_hours" value="{{ old("entries.$i.overtime_hours", $row->overtime_hours ?? 0) }}">
+                            @error("entries.$i.overtime_hours")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            <div class="invalid-feedback d-block d-none" data-client-error-for="overtime_hours"></div>
+                        </td>
+                        <td class="remarks-cell">
+                            <input class="form-control @error("entries.$i.remarks") is-invalid @enderror" name="entries[{{ $i }}][remarks]" data-field="remarks" value="{{ old("entries.$i.remarks", $row->remarks) }}">
+                            @error("entries.$i.remarks")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </td>
                         <td>
                             <div class="timesheet-row-actions">
                                 <button type="button" class="btn btn-sm btn-outline-primary action-icon-button" data-add-entry data-bs-toggle="tooltip" data-bs-title="Add blank project row for this day" aria-label="Add project row for this day">
@@ -168,6 +206,8 @@
     const copyDaySourceLabel = document.getElementById('copyDaySourceLabel');
     const copyDayTargetList = document.getElementById('copyDayTargetList');
     const copyDayPasteButton = document.getElementById('copyDayPasteButton');
+    const clientWarning = form?.querySelector('[data-timesheet-client-warning]');
+    const clientWarningList = form?.querySelector('[data-timesheet-client-warning-list]');
     let nextIndex = {{ count($entries) }};
     let copiedDay = null;
     const leaveAttendanceCodes = @json(config('timesheet.leave_attendance_codes', []));
@@ -189,6 +229,19 @@
         if (target.matches('input, select')) {
             event.preventDefault();
         }
+    });
+
+    form?.addEventListener('submit', (event) => {
+        const messages = validateTimesheetEntries();
+
+        if (!messages.length) {
+            return;
+        }
+
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        showClientWarning(messages);
+        window.showAppToast?.('Please correct the highlighted timesheet rows before saving or submitting.', 'warning', 'Timesheet needs attention');
     });
 
     const renameRowFields = (row, index) => {
@@ -252,6 +305,7 @@
             setRowFieldValue(newRow, fieldName, value);
         });
 
+        clearRowClientValidation(newRow);
         renameRowFields(newRow, nextIndex++);
     };
 
@@ -273,6 +327,94 @@
         overtime_hours: row.querySelector('[data-field="overtime_hours"]').value || '0',
         remarks: row.querySelector('[data-field="remarks"]').value || '',
     });
+
+    const clearRowClientValidation = (row) => {
+        row.classList.remove('timesheet-entry-row-client-invalid');
+        row.querySelectorAll('.timesheet-client-invalid').forEach((field) => {
+            field.classList.remove('timesheet-client-invalid', 'is-invalid');
+            field.tomselect?.wrapper.classList.remove('timesheet-client-invalid', 'is-invalid');
+        });
+        row.querySelectorAll('[data-client-error-for]').forEach((error) => {
+            error.textContent = '';
+            error.classList.add('d-none');
+        });
+    };
+
+    const clearClientValidation = () => {
+        clientWarning?.classList.add('d-none');
+        if (clientWarningList) {
+            clientWarningList.innerHTML = '';
+        }
+        table.querySelectorAll('[data-entry-row]').forEach(clearRowClientValidation);
+    };
+
+    const setClientFieldError = (row, fieldName, message) => {
+        const field = row.querySelector(`[data-field="${fieldName}"]`);
+        const error = row.querySelector(`[data-client-error-for="${fieldName}"]`);
+
+        row.classList.add('timesheet-entry-row-client-invalid');
+        field?.classList.add('timesheet-client-invalid', 'is-invalid');
+        field?.tomselect?.wrapper.classList.add('timesheet-client-invalid', 'is-invalid');
+
+        if (error) {
+            error.textContent = message;
+            error.classList.remove('d-none');
+        }
+    };
+
+    const getRowLabel = (row) => {
+        const summary = table.querySelector(`[data-day-summary-row][data-work-date="${row.dataset.workDate}"]`);
+
+        return summary ? getDayLabel(summary) : row.dataset.workDate;
+    };
+
+    const validateTimesheetEntries = () => {
+        const messages = [];
+        clearClientValidation();
+
+        table.querySelectorAll('[data-entry-row]').forEach((row) => {
+            const regular = parseFloat(row.querySelector('[data-field="regular_hours"]').value) || 0;
+            const overtime = parseFloat(row.querySelector('[data-field="overtime_hours"]').value) || 0;
+            const hasHours = regular > 0 || overtime > 0;
+            const attendanceCode = getSearchableSelectValue(row, 'attendance_code');
+            const projectId = getSearchableSelectValue(row, 'project_id');
+            const label = getRowLabel(row);
+
+            if (!hasHours) {
+                return;
+            }
+
+            if (!attendanceCode) {
+                const message = `${label} needs an attendance code when hours are entered.`;
+                messages.push(message);
+                setClientFieldError(row, 'attendance_code', 'Select an attendance code.');
+            }
+
+            if (!isProjectOptionalAttendanceCode(attendanceCode) && !projectId) {
+                const message = `${label} needs a project/job number when hours are entered.`;
+                messages.push(message);
+                setClientFieldError(row, 'project_id', 'Select a project/job number.');
+            }
+        });
+
+        return messages;
+    };
+
+    const showClientWarning = (messages) => {
+        if (!clientWarning || !clientWarningList) {
+            return;
+        }
+
+        clientWarningList.innerHTML = '';
+        messages.forEach((message) => {
+            const item = document.createElement('li');
+            item.textContent = message;
+            clientWarningList.appendChild(item);
+        });
+        clientWarning.classList.remove('d-none');
+        clientWarning.focus({ preventScroll: true });
+        clientWarning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
 
     const getCopiedRowsForDay = (workDate) => getDayRows(workDate).map(getRowValues);
 
@@ -593,6 +735,7 @@
     table.addEventListener('input', (event) => {
         if (event.target.matches('[data-field="regular_hours"], [data-field="overtime_hours"]')) {
             const row = event.target.closest('[data-entry-row]');
+            clearRowClientValidation(row);
             updateRowRequirements(row);
             calculateDayTotals(row.dataset.workDate);
             calculateWeekTotals();
@@ -600,8 +743,9 @@
     });
 
     table.addEventListener('change', (event) => {
-        if (event.target.matches('[data-field="attendance_code"]')) {
+        if (event.target.matches('[data-field="attendance_code"], [data-field="project_id"]')) {
             const row = event.target.closest('[data-entry-row]');
+            clearRowClientValidation(row);
             updateRowRequirements(row);
             calculateDayTotals(row.dataset.workDate);
             calculateWeekTotals();

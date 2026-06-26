@@ -418,6 +418,40 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertSame('2.00', Timesheet::firstOrFail()->total_overtime_hours);
     }
 
+    public function test_employee_sees_entry_errors_when_draft_cannot_be_saved(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => '',
+                'project_id' => '',
+                'regular_hours' => 8,
+                'overtime_hours' => 0,
+            ],
+        ]);
+
+        $this->followingRedirects()
+            ->actingAs($employee)
+            ->from(route('employee.timesheets.create', ['period_id' => $period->id]))
+            ->post(route('employee.timesheets.store'), [
+                'timesheet_period_id' => $period->id,
+                'submit' => '0',
+                'entries' => $entries,
+            ])
+            ->assertOk()
+            ->assertSee('Timesheet could not be saved or submitted')
+            ->assertSee('Row for 2026-05-11 needs a project/job number when hours are entered.')
+            ->assertSee('Row for 2026-05-11 needs an attendance code when hours are entered.')
+            ->assertSee('timesheet-entry-row-invalid', false);
+
+        $this->assertDatabaseMissing('timesheets', [
+            'user_id' => $employee->id,
+            'timesheet_period_id' => $period->id,
+        ]);
+    }
+
     public function test_leave_codes_allow_regular_hours_without_project(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
