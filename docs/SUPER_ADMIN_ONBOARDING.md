@@ -30,6 +30,7 @@ Super Admins can access:
 | ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows system-wide totals and submission summary. |
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
+| ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Leave Plans** | Lets you review leave plans and open the all-company leave calendar. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **HOD Timesheets** | Shows Head of Department timesheets that Admins and Super Admins can review. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **HOD Tracker** | Shows which Heads of Department have submitted for a selected weekly period. |
 | ![Users](/images/sidebar/users.svg) **Users** | Create, edit, activate/deactivate, and delete users. |
@@ -271,6 +272,17 @@ Rejecting or recalling a timesheet requires a comment. The comment is visible to
 When a Head of Department submits or resubmits their own timesheet, active Admins and Super Admins receive an email notification unless **Receive HOD timesheet submission emails** is turned off on their user account.
 
 When a Super Admin approves, rejects, or recalls a Head of Department timesheet, the Head of Department receives an email for that weekly period.
+
+## All Leave Plans
+
+Use **All Leave Plans** to review leave plans across all departments.
+
+- Filter leave plans by department, employee, status, or leave type.
+- Approve or reject submitted leave plans, except your own.
+- Approve or reject cancellation requests, except your own.
+- Use **Calendar** to visualize submitted, approved, and cancellation-requested leave by month.
+
+Leave plan submission, approval, rejection, cancellation request, cancellation approval, and cancellation rejection are recorded in audit logs. Employees and HOD approvers receive email notifications for the relevant workflow events.
 
 ## Recalling Or Voiding Approved Timesheets
 

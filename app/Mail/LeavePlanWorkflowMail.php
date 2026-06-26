@@ -1,0 +1,36 @@
+<?php
+
+namespace App\Mail;
+
+use App\Models\LeavePlan;
+use Illuminate\Bus\Queueable;
+use Illuminate\Contracts\Queue\ShouldQueue;
+use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Content;
+use Illuminate\Mail\Mailables\Envelope;
+use Illuminate\Queue\SerializesModels;
+
+class LeavePlanWorkflowMail extends Mailable implements ShouldQueue
+{
+    use Queueable, SerializesModels;
+
+    public function __construct(
+        public readonly LeavePlan $leavePlan,
+        public readonly string $headline,
+        public readonly string $intro,
+        public readonly string $actionLabel,
+        public readonly string $actionUrl,
+        public readonly ?string $comment = null
+    ) {
+    }
+
+    public function envelope(): Envelope
+    {
+        return new Envelope(subject: $this->headline);
+    }
+
+    public function content(): Content
+    {
+        return new Content(view: 'emails.leave-plan-workflow');
+    }
+}

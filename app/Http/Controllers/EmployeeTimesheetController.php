@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TimesheetSaveRequest;
+use App\Models\LeavePlan;
 use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
@@ -59,6 +60,7 @@ class EmployeeTimesheetController extends Controller
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
             'attendanceCodes' => config('timesheet.attendance_codes'),
             'entries' => $this->defaultEntries($period),
+            'approvedLeavePlans' => $this->approvedLeavePlansForPeriod($period),
         ]);
     }
 
@@ -138,6 +140,7 @@ class EmployeeTimesheetController extends Controller
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
             'attendanceCodes' => config('timesheet.attendance_codes'),
             'entries' => $this->entriesWithMissingPeriodDays($timesheet),
+            'approvedLeavePlans' => $this->approvedLeavePlansForPeriod($timesheet->period),
         ]);
     }
 
@@ -231,6 +234,17 @@ class EmployeeTimesheetController extends Controller
             'overtime_hours' => 0,
             'remarks' => null,
         ]);
+    }
+
+    private function approvedLeavePlansForPeriod(TimesheetPeriod $period)
+    {
+        return LeavePlan::query()
+            ->where('user_id', auth()->id())
+            ->where('status', LeavePlan::STATUS_APPROVED)
+            ->whereDate('start_date', '<=', $period->end_date)
+            ->whereDate('end_date', '>=', $period->start_date)
+            ->orderBy('start_date')
+            ->get();
     }
 
     private function entriesWithMissingPeriodDays(Timesheet $timesheet)

@@ -36,6 +36,20 @@
         </ul>
     </div>
 @endif
+@if(($approvedLeavePlans ?? collect())->isNotEmpty())
+    <div class="alert alert-warning">
+        <div class="fw-semibold mb-1">Approved leave planned for this week</div>
+        <div class="mb-2">Review these dates before saving your timesheet. The timesheet entries are not changed automatically.</div>
+        <ul class="mb-0">
+            @foreach($approvedLeavePlans as $leavePlan)
+                <li>
+                    {{ $leavePlan->start_date->toFormattedDateString() }} to {{ $leavePlan->end_date->toFormattedDateString() }}:
+                    {{ $leavePlan->leaveLabel() }} ({{ $leavePlan->leaveLengthLabel() }})
+                </li>
+            @endforeach
+        </ul>
+    </div>
+@endif
 <form method="post" action="{{ $isEdit ? route('employee.timesheets.update', $timesheet) : route('employee.timesheets.store') }}" data-prevent-enter-submit novalidate>
     @csrf
     @if($isEdit) @method('put') @endif

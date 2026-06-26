@@ -22,6 +22,7 @@ Admins can access:
 | ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows company-wide submission counts and department summary. |
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
+| ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Leave Plans** | Lets you review leave plans and open the all-company leave calendar. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **HOD Timesheets** | Shows Head of Department timesheets that Admins can review. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **HOD Tracker** | Shows which Heads of Department have submitted for a selected weekly period. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
@@ -120,6 +121,17 @@ Rejecting a timesheet requires a comment. The comment is visible to the timeshee
 When an Admin approves or rejects a timesheet, the timesheet owner receives an approval or rejection email for that weekly period.
 
 When an Admin recalls an approved timesheet, the recall reason, Admin, timestamp, and IP address are stored in the history log. IP addresses are visible only to Super Admin users.
+
+## All Leave Plans
+
+Use **All Leave Plans** to review leave plans across all departments.
+
+- Filter leave plans by department, employee, or status.
+- Approve or reject submitted leave plans, except your own.
+- Approve or reject cancellation requests, except your own.
+- Use **Calendar** to visualize submitted, approved, and cancellation-requested leave by month.
+
+Employees receive email notifications when their leave plan or cancellation request is approved or rejected.
 
 ## Submit Your Own Timesheet
 

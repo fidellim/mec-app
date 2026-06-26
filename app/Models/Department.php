@@ -39,4 +39,9 @@ class Department extends Model
     {
         return $this->hasMany(Timesheet::class);
     }
+
+    public function leavePlans()
+    {
+        return $this->hasMany(LeavePlan::class);
+    }
 }

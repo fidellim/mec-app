@@ -71,6 +71,11 @@ class User extends Authenticatable
         return $this->hasMany(Timesheet::class);
     }
 
+    public function leavePlans()
+    {
+        return $this->hasMany(LeavePlan::class);
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';

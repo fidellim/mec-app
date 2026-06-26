@@ -58,9 +58,26 @@ password123
 - Employee initials are manually entered by Super Admin, are optional, and are used in weekly timesheet exports.
 - Job titles are optional user profile details and appear in timesheet exports. Blank job titles export as `-`.
 - Admin: view all timesheets, filter records, monitor dashboard summaries, export, approve/reject Employee and Head of Department timesheets, and recall approved Employee and Head of Department timesheets. Admin cannot approve, reject, or recall their own timesheet.
+- Admin: view and review all leave plans, use the all-company leave calendar, approve/reject leave plans and cancellation requests, and receive no self-approval ability.
 - Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, and track missing submissions. Head of Department cannot approve, reject, or recall their own timesheet.
+- Head of Department: view leave plans and the leave calendar for managed departments, approve/reject submitted leave plans, and review cancellation requests. Head of Department cannot approve or reject their own leave plan.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, withdraw submitted timesheets before approval, edit draft/rejected/withdrawn/recalled timesheets, and resubmit corrected records.
+- Employee: create leave plans, save drafts, submit them for HOD approval, request cancellation of approved leave, and view their own leave calendar.
 - Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
+
+## Leave Plans
+
+Leave plans are tracked separately from weekly timesheet entries.
+
+- Employees create leave plans from **My Leave Plans** and can view them in **My Leave Calendar**.
+- HODs review leave plans from **Department Leave Plans** and can visualize managed department leave in **Department Leave Calendar**.
+- Admins and Super Admins review all leave plans from **All Leave Plans** and can visualize all leave in **All Leave Calendar**.
+- Submitted, approved, rejected, cancellation-requested, and cancelled leave-plan actions are audit logged.
+- Email notifications are sent for submission/resubmission, approval, rejection, cancellation request, cancellation approval, and cancellation rejection.
+- Approved leave plans appear as warnings on overlapping weekly timesheet forms, but timesheet rows are never auto-created or changed.
+- Leave balances are not tracked in this version.
+
+See `docs/LEAVE_PLANS.md` for the full workflow, email matrix, calendar visibility rules, and current limitations.
 
 ## User Management
 

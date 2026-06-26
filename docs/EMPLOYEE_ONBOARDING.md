@@ -21,6 +21,7 @@ Employees can access:
 | --- | --- |
 | ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows your current period, drafts, rejected timesheets, and recent submissions. |
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history and lets you create a new weekly timesheet. |
+| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Leave Plans** | Lets you plan leave, submit it for approval, request cancellation, and open your leave calendar. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
 ## Timesheet Statuses
@@ -108,11 +109,27 @@ You cannot:
 
 If an approved timesheet is recalled by a Head of Department, Admin, or Super Admin, MEC Group Portal emails you with the reason and keeps the reviewer, timestamp, and comment in the timesheet history under the entry table.
 
+## Leave Plans
+
+Use **My Leave Plans** to plan leave before filling the related weekly timesheet.
+
+1. Go to **My Leave Plans**.
+2. Select **Create Leave Plan**.
+3. Choose the leave type, start date, end date, duration, and optional reason.
+4. Select **Save Draft** if you are not ready, or **Submit for Approval** to send it to your HOD approvers.
+5. Use **Calendar** to see your leave plans by month.
+
+Draft and rejected leave plans can be edited. Submitted leave plans are locked until reviewed. Approved leave plans can be cancelled only by sending a cancellation request for review.
+
+When a weekly timesheet overlaps approved leave, the timesheet form shows a warning with the planned leave dates and leave code. You still need to enter the correct timesheet row yourself.
+
 ## After Submission
 
 When you submit or resubmit a timesheet, your reviewer receives an email notification.
 
 When your timesheet is approved, rejected, or recalled after approval, you receive an email notification. Rejection and approved-recall emails include the comment explaining what needs to be corrected. Withdrawing your own submitted timesheet does not send an email to you.
+
+When you submit or resubmit a leave plan, your HOD approvers receive an email. You receive an email when the leave plan or cancellation request is approved or rejected.
 
 ## Quick Troubleshooting
 

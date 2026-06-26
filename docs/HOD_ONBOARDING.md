@@ -21,7 +21,9 @@ Heads of Department can access:
 | --- | --- |
 | ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows managed-department submission counts and review shortcuts. |
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history and lets you create your own weekly timesheet. |
+| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Leave Plans** | Lets you plan your own leave and open your personal leave calendar. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Timesheets** | Lets you review employee timesheets in departments you manage. |
+| ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Leave Plans** | Lets you review and visualize leave plans in departments you manage. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **Submission Tracker** | Shows who has submitted in your managed departments and lets you send reminder emails. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
@@ -119,6 +121,19 @@ Submitted and approved timesheets are treated as complete. Employees with no tim
 
 Reminder emails have a temporary cooldown per employee and weekly period. If an employee was already reminded recently, **Send Reminder** is disabled and shows when another reminder can be sent. **Notify All Missing** skips employees who are still on cooldown.
 
+## Review Department Leave Plans
+
+Use **Department Leave Plans** to review leave requests for departments you manage.
+
+1. Go to **Department Leave Plans**.
+2. Filter by department, status, or employee if needed.
+3. Select **Review** on a leave plan.
+4. Select **Approve** if the planned leave is accepted.
+5. Enter a rejection comment and select **Reject** if the employee needs to revise it.
+6. Use **Calendar** to view submitted, approved, and cancellation-requested leave by month.
+
+You can approve or reject cancellation requests for approved leave plans in your managed departments. You cannot approve, reject, or action cancellation for your own leave plan.
+
 ## Email Notifications
 
 MEC Group Portal sends emails for key workflow events:
@@ -129,6 +144,8 @@ MEC Group Portal sends emails for key workflow events:
 - You receive an email when an Admin or Super Admin recalls your approved Head of Department timesheet.
 - Employees receive an email when you approve, reject, or recall their approved timesheet.
 - Employees receive reminder emails when you send reminders from **Submission Tracker**.
+- You receive an email when an employee in a managed department submits or resubmits a leave plan or requests cancellation.
+- Employees receive an email when you approve or reject their leave plan or cancellation request.
 
 ## Quick Troubleshooting
 
