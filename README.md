@@ -712,6 +712,13 @@ The feature tests also act as integration tests because they verify multiple lay
 
 The test environment uses an in-memory SQLite database through `phpunit.xml.dist`, so tests run quickly and do not touch the local MySQL/MariaDB data.
 
+The repository also includes `.env.testing` with the same safe defaults for developers and tools that explicitly load Laravel's testing environment. If a test run reports an unsafe database configuration, clear cached config before rerunning:
+
+```bash
+php artisan config:clear
+php artisan test
+```
+
 ### End-To-End Tests
 
 End-to-end tests live in `tests/E2E` and use Playwright.
@@ -728,9 +735,64 @@ Prepare a seeded test database:
 php artisan migrate:fresh --seed
 ```
 
+For safer browser testing, use a separate E2E database instead of your normal local database:
+
+1. Create a local database named `timesheet_program_e2e`.
+2. Copy `.env.e2e.example` to `.env.e2e`.
+3. Update `.env.e2e` with your local database username/password and, if needed, the full `PHP_BINARY` path.
+4. Prepare that database:
+
+```bash
+npm run test:e2e:prepare
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.e2e.example .env.e2e
+npm.cmd run test:e2e:prepare
+```
+
 Run the browser tests:
 
 ```bash
+npm run test:e2e
+```
+
+Reset the E2E database and run the browser tests in one command:
+
+```bash
+npm run test:e2e:fresh
+```
+
+On Windows PowerShell:
+
+```powershell
+npm.cmd run test:e2e:fresh
+```
+
+Playwright automatically loads `.env.e2e` when it exists. Shell environment variables still take priority, so you can override a setting for one run without editing the file.
+
+E2E defaults to one worker because the specs use shared seeded accounts and mutate a shared local database. To experiment with parallel runs, set `E2E_WORKERS`, but be aware Laravel login throttling may apply when many tests use the same account.
+
+`.env.e2e` also sets `E2E_DISABLE_LOGIN_THROTTLE=true`, which disables only the login rate limiter when Laravel is running with `--env=e2e`. This avoids false failures from repeated automated logins and does not affect local or production environments.
+
+In `.env.e2e`, set `PHP_BINARY` if PHP is installed but not available to npm as `php`:
+
+```env
+PHP_BINARY='C:\xampp\php\php.exe'
+```
+
+Then run:
+
+```bash
+npm run test:e2e
+```
+
+For a one-off override on Windows PowerShell:
+
+```powershell
+$env:PHP_BINARY="C:\xampp\php\php.exe"
 npm run test:e2e
 ```
 

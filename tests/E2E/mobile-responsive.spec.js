@@ -11,14 +11,20 @@ async function login(page, email, password = 'password123') {
 async function chooseOpenPeriodIfNeeded(page) {
   const periodSelect = page.locator('select[name="period_id"]');
 
-  if (! await periodSelect.isVisible().catch(() => false)) {
+  await periodSelect.waitFor({ state: 'attached', timeout: 2000 }).catch(() => null);
+
+  if ((await periodSelect.count()) === 0) {
     return;
   }
 
   const periodValue = await periodSelect.locator('option').nth(1).getAttribute('value');
   expect(periodValue).toBeTruthy();
 
-  await periodSelect.selectOption(periodValue);
+  await periodSelect.evaluate((element, selectedValue) => {
+    element.tomselect?.setValue(selectedValue);
+    element.value = selectedValue;
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  }, periodValue);
   await page.getByRole('button', { name: /continue/i }).click();
 }
 

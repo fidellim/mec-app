@@ -21,6 +21,10 @@ class AppServiceProvider extends ServiceProvider
         Paginator::useBootstrapFive();
 
         RateLimiter::for('login', function (Request $request) {
+            if (config('app.env') === 'e2e' && env('E2E_DISABLE_LOGIN_THROTTLE', false)) {
+                return Limit::none();
+            }
+
             return Limit::perMinute(5)->by($this->emailIpKey($request));
         });
 

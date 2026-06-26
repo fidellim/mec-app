@@ -13,18 +13,20 @@ async function login(page, email, password = 'password123') {
 async function chooseFirstOpenPeriod(page) {
   const periodSelect = page.locator('select[name="period_id"]');
 
-  if (await periodSelect.isVisible()) {
-    const firstPeriodValue = await periodSelect.locator('option').nth(1).getAttribute('value');
-    expect(firstPeriodValue).toBeTruthy();
-    await periodSelect.selectOption(firstPeriodValue);
-    await page.getByRole('button', { name: /continue/i }).click();
+  if (!await waitForPeriodSelect(page)) {
+    return;
   }
+
+  const firstPeriodValue = await periodSelect.locator('option').nth(1).getAttribute('value');
+  expect(firstPeriodValue).toBeTruthy();
+  await setSelectValue(periodSelect, firstPeriodValue);
+  await page.getByRole('button', { name: /continue/i }).click();
 }
 
 async function chooseOpenPeriodWithCreateForm(page) {
   const periodSelect = page.locator('select[name="period_id"]');
 
-  if (! await periodSelect.isVisible()) {
+  if (!await waitForPeriodSelect(page)) {
     return;
   }
 
@@ -33,15 +35,30 @@ async function chooseOpenPeriodWithCreateForm(page) {
     .filter(Boolean));
 
   for (const value of optionValues) {
-    await periodSelect.selectOption(value);
+    await setSelectValue(periodSelect, value);
     await page.getByRole('button', { name: /continue/i }).click();
 
-    if (await page.locator('select[name*="[project_id]"]').first().isVisible()) {
+    if (await page.locator('select[name*="[project_id]"]').first().waitFor({ state: 'attached', timeout: 3000 }).then(() => true).catch(() => false)) {
       return;
     }
 
     await page.goto('/my-timesheets/create');
   }
+}
+
+async function waitForPeriodSelect(page) {
+  const periodSelect = page.locator('select[name="period_id"]');
+  await periodSelect.waitFor({ state: 'attached', timeout: 2000 }).catch(() => null);
+
+  return (await periodSelect.count()) > 0;
+}
+
+async function setSelectValue(select, value) {
+  await select.evaluate((element, selectedValue) => {
+    element.tomselect?.setValue(selectedValue);
+    element.value = selectedValue;
+    element.dispatchEvent(new Event('change', { bubbles: true }));
+  }, value);
 }
 
 test.describe('employee timesheet workflow', () => {

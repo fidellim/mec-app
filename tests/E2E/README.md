@@ -14,7 +14,46 @@ These Playwright tests exercise the main browser workflows against a seeded loca
 
 ```bash
 npm install
-php artisan migrate:fresh --seed
+npm run test:e2e:prepare
+npm run test:e2e
+```
+
+For safer local browser runs, use a dedicated E2E database instead of your normal `.env` database:
+
+```bash
+cp .env.e2e.example .env.e2e
+npm run test:e2e:prepare
+npm run test:e2e
+```
+
+On Windows PowerShell:
+
+```powershell
+Copy-Item .env.e2e.example .env.e2e
+npm.cmd run test:e2e:prepare
+npm run test:e2e
+```
+
+To reset the E2E database and run browser tests in one step:
+
+```bash
+npm run test:e2e:fresh
+```
+
+Playwright automatically loads `.env.e2e` when it exists. If npm can run but Playwright cannot find PHP, set `PHP_BINARY` in `.env.e2e`:
+
+E2E defaults to one worker because these specs use shared seeded accounts and a shared local database. You can set `E2E_WORKERS` for parallel experiments, but login throttling may apply.
+
+`.env.e2e` sets `E2E_DISABLE_LOGIN_THROTTLE=true` so repeated automated logins do not trip Laravel's login rate limiter. The bypass only applies when the app runs with `--env=e2e`.
+
+```env
+PHP_BINARY='C:\xampp\php\php.exe'
+```
+
+For a one-off Windows PowerShell override:
+
+```powershell
+$env:PHP_BINARY="C:\xampp\php\php.exe"
 npm run test:e2e
 ```
 

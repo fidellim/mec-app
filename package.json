@@ -2,6 +2,8 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "test:e2e:prepare": "node tests/E2E/prepare-e2e-db.cjs",
+    "test:e2e:fresh": "npm run test:e2e:prepare && npm run test:e2e",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
     "test:e2e:headed:slow": "node tests/E2E/run-headed-slow.cjs",
