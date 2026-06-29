@@ -321,7 +321,7 @@ Use **All Leave Plans** to review leave plans across all departments.
 - Review the staged approval progress for HOD, Director, and HR.
 - Approve or reject the current submitted approval stage when the required approver is configured, except your own.
 - Approve or reject cancellation requests, except your own.
-- Use **Calendar** to visualize submitted, approved, and cancellation-requested leave by month.
+- Use **Calendar** to visualize submitted, approved, cancellation-requested leave, and company holidays by month.
 - `L100 - Annual Leave` entitlement is enforced at employee submission time. Cross-year plans consume each calendar year's allowance separately.
 
 Leave plan submission, stage approval, final approval, rejection, cancellation request, cancellation approval, and cancellation rejection are recorded in audit logs. Employees, HOD approvers, the Director approver, and regional HR approvers receive email notifications for the relevant workflow events.

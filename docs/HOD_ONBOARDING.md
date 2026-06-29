@@ -132,13 +132,15 @@ Use **Department Leave Plans** to review leave requests for departments you mana
 3. Select **Review** on a leave plan.
 4. Select **Approve** if the planned leave is accepted by the department.
 5. Enter a rejection comment and select **Reject** if the employee needs to revise it.
-6. Use **Calendar** to view submitted, approved, and cancellation-requested leave by month.
+6. Use **Calendar** to view submitted, approved, cancellation-requested leave, and company holidays by month.
 
 Your approval is the first step. After you approve a submitted leave plan, it moves to the configured Director of Engineering & Project Management approver, then to the employee's regional HR approver. The plan is fully approved only after HR approval.
 
 You can approve or reject cancellation requests for approved leave plans in your managed departments. Cancellation requests stay HOD-only and do not go through Director/HR approval. You cannot approve, reject, or action cancellation for your own leave plan.
 
 For `L100 - Annual Leave`, submitted, approved, and cancellation-requested plans reserve the employee's annual allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
+
+Holiday entries are read-only and include region labels where applicable.
 
 ## Email Notifications
 

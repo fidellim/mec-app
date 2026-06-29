@@ -121,6 +121,10 @@
     .leave-calendar-event.recalled { border-left-color: var(--bs-warning); }
     .leave-calendar-event.cancelled { border-left-color: var(--bs-dark); }
     .leave-calendar-event.voided { border-left-color: var(--bs-dark); }
+    .leave-calendar-event.holiday {
+        border-left-color: var(--bs-info);
+        background: color-mix(in srgb, var(--bs-info-bg-subtle) 36%, var(--app-card-bg));
+    }
     @media (max-width: 767.98px) {
         .leave-calendar {
             display: block;
@@ -240,7 +244,9 @@
                             @endif
                                 <div class="fw-semibold text-truncate">{{ $event['label'] }}</div>
                                 <div class="text-muted text-capitalize">{{ str_replace('_', ' ', $event['status']) }}</div>
-                                <div class="text-muted">{{ $event['duration'] }}</div>
+                                @if(! empty($event['duration']))
+                                    <div class="text-muted">{{ $event['duration'] }}</div>
+                                @endif
                             @if(! $calendarReadonly && ! empty($event['url']))
                                 </a>
                             @else

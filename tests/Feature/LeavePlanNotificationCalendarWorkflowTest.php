@@ -124,7 +124,7 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
             && $mail->headline === 'Leave plan cancellation approved');
     }
 
-    public function test_employee_calendar_shows_only_own_leave_plans(): void
+    public function test_employee_calendar_shows_same_department_leave_without_coworker_links(): void
     {
         $department = $this->department();
         $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
@@ -176,17 +176,18 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
 
         $response
             ->assertOk()
-            ->assertSee('My Leave Calendar')
+            ->assertSee('Department Leave Calendar')
             ->assertSee('data-calendar-month-selector', false)
             ->assertSee('name="month"', false)
             ->assertSee('value="2026-06"', false)
             ->assertSee('L100')
             ->assertSee('L110')
             ->assertSee('Half day - morning (0.5 counted leave day)')
-            ->assertDontSee('>L120<', false)
-            ->assertDontSee($otherEmployee->name);
+            ->assertSee($otherEmployee->name)
+            ->assertSee('L120')
+            ->assertDontSee(route('employee.leave-plans.show', LeavePlan::where('user_id', $otherEmployee->id)->firstOrFail()), false);
 
-        $this->assertSame(1, substr_count($response->getContent(), '<div class="fw-semibold text-truncate">L130</div>'));
+        $this->assertSame(1, substr_count($response->getContent(), '<div class="fw-semibold text-truncate">'.$employee->name.' - L130</div>'));
     }
 
     public function test_hod_calendar_is_limited_to_managed_departments_and_filters_do_not_bypass_scope(): void

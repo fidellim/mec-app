@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\HolidayDate;
+use App\Models\HolidayEvent;
 use App\Models\LeavePlan;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -46,12 +48,13 @@ class LeavePlanCalendarService
             ->orderBy('start_date')
             ->get();
         $countedLeaveDates = $this->countedLeaveDatesByPlan($leavePlans);
+        $holidaysByDate = $this->holidaysByDate($request, $monthStart, $monthEnd);
 
         return [
             'month' => $month,
             'previousMonth' => $month->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $month->copy()->addMonth()->format('Y-m'),
-            'weeks' => $this->weeks($month, $leavePlans, $countedLeaveDates, $showRoute, $showEmployee, $includeUrls),
+            'weeks' => $this->weeks($month, $leavePlans, $countedLeaveDates, $holidaysByDate, $showRoute, $showEmployee, $includeUrls),
             'filters' => $filters,
             'statuses' => self::DEFAULT_STATUSES,
         ];
@@ -86,7 +89,7 @@ class LeavePlanCalendarService
         ];
     }
 
-    private function weeks(Carbon $month, Collection $leavePlans, Collection $countedLeaveDates, string $showRoute, bool $showEmployee, bool $includeUrls): Collection
+    private function weeks(Carbon $month, Collection $leavePlans, Collection $countedLeaveDates, Collection $holidaysByDate, string $showRoute, bool $showEmployee, bool $includeUrls): Collection
     {
         $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::SUNDAY);
         $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
@@ -95,25 +98,40 @@ class LeavePlanCalendarService
             ->map(fn (Carbon $date) => [
                 'date' => $date->copy(),
                 'in_month' => $date->isSameMonth($month),
-                'events' => $this->eventsForDate($date, $leavePlans, $countedLeaveDates, $showRoute, $showEmployee, $includeUrls),
+                'events' => $this->eventsForDate($date, $leavePlans, $countedLeaveDates, $holidaysByDate, $showRoute, $showEmployee, $includeUrls),
             ])
             ->chunk(7);
     }
 
-    private function eventsForDate(Carbon $date, Collection $leavePlans, Collection $countedLeaveDates, string $showRoute, bool $showEmployee, bool $includeUrls): Collection
+    private function eventsForDate(Carbon $date, Collection $leavePlans, Collection $countedLeaveDates, Collection $holidaysByDate, string $showRoute, bool $showEmployee, bool $includeUrls): Collection
     {
         $dateString = $date->toDateString();
 
-        return $leavePlans
+        $holidayEvents = $holidaysByDate
+            ->get($dateString, collect())
+            ->map(fn (HolidayDate $holidayDate) => [
+                'type' => 'holiday',
+                'label' => $this->holidayLabel($holidayDate),
+                'title' => $this->holidayTitle($holidayDate),
+                'url' => null,
+                'status' => 'holiday',
+                'duration' => null,
+            ]);
+
+        $leaveEvents = $leavePlans
             ->filter(fn (LeavePlan $leavePlan) => ($countedLeaveDates->get($leavePlan->id) ?? collect())->contains($dateString))
             ->map(fn (LeavePlan $leavePlan) => [
+                'type' => 'leave',
                 'leavePlan' => $leavePlan,
                 'label' => trim(($showEmployee ? $leavePlan->user?->name.' - ' : '').$leavePlan->attendance_code),
                 'title' => trim(($showEmployee ? $leavePlan->user?->name.' - ' : '').$leavePlan->leaveLabel()),
                 'url' => $includeUrls ? route($showRoute, $leavePlan) : null,
                 'status' => $leavePlan->status,
                 'duration' => $leavePlan->leaveLengthLabel(),
-            ])
+            ]);
+
+        return $holidayEvents
+            ->concat($leaveEvents)
             ->values();
     }
 
@@ -124,5 +142,47 @@ class LeavePlanCalendarService
         return $leavePlans->mapWithKeys(fn (LeavePlan $leavePlan) => [
             $leavePlan->id => $holidayService->countedLeaveDates($leavePlan),
         ]);
+    }
+
+    private function holidaysByDate(Request $request, Carbon $monthStart, Carbon $monthEnd): Collection
+    {
+        return HolidayDate::query()
+            ->with('event')
+            ->whereHas('event', fn ($query) => $query->where('is_active', true))
+            ->whereIn('region', $this->holidayRegions($request))
+            ->whereDate('holiday_date', '>=', $monthStart)
+            ->whereDate('holiday_date', '<=', $monthEnd)
+            ->orderBy('holiday_date')
+            ->orderByRaw("case region when 'global' then 0 when 'uae' then 1 when 'ph' then 2 else 3 end")
+            ->get()
+            ->groupBy(fn (HolidayDate $holidayDate) => $holidayDate->holiday_date->toDateString());
+    }
+
+    private function holidayRegions(Request $request): array
+    {
+        if ($request->routeIs('employee.leave-plans.*')) {
+            return app(HolidayService::class)->applicableRegions($request->user());
+        }
+
+        return array_keys(HolidayEvent::REGIONS);
+    }
+
+    private function holidayLabel(HolidayDate $holidayDate): string
+    {
+        return 'Holiday - '.$this->holidayRegionLabel($holidayDate).' - '.($holidayDate->event?->name ?: 'Company holiday');
+    }
+
+    private function holidayTitle(HolidayDate $holidayDate): string
+    {
+        $name = $holidayDate->event?->name ?: 'Company holiday';
+
+        return $name.' ('.$this->holidayRegionLabel($holidayDate).' holiday)';
+    }
+
+    private function holidayRegionLabel(HolidayDate $holidayDate): string
+    {
+        return $holidayDate->event?->regionLabel()
+            ?? HolidayEvent::REGIONS[$holidayDate->region]
+            ?? ucfirst((string) $holidayDate->region);
     }
 }

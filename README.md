@@ -72,6 +72,7 @@ Leave plans are tracked separately from weekly timesheet entries.
 - Employees create leave plans from **My Leave Plans** and can view submitted, approved, and cancellation-requested leave in their department calendar.
 - HODs review leave plans from **Department Leave Plans** and can visualize managed department leave in **Department Leave Calendar**.
 - Admins and Super Admins review all leave plans from **All Leave Plans** and can visualize all leave in **All Leave Calendar**.
+- Leave calendars show active company holidays as read-only events. Employee calendars show global holidays plus holidays for the employee's region; reviewer calendars show all company holiday regions with region labels.
 - Submitted, approved, rejected, cancellation-requested, and cancelled leave-plan actions are audit logged.
 - Email notifications are sent for submission/resubmission, approval, rejection, cancellation request, cancellation approval, and cancellation rejection.
 - Approved leave plans appear as warnings on overlapping weekly timesheet forms, but timesheet rows are never auto-created or changed.

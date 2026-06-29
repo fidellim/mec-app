@@ -19,7 +19,10 @@ class LeavePlanWorkflowTest extends TestCase
     public function test_employee_can_save_and_submit_leave_plan(): void
     {
         $department = $this->department();
-        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-601',
+        ]);
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload(['submit' => '0']))
@@ -538,11 +541,33 @@ class LeavePlanWorkflowTest extends TestCase
                 'end_date' => '2026-05-11',
             ]);
         }
+        HolidayEvent::factory()->create([
+            'name' => 'UAE Founders Day',
+            'region' => HolidayEvent::REGION_UAE,
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'PH Independence Day',
+            'region' => HolidayEvent::REGION_PH,
+            'start_date' => '2026-05-13',
+            'end_date' => '2026-05-13',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'Inactive Holiday',
+            'region' => HolidayEvent::REGION_UAE,
+            'start_date' => '2026-05-14',
+            'end_date' => '2026-05-14',
+            'is_active' => false,
+        ]);
 
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create', ['month' => '2026-05']))
             ->assertOk()
             ->assertSee('Department leave availability')
+            ->assertSee('Holiday - United Arab Emirates - UAE Founders Day')
+            ->assertDontSee('PH Independence Day')
+            ->assertDontSee('Inactive Holiday')
             ->assertSee('Ben Submitted')
             ->assertSee('Grace Approved')
             ->assertSee('Nora Cancelling')
@@ -558,7 +583,11 @@ class LeavePlanWorkflowTest extends TestCase
     {
         $department = $this->department(['name' => 'Operations']);
         $otherDepartment = $this->department(['name' => 'Engineering']);
-        $employee = $this->userWithRole('employee', ['name' => 'Aisha Viewer', 'department_id' => $department->id]);
+        $employee = $this->userWithRole('employee', [
+            'name' => 'Aisha Viewer',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-602',
+        ]);
         $submittedEmployee = $this->userWithRole('employee', ['name' => 'Ben Submitted', 'department_id' => $department->id]);
         $approvedEmployee = $this->userWithRole('employee', ['name' => 'Grace Approved', 'department_id' => $department->id]);
         $cancellingEmployee = $this->userWithRole('employee', ['name' => 'Nora Cancelling', 'department_id' => $department->id]);
@@ -589,11 +618,32 @@ class LeavePlanWorkflowTest extends TestCase
                 'end_date' => '2026-05-11',
             ]);
         }
+        HolidayEvent::factory()->create([
+            'name' => 'Global Company Day',
+            'region' => HolidayEvent::REGION_GLOBAL,
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'Philippines Holiday',
+            'region' => HolidayEvent::REGION_PH,
+            'start_date' => '2026-05-13',
+            'end_date' => '2026-05-13',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'UAE Hidden Holiday',
+            'region' => HolidayEvent::REGION_UAE,
+            'start_date' => '2026-05-14',
+            'end_date' => '2026-05-14',
+        ]);
 
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.calendar', ['month' => '2026-05']))
             ->assertOk()
             ->assertSee('Department Leave Calendar')
+            ->assertSee('Holiday - Global - Global Company Day')
+            ->assertSee('Holiday - Philippines - Philippines Holiday')
+            ->assertDontSee('UAE Hidden Holiday')
             ->assertSee('Aisha Viewer')
             ->assertSee('Ben Submitted')
             ->assertSee('Grace Approved')
@@ -635,6 +685,46 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Same Team Visible')
             ->assertDontSee('Same Team Rejected')
             ->assertDontSee(route('employee.leave-plans.show', $visiblePlan), false);
+    }
+
+    public function test_admin_leave_calendar_shows_all_active_company_holidays(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        HolidayEvent::factory()->create([
+            'name' => 'Global Review Holiday',
+            'region' => HolidayEvent::REGION_GLOBAL,
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'UAE Review Holiday',
+            'region' => HolidayEvent::REGION_UAE,
+            'start_date' => '2026-05-13',
+            'end_date' => '2026-05-13',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'PH Review Holiday',
+            'region' => HolidayEvent::REGION_PH,
+            'start_date' => '2026-05-14',
+            'end_date' => '2026-05-14',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'Inactive Review Holiday',
+            'region' => HolidayEvent::REGION_GLOBAL,
+            'start_date' => '2026-05-15',
+            'end_date' => '2026-05-15',
+            'is_active' => false,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.leave-plans.calendar', ['month' => '2026-05']))
+            ->assertOk()
+            ->assertSee('All Leave Calendar')
+            ->assertSee('Holiday - Global - Global Review Holiday')
+            ->assertSee('Holiday - United Arab Emirates - UAE Review Holiday')
+            ->assertSee('Holiday - Philippines - PH Review Holiday')
+            ->assertDontSee('Inactive Review Holiday');
     }
 
     public function test_employee_leave_plan_edit_availability_excludes_current_plan(): void

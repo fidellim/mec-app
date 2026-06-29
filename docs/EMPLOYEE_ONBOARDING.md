@@ -117,11 +117,13 @@ Use **My Leave Plans** to plan leave before filling the related weekly timesheet
 2. Select **Create Leave Plan**.
 3. Choose the leave type, start date, end date, duration, and optional reason.
 4. Select **Save Draft** if you are not ready, or **Submit for Approval** to send it to your HOD approvers.
-5. Use **Calendar** to see submitted, approved, and cancellation-requested leave in your department by month.
+5. Use **Calendar** to see submitted, approved, cancellation-requested leave, and applicable company holidays in your department by month.
 
 Draft and rejected leave plans can be edited. Submitted leave plans are locked until reviewed. Approved leave plans can be cancelled only by sending a cancellation request for review.
 
 For `L100 - Annual Leave`, the form shows your yearly allowance, used or reserved days, and remaining days. The allowance refreshes every January 1, unused days do not carry over, and submitted leave is blocked if it exceeds your remaining allowance.
+
+Holiday entries are read-only. They help explain why a date range may use fewer counted leave days than the number of calendar days selected.
 
 When a weekly timesheet overlaps approved leave, the timesheet form shows a warning with the planned leave dates and leave code. You still need to enter the correct timesheet row yourself.
 

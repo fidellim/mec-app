@@ -90,6 +90,8 @@ Email delivery uses Laravel queued mail. Inactive users, users without email add
 
 Calendars are read-only. Users create and edit leave plans through the existing leave plan forms. Leave events appear only on counted leave dates, so weekends and applicable holidays inside the submitted date range are not shown as leave events.
 
+Calendars also show active company holidays as read-only events. Employee calendars show global holidays plus the employee's applicable region. HOD, Admin, and Super Admin calendars show global, UAE, and Philippines holidays with region labels so reviewers can understand why leave day counts may differ from calendar date ranges.
+
 By default, calendars show submitted, approved, and cancellation-requested leave plans. Filters are available for status, leave type, employee, and department where the role is allowed to use them. Employee calendars intentionally ignore inactive status filters and do not link coworker entries. Recalled, cancelled, and voided leave plans can be viewed by filtering for those statuses on reviewer calendars.
 
 ## Current Limitations

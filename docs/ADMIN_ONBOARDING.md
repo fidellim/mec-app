@@ -129,9 +129,11 @@ Use **All Leave Plans** to review leave plans across all departments.
 - Filter leave plans by department, employee, or status.
 - Approve or reject submitted leave plans, except your own.
 - Approve or reject cancellation requests, except your own.
-- Use **Calendar** to visualize submitted, approved, and cancellation-requested leave by month.
+- Use **Calendar** to visualize submitted, approved, cancellation-requested leave, and company holidays by month.
 
 For `L100 - Annual Leave`, submitted, approved, and cancellation-requested plans reserve the employee's annual allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
+
+Holiday entries are read-only and include region labels where applicable.
 
 Employees receive email notifications when their leave plan or cancellation request is approved or rejected.
 
