@@ -34,12 +34,13 @@ class LeavePlanCalendarService
             ->whereDate('end_date', '>=', $monthStart)
             ->orderBy('start_date')
             ->get();
+        $countedLeaveDates = $this->countedLeaveDatesByPlan($leavePlans);
 
         return [
             'month' => $month,
             'previousMonth' => $month->copy()->subMonth()->format('Y-m'),
             'nextMonth' => $month->copy()->addMonth()->format('Y-m'),
-            'weeks' => $this->weeks($month, $leavePlans, $showRoute, $showEmployee),
+            'weeks' => $this->weeks($month, $leavePlans, $countedLeaveDates, $showRoute, $showEmployee),
             'filters' => $filters,
             'statuses' => self::DEFAULT_STATUSES,
         ];
@@ -64,7 +65,7 @@ class LeavePlanCalendarService
         ];
     }
 
-    private function weeks(Carbon $month, Collection $leavePlans, string $showRoute, bool $showEmployee): Collection
+    private function weeks(Carbon $month, Collection $leavePlans, Collection $countedLeaveDates, string $showRoute, bool $showEmployee): Collection
     {
         $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::SUNDAY);
         $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
@@ -73,15 +74,17 @@ class LeavePlanCalendarService
             ->map(fn (Carbon $date) => [
                 'date' => $date->copy(),
                 'in_month' => $date->isSameMonth($month),
-                'events' => $this->eventsForDate($date, $leavePlans, $showRoute, $showEmployee),
+                'events' => $this->eventsForDate($date, $leavePlans, $countedLeaveDates, $showRoute, $showEmployee),
             ])
             ->chunk(7);
     }
 
-    private function eventsForDate(Carbon $date, Collection $leavePlans, string $showRoute, bool $showEmployee): Collection
+    private function eventsForDate(Carbon $date, Collection $leavePlans, Collection $countedLeaveDates, string $showRoute, bool $showEmployee): Collection
     {
+        $dateString = $date->toDateString();
+
         return $leavePlans
-            ->filter(fn (LeavePlan $leavePlan) => $date->betweenIncluded($leavePlan->start_date, $leavePlan->end_date))
+            ->filter(fn (LeavePlan $leavePlan) => ($countedLeaveDates->get($leavePlan->id) ?? collect())->contains($dateString))
             ->map(fn (LeavePlan $leavePlan) => [
                 'leavePlan' => $leavePlan,
                 'label' => trim(($showEmployee ? $leavePlan->user?->name.' - ' : '').$leavePlan->attendance_code),
@@ -91,5 +94,14 @@ class LeavePlanCalendarService
                 'duration' => $leavePlan->leaveLengthLabel(),
             ])
             ->values();
+    }
+
+    private function countedLeaveDatesByPlan(Collection $leavePlans): Collection
+    {
+        $holidayService = app(HolidayService::class);
+
+        return $leavePlans->mapWithKeys(fn (LeavePlan $leavePlan) => [
+            $leavePlan->id => $holidayService->countedLeaveDates($leavePlan),
+        ]);
     }
 }

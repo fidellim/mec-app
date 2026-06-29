@@ -10,7 +10,10 @@ use Illuminate\Support\Facades\Mail;
 
 class LeavePlanEmailNotificationService
 {
-    public function __construct(private readonly HodExclusionService $hodExclusions)
+    public function __construct(
+        private readonly HodExclusionService $hodExclusions,
+        private readonly LeavePlanApprovalService $approvals,
+    )
     {
     }
 
@@ -38,6 +41,33 @@ class LeavePlanEmailNotificationService
             actionLabel: 'View Leave Plan',
             actionUrl: route('employee.leave-plans.show', $leavePlan),
         ));
+    }
+
+    public function stagePending(LeavePlan $leavePlan): void
+    {
+        $leavePlan = $this->loadLeavePlan($leavePlan);
+
+        if ($leavePlan->approval_stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
+            $this->send($this->approvals->director(), new LeavePlanWorkflowMail(
+                leavePlan: $leavePlan,
+                headline: 'Leave plan pending Director approval',
+                intro: $leavePlan->user->name.' has a leave plan waiting for Director review for '.$this->dateRange($leavePlan).'.',
+                actionLabel: 'Review Leave Plan',
+                actionUrl: route('assigned.leave-plans.show', $leavePlan),
+            ));
+
+            return;
+        }
+
+        if ($leavePlan->approval_stage === LeavePlan::APPROVAL_STAGE_HR) {
+            $this->send($this->approvals->hrFor($leavePlan), new LeavePlanWorkflowMail(
+                leavePlan: $leavePlan,
+                headline: 'Leave plan pending HR approval',
+                intro: $leavePlan->user->name.' has a leave plan waiting for regional HR review for '.$this->dateRange($leavePlan).'.',
+                actionLabel: 'Review Leave Plan',
+                actionUrl: route('assigned.leave-plans.show', $leavePlan),
+            ));
+        }
     }
 
     public function rejected(LeavePlan $leavePlan): void

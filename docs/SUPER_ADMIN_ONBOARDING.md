@@ -37,6 +37,7 @@ Super Admins can access:
 | ![Departments](/images/sidebar/departments.svg) **Departments** | Maintain departments and HOD assignments. |
 | ![Projects](/images/sidebar/projects.svg) **Projects** | Maintain project/job numbers used in timesheets. |
 | ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Weekly Periods** | Open or close weekly submission windows. |
+| ![Users](/images/sidebar/users.svg) **Leave Approvers** | Assign Director and regional HR approvers for leave-plan approvals. |
 | ![Automations](/images/sidebar/automations.svg) **Automations** | Enable or disable scheduled background jobs. |
 | ![Audit Logs](/images/sidebar/audit-logs.svg) **Audit Logs** | Review, export, and clean up important system actions. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
@@ -176,6 +177,17 @@ Open periods allow drafts, submissions, and resubmissions. Closed periods block 
 
 Users can only create one active timesheet per weekly period, even if the period remains open. Withdrawn and recalled timesheets remain active so the owner corrects the same record. If a Super Admin voids an approved timesheet for replacement, the owner can create a new timesheet for that same weekly period while the voided record remains visible for audit history.
 
+## Manage Leave Plan Approvers
+
+Use **Leave Approvers** to assign the non-HOD reviewers in the leave-plan approval chain.
+
+- **Director approver** reviews after HOD approval.
+- **UAE HR approver** completes final approval for employee numbers starting with `MEC-HR-` or `MCE-HR-`.
+- **Philippines HR approver** completes final approval for employee numbers starting with `MEC-PHIL-HR-`.
+- Approvers can be any active user account.
+
+If a Director or regional HR approver is missing, leave plans remain submitted at that stage and the review page shows a setup warning. Assign the missing approver, then the configured reviewer can continue from **Assigned Leave Plans**.
+
 ## Automations
 
 Use **Automations** to enable or disable scheduled jobs.
@@ -294,11 +306,12 @@ When a Super Admin approves, rejects, or recalls a Head of Department timesheet,
 Use **All Leave Plans** to review leave plans across all departments.
 
 - Filter leave plans by department, employee, status, or leave type.
-- Approve or reject submitted leave plans, except your own.
+- Review the staged approval progress for HOD, Director, and HR.
+- Approve or reject the current submitted approval stage when the required approver is configured, except your own.
 - Approve or reject cancellation requests, except your own.
 - Use **Calendar** to visualize submitted, approved, and cancellation-requested leave by month.
 
-Leave plan submission, approval, rejection, cancellation request, cancellation approval, and cancellation rejection are recorded in audit logs. Employees and HOD approvers receive email notifications for the relevant workflow events.
+Leave plan submission, stage approval, final approval, rejection, cancellation request, cancellation approval, and cancellation rejection are recorded in audit logs. Employees, HOD approvers, the Director approver, and regional HR approvers receive email notifications for the relevant workflow events.
 
 ## Recalling Or Voiding Approved Timesheets
 

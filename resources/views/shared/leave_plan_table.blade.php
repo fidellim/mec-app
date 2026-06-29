@@ -9,6 +9,7 @@
                     <th>Date Range</th>
                     <th>Duration</th>
                     <th>Status</th>
+                    <th>Approval Stage</th>
                     <th></th>
                 </tr>
             </thead>
@@ -21,10 +22,11 @@
                     <td>{{ $leavePlan->start_date->toFormattedDateString() }} to {{ $leavePlan->end_date->toFormattedDateString() }}</td>
                     <td>{{ $leavePlan->leaveLengthLabel() }}</td>
                     <td>@include('partials.status', ['status' => $leavePlan->status])</td>
+                    <td>{{ $leavePlan->approvalProgressLabel() }}</td>
                     <td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route($showRoute, $leavePlan) }}">Review</a></td>
                 </tr>
             @empty
-                <tr><td colspan="{{ 5 + (($showEmployee ?? false) ? 1 : 0) + (($showDepartment ?? false) ? 1 : 0) }}" class="empty-state">No leave plans found.</td></tr>
+                <tr><td colspan="{{ 6 + (($showEmployee ?? false) ? 1 : 0) + (($showDepartment ?? false) ? 1 : 0) }}" class="empty-state">No leave plans found.</td></tr>
             @endforelse
             </tbody>
         </table>

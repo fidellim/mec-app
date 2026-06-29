@@ -2,9 +2,11 @@
 
 namespace App\Services;
 
-use App\Models\Holiday;
+use App\Models\HolidayDate;
+use App\Models\HolidayEvent;
 use App\Models\LeavePlan;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
@@ -14,21 +16,21 @@ class HolidayService
     public function employeeRegion(?string $employeeCode): string
     {
         return match (true) {
-            is_string($employeeCode) && str_starts_with($employeeCode, 'MEC-PHIL-HR-') => Holiday::REGION_PH,
+            is_string($employeeCode) && str_starts_with($employeeCode, 'MEC-PHIL-HR-') => HolidayEvent::REGION_PH,
             is_string($employeeCode) && (
                 str_starts_with($employeeCode, 'MEC-HR-')
                 || str_starts_with($employeeCode, 'MCE-HR-')
-            ) => Holiday::REGION_UAE,
+            ) => HolidayEvent::REGION_UAE,
             default => 'unknown',
         };
     }
 
     public function applicableRegions(?User $user): array
     {
-        $regions = [Holiday::REGION_GLOBAL];
+        $regions = [HolidayEvent::REGION_GLOBAL];
         $region = $this->employeeRegion($user?->employee_code);
 
-        if (in_array($region, [Holiday::REGION_UAE, Holiday::REGION_PH], true)) {
+        if (in_array($region, [HolidayEvent::REGION_UAE, HolidayEvent::REGION_PH], true)) {
             $regions[] = $region;
         }
 
@@ -37,13 +39,13 @@ class HolidayService
 
     public function holidayDatesForUser(?User $user, CarbonInterface $startDate, CarbonInterface $endDate): Collection
     {
-        return Holiday::query()
-            ->where('is_active', true)
+        return HolidayDate::query()
+            ->whereHas('event', fn ($query) => $query->where('is_active', true))
             ->whereIn('region', $this->applicableRegions($user))
             ->whereDate('holiday_date', '>=', $startDate)
             ->whereDate('holiday_date', '<=', $endDate)
             ->pluck('holiday_date')
-            ->map(fn ($date) => $date->toDateString())
+            ->map(fn ($date) => CarbonImmutable::parse($date)->toDateString())
             ->unique()
             ->values();
     }

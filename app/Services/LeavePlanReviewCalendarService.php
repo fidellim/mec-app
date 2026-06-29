@@ -1,0 +1,129 @@
+<?php
+
+namespace App\Services;
+
+use App\Models\HolidayDate;
+use App\Models\LeavePlan;
+use Carbon\Carbon;
+use Carbon\CarbonPeriod;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+
+class LeavePlanReviewCalendarService
+{
+    private const VISIBLE_STATUSES = [
+        LeavePlan::STATUS_SUBMITTED,
+        LeavePlan::STATUS_APPROVED,
+        LeavePlan::STATUS_CANCELLATION_REQUESTED,
+    ];
+
+    public function build(LeavePlan $leavePlan, Builder $visibleLeavePlans): Collection
+    {
+        $months = collect(CarbonPeriod::create(
+            $leavePlan->start_date->copy()->startOfMonth(),
+            '1 month',
+            $leavePlan->end_date->copy()->startOfMonth()
+        ))->map(fn (Carbon $month) => $month->copy()->startOfMonth());
+
+        $calendarStart = $months->first()->copy()->startOfMonth()->startOfWeek(Carbon::SUNDAY);
+        $calendarEnd = $months->last()->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
+
+        $visiblePlans = (clone $visibleLeavePlans)
+            ->with(['user', 'department'])
+            ->whereKeyNot($leavePlan->id)
+            ->whereIn('status', self::VISIBLE_STATUSES)
+            ->whereDate('start_date', '<=', $calendarEnd)
+            ->whereDate('end_date', '>=', $calendarStart)
+            ->orderBy('start_date')
+            ->get();
+
+        $holidays = HolidayDate::query()
+            ->with('event')
+            ->whereHas('event', fn ($query) => $query->where('is_active', true))
+            ->whereIn('region', app(HolidayService::class)->applicableRegions($leavePlan->user))
+            ->whereDate('holiday_date', '>=', $calendarStart)
+            ->whereDate('holiday_date', '<=', $calendarEnd)
+            ->orderBy('holiday_date')
+            ->get();
+
+        $calendarPlans = $visiblePlans
+            ->push($leavePlan->loadMissing(['user', 'department']))
+            ->sortBy([
+                fn (LeavePlan $first, LeavePlan $second) => $first->start_date <=> $second->start_date,
+                fn (LeavePlan $first, LeavePlan $second) => $first->id <=> $second->id,
+            ])
+            ->values();
+        $countedLeaveDates = $this->countedLeaveDatesByPlan($calendarPlans);
+
+        return $months->map(fn (Carbon $month) => [
+            'month' => $month,
+            'weeks' => $this->weeks($month, $calendarPlans, $countedLeaveDates, $holidays, $leavePlan),
+        ]);
+    }
+
+    private function weeks(Carbon $month, Collection $leavePlans, Collection $countedLeaveDates, Collection $holidays, LeavePlan $currentLeavePlan): Collection
+    {
+        $calendarStart = $month->copy()->startOfMonth()->startOfWeek(Carbon::SUNDAY);
+        $calendarEnd = $month->copy()->endOfMonth()->endOfWeek(Carbon::SATURDAY);
+
+        return collect(CarbonPeriod::create($calendarStart, $calendarEnd))
+            ->map(fn (Carbon $date) => [
+                'date' => $date->copy(),
+                'in_month' => $date->isSameMonth($month),
+                'is_requested_range' => ($countedLeaveDates->get($currentLeavePlan->id) ?? collect())->contains($date->toDateString()),
+                'events' => $this->eventsForDate($date, $leavePlans, $countedLeaveDates, $holidays, $currentLeavePlan),
+            ])
+            ->chunk(7);
+    }
+
+    private function eventsForDate(Carbon $date, Collection $leavePlans, Collection $countedLeaveDates, Collection $holidays, LeavePlan $currentLeavePlan): Collection
+    {
+        $dateString = $date->toDateString();
+
+        $leaveEvents = $leavePlans
+            ->filter(fn (LeavePlan $plan) => ($countedLeaveDates->get($plan->id) ?? collect())->contains($dateString))
+            ->map(fn (LeavePlan $plan) => [
+                'type' => 'leave',
+                'is_current' => (int) $plan->id === (int) $currentLeavePlan->id,
+                'employee' => $plan->user?->name ?: '-',
+                'department' => $plan->department?->name ?: '-',
+                'label' => ((int) $plan->id === (int) $currentLeavePlan->id ? 'This request - ' : '').($plan->user?->name ?: '-'),
+                'status' => $plan->status,
+                'leave_type' => $plan->leaveLabel(),
+                'duration' => $plan->leaveLengthLabel(),
+            ])
+            ->values();
+
+        $isClashing = $leaveEvents->count() > 1;
+
+        $holidayEvents = $holidays
+            ->filter(fn (HolidayDate $holiday) => $holiday->holiday_date->isSameDay($date))
+            ->map(fn (HolidayDate $holiday) => [
+                'type' => 'holiday',
+                'is_current' => false,
+                'employee' => null,
+                'department' => $holiday->event?->regionLabel() ?? '-',
+                'label' => 'Holiday - '.$holiday->event?->name,
+                'status' => 'holiday',
+                'leave_type' => ($holiday->event?->regionLabel() ?? '-').' holiday',
+                'duration' => $holiday->holiday_date->toDateString(),
+            ]);
+
+        return $holidayEvents
+            ->concat($leaveEvents->map(function (array $event) use ($isClashing) {
+                $event['is_clashing'] = $isClashing && ! $event['is_current'];
+
+                return $event;
+            }))
+            ->values();
+    }
+
+    private function countedLeaveDatesByPlan(Collection $leavePlans): Collection
+    {
+        $holidayService = app(HolidayService::class);
+
+        return $leavePlans->mapWithKeys(fn (LeavePlan $leavePlan) => [
+            $leavePlan->id => $holidayService->countedLeaveDates($leavePlan),
+        ]);
+    }
+}

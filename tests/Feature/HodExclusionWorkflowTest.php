@@ -109,8 +109,11 @@ class HodExclusionWorkflowTest extends TestCase
             ->post(route('hod.leave-plans.approve', $leavePlan))
             ->assertRedirect();
 
-        $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->refresh()->status);
-        $this->assertSame($activeHod->id, $leavePlan->approved_by);
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->approval_stage);
+        $this->assertSame($activeHod->id, $leavePlan->hod_approved_by);
+        $this->assertNull($leavePlan->approved_by);
     }
 
     public function test_super_admin_can_manage_hod_exclusions_and_cannot_leave_zero_eligible_approvers(): void

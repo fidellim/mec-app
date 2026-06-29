@@ -63,6 +63,7 @@ class EmployeeLeavePlanController extends Controller
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
                 'status' => $submit ? LeavePlan::STATUS_SUBMITTED : LeavePlan::STATUS_DRAFT,
+                'approval_stage' => $submit ? LeavePlan::APPROVAL_STAGE_HOD : null,
                 'submitted_at' => $submit ? now() : null,
             ]));
 
@@ -88,7 +89,7 @@ class EmployeeLeavePlanController extends Controller
         $this->authorizeOwner($leavePlan);
 
         return view('employee.leave-plans.show', [
-            'leavePlan' => $leavePlan->load(['department', 'approver', 'rejector', 'canceller', 'recaller', 'voider']),
+            'leavePlan' => $leavePlan->load(['department', 'approver', 'rejector', 'hodApprover', 'directorApprover', 'hrApprover', 'canceller', 'recaller', 'voider']),
         ]);
     }
 
@@ -119,12 +120,20 @@ class EmployeeLeavePlanController extends Controller
             $leavePlan->update(array_merge($this->attributes($request), [
                 'department_id' => $request->user()->department_id,
                 'status' => $submit ? LeavePlan::STATUS_SUBMITTED : LeavePlan::STATUS_DRAFT,
+                'approval_stage' => $submit ? LeavePlan::APPROVAL_STAGE_HOD : null,
                 'submitted_at' => $submit ? now() : $leavePlan->submitted_at,
                 'approved_at' => null,
                 'approved_by' => null,
+                'hod_approved_at' => null,
+                'hod_approved_by' => null,
+                'director_approved_at' => null,
+                'director_approved_by' => null,
+                'hr_approved_at' => null,
+                'hr_approved_by' => null,
                 'rejected_at' => null,
                 'rejected_by' => null,
                 'rejection_comment' => null,
+                'rejected_approval_stage' => null,
                 'recalled_at' => null,
                 'recalled_by' => null,
                 'recall_reason' => null,

@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\LeavePlan;
 use App\Models\User;
 use App\Services\LeavePlanCalendarService;
+use App\Services\LeavePlanReviewCalendarService;
 use Illuminate\Http\Request;
 
 class AdminLeavePlanController extends Controller
@@ -41,10 +42,13 @@ class AdminLeavePlanController extends Controller
         ]);
     }
 
-    public function show(LeavePlan $leavePlan)
+    public function show(LeavePlan $leavePlan, LeavePlanReviewCalendarService $reviewCalendar)
     {
+        $leavePlan->load(['user', 'department', 'approver', 'rejector', 'hodApprover', 'directorApprover', 'hrApprover', 'canceller', 'recaller', 'voider']);
+
         return view('hod.leave-plans.show', [
-            'leavePlan' => $leavePlan->load(['user', 'department', 'approver', 'rejector', 'canceller', 'recaller', 'voider']),
+            'leavePlan' => $leavePlan,
+            'reviewCalendarMonths' => $reviewCalendar->build($leavePlan, LeavePlan::query()),
         ]);
     }
 

@@ -3,8 +3,9 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
-use App\Models\Holiday;
+use App\Models\HolidayEvent;
 use App\Models\LeavePlan;
+use App\Models\LeavePlanApproverSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -62,7 +63,7 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertModelExists($submitted);
     }
 
-    public function test_hod_can_approve_and_reject_submitted_leave_plans(): void
+    public function test_hod_approval_moves_leave_plan_to_director_review_and_hod_can_reject(): void
     {
         $department = $this->department();
         $hod = $this->userWithRole('hod');
@@ -73,12 +74,14 @@ class LeavePlanWorkflowTest extends TestCase
             'user_id' => $employee->id,
             'department_id' => $department->id,
             'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
             'submitted_at' => now(),
         ]);
         $rejectedPlan = LeavePlan::factory()->create([
             'user_id' => $employee->id,
             'department_id' => $department->id,
             'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
             'submitted_at' => now(),
             'start_date' => '2026-05-12',
             'end_date' => '2026-05-12',
@@ -88,8 +91,11 @@ class LeavePlanWorkflowTest extends TestCase
             ->post(route('hod.leave-plans.approve', $approvedPlan))
             ->assertRedirect();
 
-        $this->assertSame(LeavePlan::STATUS_APPROVED, $approvedPlan->fresh()->status);
-        $this->assertSame($hod->id, $approvedPlan->fresh()->approved_by);
+        $approvedPlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $approvedPlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $approvedPlan->approval_stage);
+        $this->assertSame($hod->id, $approvedPlan->hod_approved_by);
+        $this->assertNull($approvedPlan->approved_by);
 
         $this->actingAs($hod)
             ->post(route('hod.leave-plans.reject', $rejectedPlan), ['rejection_comment' => 'Project coverage needed.'])
@@ -97,6 +103,170 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->assertSame(LeavePlan::STATUS_REJECTED, $rejectedPlan->fresh()->status);
         $this->assertSame('Project coverage needed.', $rejectedPlan->fresh()->rejection_comment);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_HOD, $rejectedPlan->fresh()->rejected_approval_stage);
+    }
+
+    public function test_director_and_regional_hr_complete_sequential_leave_plan_approval(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod');
+        $director = $this->userWithRole('employee');
+        $uaeHr = $this->userWithRole('employee');
+        $department->hods()->attach($hod);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-501',
+        ]);
+        $this->setLeavePlanApprovers($director, $uaeHr, $this->userWithRole('employee'));
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($hod)
+            ->post(route('hod.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->fresh()->approval_stage);
+
+        $this->actingAs($director)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_HR, $leavePlan->approval_stage);
+        $this->assertSame($director->id, $leavePlan->director_approved_by);
+
+        $this->actingAs($uaeHr)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
+        $this->assertNull($leavePlan->approval_stage);
+        $this->assertSame($uaeHr->id, $leavePlan->hr_approved_by);
+        $this->assertSame($uaeHr->id, $leavePlan->approved_by);
+    }
+
+    public function test_philippines_employee_routes_to_ph_hr_for_final_leave_plan_approval(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod');
+        $director = $this->userWithRole('employee');
+        $uaeHr = $this->userWithRole('employee');
+        $phHr = $this->userWithRole('employee');
+        $department->hods()->attach($hod);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-502',
+        ]);
+        $this->setLeavePlanApprovers($director, $uaeHr, $phHr);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+            'submitted_at' => now(),
+            'hod_approved_at' => now(),
+            'hod_approved_by' => $hod->id,
+            'director_approved_at' => now(),
+            'director_approved_by' => $director->id,
+        ]);
+
+        $this->actingAs($uaeHr)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertForbidden();
+
+        $this->actingAs($phHr)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $this->assertSame($phHr->id, $leavePlan->fresh()->approved_by);
+    }
+
+    public function test_missing_director_or_hr_configuration_leaves_plan_pending_at_stage(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod');
+        $department->hods()->attach($hod);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+        ]);
+
+        $this->actingAs($hod)
+            ->post(route('hod.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->approval_stage);
+
+        $this->actingAs($this->userWithRole('super_admin'))
+            ->post(route('admin.leave-plans.approve', $leavePlan))
+            ->assertStatus(422);
+
+        $director = $this->userWithRole('employee');
+        $this->setLeavePlanApprovers($director, null, null);
+
+        $this->actingAs($director)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_HR, $leavePlan->approval_stage);
+
+        $this->actingAs($this->userWithRole('super_admin'))
+            ->post(route('admin.leave-plans.approve', $leavePlan))
+            ->assertStatus(422);
+    }
+
+    public function test_director_rejection_and_resubmission_restarts_full_approval_chain(): void
+    {
+        $department = $this->department();
+        $director = $this->userWithRole('employee');
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $this->setLeavePlanApprovers($director, $this->userWithRole('employee'), $this->userWithRole('employee'));
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+            'submitted_at' => now(),
+            'hod_approved_at' => now(),
+            'hod_approved_by' => $this->userWithRole('hod')->id,
+        ]);
+
+        $this->actingAs($director)
+            ->post(route('assigned.leave-plans.reject', $leavePlan), ['rejection_comment' => 'Director review requires different dates.'])
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_REJECTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->rejected_approval_stage);
+
+        $this->actingAs($employee)
+            ->put(route('employee.leave-plans.update', $leavePlan), $this->validLeavePlanPayload([
+                'end_date' => '2026-05-12',
+                'submit' => '1',
+            ]))
+            ->assertRedirect(route('employee.leave-plans.show', $leavePlan));
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_HOD, $leavePlan->approval_stage);
+        $this->assertNull($leavePlan->hod_approved_at);
+        $this->assertNull($leavePlan->director_approved_at);
+        $this->assertNull($leavePlan->rejected_approval_stage);
     }
 
     public function test_hod_cannot_approve_own_leave_plan(): void
@@ -211,6 +381,130 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame(1, AuditLog::where('action', 'leave_plan_voided')->count());
     }
 
+    public function test_hod_review_page_embeds_calendar_with_managed_department_active_leave(): void
+    {
+        $department = $this->department(['name' => 'Operations']);
+        $otherDepartment = $this->department(['name' => 'Engineering']);
+        $hod = $this->userWithRole('hod', ['name' => 'Olivia HOD']);
+        $department->hods()->attach($hod);
+        $requester = $this->userWithRole('employee', ['name' => 'Aisha Requester', 'department_id' => $department->id]);
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'Ben Visible', 'department_id' => $department->id]);
+        $hiddenEmployee = $this->userWithRole('employee', ['name' => 'Carla Hidden', 'department_id' => $otherDepartment->id]);
+        $draftEmployee = $this->userWithRole('employee', ['name' => 'Daniel Draft', 'department_id' => $department->id]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $requester->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-12',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-20',
+            'end_date' => '2026-05-20',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'Founders Day',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'region' => 'global',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $hiddenEmployee->id,
+            'department_id' => $otherDepartment->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $draftEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_DRAFT,
+            'start_date' => '2026-05-13',
+            'end_date' => '2026-05-13',
+        ]);
+
+        $response = $this->actingAs($hod)
+            ->get(route('hod.leave-plans.show', $leavePlan));
+
+        $response
+            ->assertOk()
+            ->assertSee('Leave calendar view')
+            ->assertSee('May 2026')
+            ->assertSee('This request - Aisha Requester')
+            ->assertSee('Ben Visible')
+            ->assertSee('Holiday - Founders Day')
+            ->assertSee('Clash')
+            ->assertDontSee('Carla Hidden')
+            ->assertDontSee('Daniel Draft');
+
+        $this->assertSame(1, substr_count($response->getContent(), 'This request - Aisha Requester'));
+    }
+
+    public function test_admin_review_calendar_shows_company_wide_active_leave_and_ignores_inactive_statuses(): void
+    {
+        $department = $this->department(['name' => 'Operations']);
+        $otherDepartment = $this->department(['name' => 'Engineering']);
+        $admin = $this->userWithRole('admin', ['name' => 'Admin Reviewer']);
+        $requester = $this->userWithRole('employee', ['name' => 'Fatima Requester', 'department_id' => $department->id]);
+        $companyEmployee = $this->userWithRole('employee', ['name' => 'Grace Company', 'department_id' => $otherDepartment->id]);
+        $rejectedEmployee = $this->userWithRole('employee', ['name' => 'Hana Rejected', 'department_id' => $department->id]);
+        $cancelledEmployee = $this->userWithRole('employee', ['name' => 'Iris Cancelled', 'department_id' => $otherDepartment->id]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $requester->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'start_date' => '2026-05-31',
+            'end_date' => '2026-06-02',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $companyEmployee->id,
+            'department_id' => $otherDepartment->id,
+            'status' => LeavePlan::STATUS_CANCELLATION_REQUESTED,
+            'start_date' => '2026-06-15',
+            'end_date' => '2026-06-15',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $rejectedEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_REJECTED,
+            'start_date' => '2026-06-03',
+            'end_date' => '2026-06-03',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $cancelledEmployee->id,
+            'department_id' => $otherDepartment->id,
+            'status' => LeavePlan::STATUS_CANCELLED,
+            'start_date' => '2026-06-04',
+            'end_date' => '2026-06-04',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.leave-plans.show', $leavePlan))
+            ->assertOk()
+            ->assertSee('Leave calendar view')
+            ->assertSee('May 2026')
+            ->assertSee('June 2026')
+            ->assertSee('This request - Fatima Requester')
+            ->assertSee('Grace Company')
+            ->assertSee('cancellation requested')
+            ->assertDontSee('Hana Rejected')
+            ->assertDontSee('Iris Cancelled');
+    }
+
     public function test_leave_plan_validation_and_overlap_warning(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
@@ -240,6 +534,22 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-13',
+                'end_date' => '2026-05-13',
+                'duration_type' => 'half_day',
+                'half_day_period' => 'afternoon',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $halfDay = LeavePlan::where('user_id', $employee->id)
+            ->where('duration_type', 'half_day')
+            ->firstOrFail();
+        $this->assertSame('afternoon', $halfDay->half_day_period);
+        $this->assertSame('Half day - afternoon (0.5 counted leave day)', $halfDay->leaveLengthLabel());
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                 'start_date' => '2026-05-12',
                 'end_date' => '2026-05-11',
             ]))
@@ -249,10 +559,10 @@ class LeavePlanWorkflowTest extends TestCase
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload(['submit' => '1']))
             ->assertSessionHas('warning');
 
-        $this->assertSame(2, LeavePlan::where('user_id', $employee->id)->count());
+        $this->assertSame(3, LeavePlan::where('user_id', $employee->id)->count());
     }
 
-    public function test_duration_counts_include_calendar_days_and_weekdays(): void
+    public function test_duration_counts_include_counted_leave_days_only(): void
     {
         $leavePlan = LeavePlan::factory()->make([
             'start_date' => '2026-05-08',
@@ -260,33 +570,35 @@ class LeavePlanWorkflowTest extends TestCase
             'duration_type' => 'full_day',
         ]);
 
-        $this->assertSame(4.0, $leavePlan->calendarDayCount());
         $this->assertSame(2.0, $leavePlan->countedLeaveDayCount());
-        $this->assertSame('4 calendar days / 2 counted leave days', $leavePlan->durationLabel());
+        $this->assertSame('2 counted leave days', $leavePlan->durationLabel());
 
         $halfDay = LeavePlan::factory()->make([
             'duration_type' => 'half_day',
             'half_day_period' => 'morning',
         ]);
 
-        $this->assertSame('Half day - morning (0.5 calendar days / 0.5 counted leave days)', $halfDay->leaveLengthLabel());
+        $this->assertSame('Half day - morning (0.5 counted leave day)', $halfDay->leaveLengthLabel());
     }
 
     public function test_leave_plan_count_excludes_applicable_regional_holidays(): void
     {
-        Holiday::factory()->create([
+        HolidayEvent::factory()->create([
             'name' => 'Global Holiday',
-            'holiday_date' => '2026-05-11',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
             'region' => 'global',
         ]);
-        Holiday::factory()->create([
+        HolidayEvent::factory()->create([
             'name' => 'UAE Holiday',
-            'holiday_date' => '2026-05-12',
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
             'region' => 'uae',
         ]);
-        Holiday::factory()->create([
+        HolidayEvent::factory()->create([
             'name' => 'PH Holiday',
-            'holiday_date' => '2026-05-13',
+            'start_date' => '2026-05-13',
+            'end_date' => '2026-05-13',
             'region' => 'ph',
         ]);
 
@@ -318,7 +630,33 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame(1.0, $uaePlan->countedLeaveDayCount());
         $this->assertSame(1.0, $phPlan->countedLeaveDayCount());
         $this->assertSame(2.0, $unknownPlan->countedLeaveDayCount());
-        $this->assertSame('3 calendar days / 1 counted leave day', $uaePlan->durationLabel());
+        $this->assertSame('1 counted leave day', $uaePlan->durationLabel());
+    }
+
+    public function test_leave_plan_count_ignores_inactive_holiday_events(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-504',
+        ]);
+        HolidayEvent::factory()->create([
+            'name' => 'Inactive Holiday',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'region' => 'uae',
+            'is_active' => false,
+        ]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'duration_type' => 'full_day',
+        ]);
+
+        $this->assertSame(1.0, $leavePlan->countedLeaveDayCount());
     }
 
     public function test_half_day_leave_on_holiday_counts_zero(): void
@@ -328,8 +666,9 @@ class LeavePlanWorkflowTest extends TestCase
             'department_id' => $department->id,
             'employee_code' => 'MEC-HR-2026-504',
         ]);
-        Holiday::factory()->create([
-            'holiday_date' => '2026-05-11',
+        HolidayEvent::factory()->create([
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
             'region' => 'uae',
         ]);
 
@@ -343,7 +682,7 @@ class LeavePlanWorkflowTest extends TestCase
         ]);
 
         $this->assertSame(0.0, $leavePlan->countedLeaveDayCount());
-        $this->assertSame('Half day - morning (0.5 calendar days / 0 counted leave days)', $leavePlan->leaveLengthLabel());
+        $this->assertSame('Half day - morning (0 counted leave days)', $leavePlan->leaveLengthLabel());
     }
 
     public function test_existing_leave_plan_label_recalculates_after_holiday_is_created(): void
@@ -360,14 +699,15 @@ class LeavePlanWorkflowTest extends TestCase
             'end_date' => '2026-05-12',
         ]);
 
-        $this->assertSame('2 calendar days / 2 counted leave days', $leavePlan->durationLabel());
+        $this->assertSame('2 counted leave days', $leavePlan->durationLabel());
 
-        Holiday::factory()->create([
-            'holiday_date' => '2026-05-12',
+        HolidayEvent::factory()->create([
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
             'region' => 'ph',
         ]);
 
-        $this->assertSame('2 calendar days / 1 counted leave day', $leavePlan->fresh()->durationLabel());
+        $this->assertSame('1 counted leave day', $leavePlan->fresh()->durationLabel());
     }
 
     public function test_overlap_warning_ignores_holiday_only_overlap(): void
@@ -377,8 +717,9 @@ class LeavePlanWorkflowTest extends TestCase
             'department_id' => $department->id,
             'employee_code' => 'MEC-HR-2026-506',
         ]);
-        Holiday::factory()->create([
-            'holiday_date' => '2026-05-11',
+        HolidayEvent::factory()->create([
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
             'region' => 'uae',
         ]);
         LeavePlan::factory()->create([
@@ -473,7 +814,8 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Approved leave planned for this week')
             ->assertSee('L100 - Annual Leave')
-            ->assertSee('1 calendar day / 1 counted leave day');
+            ->assertSee('1 counted leave day')
+            ->assertDontSee('calendar day');
     }
 
     private function validLeavePlanPayload(array $overrides = []): array
@@ -487,5 +829,21 @@ class LeavePlanWorkflowTest extends TestCase
             'reason' => 'Family travel.',
             'submit' => '0',
         ], $overrides);
+    }
+
+    private function setLeavePlanApprovers($director = null, $uaeHr = null, $phHr = null): void
+    {
+        LeavePlanApproverSetting::updateOrCreate(
+            ['key' => LeavePlanApproverSetting::DIRECTOR],
+            ['user_id' => $director?->id],
+        );
+        LeavePlanApproverSetting::updateOrCreate(
+            ['key' => LeavePlanApproverSetting::HR_UAE],
+            ['user_id' => $uaeHr?->id],
+        );
+        LeavePlanApproverSetting::updateOrCreate(
+            ['key' => LeavePlanApproverSetting::HR_PH],
+            ['user_id' => $phHr?->id],
+        );
     }
 }

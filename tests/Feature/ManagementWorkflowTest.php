@@ -5,7 +5,8 @@ namespace Tests\Feature;
 use App\Models\AutomationSetting;
 use App\Models\AuditLog;
 use App\Models\Department;
-use App\Models\Holiday;
+use App\Models\HolidayDate;
+use App\Models\HolidayEvent;
 use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
@@ -751,15 +752,21 @@ class ManagementWorkflowTest extends TestCase
                 ])
                 ->assertRedirect(route('manage.holidays.index'));
 
-            $holiday = Holiday::where('name', $name)->firstOrFail();
-            $this->assertDatabaseHas('holidays', [
+            $holiday = HolidayEvent::where('name', $name)->firstOrFail();
+            $this->assertDatabaseHas('holiday_events', [
                 'id' => $holiday->id,
                 'region' => 'uae',
                 'is_active' => true,
             ]);
+            $this->assertTrue(
+                HolidayDate::where('holiday_event_id', $holiday->id)
+                    ->where('region', 'uae')
+                    ->get()
+                    ->contains(fn (HolidayDate $holidayDate) => $holidayDate->holiday_date->toDateString() === $date)
+            );
             $this->assertDatabaseHas('audit_logs', [
                 'action' => 'holiday_created',
-                'auditable_type' => Holiday::class,
+                'auditable_type' => HolidayEvent::class,
                 'auditable_id' => $holiday->id,
             ]);
 
@@ -781,18 +788,89 @@ class ManagementWorkflowTest extends TestCase
             $this->assertFalse($holiday->refresh()->is_active);
             $this->assertDatabaseHas('audit_logs', [
                 'action' => 'holiday_deactivated',
-                'auditable_type' => Holiday::class,
+                'auditable_type' => HolidayEvent::class,
                 'auditable_id' => $holiday->id,
             ]);
         }
+    }
+
+    public function test_holiday_create_form_supports_flatpickr_date_range(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('manage.holidays.create'))
+            ->assertOk()
+            ->assertSee('Start date')
+            ->assertSee('End date')
+            ->assertSee('type="date" name="holiday_date"', false)
+            ->assertSee('type="date" name="holiday_end_date"', false)
+            ->assertSee('data-holiday-start', false)
+            ->assertSee('data-holiday-end', false)
+            ->assertSee('setDatePickerMin', false)
+            ->assertSee('flatpickr.min.css', false)
+            ->assertSee('flatpickr.min.js', false)
+            ->assertSee("monthSelectorType: 'dropdown'", false);
+    }
+
+    public function test_admin_can_create_multi_day_holiday_range(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('manage.holidays.store'), [
+                'name' => 'Eid Al Fitr',
+                'holiday_date' => '2026-05-12',
+                'holiday_end_date' => '2026-05-14',
+                'region' => 'uae',
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('manage.holidays.index'));
+
+        $holiday = HolidayEvent::where('name', 'Eid Al Fitr')->firstOrFail();
+
+        $this->assertSame('uae', $holiday->region);
+        $this->assertSame('2026-05-12', $holiday->start_date->toDateString());
+        $this->assertSame('2026-05-14', $holiday->end_date->toDateString());
+        $this->assertTrue($holiday->is_active);
+
+        foreach (['2026-05-12', '2026-05-13', '2026-05-14'] as $date) {
+            $this->assertTrue(
+                $holiday->dates->contains(fn (HolidayDate $holidayDate) => $holidayDate->holiday_date->toDateString() === $date)
+            );
+        }
+
+        $this->assertSame(1, HolidayEvent::where('name', 'Eid Al Fitr')->where('region', 'uae')->count());
+        $this->assertSame(3, HolidayDate::where('holiday_event_id', $holiday->id)->count());
+        $this->assertSame(1, AuditLog::where('action', 'holiday_created')->where('auditable_type', HolidayEvent::class)->count());
+    }
+
+    public function test_holiday_index_shows_one_row_for_multi_day_range(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        HolidayEvent::factory()->create([
+            'name' => 'Eid Al Fitr',
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-14',
+            'region' => 'uae',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('manage.holidays.index'))
+            ->assertOk()
+            ->assertSee('Eid Al Fitr')
+            ->assertSee('2026-05-12 to 2026-05-14')
+            ->assertSeeInOrder(['Eid Al Fitr', '2026-05-12 to 2026-05-14', 'United Arab Emirates']);
     }
 
     public function test_holiday_validation_blocks_duplicate_region_date(): void
     {
         $admin = $this->userWithRole('admin');
 
-        Holiday::factory()->create([
-            'holiday_date' => '2026-05-12',
+        HolidayEvent::factory()->create([
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
             'region' => 'global',
         ]);
 
@@ -804,6 +882,87 @@ class ManagementWorkflowTest extends TestCase
                 'is_active' => '1',
             ])
             ->assertSessionHasErrors('holiday_date');
+    }
+
+    public function test_holiday_validation_blocks_duplicate_date_inside_range(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        HolidayEvent::factory()->create([
+            'start_date' => '2026-05-13',
+            'end_date' => '2026-05-13',
+            'region' => 'global',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('manage.holidays.store'), [
+                'name' => 'Duplicate Holiday Range',
+                'holiday_date' => '2026-05-12',
+                'holiday_end_date' => '2026-05-14',
+                'region' => 'global',
+                'is_active' => '1',
+            ])
+            ->assertSessionHasErrors('holiday_date');
+
+        $this->assertDatabaseMissing('holiday_events', [
+            'name' => 'Duplicate Holiday Range',
+        ]);
+    }
+
+    public function test_holiday_validation_rejects_end_date_before_start_date(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->post(route('manage.holidays.store'), [
+                'name' => 'Invalid Holiday Range',
+                'holiday_date' => '2026-05-14',
+                'holiday_end_date' => '2026-05-12',
+                'region' => 'global',
+                'is_active' => '1',
+            ])
+            ->assertSessionHasErrors('holiday_end_date');
+
+        $this->assertDatabaseMissing('holiday_events', [
+            'name' => 'Invalid Holiday Range',
+        ]);
+    }
+
+    public function test_updating_holiday_range_regenerates_child_dates(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $holiday = HolidayEvent::factory()->create([
+            'name' => 'Founders Week',
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-14',
+            'region' => 'uae',
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('manage.holidays.update', $holiday), [
+                'name' => 'Founders Week Updated',
+                'holiday_date' => '2026-05-15',
+                'holiday_end_date' => '2026-05-16',
+                'region' => 'uae',
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('manage.holidays.index'));
+
+        $holiday->refresh();
+
+        $this->assertSame('Founders Week Updated', $holiday->name);
+        $this->assertSame('2026-05-15', $holiday->start_date->toDateString());
+        $this->assertSame('2026-05-16', $holiday->end_date->toDateString());
+        $this->assertFalse(
+            $holiday->dates()->get()->contains(fn (HolidayDate $holidayDate) => $holidayDate->holiday_date->toDateString() === '2026-05-12')
+        );
+        $this->assertSame(2, HolidayDate::where('holiday_event_id', $holiday->id)->count());
+        $this->assertTrue(
+            $holiday->dates()->get()->contains(fn (HolidayDate $holidayDate) => $holidayDate->holiday_date->toDateString() === '2026-05-15')
+        );
+        $this->assertTrue(
+            $holiday->dates()->get()->contains(fn (HolidayDate $holidayDate) => $holidayDate->holiday_date->toDateString() === '2026-05-16')
+        );
     }
 
     public function test_hod_and_employee_cannot_manage_holidays(): void

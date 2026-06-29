@@ -3,7 +3,9 @@
 namespace Tests\Feature;
 
 use App\Mail\LeavePlanWorkflowMail;
+use App\Models\HolidayEvent;
 use App\Models\LeavePlan;
+use App\Models\LeavePlanApproverSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
@@ -48,6 +50,11 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
         Mail::fake();
 
         [$department, $hod, $employee] = $this->departmentWithHodAndEmployee();
+        $director = $this->userWithRole('employee');
+        LeavePlanApproverSetting::create([
+            'key' => LeavePlanApproverSetting::DIRECTOR,
+            'user_id' => $director->id,
+        ]);
         $approvedPlan = $this->submittedLeavePlan($employee, $department);
         $rejectedPlan = $this->submittedLeavePlan($employee, $department, [
             'start_date' => '2026-06-11',
@@ -62,8 +69,8 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
             ->post(route('hod.leave-plans.reject', $rejectedPlan), ['rejection_comment' => 'Coverage is required.'])
             ->assertRedirect();
 
-        Mail::assertQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
-            && $mail->headline === 'Leave plan approved');
+        Mail::assertQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($director->email)
+            && $mail->headline === 'Leave plan pending Director approval');
         Mail::assertQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($employee->email)
             && $mail->headline === 'Leave plan rejected'
             && $mail->comment === 'Coverage is required.');
@@ -122,6 +129,12 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
         $department = $this->department();
         $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
         $otherEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        HolidayEvent::factory()->create([
+            'name' => 'Calendar Holiday',
+            'start_date' => '2026-06-08',
+            'end_date' => '2026-06-08',
+            'region' => 'global',
+        ]);
 
         LeavePlan::factory()->create([
             'user_id' => $employee->id,
@@ -149,9 +162,19 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
             'start_date' => '2026-06-10',
             'end_date' => '2026-06-10',
         ]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L130',
+            'start_date' => '2026-06-05',
+            'end_date' => '2026-06-08',
+        ]);
 
-        $this->actingAs($employee)
-            ->get(route('employee.leave-plans.calendar', ['month' => '2026-06']))
+        $response = $this->actingAs($employee)
+            ->get(route('employee.leave-plans.calendar', ['month' => '2026-06']));
+
+        $response
             ->assertOk()
             ->assertSee('My Leave Calendar')
             ->assertSee('data-calendar-month-selector', false)
@@ -159,9 +182,11 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
             ->assertSee('value="2026-06"', false)
             ->assertSee('L100')
             ->assertSee('L110')
-            ->assertSee('Half day - morning (0.5 calendar days / 0.5 counted leave days)')
+            ->assertSee('Half day - morning (0.5 counted leave day)')
             ->assertDontSee('>L120<', false)
             ->assertDontSee($otherEmployee->name);
+
+        $this->assertSame(1, substr_count($response->getContent(), '<div class="fw-semibold text-truncate">L130</div>'));
     }
 
     public function test_hod_calendar_is_limited_to_managed_departments_and_filters_do_not_bypass_scope(): void

@@ -20,12 +20,17 @@
             <input class="form-control @error('name') is-invalid @enderror" id="name" name="name" value="{{ old('name', $holiday->name) }}" required>
             @error('name')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
-        <div class="col-lg-3 col-md-6">
-            <label class="form-label" for="holiday_date">Date</label>
-            <input class="form-control @error('holiday_date') is-invalid @enderror" id="holiday_date" type="date" name="holiday_date" value="{{ old('holiday_date', $holiday->holiday_date?->toDateString()) }}" required>
+        <div class="col-lg-2 col-md-6">
+            <label class="form-label" for="holiday_date">Start date</label>
+            <input class="form-control @error('holiday_date') is-invalid @enderror" id="holiday_date" type="date" name="holiday_date" value="{{ old('holiday_date', $holiday->start_date?->toDateString()) }}" data-holiday-start required>
             @error('holiday_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
         </div>
-        <div class="col-lg-3 col-md-6">
+        <div class="col-lg-2 col-md-6">
+            <label class="form-label" for="holiday_end_date">End date</label>
+            <input class="form-control @error('holiday_end_date') is-invalid @enderror" id="holiday_end_date" type="date" name="holiday_end_date" value="{{ old('holiday_end_date', $holiday->end_date?->toDateString()) }}" data-holiday-end>
+            @error('holiday_end_date')<div class="invalid-feedback">{{ $message }}</div>@enderror
+        </div>
+        <div class="col-lg-2 col-md-6">
             <label class="form-label" for="region">Region</label>
             <select class="form-select @error('region') is-invalid @enderror" id="region" name="region" required>
                 @foreach($regions as $code => $label)
@@ -48,4 +53,44 @@
         <button class="btn btn-primary">Save Holiday</button>
     </div>
 </form>
+<script>
+    (() => {
+        const startDate = document.querySelector('[data-holiday-start]');
+        const endDate = document.querySelector('[data-holiday-end]');
+
+        const syncHolidayDateRange = () => {
+            if (!startDate || !endDate) {
+                return;
+            }
+
+            const shouldUseStartDate = startDate.value && (!endDate.value || endDate.value < startDate.value);
+
+            if (shouldUseStartDate) {
+                endDate.value = startDate.value;
+            }
+
+            endDate.min = startDate.value || '';
+            window.setDatePickerMin?.(endDate, startDate.value || null);
+
+            if (shouldUseStartDate) {
+                window.syncDatePicker?.(endDate);
+            }
+        };
+
+        const syncHolidayDateRangeAfterPicker = () => {
+            syncHolidayDateRange();
+            window.setTimeout(syncHolidayDateRange, 0);
+        };
+
+        const syncHolidayEndDateAfterPicker = () => {
+            window.setTimeout(syncHolidayDateRange, 0);
+        };
+
+        startDate?.addEventListener('change', syncHolidayDateRangeAfterPicker);
+        startDate?.addEventListener('input', syncHolidayDateRangeAfterPicker);
+        endDate?.addEventListener('change', syncHolidayEndDateAfterPicker);
+        endDate?.addEventListener('blur', syncHolidayEndDateAfterPicker);
+        syncHolidayDateRange();
+    })();
+</script>
 @endsection

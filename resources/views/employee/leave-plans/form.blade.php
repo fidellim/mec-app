@@ -14,7 +14,7 @@
     <div class="content-card">
         <div class="content-card-header">
             <h2 class="h5 mb-1">Leave details</h2>
-            <div class="small text-muted">Half-day leave is available for a single date only.</div>
+            <div class="small text-muted">Leave duration counts working leave days only. Half-day leave is available for a single date only.</div>
         </div>
         <div class="content-card-body">
             <div class="row g-3">
@@ -89,7 +89,7 @@
             window.syncDatePicker?.(endDate);
         }
 
-        if (durationType?.value === 'half_day' && startDate.value) {
+        if (durationType?.value === 'half_day' && startDate.value && endDate.value !== startDate.value) {
             endDate.value = startDate.value;
             window.syncDatePicker?.(endDate);
         }
@@ -104,6 +104,7 @@
 
             if (!isHalfDay) {
                 halfDayPeriod.value = '';
+                halfDayPeriod.tomselect?.clear?.();
             }
         }
 
@@ -115,7 +116,7 @@
         syncDateRules();
     };
 
-    startDate?.addEventListener('change', syncDateRules);
+    startDate?.addEventListener('change', syncHalfDayControls);
     endDate?.addEventListener('change', syncDateRules);
     durationType?.addEventListener('change', syncHalfDayControls);
     syncHalfDayControls();

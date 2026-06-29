@@ -2,9 +2,11 @@
 
 @section('content')
 @php
-    $prefix = request()->routeIs('admin.*') ? 'admin' : 'hod';
+    $prefix = request()->routeIs('admin.*') ? 'admin' : (request()->routeIs('assigned.*') ? 'assigned' : 'hod');
     $isOwnLeavePlan = (int) $leavePlan->user_id === (int) auth()->id();
-    $isApprovalExcluded = $prefix === 'hod'
+    $approvalService = app(\App\Services\LeavePlanApprovalService::class);
+    $missingStageMessage = $approvalService->currentStageMissingMessage($leavePlan);
+    $isApprovalExcluded = $prefix === 'hod' && $leavePlan->approval_stage === \App\Models\LeavePlan::APPROVAL_STAGE_HOD
         ? app(\App\Services\HodExclusionService::class)->approvalExcluded(auth()->user(), $leavePlan->user)
         : false;
 @endphp
@@ -16,6 +18,7 @@
     @include('partials.status', ['status' => $leavePlan->status])
 </div>
 @include('shared.leave_plan_detail', ['leavePlan' => $leavePlan])
+@include('shared.leave_plan_review_calendar', ['reviewCalendarMonths' => $reviewCalendarMonths ?? collect()])
 @if($leavePlan->status === 'recalled')
     <div class="alert alert-warning mt-3">This approved leave plan was recalled and is waiting for the employee to correct and resubmit it.</div>
 @endif
@@ -31,11 +34,13 @@
         <div class="content-card-body">
             @if($isOwnLeavePlan)
                 <div class="alert alert-warning mb-0">You cannot approve or reject your own leave plan.</div>
+            @elseif($missingStageMessage)
+                <div class="alert alert-warning mb-0">{{ $missingStageMessage }}</div>
             @elseif($isApprovalExcluded)
                 <div class="alert alert-warning mb-0">You can view this leave plan, but another HOD approver is assigned to approve or reject it.</div>
             @else
                 <div class="d-flex gap-2 mb-3">
-                    <form method="post" action="{{ route($prefix.'.leave-plans.approve', $leavePlan) }}" data-confirm="Approve this leave plan?">@csrf<button class="btn btn-success">Approve</button></form>
+                    <form method="post" action="{{ route($prefix.'.leave-plans.approve', $leavePlan) }}" data-confirm="Approve this leave plan for {{ $leavePlan->approvalStageLabel() }} stage?">@csrf<button class="btn btn-success">Approve {{ $leavePlan->approvalStageLabel() }}</button></form>
                 </div>
                 <form method="post" action="{{ route($prefix.'.leave-plans.reject', $leavePlan) }}" data-confirm="Reject this leave plan?">
                     @csrf

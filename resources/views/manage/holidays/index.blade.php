@@ -25,7 +25,7 @@
                 @forelse($holidays as $holiday)
                     <tr>
                         <td class="fw-semibold">{{ $holiday->name }}</td>
-                        <td>{{ $holiday->holiday_date->toDateString() }}</td>
+                        <td>{{ $holiday->dateRangeLabel() }}</td>
                         <td>{{ $holiday->regionLabel() }}</td>
                         <td>
                             <span class="badge {{ $holiday->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">

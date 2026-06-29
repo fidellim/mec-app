@@ -29,10 +29,42 @@
                 <div class="meta-label">Submitted</div>
                 <div class="meta-value">{{ $leavePlan->submitted_at?->format('M j, Y g:i A') ?: '-' }}</div>
             </div>
+            <div class="col-md-4">
+                <div class="meta-label">Approval progress</div>
+                <div class="meta-value">{{ $leavePlan->approvalProgressLabel() }}</div>
+            </div>
             <div class="col-12">
                 <div class="meta-label">Reason</div>
                 <div>{{ $leavePlan->reason ?: '-' }}</div>
             </div>
+            @if($leavePlan->hod_approved_at || $leavePlan->director_approved_at || $leavePlan->hr_approved_at)
+                <div class="col-12">
+                    <div class="meta-label">Approval chain</div>
+                    <div class="row g-2 mt-1">
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 h-100">
+                                <div class="fw-semibold">Head of Department</div>
+                                <div class="small text-muted">{{ $leavePlan->hodApprover?->name ?: 'Pending' }}</div>
+                                <div class="small text-muted">{{ $leavePlan->hod_approved_at?->format('M j, Y g:i A') ?: '-' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 h-100">
+                                <div class="fw-semibold">Director</div>
+                                <div class="small text-muted">{{ $leavePlan->directorApprover?->name ?: 'Pending' }}</div>
+                                <div class="small text-muted">{{ $leavePlan->director_approved_at?->format('M j, Y g:i A') ?: '-' }}</div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-2 h-100">
+                                <div class="fw-semibold">HR Department</div>
+                                <div class="small text-muted">{{ $leavePlan->hrApprover?->name ?: 'Pending' }}</div>
+                                <div class="small text-muted">{{ $leavePlan->hr_approved_at?->format('M j, Y g:i A') ?: '-' }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
             @if($leavePlan->approved_at)
                 <div class="col-md-6">
                     <div class="meta-label">Approved by</div>

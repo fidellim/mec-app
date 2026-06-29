@@ -130,11 +130,13 @@ Use **Department Leave Plans** to review leave requests for departments you mana
 1. Go to **Department Leave Plans**.
 2. Filter by department, status, or employee if needed.
 3. Select **Review** on a leave plan.
-4. Select **Approve** if the planned leave is accepted.
+4. Select **Approve** if the planned leave is accepted by the department.
 5. Enter a rejection comment and select **Reject** if the employee needs to revise it.
 6. Use **Calendar** to view submitted, approved, and cancellation-requested leave by month.
 
-You can approve or reject cancellation requests for approved leave plans in your managed departments. You cannot approve, reject, or action cancellation for your own leave plan.
+Your approval is the first step. After you approve a submitted leave plan, it moves to the configured Director of Engineering & Project Management approver, then to the employee's regional HR approver. The plan is fully approved only after HR approval.
+
+You can approve or reject cancellation requests for approved leave plans in your managed departments. Cancellation requests stay HOD-only and do not go through Director/HR approval. You cannot approve, reject, or action cancellation for your own leave plan.
 
 ## Email Notifications
 
@@ -147,7 +149,8 @@ MEC Group Portal sends emails for key workflow events:
 - Employees receive an email when you approve, reject, or recall their approved timesheet.
 - Employees receive reminder emails when you send reminders from **Submission Tracker**.
 - You receive an email when an employee in a managed department submits or resubmits a leave plan or requests cancellation.
-- Employees receive an email when you approve or reject their leave plan or cancellation request.
+- The configured Director approver receives an email when you approve a leave plan.
+- Employees receive an email when a leave plan is rejected, fully approved by HR, or when you approve/reject their cancellation request.
 
 If a Super Admin has set a notification or approval exception for a specific user, you may not receive approval-request emails for that user's submissions even though the records remain visible in your managed department pages.
 
