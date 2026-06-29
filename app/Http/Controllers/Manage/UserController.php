@@ -259,6 +259,7 @@ class UserController extends Controller
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
             'receives_hod_timesheet_submission_emails' => ['boolean'],
+            'annual_leave_allowance_days' => ['nullable', 'numeric', 'min:0', 'multiple_of:0.5'],
             'hod_notification_exclusion_ids' => ['nullable', 'array'],
             'hod_notification_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
             'hod_approval_exclusion_ids' => ['nullable', 'array'],
@@ -273,6 +274,7 @@ class UserController extends Controller
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
         $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
+        $data['annual_leave_allowance_days'] = filled($data['annual_leave_allowance_days'] ?? null) ? $data['annual_leave_allowance_days'] : null;
         unset($data['hod_notification_exclusion_ids'], $data['hod_approval_exclusion_ids']);
 
         return $data;

@@ -48,6 +48,7 @@
                     <th>Email</th>
                     <th>Role</th>
                     <th>Department</th>
+                    <th>Annual Leave</th>
                     <th>Status</th>
                     <th></th>
                 </tr>
@@ -68,6 +69,7 @@
                         <td>{{ $user->email }}</td>
                         <td><span class="badge text-bg-light border text-dark">{{ $roleLabels[$user->role] ?? $user->role }}</span></td>
                         <td>{{ $user->department?->name ?: '-' }}</td>
+                        <td>{{ $user->annual_leave_allowance_days !== null ? rtrim(rtrim(number_format((float) $user->annual_leave_allowance_days, 2), '0'), '.').' days' : 'Default' }}</td>
                         <td><span class="badge {{ $user->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $user->is_active ? 'Active' : 'Inactive' }}</span></td>
                         <td class="text-end">
                             <div class="action-group">
@@ -84,7 +86,7 @@
                 @endforeach
                 @if($users->isEmpty())
                     <tr>
-                        <td colspan="9" class="text-center text-muted py-4">No users match the selected department.</td>
+                        <td colspan="10" class="text-center text-muted py-4">No users match the selected department.</td>
                     </tr>
                 @endif
             </tbody>

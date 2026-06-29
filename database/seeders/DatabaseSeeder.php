@@ -4,6 +4,7 @@ namespace Database\Seeders;
 
 use App\Models\Department;
 use App\Models\AutomationSetting;
+use App\Models\LeaveSetting;
 use App\Models\Project;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
@@ -110,6 +111,15 @@ class DatabaseSeeder extends Seeder
         ] as $key => $attributes) {
             AutomationSetting::updateOrCreate(['key' => $key], $attributes);
         }
+
+        LeaveSetting::updateOrCreate(
+            ['key' => LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS],
+            [
+                'name' => 'Annual Leave Default Days',
+                'description' => 'Default yearly L100 annual leave allowance. Unused days expire on December 31 and do not carry over.',
+                'decimal_value' => 30,
+            ],
+        );
 
         $start = Carbon::now()->startOfWeek();
         TimesheetPeriod::firstOrCreate(

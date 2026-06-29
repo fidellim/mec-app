@@ -69,12 +69,69 @@
         </div>
     </div>
 </form>
+@if(! empty($annualLeaveBalance))
+    <div class="content-card p-3 mt-3">
+        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
+            <div>
+                <h2 class="h5 mb-1">Annual leave balance</h2>
+                <div class="small text-muted">L100 allowance for {{ $annualLeaveBalance['year'] }} resets every January 1. Unused days do not carry over.</div>
+            </div>
+            <div>
+                <span class="badge {{ $annualLeaveBalance['uses_override'] ? 'text-bg-info' : 'text-bg-light border text-dark' }}">
+                    {{ $annualLeaveBalance['uses_override'] ? 'User override' : 'Company default' }}
+                </span>
+            </div>
+        </div>
+        <div class="row g-3 mt-1">
+            <div class="col-md-4">
+                <div class="small text-muted">Allowance</div>
+                <div class="h4 mb-0">{{ $annualLeaveBalance['formatted']['allowance'] }} days</div>
+            </div>
+            <div class="col-md-4">
+                <div class="small text-muted">Used or reserved</div>
+                <div class="h4 mb-0">{{ $annualLeaveBalance['formatted']['used'] }} days</div>
+            </div>
+            <div class="col-md-4">
+                <div class="small text-muted">Remaining</div>
+                <div class="h4 mb-0">{{ $annualLeaveBalance['formatted']['remaining'] }} days</div>
+            </div>
+        </div>
+    </div>
+@endif
+@if(! empty($availabilityCalendar))
+    <div class="mt-3">
+        @include('shared.leave_plan_calendar', array_merge($availabilityCalendar, [
+            'calendarTitle' => 'Department leave availability',
+            'calendarDescription' => 'Shows submitted, approved, and cancellation-requested leave in your department. Your selected dates are highlighted for comparison.',
+            'calendarReadonly' => true,
+            'calendarInteractiveRange' => true,
+        ]))
+    </div>
+@endif
 <script>
 (() => {
     const startDate = document.getElementById('start_date');
     const endDate = document.getElementById('end_date');
     const durationType = document.getElementById('duration_type');
     const halfDayPeriod = document.getElementById('half_day_period');
+    const availabilityCalendar = document.querySelector('[data-leave-plan-availability-calendar]');
+
+    const syncAvailabilityCalendar = () => {
+        if (!availabilityCalendar || !startDate?.value || !endDate?.value) {
+            availabilityCalendar?.querySelectorAll('[data-calendar-date]').forEach((day) => {
+                day.classList.remove('leave-calendar-day-selected');
+            });
+            return;
+        }
+
+        const rangeStart = startDate.value <= endDate.value ? startDate.value : endDate.value;
+        const rangeEnd = endDate.value >= startDate.value ? endDate.value : startDate.value;
+
+        availabilityCalendar.querySelectorAll('[data-calendar-date]').forEach((day) => {
+            const dayDate = day.dataset.calendarDate;
+            day.classList.toggle('leave-calendar-day-selected', dayDate >= rangeStart && dayDate <= rangeEnd);
+        });
+    };
 
     const syncDateRules = () => {
         if (!startDate || !endDate) {
@@ -93,6 +150,8 @@
             endDate.value = startDate.value;
             window.syncDatePicker?.(endDate);
         }
+
+        syncAvailabilityCalendar();
     };
 
     const syncHalfDayControls = () => {
@@ -101,6 +160,10 @@
         if (halfDayPeriod) {
             halfDayPeriod.required = isHalfDay;
             halfDayPeriod.disabled = !isHalfDay;
+
+            if (halfDayPeriod.tomselect) {
+                isHalfDay ? halfDayPeriod.tomselect.enable() : halfDayPeriod.tomselect.disable();
+            }
 
             if (!isHalfDay) {
                 halfDayPeriod.value = '';
@@ -120,6 +183,7 @@
     endDate?.addEventListener('change', syncDateRules);
     durationType?.addEventListener('change', syncHalfDayControls);
     syncHalfDayControls();
+    syncAvailabilityCalendar();
 })();
 </script>
 @endsection

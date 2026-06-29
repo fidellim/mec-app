@@ -3,8 +3,8 @@
 @section('content')
 <div class="section-header">
     <div>
-        <h1 class="h3 page-heading mb-1">My Leave Calendar</h1>
-        <div class="text-muted">Visualize your planned and approved leave.</div>
+        <h1 class="h3 page-heading mb-1">Department Leave Calendar</h1>
+        <div class="text-muted">Visualize applied leave from your department before planning your dates.</div>
     </div>
     <div class="action-group">
         <a class="btn btn-outline-secondary" href="{{ route('employee.leave-plans.index') }}">List View</a>
@@ -18,7 +18,7 @@
             <label class="form-label">Status</label>
             <select class="form-select" name="status">
                 <option value="">Submitted, approved, cancellation requested</option>
-                @foreach(['draft','submitted','approved','rejected','cancellation_requested','recalled','cancelled','voided'] as $status)
+                @foreach($statuses as $status)
                     <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ ucfirst(str_replace('_', ' ', $status)) }}</option>
                 @endforeach
             </select>
@@ -38,5 +38,9 @@
         </div>
     </div>
 </form>
-@include('shared.leave_plan_calendar')
+@include('shared.leave_plan_calendar', [
+    'calendarTitle' => $month->format('F Y'),
+    'calendarDescription' => 'Calendar shows submitted, approved, and cancellation-requested leave in your department.',
+    'calendarReadonly' => true,
+])
 @endsection

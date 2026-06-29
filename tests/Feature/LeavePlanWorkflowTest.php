@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\HolidayEvent;
 use App\Models\LeavePlan;
 use App\Models\LeavePlanApproverSetting;
+use App\Models\LeaveSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -503,6 +504,337 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('cancellation requested')
             ->assertDontSee('Hana Rejected')
             ->assertDontSee('Iris Cancelled');
+    }
+
+    public function test_employee_leave_plan_form_shows_same_department_active_availability(): void
+    {
+        $department = $this->department(['name' => 'Operations']);
+        $otherDepartment = $this->department(['name' => 'Engineering']);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $submittedEmployee = $this->userWithRole('employee', ['name' => 'Ben Submitted', 'department_id' => $department->id]);
+        $approvedEmployee = $this->userWithRole('employee', ['name' => 'Grace Approved', 'department_id' => $department->id]);
+        $cancellingEmployee = $this->userWithRole('employee', ['name' => 'Nora Cancelling', 'department_id' => $department->id]);
+        $otherEmployee = $this->userWithRole('employee', ['name' => 'Carla Hidden', 'department_id' => $otherDepartment->id]);
+        $draftEmployee = $this->userWithRole('employee', ['name' => 'Daniel Draft', 'department_id' => $department->id]);
+        $rejectedEmployee = $this->userWithRole('employee', ['name' => 'Hana Rejected', 'department_id' => $department->id]);
+        $cancelledEmployee = $this->userWithRole('employee', ['name' => 'Iris Cancelled', 'department_id' => $department->id]);
+        $voidedEmployee = $this->userWithRole('employee', ['name' => 'Vera Voided', 'department_id' => $department->id]);
+
+        foreach ([
+            [$submittedEmployee, LeavePlan::STATUS_SUBMITTED],
+            [$approvedEmployee, LeavePlan::STATUS_APPROVED],
+            [$cancellingEmployee, LeavePlan::STATUS_CANCELLATION_REQUESTED],
+            [$otherEmployee, LeavePlan::STATUS_APPROVED],
+            [$draftEmployee, LeavePlan::STATUS_DRAFT],
+            [$rejectedEmployee, LeavePlan::STATUS_REJECTED],
+            [$cancelledEmployee, LeavePlan::STATUS_CANCELLED],
+            [$voidedEmployee, LeavePlan::STATUS_VOIDED],
+        ] as [$user, $status]) {
+            LeavePlan::factory()->create([
+                'user_id' => $user->id,
+                'department_id' => $user->department_id,
+                'status' => $status,
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-11',
+            ]);
+        }
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create', ['month' => '2026-05']))
+            ->assertOk()
+            ->assertSee('Department leave availability')
+            ->assertSee('Ben Submitted')
+            ->assertSee('Grace Approved')
+            ->assertSee('Nora Cancelling')
+            ->assertSee('cancellation requested')
+            ->assertDontSee('Carla Hidden')
+            ->assertDontSee('Daniel Draft')
+            ->assertDontSee('Hana Rejected')
+            ->assertDontSee('Iris Cancelled')
+            ->assertDontSee('Vera Voided');
+    }
+
+    public function test_employee_calendar_shows_same_department_applied_leave_only(): void
+    {
+        $department = $this->department(['name' => 'Operations']);
+        $otherDepartment = $this->department(['name' => 'Engineering']);
+        $employee = $this->userWithRole('employee', ['name' => 'Aisha Viewer', 'department_id' => $department->id]);
+        $submittedEmployee = $this->userWithRole('employee', ['name' => 'Ben Submitted', 'department_id' => $department->id]);
+        $approvedEmployee = $this->userWithRole('employee', ['name' => 'Grace Approved', 'department_id' => $department->id]);
+        $cancellingEmployee = $this->userWithRole('employee', ['name' => 'Nora Cancelling', 'department_id' => $department->id]);
+        $otherEmployee = $this->userWithRole('employee', ['name' => 'Carla Hidden', 'department_id' => $otherDepartment->id]);
+        $draftEmployee = $this->userWithRole('employee', ['name' => 'Daniel Draft', 'department_id' => $department->id]);
+        $rejectedEmployee = $this->userWithRole('employee', ['name' => 'Hana Rejected', 'department_id' => $department->id]);
+        $recalledEmployee = $this->userWithRole('employee', ['name' => 'Rami Recalled', 'department_id' => $department->id]);
+        $cancelledEmployee = $this->userWithRole('employee', ['name' => 'Iris Cancelled', 'department_id' => $department->id]);
+        $voidedEmployee = $this->userWithRole('employee', ['name' => 'Vera Voided', 'department_id' => $department->id]);
+
+        foreach ([
+            [$employee, LeavePlan::STATUS_APPROVED],
+            [$submittedEmployee, LeavePlan::STATUS_SUBMITTED],
+            [$approvedEmployee, LeavePlan::STATUS_APPROVED],
+            [$cancellingEmployee, LeavePlan::STATUS_CANCELLATION_REQUESTED],
+            [$otherEmployee, LeavePlan::STATUS_APPROVED],
+            [$draftEmployee, LeavePlan::STATUS_DRAFT],
+            [$rejectedEmployee, LeavePlan::STATUS_REJECTED],
+            [$recalledEmployee, LeavePlan::STATUS_RECALLED],
+            [$cancelledEmployee, LeavePlan::STATUS_CANCELLED],
+            [$voidedEmployee, LeavePlan::STATUS_VOIDED],
+        ] as [$user, $status]) {
+            LeavePlan::factory()->create([
+                'user_id' => $user->id,
+                'department_id' => $user->department_id,
+                'status' => $status,
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-11',
+            ]);
+        }
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.calendar', ['month' => '2026-05']))
+            ->assertOk()
+            ->assertSee('Department Leave Calendar')
+            ->assertSee('Aisha Viewer')
+            ->assertSee('Ben Submitted')
+            ->assertSee('Grace Approved')
+            ->assertSee('Nora Cancelling')
+            ->assertSee('cancellation requested')
+            ->assertDontSee('Carla Hidden')
+            ->assertDontSee('Daniel Draft')
+            ->assertDontSee('Hana Rejected')
+            ->assertDontSee('Rami Recalled')
+            ->assertDontSee('Iris Cancelled')
+            ->assertDontSee('Vera Voided');
+    }
+
+    public function test_employee_calendar_ignores_inactive_status_filter_and_does_not_link_coworker_entries(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'Same Team Visible', 'department_id' => $department->id]);
+        $rejectedEmployee = $this->userWithRole('employee', ['name' => 'Same Team Rejected', 'department_id' => $department->id]);
+
+        $visiblePlan = LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $rejectedEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_REJECTED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.calendar', ['month' => '2026-05', 'status' => LeavePlan::STATUS_REJECTED]))
+            ->assertOk()
+            ->assertSee('Same Team Visible')
+            ->assertDontSee('Same Team Rejected')
+            ->assertDontSee(route('employee.leave-plans.show', $visiblePlan), false);
+    }
+
+    public function test_employee_leave_plan_edit_availability_excludes_current_plan(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', ['name' => 'Current Editor', 'department_id' => $department->id]);
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'Same Team Visible', 'department_id' => $department->id]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_DRAFT,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $response = $this->actingAs($employee)
+            ->get(route('employee.leave-plans.edit', ['leavePlan' => $leavePlan, 'month' => '2026-05']));
+
+        $response
+            ->assertOk()
+            ->assertSee('Department leave availability')
+            ->assertSee('Same Team Visible')
+            ->assertDontSee('Current Editor - L100');
+    }
+
+    public function test_annual_leave_limit_blocks_submit_but_allows_draft(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS)->firstOrFail()->update(['decimal_value' => 2]);
+
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-12',
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-13',
+                'end_date' => '2026-05-13',
+                'submit' => '0',
+            ]))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('leave_plans', [
+            'user_id' => $employee->id,
+            'status' => LeavePlan::STATUS_DRAFT,
+            'start_date' => '2026-05-13 00:00:00',
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-14',
+                'end_date' => '2026-05-14',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_annual_leave_allowance_refreshes_by_year_without_carryover(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS)->firstOrFail()->update(['decimal_value' => 5]);
+
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-12-21',
+            'end_date' => '2026-12-22',
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2027-01-04',
+                'end_date' => '2027-01-08',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2027-01-11',
+                'end_date' => '2027-01-11',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_cross_year_annual_leave_consumes_each_year_separately(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS)->firstOrFail()->update(['decimal_value' => 2]);
+
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-12-31',
+                'end_date' => '2027-01-01',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-12-30',
+                'end_date' => '2026-12-30',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-12-29',
+                'end_date' => '2026-12-29',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_user_annual_leave_override_replaces_company_default(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS)->firstOrFail()->update(['decimal_value' => 1]);
+
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'annual_leave_allowance_days' => 3,
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-13',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-14',
+                'end_date' => '2026-05-14',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_non_annual_leave_and_inactive_annual_statuses_do_not_consume_entitlement(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS)->firstOrFail()->update(['decimal_value' => 1]);
+
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        foreach ([LeavePlan::STATUS_DRAFT, LeavePlan::STATUS_REJECTED, LeavePlan::STATUS_CANCELLED, LeavePlan::STATUS_RECALLED, LeavePlan::STATUS_VOIDED] as $status) {
+            LeavePlan::factory()->create([
+                'user_id' => $employee->id,
+                'department_id' => $employee->department_id,
+                'attendance_code' => 'L100',
+                'status' => $status,
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-11',
+            ]);
+        }
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L110',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-13',
+                'end_date' => '2026-05-13',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L110',
+                'start_date' => '2026-05-14',
+                'end_date' => '2026-05-18',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
     }
 
     public function test_leave_plan_validation_and_overlap_warning(): void

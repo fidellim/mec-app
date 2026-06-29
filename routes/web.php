@@ -14,6 +14,7 @@ use App\Http\Controllers\Manage\DepartmentController;
 use App\Http\Controllers\Manage\AuditLogController;
 use App\Http\Controllers\Manage\AutomationSettingController;
 use App\Http\Controllers\Manage\HolidayController;
+use App\Http\Controllers\Manage\LeaveSettingController;
 use App\Http\Controllers\Manage\LeavePlanApproverController;
 use App\Http\Controllers\Manage\ProjectController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
@@ -124,6 +125,8 @@ Route::middleware('auth')->group(function () {
         Route::resource('periods', TimesheetPeriodController::class)->except(['show', 'destroy'])->parameters(['periods' => 'period']);
         Route::get('leave-plan-approvers', [LeavePlanApproverController::class, 'index'])->name('leave-plan-approvers.index');
         Route::patch('leave-plan-approvers', [LeavePlanApproverController::class, 'update'])->name('leave-plan-approvers.update');
+        Route::get('leave-settings', [LeaveSettingController::class, 'index'])->name('leave-settings.index');
+        Route::patch('leave-settings', [LeaveSettingController::class, 'update'])->name('leave-settings.update');
         Route::get('automations', [AutomationSettingController::class, 'index'])->name('automations.index');
         Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->name('automations.toggle');
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');

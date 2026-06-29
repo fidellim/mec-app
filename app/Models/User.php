@@ -13,7 +13,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password', 'employee_code', 'initials', 'job_title', 'department_id', 'role', 'is_active',
-        'receives_hod_timesheet_submission_emails',
+        'receives_hod_timesheet_submission_emails', 'annual_leave_allowance_days',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -26,6 +26,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'is_active' => 'boolean',
             'receives_hod_timesheet_submission_emails' => 'boolean',
+            'annual_leave_allowance_days' => 'decimal:2',
         ];
     }
 

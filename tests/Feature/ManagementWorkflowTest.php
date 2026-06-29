@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\HolidayDate;
 use App\Models\HolidayEvent;
+use App\Models\LeaveSetting;
 use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
@@ -48,6 +49,76 @@ class ManagementWorkflowTest extends TestCase
             'job_title' => 'Project Engineer',
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
+    }
+
+    public function test_super_admin_can_manage_annual_leave_allowances(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.leave-settings.index'))
+            ->assertOk()
+            ->assertSee('Leave Settings')
+            ->assertSee('Annual leave resets every January 1');
+
+        $setting = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS)->firstOrFail();
+
+        $this->actingAs($superAdmin)
+            ->patch(route('manage.leave-settings.update'), [
+                'annual_leave_default_days' => '24.5',
+            ])
+            ->assertRedirect(route('manage.leave-settings.index'));
+
+        $this->assertSame('24.50', $setting->fresh()->decimal_value);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'leave_setting_updated']);
+
+        $this->actingAs($superAdmin)
+            ->post(route('manage.users.store'), [
+                'name' => 'Executive Employee',
+                'email' => 'executive.employee@example.com',
+                'password' => 'password123',
+                'employee_code' => 'MEC-HR-2026-195',
+                'department_id' => $department->id,
+                'role' => 'employee',
+                'is_active' => '1',
+                'annual_leave_allowance_days' => '45.5',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $user = User::where('email', 'executive.employee@example.com')->firstOrFail();
+        $this->assertSame('45.50', $user->annual_leave_allowance_days);
+
+        $this->actingAs($superAdmin)
+            ->put(route('manage.users.update', $user), [
+                'name' => $user->name,
+                'email' => $user->email,
+                'employee_code' => $user->employee_code,
+                'initials' => $user->initials,
+                'job_title' => $user->job_title,
+                'department_id' => $department->id,
+                'role' => 'employee',
+                'is_active' => '1',
+                'annual_leave_allowance_days' => '',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $this->assertNull($user->fresh()->annual_leave_allowance_days);
+    }
+
+    public function test_non_super_admin_cannot_manage_annual_leave_settings(): void
+    {
+        foreach (['admin', 'hod', 'employee'] as $role) {
+            $user = $this->userWithRole($role);
+
+            $this->actingAs($user)
+                ->get(route('manage.leave-settings.index'))
+                ->assertForbidden();
+
+            $this->actingAs($user)
+                ->patch(route('manage.leave-settings.update'), ['annual_leave_default_days' => 40])
+                ->assertForbidden();
+        }
     }
 
     public function test_super_admin_user_password_policy_is_enforced(): void
@@ -1027,6 +1098,7 @@ class ManagementWorkflowTest extends TestCase
         $this->actingAs($superAdmin)->get(route('manage.departments.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.projects.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.periods.index'))->assertOk();
+        $this->actingAs($superAdmin)->get(route('manage.leave-settings.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.automations.index'))->assertOk();
         $this->actingAs($superAdmin)
             ->get(route('manage.audit-logs.index'))

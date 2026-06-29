@@ -29,6 +29,14 @@
         </div>
         <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role" id="roleSelect">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
+        <div class="col-md-4">
+            <label class="form-label" for="annual_leave_allowance_days">Annual leave allowance override</label>
+            <input class="form-control @error('annual_leave_allowance_days') is-invalid @enderror" id="annual_leave_allowance_days" name="annual_leave_allowance_days" type="number" min="0" step="0.5" value="{{ old('annual_leave_allowance_days', $userModel->annual_leave_allowance_days) }}" placeholder="Use company default">
+            <div class="form-text">Optional L100 yearly allowance. Blank uses the company default; unused days expire each December 31.</div>
+            @error('annual_leave_allowance_days')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
         <div class="col-md-4 d-flex align-items-end" data-admin-email-option>
             <div class="form-check">
                 <input type="hidden" name="receives_hod_timesheet_submission_emails" value="0">

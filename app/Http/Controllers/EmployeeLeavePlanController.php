@@ -7,7 +7,9 @@ use App\Models\LeavePlan;
 use App\Services\AuditLogService;
 use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
+use App\Services\LeaveEntitlementService;
 use App\Services\HolidayService;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -25,19 +27,25 @@ class EmployeeLeavePlanController extends Controller
 
     public function calendar(Request $request, LeavePlanCalendarService $calendar)
     {
-        $query = LeavePlan::query()->where('user_id', $request->user()->id);
+        if ($redirect = $this->redirectIfMissingDepartment()) {
+            return $redirect;
+        }
+
+        $query = LeavePlan::query()->where('department_id', $request->user()->department_id);
 
         return view('employee.leave-plans.calendar', $calendar->build(
             request: $request,
             query: $query,
             showRoute: 'employee.leave-plans.show',
-            showEmployee: false,
+            showEmployee: true,
+            includeUrls: false,
+            allowedStatusFilters: LeavePlanCalendarService::DEFAULT_STATUSES,
         ) + [
             'attendanceCodes' => $this->leaveAttendanceCodes(),
         ]);
     }
 
-    public function create()
+    public function create(Request $request, LeavePlanCalendarService $calendar, LeaveEntitlementService $entitlements)
     {
         if ($redirect = $this->redirectIfMissingDepartment()) {
             return $redirect;
@@ -46,6 +54,8 @@ class EmployeeLeavePlanController extends Controller
         return view('employee.leave-plans.form', [
             'leavePlan' => null,
             'attendanceCodes' => $this->leaveAttendanceCodes(),
+            'availabilityCalendar' => $this->availabilityCalendar($request, $calendar),
+            'annualLeaveBalance' => $this->annualLeaveBalance($request, $entitlements),
         ]);
     }
 
@@ -93,7 +103,7 @@ class EmployeeLeavePlanController extends Controller
         ]);
     }
 
-    public function edit(LeavePlan $leavePlan)
+    public function edit(Request $request, LeavePlan $leavePlan, LeavePlanCalendarService $calendar, LeaveEntitlementService $entitlements)
     {
         $this->authorizeOwner($leavePlan);
         abort_unless($leavePlan->editableBy(auth()->user()), 403);
@@ -101,6 +111,8 @@ class EmployeeLeavePlanController extends Controller
         return view('employee.leave-plans.form', [
             'leavePlan' => $leavePlan,
             'attendanceCodes' => $this->leaveAttendanceCodes(),
+            'availabilityCalendar' => $this->availabilityCalendar($request, $calendar, $leavePlan),
+            'annualLeaveBalance' => $this->annualLeaveBalance($request, $entitlements, $leavePlan),
         ]);
     }
 
@@ -206,6 +218,51 @@ class EmployeeLeavePlanController extends Controller
         return collect(config('timesheet.attendance_codes'))
             ->only(config('timesheet.leave_attendance_codes', []))
             ->all();
+    }
+
+    private function availabilityCalendar(Request $request, LeavePlanCalendarService $calendar, ?LeavePlan $leavePlan = null): array
+    {
+        $user = $request->user();
+
+        return $calendar->build(
+            request: $request,
+            query: LeavePlan::query()->where('department_id', $user->department_id),
+            showRoute: 'employee.leave-plans.show',
+            showEmployee: true,
+            excludeLeavePlanId: $leavePlan?->id,
+            includeUrls: false,
+            defaultMonth: $leavePlan?->start_date ?? $this->oldStartDate($request),
+            allowedStatusFilters: LeavePlanCalendarService::DEFAULT_STATUSES,
+        );
+    }
+
+    private function annualLeaveBalance(Request $request, LeaveEntitlementService $entitlements, ?LeavePlan $leavePlan = null): array
+    {
+        $date = $this->oldStartDate($request) ?? $leavePlan?->start_date ?? now();
+        $year = (int) Carbon::parse($date)->year;
+        $balance = $entitlements->balanceFor($request->user(), $year, $leavePlan?->id);
+        $balance['formatted'] = [
+            'allowance' => $entitlements->formatDays($balance['allowance']),
+            'used' => $entitlements->formatDays($balance['used']),
+            'remaining' => $entitlements->formatDays($balance['remaining']),
+        ];
+
+        return $balance;
+    }
+
+    private function oldStartDate(Request $request): ?Carbon
+    {
+        $startDate = $request->old('start_date');
+
+        if (! is_string($startDate) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($startDate);
+        } catch (\Throwable) {
+            return null;
+        }
     }
 
     private function overlapFlash(LeavePlan $leavePlan): array

@@ -85,6 +85,10 @@
         background: color-mix(in srgb, var(--app-muted-bg) 68%, var(--app-card-bg));
         color: var(--bs-secondary-color);
     }
+    .leave-calendar-day-selected {
+        box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bs-primary) 48%, transparent);
+        background: color-mix(in srgb, var(--bs-primary-bg-subtle) 28%, var(--app-card-bg));
+    }
     .leave-calendar-date {
         font-weight: 800;
         font-size: .9rem;
@@ -106,6 +110,9 @@
     .leave-calendar-event:hover {
         background: color-mix(in srgb, var(--bs-primary-bg-subtle) 35%, var(--app-card-bg));
         color: var(--bs-body-color);
+    }
+    .leave-calendar-event-readonly:hover {
+        background: color-mix(in srgb, var(--app-muted-bg) 72%, var(--app-card-bg));
     }
     .leave-calendar-event.approved { border-left-color: var(--bs-success); }
     .leave-calendar-event.submitted { border-left-color: var(--bs-primary); }
@@ -153,6 +160,10 @@
 </style>
 
 @php
+    $calendarTitle = $calendarTitle ?? $month->format('F Y');
+    $calendarDescription = $calendarDescription ?? 'Calendar shows submitted, approved, and cancellation-requested leave by default.';
+    $calendarReadonly = $calendarReadonly ?? false;
+    $calendarInteractiveRange = $calendarInteractiveRange ?? false;
     $calendarMonthOptions = collect(range(1, 12))->mapWithKeys(fn ($calendarMonthNumber) => [
         str_pad((string) $calendarMonthNumber, 2, '0', STR_PAD_LEFT) => \Carbon\Carbon::create(null, $calendarMonthNumber, 1)->format('F'),
     ]);
@@ -163,8 +174,8 @@
 <div class="content-card overflow-hidden">
     <div class="content-card-header d-flex flex-column flex-lg-row justify-content-between gap-3">
         <div>
-            <h2 class="h5 mb-1">{{ $month->format('F Y') }}</h2>
-            <div class="small text-muted">Calendar shows submitted, approved, and cancellation-requested leave by default.</div>
+            <h2 class="h5 mb-1">{{ $calendarTitle }}</h2>
+            <div class="small text-muted">{{ $calendarDescription }}</div>
         </div>
         <div class="leave-calendar-toolbar">
             <form class="leave-calendar-jump" method="get" data-calendar-month-selector>
@@ -209,20 +220,32 @@
         </div>
     </div>
     <div class="content-card-body">
-        <div class="leave-calendar">
+        <div class="leave-calendar" @if($calendarInteractiveRange) data-leave-plan-availability-calendar @endif>
             @foreach(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $weekday)
                 <div class="leave-calendar-weekday">{{ $weekday }}</div>
             @endforeach
             @foreach($weeks as $week)
                 @foreach($week as $day)
-                    <div @class(['leave-calendar-day', 'leave-calendar-day-muted' => ! $day['in_month']])>
+                    <div
+                        @class(['leave-calendar-day', 'leave-calendar-day-muted' => ! $day['in_month']])
+                        @if($calendarInteractiveRange) data-calendar-date="{{ $day['date']->toDateString() }}" @endif
+                    >
                         <div class="leave-calendar-date">{{ $day['date']->format('j') }}</div>
                         @foreach($day['events'] as $event)
-                            <a class="leave-calendar-event {{ $event['status'] }}" href="{{ $event['url'] }}" title="{{ $event['title'] }}">
+                            @php($eventClasses = 'leave-calendar-event '.$event['status'].($calendarReadonly || empty($event['url']) ? ' leave-calendar-event-readonly' : ''))
+                            @if(! $calendarReadonly && ! empty($event['url']))
+                                <a class="{{ $eventClasses }}" href="{{ $event['url'] }}" title="{{ $event['title'] }}">
+                            @else
+                                <div class="{{ $eventClasses }}" title="{{ $event['title'] }}">
+                            @endif
                                 <div class="fw-semibold text-truncate">{{ $event['label'] }}</div>
                                 <div class="text-muted text-capitalize">{{ str_replace('_', ' ', $event['status']) }}</div>
                                 <div class="text-muted">{{ $event['duration'] }}</div>
-                            </a>
+                            @if(! $calendarReadonly && ! empty($event['url']))
+                                </a>
+                            @else
+                                </div>
+                            @endif
                         @endforeach
                     </div>
                 @endforeach
