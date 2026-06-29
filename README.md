@@ -701,11 +701,23 @@ Unit tests live in `tests/Unit`.
 
 Use unit tests for small isolated logic that does not need a browser or full HTTP request, such as model helpers, value calculations, or service behavior.
 
-Run all PHPUnit tests:
+Run the full PHPUnit regression suite in parallel:
 
 ```bash
 php artisan config:clear
 composer test
+```
+
+`composer test` runs `php artisan test --parallel --processes=4`. Use the serial fallback only when debugging order-sensitive failures:
+
+```bash
+composer test:serial
+```
+
+Run the leave-plan regression subset:
+
+```bash
+composer test:leave
 ```
 
 Run only unit tests:

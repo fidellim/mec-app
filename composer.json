@@ -9,6 +9,7 @@
     "maatwebsite/excel": "^3.1"
   },
   "require-dev": {
+    "brianium/paratest": "^7.8",
     "fakerphp/faker": "^1.23",
     "laravel/pint": "^1.13",
     "mockery/mockery": "^1.6",
@@ -29,7 +30,13 @@
   },
   "scripts": {
     "test": [
+      "@php artisan test --parallel --processes=4"
+    ],
+    "test:serial": [
       "@php artisan test"
+    ],
+    "test:leave": [
+      "@php artisan test --parallel --processes=4 --filter=LeavePlan"
     ],
     "post-autoload-dump": [
       "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
