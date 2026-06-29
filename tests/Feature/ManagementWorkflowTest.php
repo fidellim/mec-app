@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\AutomationSetting;
 use App\Models\AuditLog;
 use App\Models\Department;
+use App\Models\Holiday;
 use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
@@ -725,7 +726,95 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('data-period-start', false)
             ->assertSee('data-period-end', false)
             ->assertSee('data-period-week', false)
-            ->assertSee('data-period-year', false);
+            ->assertSee('data-period-year', false)
+            ->assertSee('flatpickr', false);
+    }
+
+    public function test_admin_and_super_admin_can_manage_regional_holidays(): void
+    {
+        foreach (['admin', 'super_admin'] as $role) {
+            $actor = $this->userWithRole($role);
+            $name = ucfirst($role).' Eid Holiday';
+            $date = $role === 'admin' ? '2026-05-12' : '2026-05-13';
+
+            $this->actingAs($actor)
+                ->get(route('manage.holidays.index'))
+                ->assertOk()
+                ->assertSee('Holidays');
+
+            $this->actingAs($actor)
+                ->post(route('manage.holidays.store'), [
+                    'name' => $name,
+                    'holiday_date' => $date,
+                    'region' => 'uae',
+                    'is_active' => '1',
+                ])
+                ->assertRedirect(route('manage.holidays.index'));
+
+            $holiday = Holiday::where('name', $name)->firstOrFail();
+            $this->assertDatabaseHas('holidays', [
+                'id' => $holiday->id,
+                'region' => 'uae',
+                'is_active' => true,
+            ]);
+            $this->assertDatabaseHas('audit_logs', [
+                'action' => 'holiday_created',
+                'auditable_type' => Holiday::class,
+                'auditable_id' => $holiday->id,
+            ]);
+
+            $this->actingAs($actor)
+                ->put(route('manage.holidays.update', $holiday), [
+                    'name' => $name.' Updated',
+                    'holiday_date' => $date,
+                    'region' => 'ph',
+                    'is_active' => '1',
+                ])
+                ->assertRedirect(route('manage.holidays.index'));
+
+            $this->assertSame('ph', $holiday->refresh()->region);
+
+            $this->actingAs($actor)
+                ->patch(route('manage.holidays.status', $holiday))
+                ->assertRedirect(route('manage.holidays.index'));
+
+            $this->assertFalse($holiday->refresh()->is_active);
+            $this->assertDatabaseHas('audit_logs', [
+                'action' => 'holiday_deactivated',
+                'auditable_type' => Holiday::class,
+                'auditable_id' => $holiday->id,
+            ]);
+        }
+    }
+
+    public function test_holiday_validation_blocks_duplicate_region_date(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        Holiday::factory()->create([
+            'holiday_date' => '2026-05-12',
+            'region' => 'global',
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('manage.holidays.store'), [
+                'name' => 'Duplicate Holiday',
+                'holiday_date' => '2026-05-12',
+                'region' => 'global',
+                'is_active' => '1',
+            ])
+            ->assertSessionHasErrors('holiday_date');
+    }
+
+    public function test_hod_and_employee_cannot_manage_holidays(): void
+    {
+        foreach (['hod', 'employee'] as $role) {
+            $user = $this->userWithRole($role);
+
+            $this->actingAs($user)
+                ->get(route('manage.holidays.index'))
+                ->assertForbidden();
+        }
     }
 
     public function test_super_admin_can_toggle_automation_settings(): void

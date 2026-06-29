@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Carbon\CarbonPeriod;
+use App\Services\HolidayService;
 
 class LeavePlan extends Model
 {
@@ -140,19 +140,22 @@ class LeavePlan extends Model
 
     public function weekdayCount(): float
     {
+        return $this->countedLeaveDayCount();
+    }
+
+    public function countedLeaveDayCount(): float
+    {
         if ($this->duration_type === 'half_day') {
-            return 0.5;
+            return app(HolidayService::class)->countedLeaveDayCount($this);
         }
 
-        return collect(CarbonPeriod::create($this->start_date, $this->end_date))
-            ->filter(fn ($date) => ! $date->isWeekend())
-            ->count();
+        return app(HolidayService::class)->countedLeaveDayCount($this);
     }
 
     public function durationLabel(): string
     {
         return $this->formatDayCount($this->calendarDayCount(), 'calendar day')
-            .' / '.$this->formatDayCount($this->weekdayCount(), 'weekday');
+            .' / '.$this->formatDayCount($this->countedLeaveDayCount(), 'counted leave day');
     }
 
     public function leaveLengthLabel(): string

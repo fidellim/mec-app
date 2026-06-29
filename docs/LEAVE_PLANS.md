@@ -15,7 +15,7 @@ Employees use **My Leave Plans** to create, save, submit, and track leave plans.
 - Overlapping active leave plans show a warning but are not blocked.
 
 Half-day leave is single-date only and must be marked as morning or afternoon.
-Leave plan screens show both the inclusive calendar-day count and the weekday count. Weekday count excludes Saturday and Sunday only; public holidays are not tracked.
+Leave plan screens show both the inclusive calendar-day count and the counted leave day total. Counted leave days exclude Saturday, Sunday, and active applicable company holidays.
 
 ## HOD, Admin, And Super Admin Workflow
 
@@ -67,4 +67,4 @@ By default, calendars show submitted, approved, and cancellation-requested leave
 - Approved leave does not automatically populate weekly timesheets.
 - Overlap detection warns only; it does not block submission.
 - Calendar entries link to existing detail or review pages instead of editing inline.
-- Weekday duration excludes weekends only; company holidays are not excluded.
+- Holiday calendars are maintained by Admins and Super Admins for global, UAE, and Philippines regions.

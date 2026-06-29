@@ -7,6 +7,7 @@ use App\Models\LeavePlan;
 use App\Services\AuditLogService;
 use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
+use App\Services\HolidayService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
@@ -200,13 +201,25 @@ class EmployeeLeavePlanController extends Controller
 
     private function overlapFlash(LeavePlan $leavePlan): array
     {
+        $holidayService = app(HolidayService::class);
+        $countedDates = $holidayService->countedLeaveDates($leavePlan);
+
+        if ($countedDates->isEmpty()) {
+            return [];
+        }
+
         $hasOverlap = LeavePlan::query()
+            ->with('user')
             ->where('user_id', $leavePlan->user_id)
             ->whereKeyNot($leavePlan->id)
             ->whereIn('status', LeavePlan::ACTIVE_OVERLAP_STATUSES)
             ->whereDate('start_date', '<=', $leavePlan->end_date)
             ->whereDate('end_date', '>=', $leavePlan->start_date)
-            ->exists();
+            ->get()
+            ->contains(fn (LeavePlan $existing) => $holidayService
+                ->countedLeaveDates($existing)
+                ->intersect($countedDates)
+                ->isNotEmpty());
 
         return $hasOverlap
             ? ['warning' => 'This leave plan overlaps another active leave plan for the same employee. Please review the dates.']

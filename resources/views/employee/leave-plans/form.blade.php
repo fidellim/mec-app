@@ -82,13 +82,16 @@
         }
 
         endDate.min = startDate.value || '';
+        window.setDatePickerMin?.(endDate, startDate.value || null);
 
         if (startDate.value && (!endDate.value || endDate.value < startDate.value)) {
             endDate.value = startDate.value;
+            window.syncDatePicker?.(endDate);
         }
 
         if (durationType?.value === 'half_day' && startDate.value) {
             endDate.value = startDate.value;
+            window.syncDatePicker?.(endDate);
         }
     };
 
@@ -106,6 +109,7 @@
 
         if (endDate) {
             endDate.readOnly = isHalfDay;
+            window.setDatePickerReadonly?.(endDate, isHalfDay);
         }
 
         syncDateRules();

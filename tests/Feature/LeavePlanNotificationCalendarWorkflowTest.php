@@ -154,9 +154,12 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.calendar', ['month' => '2026-06']))
             ->assertOk()
             ->assertSee('My Leave Calendar')
+            ->assertSee('data-calendar-month-selector', false)
+            ->assertSee('name="month"', false)
+            ->assertSee('value="2026-06"', false)
             ->assertSee('L100')
             ->assertSee('L110')
-            ->assertSee('Half day - morning (0.5 calendar days / 0.5 weekdays)')
+            ->assertSee('Half day - morning (0.5 calendar days / 0.5 counted leave days)')
             ->assertDontSee('>L120<', false)
             ->assertDontSee($otherEmployee->name);
     }
@@ -198,6 +201,8 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
         $this->actingAs($hod)
             ->get(route('hod.leave-plans.calendar', ['month' => '2026-06', 'employee_id' => $otherEmployee->id]))
             ->assertOk()
+            ->assertSee('name="employee_id"', false)
+            ->assertSee('value="'.$otherEmployee->id.'"', false)
             ->assertDontSee($otherEmployee->name)
             ->assertDontSee('>L120<', false);
 
@@ -234,6 +239,7 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.leave-plans.calendar', ['month' => '2026-06']))
             ->assertOk()
+            ->assertSee('data-calendar-month-selector', false)
             ->assertSee($firstEmployee->name)
             ->assertSee($secondEmployee->name)
             ->assertSee('L100')

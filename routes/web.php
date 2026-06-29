@@ -13,6 +13,7 @@ use App\Http\Controllers\HodTimesheetController;
 use App\Http\Controllers\Manage\DepartmentController;
 use App\Http\Controllers\Manage\AuditLogController;
 use App\Http\Controllers\Manage\AutomationSettingController;
+use App\Http\Controllers\Manage\HolidayController;
 use App\Http\Controllers\Manage\ProjectController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
@@ -99,6 +100,11 @@ Route::middleware('auth')->group(function () {
             Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
             Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');
         });
+    });
+
+    Route::middleware('role:admin,super_admin')->prefix('manage')->name('manage.')->group(function () {
+        Route::patch('holidays/{holiday}/status', [HolidayController::class, 'status'])->name('holidays.status');
+        Route::resource('holidays', HolidayController::class)->except(['show', 'destroy']);
     });
 
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {

@@ -156,6 +156,7 @@
             endInput.value = dateInputValue(endDate);
             weekInput.value = isoPeriod.week;
             yearInput.value = isoPeriod.year;
+            window.syncDatePicker?.(endInput);
             startFeedback?.classList.toggle('d-none', startsOnMonday);
         };
 

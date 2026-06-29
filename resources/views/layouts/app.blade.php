@@ -17,6 +17,7 @@
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
     <style>
         :root {
             --app-body-bg: #f4f6f9;
@@ -643,6 +644,72 @@
             border-color: var(--bs-primary);
             box-shadow: 0 0 0 .22rem var(--app-focus-ring);
         }
+        .flatpickr-input.form-control[readonly] {
+            background-color: var(--app-card-bg);
+        }
+        .flatpickr-calendar {
+            background: var(--app-card-bg);
+            border: 1px solid var(--app-border);
+            border-radius: .75rem;
+            box-shadow: var(--app-shadow-md);
+            color: var(--bs-body-color);
+            overflow: hidden;
+        }
+        .flatpickr-calendar::before,
+        .flatpickr-calendar::after {
+            display: none;
+        }
+        .flatpickr-months {
+            background: color-mix(in srgb, var(--app-muted-bg) 72%, var(--app-card-bg));
+            border-bottom: 1px solid var(--app-soft-border);
+        }
+        .flatpickr-months .flatpickr-month,
+        .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .flatpickr-current-month input.cur-year {
+            color: var(--bs-body-color);
+            fill: var(--bs-body-color);
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months,
+        .flatpickr-current-month input.cur-year {
+            background: transparent;
+            font-weight: 700;
+        }
+        .flatpickr-weekday {
+            color: var(--bs-secondary-color) !important;
+            font-size: .72rem;
+            font-weight: 800;
+            text-transform: uppercase;
+        }
+        .flatpickr-day {
+            border-radius: .45rem;
+            color: var(--bs-body-color);
+            margin: .04rem;
+        }
+        .flatpickr-day:hover,
+        .flatpickr-day:focus {
+            background: color-mix(in srgb, var(--bs-primary-bg-subtle) 58%, var(--app-card-bg));
+            border-color: transparent;
+            color: var(--bs-body-color);
+        }
+        .flatpickr-day.today {
+            border-color: var(--bs-primary);
+        }
+        .flatpickr-day.selected,
+        .flatpickr-day.startRange,
+        .flatpickr-day.endRange {
+            background: var(--bs-primary);
+            border-color: var(--bs-primary);
+            color: #fff;
+        }
+        .flatpickr-day.flatpickr-disabled,
+        .flatpickr-day.prevMonthDay,
+        .flatpickr-day.nextMonthDay {
+            color: var(--bs-secondary-color);
+        }
+        .flatpickr-time input,
+        .flatpickr-time .flatpickr-am-pm {
+            color: var(--bs-body-color);
+        }
         .ts-wrapper.single .ts-control,
         .ts-wrapper.single .ts-control input {
             cursor: text;
@@ -1002,6 +1069,11 @@
                         <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')]) title="Departments"><img class="sidebar-icon" src="{{ asset('images/sidebar/departments.svg') }}" alt=""><span class="sidebar-label">Departments</span></a>
                         <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')]) title="Projects"><img class="sidebar-icon" src="{{ asset('images/sidebar/projects.svg') }}" alt=""><span class="sidebar-label">Projects</span></a>
                         <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')]) title="Weekly Periods"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Weekly Periods</span></a>
+                    @endif
+                    @if(auth()->user()->isAdminLike())
+                        <a href="{{ route('manage.holidays.index') }}" @class(['active' => request()->routeIs('manage.holidays.*')]) title="Holidays"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Holidays</span></a>
+                    @endif
+                    @if(auth()->user()->role === 'super_admin')
                         <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')]) title="Automations"><img class="sidebar-icon" src="{{ asset('images/sidebar/automations.svg') }}" alt=""><span class="sidebar-label">Automations</span></a>
                         <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')]) title="Audit Logs"><img class="sidebar-icon" src="{{ asset('images/sidebar/audit-logs.svg') }}" alt=""><span class="sidebar-label">Audit Logs</span></a>
                     @endif
@@ -1098,6 +1170,7 @@
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <script>
 const initializeTooltips = (scope = document) => {
     if (!window.bootstrap?.Tooltip) {
@@ -1199,6 +1272,60 @@ const setSearchableSelectValue = (select, value) => {
 };
 
 initializeSearchableSelects();
+
+const dispatchDateInputEvents = (input) => {
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+};
+
+const initializeDatePickers = (scope = document) => {
+    if (!window.flatpickr) {
+        return;
+    }
+
+    scope.querySelectorAll('input[type="date"]').forEach((input) => {
+        if (input._flatpickr || input.dataset.datepicker === 'false') {
+            return;
+        }
+
+        window.flatpickr(input, {
+            altInput: true,
+            altFormat: 'M j, Y',
+            allowInput: true,
+            dateFormat: 'Y-m-d',
+            defaultDate: input.value || null,
+            disableMobile: true,
+            clickOpens: !input.readOnly,
+            onChange: () => dispatchDateInputEvents(input),
+            onClose: () => dispatchDateInputEvents(input),
+        });
+    });
+};
+
+window.syncDatePicker = (input) => {
+    if (input?._flatpickr) {
+        input._flatpickr.setDate(input.value || null, false, 'Y-m-d');
+    }
+};
+
+window.setDatePickerMin = (input, minDate) => {
+    if (input?._flatpickr) {
+        input._flatpickr.set('minDate', minDate || null);
+    }
+};
+
+window.setDatePickerReadonly = (input, isReadonly) => {
+    if (!input?._flatpickr) {
+        return;
+    }
+
+    input._flatpickr.set('clickOpens', !isReadonly);
+    if (input._flatpickr.altInput) {
+        input._flatpickr.altInput.readOnly = isReadonly;
+    }
+};
+
+initializeDatePickers();
 
 document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
     const toggle = card.querySelector('[data-history-toggle]');

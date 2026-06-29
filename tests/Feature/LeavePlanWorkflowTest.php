@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AuditLog;
+use App\Models\Holiday;
 use App\Models\LeavePlan;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesTimesheetData;
@@ -260,15 +261,142 @@ class LeavePlanWorkflowTest extends TestCase
         ]);
 
         $this->assertSame(4.0, $leavePlan->calendarDayCount());
-        $this->assertSame(2.0, $leavePlan->weekdayCount());
-        $this->assertSame('4 calendar days / 2 weekdays', $leavePlan->durationLabel());
+        $this->assertSame(2.0, $leavePlan->countedLeaveDayCount());
+        $this->assertSame('4 calendar days / 2 counted leave days', $leavePlan->durationLabel());
 
         $halfDay = LeavePlan::factory()->make([
             'duration_type' => 'half_day',
             'half_day_period' => 'morning',
         ]);
 
-        $this->assertSame('Half day - morning (0.5 calendar days / 0.5 weekdays)', $halfDay->leaveLengthLabel());
+        $this->assertSame('Half day - morning (0.5 calendar days / 0.5 counted leave days)', $halfDay->leaveLengthLabel());
+    }
+
+    public function test_leave_plan_count_excludes_applicable_regional_holidays(): void
+    {
+        Holiday::factory()->create([
+            'name' => 'Global Holiday',
+            'holiday_date' => '2026-05-11',
+            'region' => 'global',
+        ]);
+        Holiday::factory()->create([
+            'name' => 'UAE Holiday',
+            'holiday_date' => '2026-05-12',
+            'region' => 'uae',
+        ]);
+        Holiday::factory()->create([
+            'name' => 'PH Holiday',
+            'holiday_date' => '2026-05-13',
+            'region' => 'ph',
+        ]);
+
+        $department = $this->department();
+        $uaeEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-501',
+        ]);
+        $phEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-502',
+        ]);
+        $unknownEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'EMP-503',
+        ]);
+
+        $base = [
+            'department_id' => $department->id,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-13',
+            'duration_type' => 'full_day',
+        ];
+
+        $uaePlan = LeavePlan::factory()->create($base + ['user_id' => $uaeEmployee->id]);
+        $phPlan = LeavePlan::factory()->create($base + ['user_id' => $phEmployee->id]);
+        $unknownPlan = LeavePlan::factory()->create($base + ['user_id' => $unknownEmployee->id]);
+
+        $this->assertSame(1.0, $uaePlan->countedLeaveDayCount());
+        $this->assertSame(1.0, $phPlan->countedLeaveDayCount());
+        $this->assertSame(2.0, $unknownPlan->countedLeaveDayCount());
+        $this->assertSame('3 calendar days / 1 counted leave day', $uaePlan->durationLabel());
+    }
+
+    public function test_half_day_leave_on_holiday_counts_zero(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-504',
+        ]);
+        Holiday::factory()->create([
+            'holiday_date' => '2026-05-11',
+            'region' => 'uae',
+        ]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'duration_type' => 'half_day',
+            'half_day_period' => 'morning',
+        ]);
+
+        $this->assertSame(0.0, $leavePlan->countedLeaveDayCount());
+        $this->assertSame('Half day - morning (0.5 calendar days / 0 counted leave days)', $leavePlan->leaveLengthLabel());
+    }
+
+    public function test_existing_leave_plan_label_recalculates_after_holiday_is_created(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-505',
+        ]);
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-12',
+        ]);
+
+        $this->assertSame('2 calendar days / 2 counted leave days', $leavePlan->durationLabel());
+
+        Holiday::factory()->create([
+            'holiday_date' => '2026-05-12',
+            'region' => 'ph',
+        ]);
+
+        $this->assertSame('2 calendar days / 1 counted leave day', $leavePlan->fresh()->durationLabel());
+    }
+
+    public function test_overlap_warning_ignores_holiday_only_overlap(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-506',
+        ]);
+        Holiday::factory()->create([
+            'holiday_date' => '2026-05-11',
+            'region' => 'uae',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-11',
+                'submit' => '1',
+            ]))
+            ->assertRedirect()
+            ->assertSessionMissing('warning');
     }
 
     public function test_voided_leave_plan_does_not_trigger_overlap_warning(): void
@@ -345,7 +473,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Approved leave planned for this week')
             ->assertSee('L100 - Annual Leave')
-            ->assertSee('1 calendar day / 1 weekday');
+            ->assertSee('1 calendar day / 1 counted leave day');
     }
 
     private function validLeavePlanPayload(array $overrides = []): array
