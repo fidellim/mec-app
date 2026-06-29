@@ -136,11 +136,25 @@ Departments support one primary Head of Department and any number of additional 
 - When deleting a HOD assigned to one or more departments, Super Admin must select an active replacement HOD. The replacement is assigned to all departments previously managed by the deleted user.
 - If a HOD user's role is changed back to Employee, Admin, or Super Admin, their primary HOD assignments and additional HOD approver assignments are cleared automatically.
 
+### HOD Notification And Approval Exclusions
+
+Super Admin users can edit an existing HOD user and configure exceptions for specific users in departments where that HOD is explicitly assigned as primary HOD or additional HOD approver.
+
+- **Notification exclusion** stops email notifications for the selected HOD/user pair only. The HOD can still view, approve, reject, recall, and review cancellation requests where their normal HOD role allows it.
+- **Approval exclusion** stops approval-request emails and prevents that HOD from approving, rejecting, recalling, approving cancellation, or rejecting cancellation for the selected user.
+- Approval-excluded HODs can still view records in managed department pages, so department visibility and reporting remain intact.
+- A HOD's own profile department does not qualify for exclusions unless the HOD is also assigned as a primary/additional HOD approver for that department.
+- The system prevents approval exclusions that would leave a submitter with no eligible HOD approver.
+- Invalid exclusions are cleaned up when users change role, users move department, users are deleted, or department HOD assignments change.
+
+See `docs/HOD_EXCLUSIONS.md` for the full behavior, safety rules, audit action, and test coverage.
+
 The database change for this feature is additive:
 
 - `departments.hod_id` remains the primary HOD column.
 - `department_hod` stores the many-to-many list of department HOD approvers.
 - The migration backfills existing `departments.hod_id` values into `department_hod`.
+- `hod_notification_exclusions` and `hod_approval_exclusions` store optional HOD/user exceptions.
 - No existing table should be deleted for this feature.
 
 ## Automation Controls

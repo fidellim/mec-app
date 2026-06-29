@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $isApprovalExcluded = app(\App\Services\HodExclusionService::class)->approvalExcluded(auth()->user(), $timesheet->user);
+@endphp
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Review Timesheet</h1>
@@ -13,6 +16,10 @@
     @if((int) $timesheet->user_id === (int) auth()->id())
         <div class="alert alert-warning mt-3">
             You cannot approve or reject your own timesheet. An Admin or Super Admin must review this submission.
+        </div>
+    @elseif($isApprovalExcluded)
+        <div class="alert alert-warning mt-3">
+            You can view this timesheet, but another HOD approver is assigned to approve or reject it.
         </div>
     @else
     <div class="content-card mt-3">
@@ -46,6 +53,8 @@
         <div class="content-card-body">
             @if($isOwnTimesheet)
                 <div class="alert alert-warning mb-0">You cannot recall your own approved timesheet. Another authorized reviewer must complete this correction.</div>
+            @elseif($isApprovalExcluded)
+                <div class="alert alert-warning mb-0">Another HOD approver is assigned to recall this approved timesheet.</div>
             @else
                 <form method="post" action="{{ route('hod.timesheets.recall-approved', $timesheet) }}" data-confirm="Recall this approved timesheet and notify the employee?">
                     @csrf

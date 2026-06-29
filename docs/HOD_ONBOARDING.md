@@ -105,6 +105,8 @@ You cannot:
 - Approve or reject timesheets that are not currently submitted.
 - Recall timesheets that are not currently approved.
 
+Super Admins may also assign specific users to another HOD approver in the same department. These exceptions only apply in departments where you are explicitly assigned as the primary HOD or an additional HOD approver. In that case, you may still see the user's record, but the approval buttons are hidden and the page tells you another HOD approver is assigned.
+
 ## Submission Tracker
 
 Use **Submission Tracker** to monitor submission progress for departments you manage.
@@ -146,6 +148,8 @@ MEC Group Portal sends emails for key workflow events:
 - Employees receive reminder emails when you send reminders from **Submission Tracker**.
 - You receive an email when an employee in a managed department submits or resubmits a leave plan or requests cancellation.
 - Employees receive an email when you approve or reject their leave plan or cancellation request.
+
+If a Super Admin has set a notification or approval exception for a specific user, you may not receive approval-request emails for that user's submissions even though the records remain visible in your managed department pages.
 
 ## Quick Troubleshooting
 

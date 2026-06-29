@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\HodExclusionService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -26,11 +27,12 @@ class DepartmentController extends Controller
         return view('manage.departments.form', ['department' => new Department(), 'hods' => $this->availableHods()]);
     }
 
-    public function store(Request $request, AuditLogService $audit)
+    public function store(Request $request, AuditLogService $audit, HodExclusionService $hodExclusions)
     {
         [$data, $hodIds] = $this->validated($request);
         $department = Department::create($data);
         $this->syncHods($department, $hodIds);
+        $hodExclusions->pruneInvalidPairs();
         $audit->record('department_created', $department, null, $department->toArray());
         return redirect()->route('manage.departments.index')->with('success', 'Department created.');
     }
@@ -40,12 +42,13 @@ class DepartmentController extends Controller
         return view('manage.departments.form', ['department' => $department->load('hods'), 'hods' => $this->availableHods()]);
     }
 
-    public function update(Request $request, Department $department, AuditLogService $audit)
+    public function update(Request $request, Department $department, AuditLogService $audit, HodExclusionService $hodExclusions)
     {
         $old = $department->load('hods')->toArray();
         [$data, $hodIds] = $this->validated($request, $department);
         $department->update($data);
         $this->syncHods($department, $hodIds);
+        $hodExclusions->pruneInvalidPairs();
         $audit->record('department_updated', $department, $old, $department->fresh('hods')->toArray());
         return redirect()->route('manage.departments.index')->with('success', 'Department updated.');
     }

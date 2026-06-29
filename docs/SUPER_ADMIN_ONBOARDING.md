@@ -78,6 +78,7 @@ For each user, manage:
 - Department.
 - Active/inactive status.
 - Whether an Admin or Super Admin receives HOD timesheet submission emails.
+- HOD notification and approval exceptions when editing an existing HOD.
 - Password when creating or resetting a user.
 
 Passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
@@ -98,6 +99,7 @@ Important user rules:
 
 - Inactive users cannot use the system normally.
 - Super Admins can turn off **Receive HOD timesheet submission emails** on Admin and Super Admin accounts if that user should not receive HOD approval-request emails.
+- When editing an existing HOD, Super Admins can exclude selected users from that HOD's approval-request emails, or prevent that HOD from approving/rejecting selected users when another HOD approver remains responsible.
 - Users without a department cannot create or submit personal timesheets.
 - When a user's department changes, draft, withdrawn, recalled, and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
 - You cannot delete your own account.
@@ -129,6 +131,20 @@ Each department can have one primary **Head of Department** and multiple **HOD a
 - Submission and resubmission emails go to every HOD approver assigned to that employee's department.
 - The HOD dashboard, Department Timesheets page, Submission Tracker, and reminder tools use the full list of departments assigned to the HOD.
 - If a HOD user's role is changed back to Employee, Admin, or Super Admin, MEC Group Portal automatically removes that user from primary HOD and additional HOD approver assignments.
+
+### HOD Notification And Approval Exceptions
+
+When a department has multiple HOD approvers, Super Admins can manage exceptions from the HOD's user edit page. Exceptions are available only for users in departments where the edited HOD is assigned as the primary HOD or an additional HOD approver.
+
+- **Do not email this HOD for submissions from** stops email notifications only. The HOD can still approve or reject those users.
+- **Do not allow this HOD to approve/reject submissions from** blocks approval, rejection, recall, and cancellation-review actions for those users. It also stops approval-request emails.
+- The excluded HOD can still view records in managed department pages.
+- The HOD's own profile department does not qualify unless the HOD is also selected as a primary/additional HOD approver for that department.
+- MEC Group Portal prevents approval exceptions that would leave a user without any eligible HOD approver.
+- Exceptions are cleaned up automatically when users change role, users move department, or department HOD assignments change.
+- Changes are recorded in Audit Logs as `user_hod_exclusions_updated`.
+
+See `docs/HOD_EXCLUSIONS.md` for the full reference.
 
 When deleting a HOD who manages departments, select an active replacement HOD. The replacement will be assigned to every department the deleted HOD managed, including primary HOD assignments and additional approver assignments.
 

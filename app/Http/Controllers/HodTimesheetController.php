@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Department;
 use App\Services\AuditLogService;
 use App\Services\MissingTimesheetReminderService;
+use App\Services\HodExclusionService;
 use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetRecallService;
 use App\Services\TimesheetStatusHistoryService;
@@ -17,6 +18,10 @@ use Illuminate\Validation\Rule;
 
 class HodTimesheetController extends Controller
 {
+    public function __construct(private readonly HodExclusionService $hodExclusions)
+    {
+    }
+
     public function index()
     {
         $managedDepartmentIds = $this->managedDepartmentIds();
@@ -251,6 +256,11 @@ class HodTimesheetController extends Controller
             $timesheet->user?->role === 'employee',
             403,
             'Head of Department can only '.$action.' employee timesheets.'
+        );
+        abort_if(
+            $this->hodExclusions->approvalExcluded($actor, $timesheet->user),
+            403,
+            'This Head of Department is not assigned to '.$action.' this employee timesheet.'
         );
     }
 

@@ -4,6 +4,9 @@
 @php
     $prefix = request()->routeIs('admin.*') ? 'admin' : 'hod';
     $isOwnLeavePlan = (int) $leavePlan->user_id === (int) auth()->id();
+    $isApprovalExcluded = $prefix === 'hod'
+        ? app(\App\Services\HodExclusionService::class)->approvalExcluded(auth()->user(), $leavePlan->user)
+        : false;
 @endphp
 <div class="section-header">
     <div>
@@ -28,6 +31,8 @@
         <div class="content-card-body">
             @if($isOwnLeavePlan)
                 <div class="alert alert-warning mb-0">You cannot approve or reject your own leave plan.</div>
+            @elseif($isApprovalExcluded)
+                <div class="alert alert-warning mb-0">You can view this leave plan, but another HOD approver is assigned to approve or reject it.</div>
             @else
                 <div class="d-flex gap-2 mb-3">
                     <form method="post" action="{{ route($prefix.'.leave-plans.approve', $leavePlan) }}" data-confirm="Approve this leave plan?">@csrf<button class="btn btn-success">Approve</button></form>
@@ -56,6 +61,8 @@
         <div class="content-card-body">
             @if($isOwnLeavePlan)
                 <div class="alert alert-warning mb-0">You cannot recall your own approved leave plan. Another authorized reviewer must complete this correction.</div>
+            @elseif($isApprovalExcluded)
+                <div class="alert alert-warning mb-0">Another HOD approver is assigned to recall this approved leave plan.</div>
             @else
                 <form method="post" action="{{ route($prefix.'.leave-plans.recall-approved', $leavePlan) }}" data-confirm="Recall this approved leave plan and notify the employee?">
                     @csrf
@@ -98,6 +105,8 @@
         <div class="content-card-body">
             @if($isOwnLeavePlan)
                 <div class="alert alert-warning mb-0">You cannot action cancellation for your own leave plan.</div>
+            @elseif($isApprovalExcluded)
+                <div class="alert alert-warning mb-0">Another HOD approver is assigned to review this cancellation request.</div>
             @else
                 <div class="d-flex gap-2 mb-3">
                     <form method="post" action="{{ route($prefix.'.leave-plans.approve-cancellation', $leavePlan) }}" data-confirm="Approve cancellation for this leave plan?">@csrf<button class="btn btn-warning">Approve Cancellation</button></form>

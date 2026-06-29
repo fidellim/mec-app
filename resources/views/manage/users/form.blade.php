@@ -1,7 +1,11 @@
 @extends('layouts.app')
 
 @section('content')
-@php($roleLabels = config('roles.labels'))
+@php
+    $roleLabels = config('roles.labels');
+    $selectedNotificationExclusions = collect(old('hod_notification_exclusion_ids', $hodNotificationExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
+    $selectedApprovalExclusions = collect(old('hod_approval_exclusion_ids', $hodApprovalExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
+@endphp
 <div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $userModel->exists ? 'Edit User' : 'New User' }}</h1><div class="text-muted">Set employee identity, role, department, and account status.</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $userModel->exists ? route('manage.users.update', $userModel) : route('manage.users.store') }}">
     @csrf @if($userModel->exists) @method('put') @endif
@@ -44,6 +48,44 @@
         </div>
         <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input type="hidden" name="is_active" value="0"><input class="form-check-input" type="checkbox" name="is_active" value="1" id="active" @checked(old('is_active', $userModel->is_active ?? true))><label class="form-check-label" for="active">Active</label></div></div>
     </div>
+    @if($userModel->exists && $userModel->role === 'hod')
+        <div class="content-card mt-4">
+            <div class="content-card-header">
+                <h2 class="h5 mb-1">HOD notification and approval exceptions</h2>
+                <div class="small text-muted">These settings apply only to users in departments this HOD currently manages.</div>
+            </div>
+            <div class="content-card-body">
+                @if($hodExclusionCandidates->isEmpty())
+                    <div class="alert alert-warning mb-0">No eligible users are available for this HOD. Assign managed departments before adding exceptions.</div>
+                @else
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <label class="form-label" for="hodNotificationExclusionIds">Do not email this HOD for submissions from</label>
+                            <select class="form-select @error('hod_notification_exclusion_ids') is-invalid @enderror @error('hod_notification_exclusion_ids.*') is-invalid @enderror" id="hodNotificationExclusionIds" name="hod_notification_exclusion_ids[]" multiple>
+                                @foreach($hodExclusionCandidates as $candidate)
+                                    <option value="{{ $candidate->id }}" @selected(in_array((int) $candidate->id, $selectedNotificationExclusions, true))>{{ $candidate->name }} - {{ $roleLabels[$candidate->role] ?? $candidate->role }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Email-only. This HOD can still approve or reject these users.</div>
+                            @error('hod_notification_exclusion_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error('hod_notification_exclusion_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label" for="hodApprovalExclusionIds">Do not allow this HOD to approve/reject submissions from</label>
+                            <select class="form-select @error('hod_approval_exclusion_ids') is-invalid @enderror @error('hod_approval_exclusion_ids.*') is-invalid @enderror" id="hodApprovalExclusionIds" name="hod_approval_exclusion_ids[]" multiple>
+                                @foreach($hodExclusionCandidates as $candidate)
+                                    <option value="{{ $candidate->id }}" @selected(in_array((int) $candidate->id, $selectedApprovalExclusions, true))>{{ $candidate->name }} - {{ $roleLabels[$candidate->role] ?? $candidate->role }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Approval restriction. At least one other eligible HOD approver must remain.</div>
+                            @error('hod_approval_exclusion_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error('hod_approval_exclusion_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
     <div class="text-end mt-3"><button class="btn btn-primary">Save User</button></div>
 </form>
 @endsection

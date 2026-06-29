@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Mail;
 
 class TimesheetEmailNotificationService
 {
+    public function __construct(private readonly HodExclusionService $hodExclusions)
+    {
+    }
+
     public function submitted(Timesheet $timesheet, bool $resubmitted = false): void
     {
         $timesheet = $this->loadTimesheet($timesheet);
@@ -117,6 +121,7 @@ class TimesheetEmailNotificationService
         $recipients
             ->unique('id')
             ->filter(fn (User $recipient) => $recipient->role === 'hod')
+            ->filter(fn (User $recipient) => $timesheet->user && $this->hodExclusions->shouldReceiveApprovalRequestEmail($recipient, $timesheet->user))
             ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
     }
 

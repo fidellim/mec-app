@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\DashboardSummaryService;
+use App\Services\HodExclusionService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -51,12 +52,18 @@ class UserController extends Controller
         ]);
     }
 
-    public function create()
+    public function create(HodExclusionService $hodExclusions)
     {
-        return view('manage.users.form', ['userModel' => new User(), 'departments' => Department::where('is_active', true)->orderBy('name')->get()]);
+        return view('manage.users.form', [
+            'userModel' => new User(),
+            'departments' => Department::where('is_active', true)->orderBy('name')->get(),
+            'hodExclusionCandidates' => collect(),
+            'hodNotificationExclusionIds' => [],
+            'hodApprovalExclusionIds' => [],
+        ]);
     }
 
-    public function store(Request $request, AuditLogService $audit)
+    public function store(Request $request, AuditLogService $audit, HodExclusionService $hodExclusions)
     {
         $data = $this->validated($request);
         $data['password'] = $request->validate(
@@ -64,12 +71,17 @@ class UserController extends Controller
             $this->passwordValidationMessages()
         )['password'];
         $user = User::create($data);
+        $hodExclusions->syncForHod(
+            $user,
+            $request->input('hod_notification_exclusion_ids', []),
+            $request->input('hod_approval_exclusion_ids', [])
+        );
         $audit->record('user_created', $user, null, $user->toArray());
 
         return redirect()->route('manage.users.index')->with('success', 'User created.');
     }
 
-    public function edit(User $user)
+    public function edit(User $user, HodExclusionService $hodExclusions)
     {
         return view('manage.users.form', [
             'userModel' => $user,
@@ -77,10 +89,13 @@ class UserController extends Controller
                 ->orWhere('id', $user->department_id)
                 ->orderBy('name')
                 ->get(),
+            'hodExclusionCandidates' => $hodExclusions->validSubmittersForHod($user),
+            'hodNotificationExclusionIds' => $user->hodNotificationExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
+            'hodApprovalExclusionIds' => $user->hodApprovalExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
         ]);
     }
 
-    public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard)
+    public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard, HodExclusionService $hodExclusions)
     {
         $old = $user->toArray();
         $data = $this->validated($request, $user);
@@ -92,6 +107,7 @@ class UserController extends Controller
         }
         $oldDepartmentId = $user->department_id;
         $oldRole = $user->role;
+        $oldHodExclusions = $hodExclusions->snapshotFor($user);
         $assignedHodDepartmentIds = $oldRole === 'hod'
             ? $user->primaryDepartments()->pluck('id')
                 ->merge($user->managedDepartments()->pluck('departments.id'))
@@ -99,7 +115,7 @@ class UserController extends Controller
                 ->values()
             : collect();
 
-        DB::transaction(function () use ($user, $data, $old, $oldDepartmentId, $oldRole, $assignedHodDepartmentIds, $audit, $dashboard) {
+        DB::transaction(function () use ($request, $user, $data, $old, $oldDepartmentId, $oldRole, $oldHodExclusions, $assignedHodDepartmentIds, $audit, $dashboard, $hodExclusions) {
             $user->update($data);
             $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
 
@@ -117,6 +133,17 @@ class UserController extends Controller
                         'detached_approver_departments' => $detachedApproverDepartments,
                     ]);
                 }
+            }
+
+            $hodExclusions->pruneInvalidForUser($user->fresh());
+            [, $newExclusions] = $hodExclusions->syncForHod(
+                $user->fresh(),
+                $request->input('hod_notification_exclusion_ids', []),
+                $request->input('hod_approval_exclusion_ids', [])
+            );
+
+            if ($oldHodExclusions !== $newExclusions) {
+                $audit->record('user_hod_exclusions_updated', $user, $oldHodExclusions, $newExclusions);
             }
 
             if (
@@ -232,6 +259,10 @@ class UserController extends Controller
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
             'receives_hod_timesheet_submission_emails' => ['boolean'],
+            'hod_notification_exclusion_ids' => ['nullable', 'array'],
+            'hod_notification_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
+            'hod_approval_exclusion_ids' => ['nullable', 'array'],
+            'hod_approval_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
         ], [
             'employee_code.required' => 'Employee number is required for employees and HODs.',
             'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
@@ -242,6 +273,7 @@ class UserController extends Controller
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
         $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
+        unset($data['hod_notification_exclusion_ids'], $data['hod_approval_exclusion_ids']);
 
         return $data;
     }

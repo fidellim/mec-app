@@ -7,6 +7,7 @@ use App\Models\Department;
 use App\Models\LeavePlan;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\HodExclusionService;
 use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
 use Illuminate\Http\Request;
@@ -14,6 +15,10 @@ use Illuminate\Validation\Rule;
 
 class HodLeavePlanController extends Controller
 {
+    public function __construct(private readonly HodExclusionService $hodExclusions)
+    {
+    }
+
     public function index()
     {
         $managedDepartmentIds = $this->managedDepartmentIds();
@@ -239,6 +244,11 @@ class HodLeavePlanController extends Controller
 
         abort_unless($actor->role === 'hod', 403);
         abort_unless($actor->managedDepartmentIds()->contains((int) $leavePlan->department_id), 403);
+        abort_if(
+            $this->hodExclusions->approvalExcluded($actor, $leavePlan->user),
+            403,
+            'This Head of Department is not assigned to '.$action.' this employee leave plan.'
+        );
     }
 
     private function managedDepartmentIds()

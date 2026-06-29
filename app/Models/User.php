@@ -76,6 +76,30 @@ class User extends Authenticatable
         return $this->hasMany(LeavePlan::class);
     }
 
+    public function hodNotificationExcludedSubmitters()
+    {
+        return $this->belongsToMany(User::class, 'hod_notification_exclusions', 'hod_user_id', 'employee_user_id')
+            ->withTimestamps();
+    }
+
+    public function hodApprovalExcludedSubmitters()
+    {
+        return $this->belongsToMany(User::class, 'hod_approval_exclusions', 'hod_user_id', 'employee_user_id')
+            ->withTimestamps();
+    }
+
+    public function notificationExcludedByHods()
+    {
+        return $this->belongsToMany(User::class, 'hod_notification_exclusions', 'employee_user_id', 'hod_user_id')
+            ->withTimestamps();
+    }
+
+    public function approvalExcludedByHods()
+    {
+        return $this->belongsToMany(User::class, 'hod_approval_exclusions', 'employee_user_id', 'hod_user_id')
+            ->withTimestamps();
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';

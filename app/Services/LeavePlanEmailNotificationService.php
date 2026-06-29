@@ -10,6 +10,10 @@ use Illuminate\Support\Facades\Mail;
 
 class LeavePlanEmailNotificationService
 {
+    public function __construct(private readonly HodExclusionService $hodExclusions)
+    {
+    }
+
     public function submitted(LeavePlan $leavePlan, bool $resubmitted = false): void
     {
         $leavePlan = $this->loadLeavePlan($leavePlan);
@@ -136,6 +140,7 @@ class LeavePlanEmailNotificationService
             ->unique('id')
             ->filter(fn (User $recipient) => $recipient->role === 'hod')
             ->reject(fn (User $recipient) => (int) $recipient->id === (int) $leavePlan->user_id)
+            ->filter(fn (User $recipient) => $leavePlan->user && $this->hodExclusions->shouldReceiveApprovalRequestEmail($recipient, $leavePlan->user))
             ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
     }
 
