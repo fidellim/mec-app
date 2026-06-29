@@ -9,6 +9,7 @@ These Playwright tests exercise the main browser workflows against a seeded loca
 - Head of Department approval/tracker pages
 - Admin timesheet export download
 - Super Admin management pages
+- Flatpickr month/year selection and light/dark theme readability
 
 ## Setup
 

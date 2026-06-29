@@ -147,15 +147,65 @@
         [data-sidebar="collapsed"] .sidebar-collapse-toggle {
             transform: rotate(180deg);
         }
+        .sidebar nav {
+            align-content: start;
+        }
+        .sidebar-nav-group {
+            display: grid;
+            gap: .3rem;
+        }
+        .sidebar-nav-group + .sidebar-nav-group {
+            margin-top: .35rem;
+        }
+        .sidebar-nav-toggle {
+            width: 100%;
+            border: 0;
+            border-radius: .5rem;
+            background: transparent;
+            color: color-mix(in srgb, var(--app-sidebar-link) 72%, transparent);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
+            padding: .42rem .62rem;
+            font-size: .72rem;
+            font-weight: 700;
+            letter-spacing: .08em;
+            line-height: 1.2;
+            text-transform: uppercase;
+            transition: background-color .15s ease, color .15s ease;
+        }
+        .sidebar-nav-toggle:hover,
+        .sidebar-nav-toggle:focus-visible {
+            background: rgba(255, 255, 255, .04);
+            color: #fff;
+        }
+        .sidebar-nav-toggle::after {
+            content: "";
+            width: .45rem;
+            height: .45rem;
+            border-right: 1.5px solid currentColor;
+            border-bottom: 1.5px solid currentColor;
+            transform: rotate(45deg) translateY(-1px);
+            transition: transform .18s ease;
+        }
+        .sidebar-nav-toggle[aria-expanded="false"]::after {
+            transform: rotate(-45deg);
+        }
+        .sidebar-nav-items {
+            display: grid;
+            gap: .18rem;
+        }
         .sidebar a {
             color: var(--app-sidebar-link);
             text-decoration: none;
             display: flex;
             align-items: center;
             gap: .55rem;
-            padding: .72rem .85rem;
+            padding: .62rem .78rem;
             border-radius: .55rem;
             font-weight: 500;
+            font-size: .94rem;
             transition: background-color .15s ease, color .15s ease, transform .15s ease;
             white-space: nowrap;
         }
@@ -204,8 +254,21 @@
         [data-sidebar="collapsed"] .sidebar a {
             justify-content: center;
             gap: 0;
-            padding-left: .72rem;
-            padding-right: .72rem;
+            padding-left: .68rem;
+            padding-right: .68rem;
+        }
+        [data-sidebar="collapsed"] .sidebar-nav-group {
+            gap: .18rem;
+            margin-top: 0;
+        }
+        [data-sidebar="collapsed"] .sidebar-nav-toggle {
+            display: none;
+        }
+        [data-sidebar="collapsed"] .sidebar-nav-items.collapse:not(.show),
+        [data-sidebar="collapsed"] .sidebar-nav-items.collapsing {
+            display: grid;
+            height: auto !important;
+            visibility: visible;
         }
         [data-sidebar="collapsed"] .sidebar a:hover {
             transform: none;
@@ -644,10 +707,8 @@
             border-color: var(--bs-primary);
             box-shadow: 0 0 0 .22rem var(--app-focus-ring);
         }
-        .flatpickr-input.form-control[readonly] {
-            background-color: var(--app-card-bg);
-        }
         .flatpickr-calendar {
+            z-index: 1060;
             background: var(--app-card-bg);
             border: 1px solid var(--app-border);
             border-radius: .75rem;
@@ -666,16 +727,46 @@
         .flatpickr-months .flatpickr-month,
         .flatpickr-current-month .flatpickr-monthDropdown-months,
         .flatpickr-current-month input.cur-year {
+            background: transparent;
+            color: var(--bs-body-color);
+            fill: var(--bs-body-color);
+            font-weight: 700;
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months {
+            border-radius: .4rem;
+            color-scheme: light;
+        }
+        [data-bs-theme="dark"] .flatpickr-current-month .flatpickr-monthDropdown-months {
+            color-scheme: dark;
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months:hover,
+        .flatpickr-current-month .flatpickr-monthDropdown-months:focus,
+        .flatpickr-current-month input.cur-year:hover,
+        .flatpickr-current-month input.cur-year:focus {
+            background: color-mix(in srgb, var(--bs-primary-bg-subtle) 52%, var(--app-card-bg));
+        }
+        .flatpickr-current-month .flatpickr-monthDropdown-months option {
+            background: var(--app-card-bg);
+            color: var(--bs-body-color);
+        }
+        .flatpickr-current-month .numInputWrapper span.arrowUp::after {
+            border-bottom-color: var(--bs-body-color);
+        }
+        .flatpickr-current-month .numInputWrapper span.arrowDown::after {
+            border-top-color: var(--bs-body-color);
+        }
+        .flatpickr-months .flatpickr-prev-month,
+        .flatpickr-months .flatpickr-next-month {
             color: var(--bs-body-color);
             fill: var(--bs-body-color);
         }
-        .flatpickr-current-month .flatpickr-monthDropdown-months,
-        .flatpickr-current-month input.cur-year {
-            background: transparent;
-            font-weight: 700;
+        .flatpickr-months .flatpickr-prev-month:hover,
+        .flatpickr-months .flatpickr-next-month:hover {
+            color: var(--bs-primary);
+            fill: var(--bs-primary);
         }
         .flatpickr-weekday {
-            color: var(--bs-secondary-color) !important;
+            color: var(--bs-secondary-color);
             font-size: .72rem;
             font-weight: 800;
             text-transform: uppercase;
@@ -693,18 +784,30 @@
         }
         .flatpickr-day.today {
             border-color: var(--bs-primary);
+            color: var(--bs-body-color);
         }
         .flatpickr-day.selected,
+        .flatpickr-day.selected:hover,
         .flatpickr-day.startRange,
         .flatpickr-day.endRange {
             background: var(--bs-primary);
             border-color: var(--bs-primary);
             color: #fff;
         }
+        .flatpickr-day.inRange {
+            background: color-mix(in srgb, var(--bs-primary-bg-subtle) 66%, var(--app-card-bg));
+            border-color: color-mix(in srgb, var(--bs-primary-bg-subtle) 66%, var(--app-card-bg));
+            box-shadow: -5px 0 0 color-mix(in srgb, var(--bs-primary-bg-subtle) 66%, var(--app-card-bg)), 5px 0 0 color-mix(in srgb, var(--bs-primary-bg-subtle) 66%, var(--app-card-bg));
+        }
         .flatpickr-day.flatpickr-disabled,
+        .flatpickr-day.flatpickr-disabled:hover,
         .flatpickr-day.prevMonthDay,
-        .flatpickr-day.nextMonthDay {
-            color: var(--bs-secondary-color);
+        .flatpickr-day.nextMonthDay,
+        .flatpickr-day.notAllowed {
+            color: color-mix(in srgb, var(--bs-secondary-color) 58%, transparent);
+        }
+        .flatpickr-time {
+            border-top-color: var(--app-soft-border);
         }
         .flatpickr-time input,
         .flatpickr-time .flatpickr-am-pm {
@@ -914,7 +1017,7 @@
             }
             .sidebar nav {
                 display: grid !important;
-                grid-template-columns: repeat(2, minmax(0, 1fr));
+                grid-template-columns: 1fr;
                 max-height: 0;
                 opacity: 0;
                 overflow: hidden;
@@ -923,10 +1026,20 @@
                 transition: max-height .24s ease, opacity .18s ease, padding-top .24s ease;
             }
             [data-mobile-sidebar="open"] .sidebar nav {
-                max-height: 36rem;
+                max-height: calc(100vh - 6rem);
                 opacity: 1;
+                overflow-y: auto;
                 padding-top: 1rem;
                 pointer-events: auto;
+            }
+            .sidebar-nav-toggle {
+                padding-inline: .75rem;
+            }
+            [data-sidebar="collapsed"] .sidebar-nav-toggle {
+                display: flex;
+            }
+            [data-sidebar="collapsed"] .sidebar-nav-items.collapse:not(.show) {
+                display: none;
             }
             .sidebar a {
                 min-width: 0;
@@ -1049,35 +1162,83 @@
                         </svg>
                     </button>
                 </div>
-                <nav class="d-grid gap-1">
-                    <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')]) title="Dashboard"><img class="sidebar-icon" src="{{ asset('images/sidebar/dashboard.svg') }}" alt=""><span class="sidebar-label">Dashboard</span></a>
-                    <a href="{{ route('employee.timesheets.index') }}" @class(['active' => request()->routeIs('employee.timesheets.*')]) title="My Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Timesheets</span></a>
-                    <a href="{{ route('employee.leave-plans.index') }}" @class(['active' => request()->routeIs('employee.leave-plans.*')]) title="My Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Leave Plans</span></a>
-                    @if(auth()->user()->role === 'hod')
-                        <a href="{{ route('hod.timesheets.index') }}" @class(['active' => request()->routeIs('hod.timesheets.*')]) title="Department Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Timesheets</span></a>
-                        <a href="{{ route('hod.leave-plans.index') }}" @class(['active' => request()->routeIs('hod.leave-plans.*')]) title="Department Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Leave Plans</span></a>
-                        <a href="{{ route('hod.tracker') }}" @class(['active' => request()->routeIs('hod.tracker')]) title="Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">Submission Tracker</span></a>
+                @php
+                    $leavePlanApprovals = app(\App\Services\LeavePlanApprovalService::class);
+                    $isLeavePlanStageApprover = collect([$leavePlanApprovals->director()?->id, $leavePlanApprovals->approver(\App\Models\LeavePlanApproverSetting::HR_UAE)?->id, $leavePlanApprovals->approver(\App\Models\LeavePlanApproverSetting::HR_PH)?->id])
+                        ->filter()
+                        ->contains((int) auth()->id());
+                    $hasApprovalNav = $isLeavePlanStageApprover || auth()->user()->role === 'hod';
+                    $hasAdminNav = in_array(auth()->user()->role, ['admin', 'super_admin'], true) || auth()->user()->isAdminLike();
+                    $workspaceOpen = request()->routeIs('dashboard', 'employee.timesheets.*', 'employee.leave-plans.*');
+                    $approvalsOpen = request()->routeIs('assigned.leave-plans.*', 'hod.timesheets.*', 'hod.leave-plans.*', 'hod.tracker');
+                    $adminOpen = request()->routeIs('admin.timesheets.*', 'admin.leave-plans.*', 'admin.hod-timesheets.*', 'admin.hod-tracker', 'manage.*');
+                    $supportOpen = request()->routeIs('guide');
+                @endphp
+                <nav class="d-grid gap-1" aria-label="Primary navigation">
+                    <div class="sidebar-nav-group">
+                        <button class="sidebar-nav-toggle @unless($workspaceOpen) collapsed @endunless" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarWorkspaceNav" aria-expanded="{{ $workspaceOpen ? 'true' : 'false' }}" aria-controls="sidebarWorkspaceNav">
+                            <span>Workspace</span>
+                        </button>
+                        <div id="sidebarWorkspaceNav" @class(['sidebar-nav-items', 'collapse', 'show' => $workspaceOpen])>
+                            <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')]) title="Dashboard"><img class="sidebar-icon" src="{{ asset('images/sidebar/dashboard.svg') }}" alt=""><span class="sidebar-label">Dashboard</span></a>
+                            <a href="{{ route('employee.timesheets.index') }}" @class(['active' => request()->routeIs('employee.timesheets.*')]) title="My Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Timesheets</span></a>
+                            <a href="{{ route('employee.leave-plans.index') }}" @class(['active' => request()->routeIs('employee.leave-plans.*')]) title="My Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Leave Plans</span></a>
+                        </div>
+                    </div>
+                    @if($hasApprovalNav)
+                        <div class="sidebar-nav-group">
+                            <button class="sidebar-nav-toggle @unless($approvalsOpen) collapsed @endunless" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarApprovalsNav" aria-expanded="{{ $approvalsOpen ? 'true' : 'false' }}" aria-controls="sidebarApprovalsNav">
+                                <span>Approvals</span>
+                            </button>
+                            <div id="sidebarApprovalsNav" @class(['sidebar-nav-items', 'collapse', 'show' => $approvalsOpen])>
+                                @if($isLeavePlanStageApprover)
+                                    <a href="{{ route('assigned.leave-plans.index') }}" @class(['active' => request()->routeIs('assigned.leave-plans.*')]) title="Assigned Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Assigned Leave Plans</span></a>
+                                @endif
+                                @if(auth()->user()->role === 'hod')
+                                    <a href="{{ route('hod.timesheets.index') }}" @class(['active' => request()->routeIs('hod.timesheets.*')]) title="Department Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Timesheets</span></a>
+                                    <a href="{{ route('hod.leave-plans.index') }}" @class(['active' => request()->routeIs('hod.leave-plans.*')]) title="Department Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Leave Plans</span></a>
+                                    <a href="{{ route('hod.tracker') }}" @class(['active' => request()->routeIs('hod.tracker')]) title="Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">Submission Tracker</span></a>
+                                @endif
+                            </div>
+                        </div>
                     @endif
-                    @if(in_array(auth()->user()->role, ['admin', 'super_admin'], true))
-                        <a href="{{ route('admin.timesheets.index') }}" @class(['active' => request()->routeIs('admin.timesheets.*')]) title="All Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Timesheets</span></a>
-                        <a href="{{ route('admin.leave-plans.index') }}" @class(['active' => request()->routeIs('admin.leave-plans.*')]) title="All Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Leave Plans</span></a>
-                        <a href="{{ route('admin.hod-timesheets.index') }}" @class(['active' => request()->routeIs('admin.hod-timesheets.*')]) title="HOD Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">HOD Timesheets</span></a>
-                        <a href="{{ route('admin.hod-tracker') }}" @class(['active' => request()->routeIs('admin.hod-tracker')]) title="HOD Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">HOD Tracker</span></a>
+                    @if($hasAdminNav)
+                        <div class="sidebar-nav-group">
+                            <button class="sidebar-nav-toggle @unless($adminOpen) collapsed @endunless" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarAdminNav" aria-expanded="{{ $adminOpen ? 'true' : 'false' }}" aria-controls="sidebarAdminNav">
+                                <span>Administration</span>
+                            </button>
+                            <div id="sidebarAdminNav" @class(['sidebar-nav-items', 'collapse', 'show' => $adminOpen])>
+                                @if(in_array(auth()->user()->role, ['admin', 'super_admin'], true))
+                                    <a href="{{ route('admin.timesheets.index') }}" @class(['active' => request()->routeIs('admin.timesheets.*')]) title="All Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Timesheets</span></a>
+                                    <a href="{{ route('admin.leave-plans.index') }}" @class(['active' => request()->routeIs('admin.leave-plans.*')]) title="All Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Leave Plans</span></a>
+                                    <a href="{{ route('admin.hod-timesheets.index') }}" @class(['active' => request()->routeIs('admin.hod-timesheets.*')]) title="HOD Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">HOD Timesheets</span></a>
+                                    <a href="{{ route('admin.hod-tracker') }}" @class(['active' => request()->routeIs('admin.hod-tracker')]) title="HOD Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">HOD Tracker</span></a>
+                                @endif
+                                @if(auth()->user()->role === 'super_admin')
+                                    <a href="{{ route('manage.users.index') }}" @class(['active' => request()->routeIs('manage.users.*')]) title="Users"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Users</span></a>
+                                    <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')]) title="Departments"><img class="sidebar-icon" src="{{ asset('images/sidebar/departments.svg') }}" alt=""><span class="sidebar-label">Departments</span></a>
+                                    <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')]) title="Projects"><img class="sidebar-icon" src="{{ asset('images/sidebar/projects.svg') }}" alt=""><span class="sidebar-label">Projects</span></a>
+                                    <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')]) title="Weekly Periods"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Weekly Periods</span></a>
+                                    <a href="{{ route('manage.leave-plan-approvers.index') }}" @class(['active' => request()->routeIs('manage.leave-plan-approvers.*')]) title="Leave Plan Approvers"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Leave Approvers</span></a>
+                                @endif
+                                @if(auth()->user()->isAdminLike())
+                                    <a href="{{ route('manage.holidays.index') }}" @class(['active' => request()->routeIs('manage.holidays.*')]) title="Holidays"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Holidays</span></a>
+                                @endif
+                                @if(auth()->user()->role === 'super_admin')
+                                    <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')]) title="Automations"><img class="sidebar-icon" src="{{ asset('images/sidebar/automations.svg') }}" alt=""><span class="sidebar-label">Automations</span></a>
+                                    <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')]) title="Audit Logs"><img class="sidebar-icon" src="{{ asset('images/sidebar/audit-logs.svg') }}" alt=""><span class="sidebar-label">Audit Logs</span></a>
+                                @endif
+                            </div>
+                        </div>
                     @endif
-                    @if(auth()->user()->role === 'super_admin')
-                        <a href="{{ route('manage.users.index') }}" @class(['active' => request()->routeIs('manage.users.*')]) title="Users"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Users</span></a>
-                        <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')]) title="Departments"><img class="sidebar-icon" src="{{ asset('images/sidebar/departments.svg') }}" alt=""><span class="sidebar-label">Departments</span></a>
-                        <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')]) title="Projects"><img class="sidebar-icon" src="{{ asset('images/sidebar/projects.svg') }}" alt=""><span class="sidebar-label">Projects</span></a>
-                        <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')]) title="Weekly Periods"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Weekly Periods</span></a>
-                    @endif
-                    @if(auth()->user()->isAdminLike())
-                        <a href="{{ route('manage.holidays.index') }}" @class(['active' => request()->routeIs('manage.holidays.*')]) title="Holidays"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Holidays</span></a>
-                    @endif
-                    @if(auth()->user()->role === 'super_admin')
-                        <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')]) title="Automations"><img class="sidebar-icon" src="{{ asset('images/sidebar/automations.svg') }}" alt=""><span class="sidebar-label">Automations</span></a>
-                        <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')]) title="Audit Logs"><img class="sidebar-icon" src="{{ asset('images/sidebar/audit-logs.svg') }}" alt=""><span class="sidebar-label">Audit Logs</span></a>
-                    @endif
-                    <a href="{{ route('guide') }}" @class(['active' => request()->routeIs('guide')]) title="Help Guide"><img class="sidebar-icon" src="{{ asset('images/sidebar/guide.svg') }}" alt=""><span class="sidebar-label">Help Guide</span></a>
+                    <div class="sidebar-nav-group">
+                        <button class="sidebar-nav-toggle @unless($supportOpen) collapsed @endunless" type="button" data-bs-toggle="collapse" data-bs-target="#sidebarSupportNav" aria-expanded="{{ $supportOpen ? 'true' : 'false' }}" aria-controls="sidebarSupportNav">
+                            <span>Support</span>
+                        </button>
+                        <div id="sidebarSupportNav" @class(['sidebar-nav-items', 'collapse', 'show' => $supportOpen])>
+                            <a href="{{ route('guide') }}" @class(['active' => request()->routeIs('guide')]) title="Help Guide"><img class="sidebar-icon" src="{{ asset('images/sidebar/guide.svg') }}" alt=""><span class="sidebar-label">Help Guide</span></a>
+                        </div>
+                    </div>
                 </nav>
             </aside>
         @endauth
@@ -1278,6 +1439,44 @@ const dispatchDateInputEvents = (input) => {
     input.dispatchEvent(new Event('change', { bubbles: true }));
 };
 
+const parseDateInputValue = (value) => {
+    if (!value) {
+        return null;
+    }
+
+    const date = new Date(`${value}T00:00:00`);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+const formatDateInputValue = (date) => {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    const year = date.getFullYear();
+    const month = `${date.getMonth() + 1}`.padStart(2, '0');
+    const day = `${date.getDate()}`.padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+};
+
+const setDatePickerViewDate = (picker, date) => {
+    if (!picker || !date) {
+        return;
+    }
+
+    picker.jumpToDate(date);
+};
+
+const closeOtherDatePickers = (currentInput) => {
+    document.querySelectorAll('input').forEach((input) => {
+        if (input !== currentInput && input._flatpickr?.isOpen) {
+            input._flatpickr.close();
+        }
+    });
+};
+
 const initializeDatePickers = (scope = document) => {
     if (!window.flatpickr) {
         return;
@@ -1288,29 +1487,67 @@ const initializeDatePickers = (scope = document) => {
             return;
         }
 
-        window.flatpickr(input, {
-            altInput: true,
-            altFormat: 'M j, Y',
+        input.autocomplete = input.autocomplete || 'off';
+        input.inputMode = 'numeric';
+        input.placeholder = input.placeholder || 'YYYY-MM-DD';
+
+        input.addEventListener('mousedown', () => closeOtherDatePickers(input), { capture: true });
+        input.addEventListener('focus', () => closeOtherDatePickers(input), { capture: true });
+
+        flatpickr(input, {
             allowInput: true,
             dateFormat: 'Y-m-d',
-            defaultDate: input.value || null,
-            disableMobile: true,
-            clickOpens: !input.readOnly,
-            onChange: () => dispatchDateInputEvents(input),
-            onClose: () => dispatchDateInputEvents(input),
+            monthSelectorType: 'dropdown',
+            minDate: input.min || null,
+            onOpen: (selectedDates, dateStr, picker) => {
+                if (input.readOnly) {
+                    picker.close();
+                    return;
+                }
+
+                const selectedDate = parseDateInputValue(input.value);
+                const minDate = parseDateInputValue(input.min);
+
+                setDatePickerViewDate(picker, selectedDate || minDate);
+            },
+            onChange: (selectedDates, dateStr) => {
+                input.value = dateStr;
+                dispatchDateInputEvents(input);
+            },
         });
     });
 };
 
 window.syncDatePicker = (input) => {
-    if (input?._flatpickr) {
-        input._flatpickr.setDate(input.value || null, false, 'Y-m-d');
+    if (!input?._flatpickr) {
+        return;
     }
+
+    const date = parseDateInputValue(input.value);
+
+    if (date) {
+        input._flatpickr.setDate(formatDateInputValue(date), false, 'Y-m-d');
+        setDatePickerViewDate(input._flatpickr, date);
+        return;
+    }
+
+    input._flatpickr.clear(false);
 };
 
 window.setDatePickerMin = (input, minDate) => {
     if (input?._flatpickr) {
+        const parsedMinDate = minDate ? parseDateInputValue(minDate) : null;
+        const currentValue = input.value;
+        const currentDate = parseDateInputValue(currentValue);
+
         input._flatpickr.set('minDate', minDate || null);
+
+        if (currentDate) {
+            input._flatpickr.setDate(currentValue, false, 'Y-m-d');
+            input.value = currentValue;
+        }
+
+        setDatePickerViewDate(input._flatpickr, currentDate || parsedMinDate);
     }
 };
 
@@ -1319,9 +1556,8 @@ window.setDatePickerReadonly = (input, isReadonly) => {
         return;
     }
 
-    input._flatpickr.set('clickOpens', !isReadonly);
-    if (input._flatpickr.altInput) {
-        input._flatpickr.altInput.readOnly = isReadonly;
+    if (isReadonly) {
+        input._flatpickr.close();
     }
 };
 

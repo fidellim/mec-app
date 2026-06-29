@@ -234,6 +234,14 @@ Super Admin controls availability from **Manage Weekly Periods**. To allow last 
 
 When creating or editing a weekly period, Super Admin selects the Monday start date. The form automatically fills the Sunday end date, ISO week number, and year, while backend validation still rejects periods that do not run from Monday through Sunday.
 
+## Date Picker UX
+
+Date fields use Flatpickr through the global layout initializer. Blade templates keep normal `type="date"` inputs for graceful fallback, then JavaScript upgrades them to themed inputs that still submit `YYYY-MM-DD` values under the original Laravel field names.
+
+- The picker must support direct month and year selection.
+- The popup must remain readable in both light and dark themes.
+- Keep the global helper functions `syncDatePicker`, `setDatePickerMin`, and `setDatePickerReadonly` available because leave-plan and weekly-period forms use them for dependent date rules.
+
 The weekly period auto creation command is:
 
 ```bash
