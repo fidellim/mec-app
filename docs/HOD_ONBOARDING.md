@@ -21,7 +21,7 @@ Heads of Department can access:
 | --- | --- |
 | ![Dashboard](/images/sidebar/dashboard.svg) **Dashboard** | Shows managed-department submission counts and review shortcuts. |
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history and lets you create your own weekly timesheet. |
-| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Leave Plans** | Lets you plan your own leave and open your personal leave calendar. |
+| ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Leave Plans** | Lets you plan your own leave and open your department leave calendar. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Timesheets** | Lets you review employee timesheets in departments you manage. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Leave Plans** | Lets you review and visualize leave plans in departments you manage. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **Submission Tracker** | Shows who has submitted in your managed departments and lets you send reminder emails. |
@@ -137,6 +137,8 @@ Use **Department Leave Plans** to review leave requests for departments you mana
 Your approval is the first step. After you approve a submitted leave plan, it moves to the configured Director of Engineering & Project Management approver, then to the employee's regional HR approver. The plan is fully approved only after HR approval.
 
 You can approve or reject cancellation requests for approved leave plans in your managed departments. Cancellation requests stay HOD-only and do not go through Director/HR approval. You cannot approve, reject, or action cancellation for your own leave plan.
+
+For `L100 - Annual Leave`, submitted, approved, and cancellation-requested plans reserve the employee's annual allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
 
 ## Email Notifications
 

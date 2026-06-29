@@ -13,6 +13,7 @@ Employees use **My Leave Plans** to create, save, submit, and track leave plans.
 - Cancellation requests require HOD, Admin, or Super Admin review only; they do not repeat the Director/HR chain.
 - Recalled approved leave plans can be edited and resubmitted by the employee.
 - Overlapping active leave plans show a warning but are not blocked.
+- `L100 - Annual Leave` is checked against the employee's yearly annual leave allowance when the employee submits. Drafts can still be saved when they exceed the allowance.
 
 Half-day leave is single-date only and must be marked as morning or afternoon.
 Leave plan screens show counted leave days only. Counted leave days exclude Saturday, Sunday, and active applicable company holidays.
@@ -49,6 +50,19 @@ Use cancellation when the employee requests to remove an approved leave plan. Us
 
 If the Director, UAE HR, or Philippines HR approver is not configured, the leave plan remains submitted at that approval stage. The review page shows a setup warning until a Super Admin assigns the missing approver in **Leave Approvers**.
 
+## Annual Leave Entitlement
+
+`L100 - Annual Leave` has a calendar-year entitlement limit.
+
+- Super Admins set the global default yearly allowance in **Leave Settings**.
+- Super Admins can set an employee-specific annual leave override in **Manage Users**. A blank override uses the global default.
+- Annual leave refreshes automatically by year. Unused allowance expires on December 31 and does not carry over into the next year.
+- No scheduled automation is required for the yearly refresh because remaining allowance is calculated dynamically from leave plans in the requested year.
+- Submitted, approved, and cancellation-requested `L100` plans consume allowance.
+- Draft, rejected, cancelled, recalled, and voided `L100` plans do not consume allowance.
+- Cross-year annual leave is split by counted leave date. For example, counted December dates consume the old year's allowance and counted January dates consume the new year's allowance.
+- Half-day `L100` leave consumes `0.5` counted leave day when the date is not a weekend or applicable company holiday.
+
 ## Email Notifications
 
 | Event | Recipient |
@@ -69,18 +83,18 @@ Email delivery uses Laravel queued mail. Inactive users, users without email add
 
 | Role | Calendar | Visible leave plans |
 | --- | --- | --- |
-| Employee | My Leave Calendar | Own leave plans only |
+| Employee | Department Leave Calendar | Submitted, approved, and cancellation-requested leave plans in their own department |
 | HOD | Department Leave Calendar | Leave plans in managed departments |
 | Admin | All Leave Calendar | All leave plans |
 | Super Admin | All Leave Calendar | All leave plans |
 
 Calendars are read-only. Users create and edit leave plans through the existing leave plan forms. Leave events appear only on counted leave dates, so weekends and applicable holidays inside the submitted date range are not shown as leave events.
 
-By default, calendars show submitted, approved, and cancellation-requested leave plans. Filters are available for status, leave type, employee, and department where the role is allowed to use them. Recalled, cancelled, and voided leave plans can be viewed by filtering for those statuses.
+By default, calendars show submitted, approved, and cancellation-requested leave plans. Filters are available for status, leave type, employee, and department where the role is allowed to use them. Employee calendars intentionally ignore inactive status filters and do not link coworker entries. Recalled, cancelled, and voided leave plans can be viewed by filtering for those statuses on reviewer calendars.
 
 ## Current Limitations
 
-- Leave balances and entitlements are not tracked.
+- Only `L100 - Annual Leave` entitlement is tracked. Other leave codes do not have balance limits.
 - Approved leave does not automatically populate weekly timesheets.
 - Overlap detection warns only; it does not block submission.
 - Calendar entries link to existing detail or review pages instead of editing inline.

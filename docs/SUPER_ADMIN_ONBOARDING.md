@@ -38,6 +38,7 @@ Super Admins can access:
 | ![Projects](/images/sidebar/projects.svg) **Projects** | Maintain project/job numbers used in timesheets. |
 | ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Weekly Periods** | Open or close weekly submission windows. |
 | ![Users](/images/sidebar/users.svg) **Leave Approvers** | Assign Director and regional HR approvers for leave-plan approvals. |
+| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Leave Settings** | Set the global yearly `L100 - Annual Leave` allowance. |
 | ![Automations](/images/sidebar/automations.svg) **Automations** | Enable or disable scheduled background jobs. |
 | ![Audit Logs](/images/sidebar/audit-logs.svg) **Audit Logs** | Review, export, and clean up important system actions. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
@@ -107,6 +108,7 @@ Important user rules:
 - Deleting a user permanently deletes that user's timesheets and entries.
 - If a user is assigned as a primary or additional department HOD, a replacement active HOD must be selected before deletion.
 - Deactivate users when history should remain easier to understand.
+- Use **Annual leave allowance override** only when a user should have a different yearly `L100 - Annual Leave` allowance from the company default. Blank means the user follows **Leave Settings**.
 
 ## Manage Departments
 
@@ -187,6 +189,16 @@ Use **Leave Approvers** to assign the non-HOD reviewers in the leave-plan approv
 - Approvers can be any active user account.
 
 If a Director or regional HR approver is missing, leave plans remain submitted at that stage and the review page shows a setup warning. Assign the missing approver, then the configured reviewer can continue from **Assigned Leave Plans**.
+
+## Manage Leave Settings
+
+Use **Leave Settings** to set the global default yearly allowance for `L100 - Annual Leave`.
+
+- The default applies to every user whose **Annual leave allowance override** is blank.
+- The allowance is calendar-year based and refreshes automatically each January 1.
+- Unused days expire on December 31 and do not carry over.
+- No automation is required for refresh because annual leave usage is calculated dynamically from leave plans in each year.
+- Submitted, approved, and cancellation-requested `L100` plans consume allowance. Draft, rejected, cancelled, recalled, and voided `L100` plans do not consume allowance.
 
 ## Automations
 
@@ -310,6 +322,7 @@ Use **All Leave Plans** to review leave plans across all departments.
 - Approve or reject the current submitted approval stage when the required approver is configured, except your own.
 - Approve or reject cancellation requests, except your own.
 - Use **Calendar** to visualize submitted, approved, and cancellation-requested leave by month.
+- `L100 - Annual Leave` entitlement is enforced at employee submission time. Cross-year plans consume each calendar year's allowance separately.
 
 Leave plan submission, stage approval, final approval, rejection, cancellation request, cancellation approval, and cancellation rejection are recorded in audit logs. Employees, HOD approvers, the Director approver, and regional HR approvers receive email notifications for the relevant workflow events.
 

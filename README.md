@@ -62,20 +62,23 @@ password123
 - Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, and track missing submissions. Head of Department cannot approve, reject, or recall their own timesheet.
 - Head of Department: view leave plans and the leave calendar for managed departments, approve/reject submitted leave plans, and review cancellation requests. Head of Department cannot approve or reject their own leave plan.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, withdraw submitted timesheets before approval, edit draft/rejected/withdrawn/recalled timesheets, and resubmit corrected records.
-- Employee: create leave plans, save drafts, submit them for HOD approval, request cancellation of approved leave, and view their own leave calendar.
+- Employee: create leave plans, save drafts, submit them for HOD approval, request cancellation of approved leave, and view their department leave calendar.
 - Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
 
 ## Leave Plans
 
 Leave plans are tracked separately from weekly timesheet entries.
 
-- Employees create leave plans from **My Leave Plans** and can view them in **My Leave Calendar**.
+- Employees create leave plans from **My Leave Plans** and can view submitted, approved, and cancellation-requested leave in their department calendar.
 - HODs review leave plans from **Department Leave Plans** and can visualize managed department leave in **Department Leave Calendar**.
 - Admins and Super Admins review all leave plans from **All Leave Plans** and can visualize all leave in **All Leave Calendar**.
 - Submitted, approved, rejected, cancellation-requested, and cancelled leave-plan actions are audit logged.
 - Email notifications are sent for submission/resubmission, approval, rejection, cancellation request, cancellation approval, and cancellation rejection.
 - Approved leave plans appear as warnings on overlapping weekly timesheet forms, but timesheet rows are never auto-created or changed.
-- Leave balances are not tracked in this version.
+- `L100 - Annual Leave` has a yearly entitlement limit. Super Admin sets the global default in **Leave Settings** and can set per-user overrides in **Manage Users**.
+- Annual leave entitlement is calendar-year based. Unused days expire on December 31, do not carry over, and require no automation to refresh because usage is calculated dynamically by leave-plan year.
+- Submitted, approved, and cancellation-requested `L100` plans consume annual leave allowance. Draft, rejected, cancelled, recalled, and voided plans do not consume allowance.
+- Cross-year `L100` plans are split by counted leave date, so December days count against the old year and January days count against the new year.
 
 See `docs/LEAVE_PLANS.md` for the full workflow, email matrix, calendar visibility rules, and current limitations.
 
