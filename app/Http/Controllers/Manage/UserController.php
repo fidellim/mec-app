@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\DashboardSummaryService;
 use App\Services\HodExclusionService;
+use App\Services\LeaveEntitlementService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -38,6 +39,7 @@ class UserController extends Controller
 
         return view('manage.users.index', [
             'users' => User::with(['department', 'primaryDepartments', 'managedDepartments'])
+                ->when($request->user()->role === 'admin', fn ($query) => $query->whereIn('role', $this->adminViewableRoles()))
                 ->when($departmentFilter === 'unassigned', fn ($query) => $query->whereNull('department_id'))
                 ->when(filled($departmentFilter) && $departmentFilter !== 'unassigned', fn ($query) => $query->where('department_id', $departmentFilter))
                 ->orderBy('name')
@@ -60,6 +62,16 @@ class UserController extends Controller
             'hodExclusionCandidates' => collect(),
             'hodNotificationExclusionIds' => [],
             'hodApprovalExclusionIds' => [],
+        ]);
+    }
+
+    public function show(User $user, LeaveEntitlementService $entitlements)
+    {
+        abort_if(auth()->user()->role === 'admin' && ! in_array($user->role, $this->adminViewableRoles(), true), 403);
+
+        return view('manage.users.show', [
+            'userModel' => $user->load(['department', 'primaryDepartments', 'managedDepartments']),
+            'leaveBalances' => $entitlements->visibleBalancesFor($user),
         ]);
     }
 
@@ -278,6 +290,11 @@ class UserController extends Controller
         unset($data['hod_notification_exclusion_ids'], $data['hod_approval_exclusion_ids']);
 
         return $data;
+    }
+
+    private function adminViewableRoles(): array
+    {
+        return ['admin', 'hod', 'employee'];
     }
 
     private function passwordValidationMessages(): array

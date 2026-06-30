@@ -6,14 +6,16 @@ use App\Models\Department;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Services\DashboardSummaryService;
+use App\Services\LeaveEntitlementService;
 
 class DashboardController extends Controller
 {
-    public function __invoke(DashboardSummaryService $dashboard)
+    public function __invoke(DashboardSummaryService $dashboard, LeaveEntitlementService $entitlements)
     {
         $user = auth()->user();
         $openPeriod = $this->latestOpenPeriod();
         $reportingPeriod = $this->latestCompletedPeriod() ?? $openPeriod;
+        $leaveBalances = $entitlements->visibleBalancesFor($user);
 
         return match ($user->role) {
             'super_admin' => view('dashboards.super_admin', $dashboard->superAdminTotals() + [
@@ -21,6 +23,7 @@ class DashboardController extends Controller
                 'summary' => $dashboard->summary($openPeriod),
                 'submissionPeriod' => $reportingPeriod,
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod),
+                'leaveBalances' => $leaveBalances,
             ]),
             'admin' => view('dashboards.admin', [
                 'period' => $reportingPeriod,
@@ -28,11 +31,13 @@ class DashboardController extends Controller
                 'missing' => $dashboard->missingCount($reportingPeriod),
                 'departments' => $dashboard->departmentsWithTimesheetCount($reportingPeriod),
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod),
+                'leaveBalances' => $leaveBalances,
             ]),
             'hod' => view('dashboards.hod', $dashboard->departmentCountsForDepartmentIds($reportingPeriod, $user->managedDepartmentIds()->all()) + [
                 'period' => $reportingPeriod,
                 'departments' => Department::whereIn('id', $user->managedDepartmentIds())->orderBy('name')->get(),
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummaryForDepartmentIds($reportingPeriod, $user->managedDepartmentIds()->all()),
+                'leaveBalances' => $leaveBalances,
             ]),
             default => view('dashboards.employee', [
                 'period' => $openPeriod,
@@ -40,6 +45,7 @@ class DashboardController extends Controller
                 'drafts' => Timesheet::with('period')->where('user_id', $user->id)->where('status', 'draft')->latest()->get(),
                 'rejected' => Timesheet::with('period')->where('user_id', $user->id)->where('status', 'rejected')->latest()->get(),
                 'recent' => Timesheet::with('period')->where('user_id', $user->id)->latest()->limit(5)->get(),
+                'leaveBalances' => $leaveBalances,
             ]),
         };
     }

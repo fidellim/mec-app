@@ -2,6 +2,12 @@
 
 @section('content')
 @php($isEdit = (bool) $leavePlan)
+@php($supportingDocumentNotes = [
+    'L110' => 'Please add a link to your medical certificate in the Reason field.',
+    'L160' => 'Please add a link to your medical certificate, birth certificate, or hospital notification in the Reason field.',
+    'L170' => 'Please add a link to the birth certificate or hospital birth notification in the Reason field.',
+    'L180' => 'Please add a link to the death certificate in the Reason field.',
+])
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">{{ $isEdit ? 'Edit Leave Plan' : 'Create Leave Plan' }}</h1>
@@ -27,6 +33,10 @@
                         @endforeach
                     </select>
                     @error('attendance_code')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <div class="alert alert-info border mt-3 mb-0 d-none" data-supporting-document-note role="status">
+                        <div class="fw-semibold">Supporting document needed</div>
+                        <div data-supporting-document-message></div>
+                    </div>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label" for="start_date">Start date</label>
@@ -69,32 +79,46 @@
         </div>
     </div>
 </form>
-@if(! empty($annualLeaveBalance))
+@if(! empty($leaveBalances))
     <div class="content-card p-3 mt-3">
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
             <div>
-                <h2 class="h5 mb-1">Annual leave balance</h2>
-                <div class="small text-muted">L100 allowance for {{ $annualLeaveBalance['year'] }} resets every January 1. Unused days do not carry over.</div>
-            </div>
-            <div>
-                <span class="badge {{ $annualLeaveBalance['uses_override'] ? 'text-bg-info' : 'text-bg-light border text-dark' }}">
-                    {{ $annualLeaveBalance['uses_override'] ? 'User override' : 'Company default' }}
-                </span>
+                <h2 class="h5 mb-1">Leave balances</h2>
+                <div class="small text-muted">Annual and sick leave allowances reset every January 1. Unused days do not carry over.</div>
             </div>
         </div>
         <div class="row g-3 mt-1">
-            <div class="col-md-4">
-                <div class="small text-muted">Allowance</div>
-                <div class="h4 mb-0">{{ $annualLeaveBalance['formatted']['allowance'] }} days</div>
-            </div>
-            <div class="col-md-4">
-                <div class="small text-muted">Used or reserved</div>
-                <div class="h4 mb-0">{{ $annualLeaveBalance['formatted']['used'] }} days</div>
-            </div>
-            <div class="col-md-4">
-                <div class="small text-muted">Remaining</div>
-                <div class="h4 mb-0">{{ $annualLeaveBalance['formatted']['remaining'] }} days</div>
-            </div>
+            @foreach($leaveBalances as $balance)
+                <div class="col-lg-6">
+                    <div class="border rounded p-3 h-100">
+                        <div class="d-flex flex-column flex-sm-row justify-content-between gap-2 mb-3">
+                            <div>
+                                <h3 class="h6 mb-1">{{ $balance['label'] }}</h3>
+                                <div class="small text-muted">{{ $balance['attendance_code'] }} allowance for {{ $balance['year'] }} - {{ $balance['region_label'] }}</div>
+                            </div>
+                            <div>
+                                <span class="badge {{ $balance['uses_override'] ? 'text-bg-info' : 'text-bg-light border text-dark' }}">
+                                    {{ $balance['uses_override'] ? 'User override' : 'Regional default' }}
+                                </span>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-sm-4">
+                                <div class="small text-muted">Allowance</div>
+                                <div class="h4 mb-0">{{ $balance['formatted']['allowance'] }} days</div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="small text-muted">Used or reserved</div>
+                                <div class="h4 mb-0">{{ $balance['formatted']['used'] }} days</div>
+                            </div>
+                            <div class="col-sm-4">
+                                <div class="small text-muted">Remaining</div>
+                                <div class="h4 mb-0">{{ $balance['formatted']['remaining'] }} days</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
         </div>
     </div>
 @endif
@@ -114,7 +138,21 @@
     const endDate = document.getElementById('end_date');
     const durationType = document.getElementById('duration_type');
     const halfDayPeriod = document.getElementById('half_day_period');
+    const attendanceCode = document.getElementById('attendance_code');
+    const supportingDocumentNote = document.querySelector('[data-supporting-document-note]');
+    const supportingDocumentMessage = document.querySelector('[data-supporting-document-message]');
     const availabilityCalendar = document.querySelector('[data-leave-plan-availability-calendar]');
+    const supportingDocumentNotes = @json($supportingDocumentNotes);
+
+    const syncSupportingDocumentNote = () => {
+        if (!supportingDocumentNote || !supportingDocumentMessage || !attendanceCode) {
+            return;
+        }
+
+        const note = supportingDocumentNotes[attendanceCode.value] || '';
+        supportingDocumentMessage.textContent = note;
+        supportingDocumentNote.classList.toggle('d-none', !note);
+    };
 
     const syncAvailabilityCalendar = () => {
         if (!availabilityCalendar || !startDate?.value || !endDate?.value) {
@@ -182,8 +220,10 @@
     startDate?.addEventListener('change', syncHalfDayControls);
     endDate?.addEventListener('change', syncDateRules);
     durationType?.addEventListener('change', syncHalfDayControls);
+    attendanceCode?.addEventListener('change', syncSupportingDocumentNote);
     syncHalfDayControls();
     syncAvailabilityCalendar();
+    syncSupportingDocumentNote();
 })();
 </script>
 @endsection

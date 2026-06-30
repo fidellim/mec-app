@@ -1214,8 +1214,10 @@
                                     <a href="{{ route('admin.hod-timesheets.index') }}" @class(['active' => request()->routeIs('admin.hod-timesheets.*')]) title="HOD Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">HOD Timesheets</span></a>
                                     <a href="{{ route('admin.hod-tracker') }}" @class(['active' => request()->routeIs('admin.hod-tracker')]) title="HOD Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">HOD Tracker</span></a>
                                 @endif
-                                @if(auth()->user()->role === 'super_admin')
+                                @if(in_array(auth()->user()->role, ['admin', 'super_admin'], true))
                                     <a href="{{ route('manage.users.index') }}" @class(['active' => request()->routeIs('manage.users.*')]) title="Users"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Users</span></a>
+                                @endif
+                                @if(auth()->user()->role === 'super_admin')
                                     <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')]) title="Departments"><img class="sidebar-icon" src="{{ asset('images/sidebar/departments.svg') }}" alt=""><span class="sidebar-label">Departments</span></a>
                                     <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')]) title="Projects"><img class="sidebar-icon" src="{{ asset('images/sidebar/projects.svg') }}" alt=""><span class="sidebar-label">Projects</span></a>
                                     <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')]) title="Weekly Periods"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Weekly Periods</span></a>

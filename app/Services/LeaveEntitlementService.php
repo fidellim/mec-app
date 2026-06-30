@@ -12,6 +12,23 @@ use Illuminate\Support\Collection;
 class LeaveEntitlementService
 {
     public const ANNUAL_LEAVE_CODE = 'L100';
+    public const SICK_LEAVE_CODE = 'L110';
+    public const MATERNITY_LEAVE_CODE = 'L160';
+    public const PARENTAL_LEAVE_CODE = 'L170';
+    public const BEREAVEMENT_COMPASSIONATE_LEAVE_CODE = 'L180';
+
+    public const ENTITLED_LEAVE_CODES = [
+        self::ANNUAL_LEAVE_CODE,
+        self::SICK_LEAVE_CODE,
+        self::MATERNITY_LEAVE_CODE,
+        self::PARENTAL_LEAVE_CODE,
+        self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
+    ];
+
+    public const VISIBLE_BALANCE_LEAVE_CODES = [
+        self::ANNUAL_LEAVE_CODE,
+        self::SICK_LEAVE_CODE,
+    ];
 
     public const COUNTED_STATUSES = [
         LeavePlan::STATUS_SUBMITTED,
@@ -23,21 +40,29 @@ class LeaveEntitlementService
     {
     }
 
-    public function allowanceFor(User $user, int $year): float
+    public function allowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
     {
-        if ($user->annual_leave_allowance_days !== null) {
+        if ($attendanceCode === self::ANNUAL_LEAVE_CODE && $user->annual_leave_allowance_days !== null) {
             return (float) $user->annual_leave_allowance_days;
         }
 
-        return LeaveSetting::decimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 30.0);
+        return LeaveSetting::decimalValue(
+            $this->settingKeyFor($user, $attendanceCode),
+            $this->fallbackAllowanceFor($user, $attendanceCode),
+        );
     }
 
     public function usedAnnualDaysByYear(User $user, ?int $excludeLeavePlanId = null): Collection
     {
+        return $this->usedDaysByYear($user, self::ANNUAL_LEAVE_CODE, $excludeLeavePlanId);
+    }
+
+    public function usedDaysByYear(User $user, string $attendanceCode, ?int $excludeLeavePlanId = null): Collection
+    {
         return LeavePlan::query()
             ->with('user')
             ->where('user_id', $user->id)
-            ->where('attendance_code', self::ANNUAL_LEAVE_CODE)
+            ->where('attendance_code', $attendanceCode)
             ->whereIn('status', self::COUNTED_STATUSES)
             ->when($excludeLeavePlanId, fn ($query, $id) => $query->whereKeyNot($id))
             ->get()
@@ -48,7 +73,12 @@ class LeaveEntitlementService
 
     public function requestedAnnualDaysByYear(User $user, array $attributes): Collection
     {
-        if (($attributes['attendance_code'] ?? null) !== self::ANNUAL_LEAVE_CODE) {
+        return $this->requestedDaysByYear($user, $attributes, self::ANNUAL_LEAVE_CODE);
+    }
+
+    public function requestedDaysByYear(User $user, array $attributes, string $attendanceCode): Collection
+    {
+        if (($attributes['attendance_code'] ?? null) !== $attendanceCode) {
             return collect();
         }
 
@@ -62,36 +92,64 @@ class LeaveEntitlementService
         ]);
         $leavePlan->setRelation('user', $user);
 
-        return $this->annualDaysByYearForPlan($leavePlan);
+        return $this->daysByYearForPlan($leavePlan);
     }
 
-    public function balanceFor(User $user, int $year, ?int $excludeLeavePlanId = null): array
+    public function balanceFor(User $user, int $year, ?int $excludeLeavePlanId = null, string $attendanceCode = self::ANNUAL_LEAVE_CODE): array
     {
-        $allowance = $this->allowanceFor($user, $year);
-        $used = (float) $this->usedAnnualDaysByYear($user, $excludeLeavePlanId)->get($year, 0.0);
+        $allowance = $this->allowanceFor($user, $year, $attendanceCode);
+        $used = (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
 
         return [
             'year' => $year,
+            'attendance_code' => $attendanceCode,
+            'label' => $this->entitlementLabel($attendanceCode),
             'allowance' => $allowance,
             'used' => $used,
             'remaining' => max(0.0, $allowance - $used),
-            'uses_override' => $user->annual_leave_allowance_days !== null,
+            'uses_override' => $attendanceCode === self::ANNUAL_LEAVE_CODE && $user->annual_leave_allowance_days !== null,
+            'region' => $this->regionFor($user),
+            'region_label' => $this->regionLabelFor($user),
         ];
+    }
+
+    public function visibleBalancesFor(User $user, ?int $year = null, ?int $excludeLeavePlanId = null): array
+    {
+        $year ??= (int) now()->year;
+
+        return collect(self::VISIBLE_BALANCE_LEAVE_CODES)
+            ->mapWithKeys(function (string $attendanceCode) use ($user, $year, $excludeLeavePlanId) {
+                $balance = $this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode);
+                $balance['formatted'] = [
+                    'allowance' => $this->formatDays($balance['allowance']),
+                    'used' => $this->formatDays($balance['used']),
+                    'remaining' => $this->formatDays($balance['remaining']),
+                ];
+
+                return [$attendanceCode => $balance];
+            })
+            ->all();
     }
 
     public function submissionViolations(User $user, array $attributes, ?int $excludeLeavePlanId = null): array
     {
-        $requestedByYear = $this->requestedAnnualDaysByYear($user, $attributes);
+        $attendanceCode = $attributes['attendance_code'] ?? null;
+
+        if (! in_array($attendanceCode, self::ENTITLED_LEAVE_CODES, true)) {
+            return [];
+        }
+
+        $requestedByYear = $this->requestedDaysByYear($user, $attributes, $attendanceCode);
 
         if ($requestedByYear->isEmpty()) {
             return [];
         }
 
-        $usedByYear = $this->usedAnnualDaysByYear($user, $excludeLeavePlanId);
+        $usedByYear = $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId);
 
         return $requestedByYear
-            ->map(function (float $requested, int $year) use ($user, $usedByYear) {
-                $allowance = $this->allowanceFor($user, $year);
+            ->map(function (float $requested, int $year) use ($user, $usedByYear, $attendanceCode) {
+                $allowance = $this->allowanceFor($user, $year, $attendanceCode);
                 $used = (float) $usedByYear->get($year, 0.0);
                 $remaining = $allowance - $used;
 
@@ -105,6 +163,8 @@ class LeaveEntitlementService
                     'used' => $used,
                     'requested' => $requested,
                     'remaining' => max(0.0, $remaining),
+                    'attendance_code' => $attendanceCode,
+                    'label' => $this->entitlementLabel($attendanceCode),
                 ];
             })
             ->filter()
@@ -113,6 +173,11 @@ class LeaveEntitlementService
     }
 
     public function annualDaysByYearForPlan(LeavePlan $leavePlan): Collection
+    {
+        return $this->daysByYearForPlan($leavePlan);
+    }
+
+    public function daysByYearForPlan(LeavePlan $leavePlan): Collection
     {
         $countedDates = $this->holidays->countedLeaveDates($leavePlan);
 
@@ -143,7 +208,7 @@ class LeaveEntitlementService
 
     public function violationMessage(array $violation): string
     {
-        return 'Annual leave limit exceeded for '.$violation['year'].'. Allowance: '
+        return $violation['label'].' limit exceeded for '.$violation['year'].'. Allowance: '
             .$this->formatDays((float) $violation['allowance'])
             .' days, used: '.$this->formatDays((float) $violation['used'])
             .' days, requested: '.$this->formatDays((float) $violation['requested'])
@@ -152,10 +217,79 @@ class LeaveEntitlementService
 
     private function addPlanDaysToYearTotals(Collection $totals, LeavePlan $leavePlan): Collection
     {
-        $this->annualDaysByYearForPlan($leavePlan)->each(function (float $days, int $year) use ($totals) {
+        $this->daysByYearForPlan($leavePlan)->each(function (float $days, int $year) use ($totals) {
             $totals[$year] = (float) $totals->get($year, 0.0) + $days;
         });
 
         return $totals;
+    }
+
+    private function settingKeyFor(User $user, string $attendanceCode): string
+    {
+        $region = $this->regionFor($user);
+
+        return match ($attendanceCode) {
+            self::SICK_LEAVE_CODE => $region === 'ph'
+                ? LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH
+                : LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE,
+            self::MATERNITY_LEAVE_CODE => $region === 'ph'
+                ? LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_PH
+                : LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_UAE,
+            self::PARENTAL_LEAVE_CODE => $region === 'ph'
+                ? LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_PH
+                : LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_UAE,
+            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => $region === 'ph'
+                ? LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH
+                : LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE,
+            default => $region === 'ph'
+                ? LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH
+                : LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE,
+        };
+    }
+
+    private function fallbackAllowanceFor(User $user, string $attendanceCode): float
+    {
+        $region = $this->regionFor($user);
+
+        if ($attendanceCode === self::SICK_LEAVE_CODE) {
+            return $region === 'ph' ? 5.0 : 15.0;
+        }
+
+        if ($attendanceCode === self::MATERNITY_LEAVE_CODE) {
+            return 60.0;
+        }
+
+        if (in_array($attendanceCode, [self::PARENTAL_LEAVE_CODE, self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE], true)) {
+            return 5.0;
+        }
+
+        if ($region === 'ph') {
+            return 5.0;
+        }
+
+        return LeaveSetting::decimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 22.0);
+    }
+
+    private function regionFor(User $user): string
+    {
+        return is_string($user->employee_code) && str_starts_with($user->employee_code, 'MEC-PHIL-HR-')
+            ? 'ph'
+            : 'uae';
+    }
+
+    private function regionLabelFor(User $user): string
+    {
+        return $this->regionFor($user) === 'ph' ? 'Philippines' : 'UAE';
+    }
+
+    private function entitlementLabel(string $attendanceCode): string
+    {
+        return match ($attendanceCode) {
+            self::SICK_LEAVE_CODE => 'Sick leave',
+            self::MATERNITY_LEAVE_CODE => 'Maternity leave',
+            self::PARENTAL_LEAVE_CODE => 'Parental leave',
+            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => 'Bereavement / compassionate leave',
+            default => 'Annual leave',
+        };
     }
 }

@@ -76,10 +76,12 @@ Leave plans are tracked separately from weekly timesheet entries.
 - Submitted, approved, rejected, cancellation-requested, and cancelled leave-plan actions are audit logged.
 - Email notifications are sent for submission/resubmission, approval, rejection, cancellation request, cancellation approval, and cancellation rejection.
 - Approved leave plans appear as warnings on overlapping weekly timesheet forms, but timesheet rows are never auto-created or changed.
-- `L100 - Annual Leave` has a yearly entitlement limit. Super Admin sets the global default in **Leave Settings** and can set per-user overrides in **Manage Users**.
-- Annual leave entitlement is calendar-year based. Unused days expire on December 31, do not carry over, and require no automation to refresh because usage is calculated dynamically by leave-plan year.
-- Submitted, approved, and cancellation-requested `L100` plans consume annual leave allowance. Draft, rejected, cancelled, recalled, and voided plans do not consume allowance.
-- Cross-year `L100` plans are split by counted leave date, so December days count against the old year and January days count against the new year.
+- `L100 - Annual Leave`, `L110 - Sick Leave`, `L160 - Maternity Leave`, `L170 - Parental Leave`, and `L180 - Bereavement / Compassionate Leave` have entitlement limits. Super Admin sets UAE and Philippines defaults in **Leave Settings** and can set per-user annual overrides in **Manage Users**.
+- Leave entitlements are calendar-year based. Unused days expire on December 31, do not carry over, and require no automation to refresh because usage is calculated dynamically by leave-plan year.
+- Submitted, approved, and cancellation-requested entitled leave plans consume allowance. Draft, rejected, cancelled, recalled, and voided plans do not consume allowance.
+- Active applicable holidays are part of the dynamic usage calculation, so adding, updating, activating, or deactivating a holiday after submission or approval can change counted leave days and remaining balance.
+- Cross-year entitled leave plans are split by counted leave date, so December days count against the old year and January days count against the new year.
+- `L190 - Service Incentive Leave` is available as a leave attendance code and does not have an entitlement limit.
 
 See `docs/LEAVE_PLANS.md` for the full workflow, email matrix, calendar visibility rules, and current limitations.
 
@@ -324,7 +326,7 @@ Each project group shows:
 
 The bottom of the summary contains a grand total row. Grand totals are calculated for every exported week column group, so exports with Week 12 through Week 15 show separate Regular, Overtime, and Total grand totals for each week. Multi-week exports also show the highlighted Selected Period Total at the far right, giving the final Regular, Overtime, and Total hours for the whole selected range.
 
-The **Attendance Code Summary** worksheet lists leave and other non-project hours from the exported timesheets. It includes week, employee, department, job title, attendance code, attendance label, project/job if present, regular hours, overtime hours, total hours, and status. This worksheet explains why payroll/manhour totals may be higher than project-chargeable totals when employees have annual leave, sick leave, emergency leave, unpaid leave, paid holiday leave, maternity leave, paternity leave, compassionate leave, or other non-project hours.
+The **Attendance Code Summary** worksheet lists leave and other non-project hours from the exported timesheets. It includes week, employee, department, job title, attendance code, attendance label, project/job if present, regular hours, overtime hours, total hours, and status. This worksheet explains why payroll/manhour totals may be higher than project-chargeable totals when employees have annual leave, sick leave, emergency leave, unpaid leave, paid holiday leave, maternity leave, parental leave, bereavement / compassionate leave, service incentive leave, or other non-project hours.
 
 By default, the export includes the **Project Weekly Summary** and **Attendance Code Summary** worksheets. This keeps project reports faster to generate and still gives stakeholders the non-project hour context needed for reconciliation.
 

@@ -13,7 +13,8 @@ Employees use **My Leave Plans** to create, save, submit, and track leave plans.
 - Cancellation requests require HOD, Admin, or Super Admin review only; they do not repeat the Director/HR chain.
 - Recalled approved leave plans can be edited and resubmitted by the employee.
 - Overlapping active leave plans show a warning but are not blocked.
-- `L100 - Annual Leave` is checked against the employee's yearly annual leave allowance when the employee submits. Drafts can still be saved when they exceed the allowance.
+- Annual, sick, maternity, parental, and bereavement / compassionate leave are checked against the employee's allowance when the employee submits. Drafts can still be saved when they exceed the allowance.
+- `L190 - Service Incentive Leave` is available as a leave type and does not have an entitlement limit.
 
 Half-day leave is single-date only and must be marked as morning or afternoon.
 Leave plan screens show counted leave days only. Counted leave days exclude Saturday, Sunday, and active applicable company holidays.
@@ -50,18 +51,19 @@ Use cancellation when the employee requests to remove an approved leave plan. Us
 
 If the Director, UAE HR, or Philippines HR approver is not configured, the leave plan remains submitted at that approval stage. The review page shows a setup warning until a Super Admin assigns the missing approver in **Leave Approvers**.
 
-## Annual Leave Entitlement
+## Leave Entitlements
 
-`L100 - Annual Leave` has a calendar-year entitlement limit.
+Annual, sick, maternity, parental, and bereavement / compassionate leave have calendar-year entitlement limits.
 
-- Super Admins set the global default yearly allowance in **Leave Settings**.
-- Super Admins can set an employee-specific annual leave override in **Manage Users**. A blank override uses the global default.
-- Annual leave refreshes automatically by year. Unused allowance expires on December 31 and does not carry over into the next year.
+- Super Admins set UAE and Philippines default allowances in **Leave Settings**.
+- Super Admins can set an employee-specific annual leave override in **Manage Users**. A blank override uses the regional default.
+- Leave allowances refresh automatically by year. Unused allowance expires on December 31 and does not carry over into the next year.
 - No scheduled automation is required for the yearly refresh because remaining allowance is calculated dynamically from leave plans in the requested year.
-- Submitted, approved, and cancellation-requested `L100` plans consume allowance.
-- Draft, rejected, cancelled, recalled, and voided `L100` plans do not consume allowance.
-- Cross-year annual leave is split by counted leave date. For example, counted December dates consume the old year's allowance and counted January dates consume the new year's allowance.
-- Half-day `L100` leave consumes `0.5` counted leave day when the date is not a weekend or applicable company holiday.
+- Submitted, approved, and cancellation-requested entitled leave plans consume allowance.
+- Draft, rejected, cancelled, recalled, and voided plans do not consume allowance.
+- Leave usage is recalculated dynamically from active applicable holidays. If Admin or Super Admin adds, updates, activates, or deactivates a holiday after a leave plan is submitted or approved, the plan's counted leave days and remaining balance may change.
+- Cross-year entitled leave is split by counted leave date. For example, counted December dates consume the old year's allowance and counted January dates consume the new year's allowance.
+- Half-day entitled leave consumes `0.5` counted leave day when the date is not a weekend or applicable company holiday.
 
 ## Email Notifications
 
@@ -96,7 +98,7 @@ By default, calendars show submitted, approved, and cancellation-requested leave
 
 ## Current Limitations
 
-- Only `L100 - Annual Leave` entitlement is tracked. Other leave codes do not have balance limits.
+- Annual, sick, maternity, parental, and bereavement / compassionate leave entitlements are tracked. Annual and sick balances are shown to employees; the other tracked balances are enforced but hidden because eligibility is reviewed manually. Other leave codes, including `L190 - Service Incentive Leave`, do not have balance limits.
 - Approved leave does not automatically populate weekly timesheets.
 - Overlap detection warns only; it does not block submission.
 - Calendar entries link to existing detail or review pages instead of editing inline.

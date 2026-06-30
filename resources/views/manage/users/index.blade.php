@@ -5,9 +5,13 @@
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Users</h1>
-        <div class="text-muted">Manage accounts, roles, employee numbers, and access status.</div>
+        <div class="text-muted">
+            {{ auth()->user()->role === 'super_admin' ? 'Manage accounts, roles, employee numbers, and access status.' : 'View Admin, HOD, and Employee profiles. Super Admin profiles are hidden.' }}
+        </div>
     </div>
-    <a class="btn btn-primary" href="{{ route('manage.users.create') }}">New User</a>
+    @if(auth()->user()->role === 'super_admin')
+        <a class="btn btn-primary" href="{{ route('manage.users.create') }}">New User</a>
+    @endif
 </div>
 
 <form class="filter-card mb-3 row g-2 align-items-end" method="get" action="{{ route('manage.users.index') }}">
@@ -73,8 +77,11 @@
                         <td><span class="badge {{ $user->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $user->is_active ? 'Active' : 'Inactive' }}</span></td>
                         <td class="text-end">
                             <div class="action-group">
-                                <a class="btn btn-sm btn-primary" href="{{ route('manage.users.edit', $user) }}">Edit</a>
-                                @if((int) $user->id !== (int) auth()->id())
+                                <a class="btn btn-sm btn-outline-primary" href="{{ route('manage.users.show', $user) }}">View</a>
+                                @if(auth()->user()->role === 'super_admin')
+                                    <a class="btn btn-sm btn-primary" href="{{ route('manage.users.edit', $user) }}">Edit</a>
+                                @endif
+                                @if(auth()->user()->role === 'super_admin' && (int) $user->id !== (int) auth()->id())
                                     <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ $user->id }}">
                                         Delete
                                     </button>
@@ -97,7 +104,7 @@
 @foreach($users as $user)
     @php($assignedDepartments = $user->primaryDepartments->merge($user->managedDepartments)->unique('id')->values())
     @php($replacementCandidates = $assignedDepartments->isNotEmpty() ? $replacementHods->where('id', '!=', $user->id) : collect())
-    @if((int) $user->id !== (int) auth()->id())
+    @if(auth()->user()->role === 'super_admin' && (int) $user->id !== (int) auth()->id())
         <div class="modal fade" id="deleteUserModal{{ $user->id }}" tabindex="-1" aria-hidden="true">
             <div class="modal-dialog modal-dialog-centered">
                 <div class="modal-content">

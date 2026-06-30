@@ -256,7 +256,7 @@ class AuthAndAccessTest extends TestCase
 
         $this->actingAs($employee)->get(route('manage.users.index'))->assertForbidden();
         $this->actingAs($admin)->get(route('admin.timesheets.index'))->assertOk();
-        $this->actingAs($admin)->get(route('manage.users.index'))->assertForbidden();
+        $this->actingAs($admin)->get(route('manage.users.index'))->assertOk();
         $this->actingAs($superAdmin)->get(route('manage.users.index'))->assertOk();
     }
 

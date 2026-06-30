@@ -138,7 +138,7 @@ Your approval is the first step. After you approve a submitted leave plan, it mo
 
 You can approve or reject cancellation requests for approved leave plans in your managed departments. Cancellation requests stay HOD-only and do not go through Director/HR approval. You cannot approve, reject, or action cancellation for your own leave plan.
 
-For `L100 - Annual Leave`, submitted, approved, and cancellation-requested plans reserve the employee's annual allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
+For entitled leave types, submitted, approved, and cancellation-requested plans reserve the employee's allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
 
 Holiday entries are read-only and include region labels where applicable.
 

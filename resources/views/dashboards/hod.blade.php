@@ -26,6 +26,7 @@
     <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Rejected</div><div class="stat-value">{{ $rejected }}</div></div></div>
     <div class="col-md-3"><div class="content-card stat-card p-3"><div class="stat-label">Not submitted</div><div class="stat-value">{{ $missing }}</div></div></div>
 </div>
+@include('shared.leave_balance_cards', ['leaveBalances' => $leaveBalances])
 @include('dashboards.partials.regional_submission_chart', [
     'period' => $period,
     'regionalSubmissionSummary' => $regionalSubmissionSummary,

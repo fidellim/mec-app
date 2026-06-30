@@ -51,7 +51,7 @@ class ManagementWorkflowTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
     }
 
-    public function test_super_admin_can_manage_annual_leave_allowances(): void
+    public function test_super_admin_can_manage_leave_entitlement_settings_and_annual_overrides(): void
     {
         $superAdmin = $this->userWithRole('super_admin');
         $department = $this->department();
@@ -60,17 +60,34 @@ class ManagementWorkflowTest extends TestCase
             ->get(route('manage.leave-settings.index'))
             ->assertOk()
             ->assertSee('Leave Settings')
-            ->assertSee('Annual leave resets every January 1');
+            ->assertSee('UAE Annual Leave Default Days')
+            ->assertSee('Philippines Sick Leave Default Days')
+            ->assertSee('UAE Parental Leave Default Days');
 
-        $setting = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS)->firstOrFail();
+        $uaeAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail();
+        $phAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH)->firstOrFail();
+        $uaeSick = LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail();
+        $phSick = LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH)->firstOrFail();
 
         $this->actingAs($superAdmin)
             ->patch(route('manage.leave-settings.update'), [
-                'annual_leave_default_days' => '24.5',
+                'annual_leave_default_days_uae' => '24.5',
+                'annual_leave_default_days_ph' => '6',
+                'sick_leave_default_days_uae' => '16',
+                'sick_leave_default_days_ph' => '5.5',
+                'maternity_leave_default_days_uae' => '60',
+                'maternity_leave_default_days_ph' => '60',
+                'parental_leave_default_days_uae' => '5',
+                'parental_leave_default_days_ph' => '5',
+                'bereavement_compassionate_leave_default_days_uae' => '5',
+                'bereavement_compassionate_leave_default_days_ph' => '5',
             ])
             ->assertRedirect(route('manage.leave-settings.index'));
 
-        $this->assertSame('24.50', $setting->fresh()->decimal_value);
+        $this->assertSame('24.50', $uaeAnnual->fresh()->decimal_value);
+        $this->assertSame('6.00', $phAnnual->fresh()->decimal_value);
+        $this->assertSame('16.00', $uaeSick->fresh()->decimal_value);
+        $this->assertSame('5.50', $phSick->fresh()->decimal_value);
         $this->assertDatabaseHas('audit_logs', ['action' => 'leave_setting_updated']);
 
         $this->actingAs($superAdmin)
@@ -116,9 +133,70 @@ class ManagementWorkflowTest extends TestCase
                 ->assertForbidden();
 
             $this->actingAs($user)
-                ->patch(route('manage.leave-settings.update'), ['annual_leave_default_days' => 40])
+                ->patch(route('manage.leave-settings.update'), [
+                    'annual_leave_default_days_uae' => 40,
+                    'annual_leave_default_days_ph' => 5,
+                    'sick_leave_default_days_uae' => 15,
+                    'sick_leave_default_days_ph' => 5,
+                    'maternity_leave_default_days_uae' => 60,
+                    'maternity_leave_default_days_ph' => 60,
+                    'parental_leave_default_days_uae' => 5,
+                    'parental_leave_default_days_ph' => 5,
+                    'bereavement_compassionate_leave_default_days_uae' => 5,
+                    'bereavement_compassionate_leave_default_days_ph' => 5,
+                ])
                 ->assertForbidden();
         }
+    }
+
+    public function test_admin_can_view_read_only_user_profiles_but_cannot_manage_users(): void
+    {
+        $admin = $this->userWithRole('admin', ['name' => 'Visible Admin']);
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'Hidden Super Admin']);
+        $hod = $this->userWithRole('hod', ['name' => 'Visible HOD']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'name' => 'Profile Employee',
+            'job_title' => 'Project Engineer',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.index'))
+            ->assertOk()
+            ->assertSee('Visible Admin')
+            ->assertSee('Visible HOD')
+            ->assertSee('Profile Employee')
+            ->assertSee('View Admin, HOD, and Employee profiles. Super Admin profiles are hidden.')
+            ->assertSee('View')
+            ->assertDontSee('Hidden Super Admin')
+            ->assertDontSee('New User')
+            ->assertDontSee('Delete');
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.show', $employee))
+            ->assertOk()
+            ->assertSee('User Profile')
+            ->assertSee('Project Engineer')
+            ->assertSee('Annual and sick leave balances')
+            ->assertDontSee('Edit');
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.show', $superAdmin))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.create'))
+            ->assertForbidden();
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index'))
+            ->assertOk()
+            ->assertSee('Hidden Super Admin');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.show', $employee))
+            ->assertOk()
+            ->assertSee('Edit');
     }
 
     public function test_super_admin_user_password_policy_is_enforced(): void

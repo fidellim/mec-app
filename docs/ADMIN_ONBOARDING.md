@@ -131,7 +131,7 @@ Use **All Leave Plans** to review leave plans across all departments.
 - Approve or reject cancellation requests, except your own.
 - Use **Calendar** to visualize submitted, approved, cancellation-requested leave, and company holidays by month.
 
-For `L100 - Annual Leave`, submitted, approved, and cancellation-requested plans reserve the employee's annual allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
+For entitled leave types, submitted, approved, and cancellation-requested plans reserve the employee's allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
 
 Holiday entries are read-only and include region labels where applicable.
 
@@ -185,7 +185,7 @@ In the summary, each project appears once, employees are listed down the rows, a
 
 The bottom **Grand Total** row also follows the week columns, so every exported week has its own regular, overtime, and total grand totals.
 
-The **Attendance Code Summary** shows leave and non-project hours separately from project-chargeable hours. Use it to reconcile payroll/manhour totals with the Project Weekly Summary when employees have annual leave, sick leave, emergency leave, unpaid leave, paid holiday leave, maternity leave, paternity leave, compassionate leave, or other non-project hours.
+The **Attendance Code Summary** shows leave and non-project hours separately from project-chargeable hours. Use it to reconcile payroll/manhour totals with the Project Weekly Summary when employees have annual leave, sick leave, emergency leave, unpaid leave, paid holiday leave, maternity leave, parental leave, bereavement / compassionate leave, or other non-project hours.
 
 By default, the export includes the **Project Weekly Summary** and **Attendance Code Summary** worksheets. Select **Include individual employee timesheet sheets** when the workbook also needs one detailed worksheet per employee timesheet.
 

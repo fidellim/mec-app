@@ -12,6 +12,7 @@
     <div class="col-md-4"><div class="content-card stat-card p-3"><div class="stat-label">Drafts</div><div class="stat-value">{{ $drafts->count() }}</div><div class="small text-muted">Saved but not submitted</div></div></div>
     <div class="col-md-4"><div class="content-card stat-card p-3"><div class="stat-label">Rejected requiring action</div><div class="stat-value">{{ $rejected->count() }}</div><div class="small text-muted">Revise and resubmit</div></div></div>
 </div>
+@include('shared.leave_balance_cards', ['leaveBalances' => $leaveBalances])
 <div class="section-header">
     <div>
         <h2 class="h5 mb-1">Recent submissions</h2>

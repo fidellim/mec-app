@@ -112,12 +112,13 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::middleware('role:admin,super_admin')->prefix('manage')->name('manage.')->group(function () {
+        Route::get('users', [UserController::class, 'index'])->name('users.index');
         Route::patch('holidays/{holiday}/status', [HolidayController::class, 'status'])->name('holidays.status');
         Route::resource('holidays', HolidayController::class)->except(['show', 'destroy']);
     });
 
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
-        Route::resource('users', UserController::class)->except(['show']);
+        Route::resource('users', UserController::class)->except(['index', 'show']);
         Route::patch('departments/{department}/status', [DepartmentController::class, 'status'])->name('departments.status');
         Route::resource('departments', DepartmentController::class)->except(['show']);
         Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->name('projects.status');
@@ -133,5 +134,9 @@ Route::middleware('auth')->group(function () {
         Route::get('audit-logs/export', [AuditLogController::class, 'export'])->middleware('throttle:exports')->name('audit-logs.export');
         Route::delete('audit-logs/selected', [AuditLogController::class, 'destroySelected'])->name('audit-logs.destroy-selected');
         Route::delete('audit-logs/matching', [AuditLogController::class, 'destroyMatching'])->name('audit-logs.destroy-matching');
+    });
+
+    Route::middleware('role:admin,super_admin')->prefix('manage')->name('manage.')->group(function () {
+        Route::get('users/{user}', [UserController::class, 'show'])->name('users.show');
     });
 });

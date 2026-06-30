@@ -10,8 +10,9 @@ return [
         'L140' => 'Paid Holiday Leave',
         'L150' => 'Work From Home',
         'L160' => 'Maternity Leave',
-        'L170' => 'Paternity Leave',
-        'L180' => 'Compassionate Leave',
+        'L170' => 'Parental Leave',
+        'L180' => 'Bereavement / Compassionate Leave',
+        'L190' => 'Service Incentive Leave',
         'L200' => 'Training Seminar',
     ],
 
@@ -24,6 +25,7 @@ return [
         'L160',
         'L170',
         'L180',
+        'L190',
     ],
 
     'project_optional_attendance_codes' => [
@@ -35,6 +37,7 @@ return [
         'L160',
         'L170',
         'L180',
+        'L190',
         'L200',
     ],
 

@@ -55,7 +55,7 @@ class EmployeeLeavePlanController extends Controller
             'leavePlan' => null,
             'attendanceCodes' => $this->leaveAttendanceCodes(),
             'availabilityCalendar' => $this->availabilityCalendar($request, $calendar),
-            'annualLeaveBalance' => $this->annualLeaveBalance($request, $entitlements),
+            'leaveBalances' => $this->leaveBalances($request, $entitlements),
         ]);
     }
 
@@ -112,7 +112,7 @@ class EmployeeLeavePlanController extends Controller
             'leavePlan' => $leavePlan,
             'attendanceCodes' => $this->leaveAttendanceCodes(),
             'availabilityCalendar' => $this->availabilityCalendar($request, $calendar, $leavePlan),
-            'annualLeaveBalance' => $this->annualLeaveBalance($request, $entitlements, $leavePlan),
+            'leaveBalances' => $this->leaveBalances($request, $entitlements, $leavePlan),
         ]);
     }
 
@@ -236,18 +236,12 @@ class EmployeeLeavePlanController extends Controller
         );
     }
 
-    private function annualLeaveBalance(Request $request, LeaveEntitlementService $entitlements, ?LeavePlan $leavePlan = null): array
+    private function leaveBalances(Request $request, LeaveEntitlementService $entitlements, ?LeavePlan $leavePlan = null): array
     {
         $date = $this->oldStartDate($request) ?? $leavePlan?->start_date ?? now();
         $year = (int) Carbon::parse($date)->year;
-        $balance = $entitlements->balanceFor($request->user(), $year, $leavePlan?->id);
-        $balance['formatted'] = [
-            'allowance' => $entitlements->formatDays($balance['allowance']),
-            'used' => $entitlements->formatDays($balance['used']),
-            'remaining' => $entitlements->formatDays($balance['remaining']),
-        ];
 
-        return $balance;
+        return $entitlements->visibleBalancesFor($request->user(), $year, $leavePlan?->id);
     }
 
     private function oldStartDate(Request $request): ?Carbon

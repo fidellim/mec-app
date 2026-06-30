@@ -37,7 +37,11 @@ class DashboardWorkflowTest extends TestCase
             $this->actingAs($user)
                 ->get(route('dashboard'))
                 ->assertOk()
-                ->assertSee('Dashboard');
+                ->assertSee('Dashboard')
+                ->assertSee('Leave balances')
+                ->assertSee('Annual leave')
+                ->assertSee('Sick leave')
+                ->assertDontSee('Maternity leave');
         }
     }
 
