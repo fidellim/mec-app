@@ -155,6 +155,14 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
             'end_date' => '2026-06-15',
         ]);
         LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L110',
+            'start_date' => '2026-06-06',
+            'end_date' => '2026-06-08',
+        ]);
+        LeavePlan::factory()->create([
             'user_id' => $otherEmployee->id,
             'department_id' => $department->id,
             'status' => LeavePlan::STATUS_APPROVED,
@@ -182,7 +190,8 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
             ->assertSee('value="2026-06"', false)
             ->assertSee('L100')
             ->assertSee('L110')
-            ->assertSee('Half day - morning (0.5 counted leave day)')
+            ->assertSee('Half day - morning (0.5 calendar day)')
+            ->assertSee('2 calendar days')
             ->assertSee($otherEmployee->name)
             ->assertSee('L120')
             ->assertDontSee(route('employee.leave-plans.show', LeavePlan::where('user_id', $otherEmployee->id)->firstOrFail()), false);

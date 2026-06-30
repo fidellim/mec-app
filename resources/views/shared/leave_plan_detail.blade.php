@@ -25,6 +25,12 @@
                 <div class="meta-label">Duration</div>
                 <div class="meta-value">{{ $leavePlan->leaveLengthLabel() }}</div>
             </div>
+            @php($leavePayBreakdowns = in_array(auth()->user()?->role, ['admin', 'super_admin'], true) ? app(\App\Services\LeaveEntitlementService::class)->payBreakdownForPlan($leavePlan) : [])
+            @if(! empty($leavePayBreakdowns))
+                <div class="col-12">
+                    @include('shared.leave_pay_breakdown', ['leavePayBreakdowns' => $leavePayBreakdowns])
+                </div>
+            @endif
             <div class="col-md-4">
                 <div class="meta-label">Submitted</div>
                 <div class="meta-value">{{ $leavePlan->submitted_at?->format('M j, Y g:i A') ?: '-' }}</div>

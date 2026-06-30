@@ -479,6 +479,52 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertNull($leaveEntry->project_id);
     }
 
+    public function test_service_incentive_leave_is_restricted_on_timesheets(): void
+    {
+        $department = $this->department();
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $uaeEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-901',
+        ]);
+        $phEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-902',
+        ]);
+
+        $this->actingAs($uaeEmployee)
+            ->get(route('employee.timesheets.create', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertDontSee('L190 - Service Incentive Leave');
+
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => 'L190',
+                'project_id' => '',
+                'regular_hours' => 8,
+                'overtime_hours' => 0,
+            ],
+        ]);
+
+        $this->actingAs($uaeEmployee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertSessionHasErrors('entries.0.attendance_code');
+
+        $this->actingAs($phEmployee)
+            ->get(route('employee.timesheets.create', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertSee('L190 - Service Incentive Leave');
+
+        $this->actingAs($phEmployee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertRedirect();
+    }
+
     public function test_training_code_allows_regular_and_overtime_hours_without_project(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);

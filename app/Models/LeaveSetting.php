@@ -18,6 +18,7 @@ class LeaveSetting extends Model
     public const PARENTAL_LEAVE_DEFAULT_DAYS_PH = 'parental_leave_default_days_ph';
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE = 'bereavement_compassionate_leave_default_days_uae';
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH = 'bereavement_compassionate_leave_default_days_ph';
+    public const SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH = 'service_incentive_leave_default_days_ph';
 
     protected $fillable = [
         'key',

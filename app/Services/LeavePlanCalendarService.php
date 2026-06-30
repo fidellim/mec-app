@@ -137,10 +137,10 @@ class LeavePlanCalendarService
 
     private function countedLeaveDatesByPlan(Collection $leavePlans): Collection
     {
-        $holidayService = app(HolidayService::class);
+        $entitlements = app(LeaveEntitlementService::class);
 
         return $leavePlans->mapWithKeys(fn (LeavePlan $leavePlan) => [
-            $leavePlan->id => $holidayService->countedLeaveDates($leavePlan),
+            $leavePlan->id => $entitlements->countedLeaveDatesForPlan($leavePlan),
         ]);
     }
 

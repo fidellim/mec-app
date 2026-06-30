@@ -589,6 +589,45 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('Iris Cancelled');
     }
 
+    public function test_review_calendar_uses_entitlement_counting_for_uae_sick_leave(): void
+    {
+        $department = $this->department(['name' => 'Operations']);
+        $hod = $this->userWithRole('hod');
+        $employee = $this->userWithRole('employee', [
+            'name' => 'Aisha Sick',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-802',
+        ]);
+        $department->hods()->attach($hod);
+
+        HolidayEvent::factory()->create([
+            'name' => 'Sick Holiday',
+            'start_date' => '2026-06-08',
+            'end_date' => '2026-06-08',
+            'region' => 'uae',
+        ]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'attendance_code' => 'L110',
+            'start_date' => '2026-06-06',
+            'end_date' => '2026-06-08',
+        ]);
+
+        $response = $this->actingAs($hod)
+            ->get(route('hod.leave-plans.show', $leavePlan));
+
+        $response
+            ->assertOk()
+            ->assertSee('2 calendar days')
+            ->assertSee('Holiday - Sick Holiday');
+
+        $this->assertSame(2, substr_count($response->getContent(), 'This request - Aisha Sick'));
+    }
+
     public function test_employee_leave_plan_form_shows_same_department_active_availability(): void
     {
         $department = $this->department(['name' => 'Operations']);
@@ -836,6 +875,68 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Department leave availability')
             ->assertSee('Same Team Visible')
             ->assertDontSee('Current Editor - L100');
+    }
+
+    public function test_employee_leave_plan_form_calendar_fragment_renders_without_full_form(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'Fragment Visible', 'department_id' => $department->id]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create', [
+                'month' => '2026-05',
+                'calendar_fragment' => 'availability',
+            ]))
+            ->assertOk()
+            ->assertSee('Department leave availability')
+            ->assertSee('Fragment Visible')
+            ->assertSee('data-leave-plan-availability-calendar', false)
+            ->assertDontSee('Leave details')
+            ->assertDontSee('name="calendar_fragment"', false)
+            ->assertDontSee('calendar_fragment=availability', false);
+    }
+
+    public function test_employee_leave_plan_edit_calendar_fragment_excludes_current_plan(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', ['name' => 'Current Fragment Editor', 'department_id' => $department->id]);
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'Other Fragment Visible', 'department_id' => $department->id]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_DRAFT,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.edit', [
+                'leavePlan' => $leavePlan,
+                'month' => '2026-05',
+                'calendar_fragment' => 'availability',
+            ]))
+            ->assertOk()
+            ->assertSee('Department leave availability')
+            ->assertSee('Other Fragment Visible')
+            ->assertDontSee('Current Fragment Editor - L100')
+            ->assertDontSee('Leave details');
     }
 
     public function test_annual_leave_limit_blocks_submit_but_allows_draft(): void
@@ -1162,23 +1263,109 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSessionHasErrors('attendance_code');
     }
 
-    public function test_service_incentive_leave_code_is_selectable_and_submittable_without_entitlement_limit(): void
+    public function test_service_incentive_leave_is_philippines_only_and_limited(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $department = $this->department();
+        $uaeEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-701',
+        ]);
+        $phEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-702',
+        ]);
+
+        $this->actingAs($uaeEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L190 - Service Incentive Leave');
+
+        $this->actingAs($uaeEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L190',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($phEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertSee('L190 - Service Incentive Leave')
+            ->assertSee('Service incentive leave')
+            ->assertSee('5 days');
+
+        $this->actingAs($phEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L190',
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-15',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($phEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L190',
+                'start_date' => '2026-05-18',
+                'end_date' => '2026-05-18',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_uae_sick_and_maternity_balances_show_full_pay_allowance_but_validate_total_limit(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-703',
+            'gender' => 'female',
+        ]);
 
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('L190 - Service Incentive Leave');
+            ->assertSee('Full-pay allowance')
+            ->assertSee('Full-pay remaining')
+            ->assertSee('15 days')
+            ->assertSee('45 days')
+            ->assertDontSee('90 days')
+            ->assertDontSee('60 days');
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
-                'attendance_code' => 'L190',
-                'start_date' => '2026-05-11',
-                'end_date' => '2026-06-30',
+                'attendance_code' => 'L110',
+                'start_date' => '2026-01-01',
+                'end_date' => '2026-01-16',
                 'submit' => '1',
             ]))
             ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L160',
+                'start_date' => '2026-05-01',
+                'end_date' => '2026-06-15',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L110',
+                'start_date' => '2026-07-01',
+                'end_date' => '2026-09-13',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L160',
+                'start_date' => '2026-10-01',
+                'end_date' => '2026-10-16',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
     }
 
     public function test_parental_label_and_supporting_document_guidance_show_on_leave_form(): void
@@ -1439,6 +1626,67 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame('1 counted leave day', $uaePlan->durationLabel());
     }
 
+    public function test_uae_sick_and_maternity_leave_count_calendar_days_and_show_pay_breakdown(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-801',
+            'gender' => 'female',
+        ]);
+
+        HolidayEvent::factory()->create([
+            'name' => 'UAE Holiday',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'region' => 'uae',
+        ]);
+
+        $sickPlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L110',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-08',
+            'end_date' => '2026-05-12',
+        ]);
+
+        $this->assertSame(4.0, $sickPlan->countedLeaveDayCount());
+        $this->assertSame('4 calendar days', $sickPlan->durationLabel());
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L160',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-06-01',
+            'end_date' => '2026-07-15',
+        ]);
+
+        $maternityPlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L160',
+            'status' => LeavePlan::STATUS_DRAFT,
+            'start_date' => '2026-07-16',
+            'end_date' => '2026-07-30',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.show', $maternityPlan))
+            ->assertOk()
+            ->assertSee('15 calendar days')
+            ->assertDontSee('Payroll pay breakdown')
+            ->assertDontSee('Half pay: 15 days');
+
+        $this->actingAs($this->userWithRole('admin'))
+            ->get(route('admin.leave-plans.show', $maternityPlan))
+            ->assertOk()
+            ->assertSee('15 calendar days')
+            ->assertSee('Payroll pay breakdown')
+            ->assertSee('Half pay: 15 days');
+    }
+
     public function test_leave_plan_count_ignores_inactive_holiday_events(): void
     {
         $department = $this->department();
@@ -1489,6 +1737,19 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->assertSame(0.0, $leavePlan->countedLeaveDayCount());
         $this->assertSame('Half day - morning (0 counted leave days)', $leavePlan->leaveLengthLabel());
+
+        $sickLeavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L110',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'duration_type' => 'half_day',
+            'half_day_period' => 'afternoon',
+        ]);
+
+        $this->assertSame(0.0, $sickLeavePlan->countedLeaveDayCount());
+        $this->assertSame('Half day - afternoon (0 calendar days)', $sickLeavePlan->leaveLengthLabel());
     }
 
     public function test_existing_leave_plan_label_recalculates_after_holiday_is_created(): void

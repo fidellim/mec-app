@@ -62,7 +62,10 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('Leave Settings')
             ->assertSee('UAE Annual Leave Default Days')
             ->assertSee('Philippines Sick Leave Default Days')
-            ->assertSee('UAE Parental Leave Default Days');
+            ->assertSee('UAE Sick Leave Maximum Calendar Days')
+            ->assertSee('UAE Maternity Leave Maximum Calendar Days')
+            ->assertSee('UAE Parental Leave Default Days')
+            ->assertSee('Philippines Service Incentive Leave Default Days');
 
         $uaeAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail();
         $phAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH)->firstOrFail();
@@ -81,6 +84,7 @@ class ManagementWorkflowTest extends TestCase
                 'parental_leave_default_days_ph' => '5',
                 'bereavement_compassionate_leave_default_days_uae' => '8',
                 'bereavement_compassionate_leave_default_days_ph' => '8',
+                'service_incentive_leave_default_days_ph' => '5',
             ])
             ->assertRedirect(route('manage.leave-settings.index'));
 
@@ -144,6 +148,7 @@ class ManagementWorkflowTest extends TestCase
                     'parental_leave_default_days_ph' => 5,
                     'bereavement_compassionate_leave_default_days_uae' => 8,
                     'bereavement_compassionate_leave_default_days_ph' => 8,
+                    'service_incentive_leave_default_days_ph' => 5,
                 ])
                 ->assertForbidden();
         }

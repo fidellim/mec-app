@@ -121,7 +121,9 @@ Use **My Leave Plans** to plan leave before filling the related weekly timesheet
 
 Draft and rejected leave plans can be edited. Submitted leave plans are locked until reviewed. Approved leave plans can be cancelled only by sending a cancellation request for review.
 
-The leave form shows yearly allowance, used or reserved days, and remaining days for each leave entitlement available to your profile. The allowances refresh every January 1, unused days do not carry over, and submitted leave is blocked if it exceeds your remaining allowance. Maternity leave is available only when your gender is set to Female. Parental leave is available only when your marital status is set to Married. `L190 - Service Incentive Leave` is still available as a leave type, but it does not show or enforce a leave balance.
+The leave form shows yearly allowance, used or reserved days, and remaining days for each leave entitlement available to your profile. The allowances refresh every January 1, unused days do not carry over, and submitted leave is blocked if it exceeds your remaining allowance. Maternity leave is available only when your gender is set to Female. Parental leave is available only when your marital status is set to Married. `L190 - Service Incentive Leave` is available only to Philippines employees and defaults to 5 days.
+
+For UAE employees, sick leave and maternity leave count calendar days, including weekends, but applicable company holidays are excluded. Balance cards show the full-pay allowance: 15 sick leave days and 45 maternity leave days. Additional approved days may move into half-pay or unpaid bands during payroll review.
 
 Holiday entries are read-only. They help explain why a date range may use fewer counted leave days than the number of calendar days selected.
 

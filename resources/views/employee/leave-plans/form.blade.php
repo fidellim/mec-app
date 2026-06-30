@@ -20,7 +20,7 @@
     <div class="content-card">
         <div class="content-card-header">
             <h2 class="h5 mb-1">Leave details</h2>
-            <div class="small text-muted">Leave duration counts working leave days only. Half-day leave is available for a single date only.</div>
+            <div class="small text-muted">Sick and maternity leave use calendar days; most other leave types use working leave days. Applicable holidays are excluded from leave usage.</div>
         </div>
         <div class="content-card-body">
             <div class="row g-3">
@@ -104,7 +104,7 @@
                         </div>
                         <div class="row g-3">
                             <div class="col-sm-4">
-                                <div class="small text-muted">Allowance</div>
+                                <div class="small text-muted">{{ $balance['allowance_label'] ?? 'Allowance' }}</div>
                                 <div class="h4 mb-0">{{ $balance['formatted']['allowance'] }} days</div>
                             </div>
                             <div class="col-sm-4">
@@ -112,10 +112,13 @@
                                 <div class="h4 mb-0">{{ $balance['formatted']['used'] }} days</div>
                             </div>
                             <div class="col-sm-4">
-                                <div class="small text-muted">Remaining</div>
+                                <div class="small text-muted">{{ $balance['remaining_label'] ?? 'Remaining' }}</div>
                                 <div class="h4 mb-0">{{ $balance['formatted']['remaining'] }} days</div>
                             </div>
                         </div>
+                        @if(! empty($balance['description']))
+                            <div class="small text-muted mt-3">{{ $balance['description'] }}</div>
+                        @endif
                     </div>
                 </div>
             @endforeach
@@ -123,7 +126,7 @@
     </div>
 @endif
 @if(! empty($availabilityCalendar))
-    <div class="mt-3">
+    <div class="mt-3" data-availability-calendar-shell>
         @include('shared.leave_plan_calendar', array_merge($availabilityCalendar, [
             'calendarTitle' => 'Department leave availability',
             'calendarDescription' => 'Shows submitted, approved, and cancellation-requested leave in your department. Your selected dates are highlighted for comparison.',
@@ -141,8 +144,10 @@
     const attendanceCode = document.getElementById('attendance_code');
     const supportingDocumentNote = document.querySelector('[data-supporting-document-note]');
     const supportingDocumentMessage = document.querySelector('[data-supporting-document-message]');
-    const availabilityCalendar = document.querySelector('[data-leave-plan-availability-calendar]');
+    const availabilityCalendarShell = document.querySelector('[data-availability-calendar-shell]');
     const supportingDocumentNotes = @json($supportingDocumentNotes);
+
+    const getAvailabilityCalendar = () => availabilityCalendarShell?.querySelector('[data-leave-plan-availability-calendar]');
 
     const syncSupportingDocumentNote = () => {
         if (!supportingDocumentNote || !supportingDocumentMessage || !attendanceCode) {
@@ -155,6 +160,8 @@
     };
 
     const syncAvailabilityCalendar = () => {
+        const availabilityCalendar = getAvailabilityCalendar();
+
         if (!availabilityCalendar || !startDate?.value || !endDate?.value) {
             availabilityCalendar?.querySelectorAll('[data-calendar-date]').forEach((day) => {
                 day.classList.remove('leave-calendar-day-selected');
@@ -221,6 +228,80 @@
     endDate?.addEventListener('change', syncDateRules);
     durationType?.addEventListener('change', syncHalfDayControls);
     attendanceCode?.addEventListener('change', syncSupportingDocumentNote);
+
+    const withCalendarFragment = (url) => {
+        const nextUrl = new URL(url, window.location.href);
+        nextUrl.searchParams.set('calendar_fragment', 'availability');
+
+        return nextUrl;
+    };
+
+    const loadAvailabilityCalendar = async (url) => {
+        if (!availabilityCalendarShell || !window.fetch) {
+            window.location.href = url;
+            return;
+        }
+
+        availabilityCalendarShell.classList.add('opacity-75');
+
+        try {
+            const response = await fetch(withCalendarFragment(url), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) {
+                throw new Error(`Calendar request failed with ${response.status}`);
+            }
+
+            availabilityCalendarShell.innerHTML = await response.text();
+            syncAvailabilityCalendar();
+            window.initializeSearchableSelects?.(availabilityCalendarShell);
+        } catch (error) {
+            window.location.href = url;
+        } finally {
+            availabilityCalendarShell.classList.remove('opacity-75');
+        }
+    };
+
+    availabilityCalendarShell?.addEventListener('click', (event) => {
+        const link = event.target.closest('.leave-calendar-nav a');
+
+        if (!link) {
+            return;
+        }
+
+        event.preventDefault();
+        loadAvailabilityCalendar(link.href);
+    });
+
+    availabilityCalendarShell?.addEventListener('submit', (event) => {
+        const form = event.target.closest('[data-calendar-month-selector]');
+
+        if (!form) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const monthInput = form.querySelector('[data-calendar-month-value]');
+        const monthSelect = form.querySelector('[data-calendar-month]');
+        const yearSelect = form.querySelector('[data-calendar-year]');
+
+        if (monthInput && monthSelect && yearSelect) {
+            monthInput.value = `${yearSelect.value}-${monthSelect.value}`;
+        }
+
+        const targetUrl = new URL(form.action || window.location.href, window.location.href);
+        const targetParams = new URLSearchParams(new FormData(form));
+        targetUrl.search = targetParams.toString();
+
+        loadAvailabilityCalendar(targetUrl);
+    });
+
     syncHalfDayControls();
     syncAvailabilityCalendar();
     syncSupportingDocumentNote();

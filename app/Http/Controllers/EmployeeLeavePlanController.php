@@ -9,7 +9,6 @@ use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
 use App\Services\LeaveEntitlementService;
 use App\Services\LeavePlanStatusHistoryService;
-use App\Services\HolidayService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -50,6 +49,10 @@ class EmployeeLeavePlanController extends Controller
     {
         if ($redirect = $this->redirectIfMissingDepartment()) {
             return $redirect;
+        }
+
+        if ($this->wantsAvailabilityCalendarFragment($request)) {
+            return $this->availabilityCalendarFragment($request, $calendar);
         }
 
         return view('employee.leave-plans.form', [
@@ -119,6 +122,10 @@ class EmployeeLeavePlanController extends Controller
     {
         $this->authorizeOwner($leavePlan);
         abort_unless($leavePlan->editableBy(auth()->user()), 403);
+
+        if ($this->wantsAvailabilityCalendarFragment($request)) {
+            return $this->availabilityCalendarFragment($request, $calendar, $leavePlan);
+        }
 
         return view('employee.leave-plans.form', [
             'leavePlan' => $leavePlan,
@@ -256,6 +263,21 @@ class EmployeeLeavePlanController extends Controller
         );
     }
 
+    private function availabilityCalendarFragment(Request $request, LeavePlanCalendarService $calendar, ?LeavePlan $leavePlan = null)
+    {
+        return view('shared.leave_plan_calendar', array_merge($this->availabilityCalendar($request, $calendar, $leavePlan), [
+            'calendarTitle' => 'Department leave availability',
+            'calendarDescription' => 'Shows submitted, approved, and cancellation-requested leave in your department. Your selected dates are highlighted for comparison.',
+            'calendarReadonly' => true,
+            'calendarInteractiveRange' => true,
+        ]));
+    }
+
+    private function wantsAvailabilityCalendarFragment(Request $request): bool
+    {
+        return $request->query('calendar_fragment') === 'availability';
+    }
+
     private function leaveBalances(Request $request, LeaveEntitlementService $entitlements, ?LeavePlan $leavePlan = null): array
     {
         $date = $this->oldStartDate($request) ?? $leavePlan?->start_date ?? now();
@@ -281,8 +303,8 @@ class EmployeeLeavePlanController extends Controller
 
     private function overlapFlash(LeavePlan $leavePlan): array
     {
-        $holidayService = app(HolidayService::class);
-        $countedDates = $holidayService->countedLeaveDates($leavePlan);
+        $entitlements = app(LeaveEntitlementService::class);
+        $countedDates = $entitlements->countedLeaveDatesForPlan($leavePlan);
 
         if ($countedDates->isEmpty()) {
             return [];
@@ -296,8 +318,8 @@ class EmployeeLeavePlanController extends Controller
             ->whereDate('start_date', '<=', $leavePlan->end_date)
             ->whereDate('end_date', '>=', $leavePlan->start_date)
             ->get()
-            ->contains(fn (LeavePlan $existing) => $holidayService
-                ->countedLeaveDates($existing)
+            ->contains(fn (LeavePlan $existing) => $entitlements
+                ->countedLeaveDatesForPlan($existing)
                 ->intersect($countedDates)
                 ->isNotEmpty());
 

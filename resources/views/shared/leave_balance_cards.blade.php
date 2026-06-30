@@ -22,7 +22,7 @@
                             </div>
                             <div class="row g-3">
                                 <div class="col-sm-4">
-                                    <div class="small text-muted">Allowance</div>
+                                    <div class="small text-muted">{{ $balance['allowance_label'] ?? 'Allowance' }}</div>
                                     <div class="h4 mb-0">{{ $balance['formatted']['allowance'] }} days</div>
                                 </div>
                                 <div class="col-sm-4">
@@ -30,10 +30,13 @@
                                     <div class="h4 mb-0">{{ $balance['formatted']['used'] }} days</div>
                                 </div>
                                 <div class="col-sm-4">
-                                    <div class="small text-muted">Remaining</div>
+                                    <div class="small text-muted">{{ $balance['remaining_label'] ?? 'Remaining' }}</div>
                                     <div class="h4 mb-0">{{ $balance['formatted']['remaining'] }} days</div>
                                 </div>
                             </div>
+                            @if(! empty($balance['description']))
+                                <div class="small text-muted mt-3">{{ $balance['description'] }}</div>
+                            @endif
                         </div>
                     </div>
                 @endforeach

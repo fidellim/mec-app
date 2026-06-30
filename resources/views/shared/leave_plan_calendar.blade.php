@@ -168,6 +168,11 @@
     $calendarDescription = $calendarDescription ?? 'Calendar shows submitted, approved, and cancellation-requested leave by default.';
     $calendarReadonly = $calendarReadonly ?? false;
     $calendarInteractiveRange = $calendarInteractiveRange ?? false;
+    $calendarUrl = function (string $calendarMonth) {
+        $query = array_merge(request()->except(['month', 'calendar_fragment']), ['month' => $calendarMonth]);
+
+        return request()->url().'?'.http_build_query($query);
+    };
     $calendarMonthOptions = collect(range(1, 12))->mapWithKeys(fn ($calendarMonthNumber) => [
         str_pad((string) $calendarMonthNumber, 2, '0', STR_PAD_LEFT) => \Carbon\Carbon::create(null, $calendarMonthNumber, 1)->format('F'),
     ]);
@@ -183,7 +188,7 @@
         </div>
         <div class="leave-calendar-toolbar">
             <form class="leave-calendar-jump" method="get" data-calendar-month-selector>
-                @foreach(request()->except(['month', 'calendar_month', 'calendar_year']) as $key => $value)
+                @foreach(request()->except(['month', 'calendar_month', 'calendar_year', 'calendar_fragment']) as $key => $value)
                     @if(is_array($value))
                         @foreach($value as $item)
                             <input type="hidden" name="{{ $key }}[]" value="{{ $item }}">
@@ -210,14 +215,14 @@
                 </button>
             </form>
             <div class="leave-calendar-nav" aria-label="Calendar navigation">
-                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ request()->fullUrlWithQuery(['month' => $previousMonth]) }}" title="Previous month" aria-label="Previous month">
+                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ $calendarUrl($previousMonth) }}" title="Previous month" aria-label="Previous month">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
                 </a>
-                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ request()->fullUrlWithQuery(['month' => now()->format('Y-m')]) }}" title="Current month">
+                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ $calendarUrl(now()->format('Y-m')) }}" title="Current month">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><path d="M3 10h18"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect></svg>
                     <span>Current</span>
                 </a>
-                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ request()->fullUrlWithQuery(['month' => $nextMonth]) }}" title="Next month" aria-label="Next month">
+                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ $calendarUrl($nextMonth) }}" title="Next month" aria-label="Next month">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
                 </a>
             </div>

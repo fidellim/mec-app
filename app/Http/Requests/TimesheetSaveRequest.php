@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\TimesheetPeriod;
+use App\Services\LeaveEntitlementService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -64,6 +65,7 @@ class TimesheetSaveRequest extends FormRequest
                     $isLeaveCode = in_array($attendanceCode, config('timesheet.leave_attendance_codes', []), true);
                     $isProjectOptionalCode = in_array($attendanceCode, config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), true);
                     $hasHours = $hasHours || $regular > 0 || $overtime > 0;
+                    $entitlements = app(LeaveEntitlementService::class);
 
                     if ($period && isset($entry['work_date']) && ($entry['work_date'] < $period->start_date->toDateString() || $entry['work_date'] > $period->end_date->toDateString())) {
                         $validator->errors()->add("entries.$index.work_date", 'Work date must be within the selected weekly period.');
@@ -75,6 +77,13 @@ class TimesheetSaveRequest extends FormRequest
 
                     if (($regular > 0 || $overtime > 0) && empty($attendanceCode)) {
                         $validator->errors()->add("entries.$index.attendance_code", "$entryLabel needs an attendance code when hours are entered.");
+                    }
+
+                    if (($regular > 0 || $overtime > 0) && is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode)) {
+                        $validator->errors()->add(
+                            "entries.$index.attendance_code",
+                            $entitlements->eligibilityMessage($attendanceCode) ?? "$entryLabel has an attendance code that is not available for your profile.",
+                        );
                     }
 
                     if ($isLeaveCode && $overtime > 0) {

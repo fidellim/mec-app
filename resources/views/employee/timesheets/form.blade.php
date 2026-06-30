@@ -224,8 +224,8 @@
     const clientWarningList = form?.querySelector('[data-timesheet-client-warning-list]');
     let nextIndex = {{ count($entries) }};
     let copiedDay = null;
-    const leaveAttendanceCodes = @json(config('timesheet.leave_attendance_codes', []));
-    const projectOptionalAttendanceCodes = @json(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
+    const leaveAttendanceCodes = @json($leaveAttendanceCodes ?? config('timesheet.leave_attendance_codes', []));
+    const projectOptionalAttendanceCodes = @json($projectOptionalAttendanceCodes ?? config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
     const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
     const isProjectOptionalAttendanceCode = (value) => projectOptionalAttendanceCodes.includes(value);
 

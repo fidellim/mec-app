@@ -7,6 +7,7 @@ use App\Models\LeaveSetting;
 use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
+use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
 
 class LeaveEntitlementService
@@ -16,6 +17,7 @@ class LeaveEntitlementService
     public const MATERNITY_LEAVE_CODE = 'L160';
     public const PARENTAL_LEAVE_CODE = 'L170';
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_CODE = 'L180';
+    public const SERVICE_INCENTIVE_LEAVE_CODE = 'L190';
 
     public const ENTITLED_LEAVE_CODES = [
         self::ANNUAL_LEAVE_CODE,
@@ -23,6 +25,7 @@ class LeaveEntitlementService
         self::MATERNITY_LEAVE_CODE,
         self::PARENTAL_LEAVE_CODE,
         self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
+        self::SERVICE_INCENTIVE_LEAVE_CODE,
     ];
 
     public const COUNTED_STATUSES = [
@@ -31,11 +34,28 @@ class LeaveEntitlementService
         LeavePlan::STATUS_CANCELLATION_REQUESTED,
     ];
 
+    private const UAE_PAY_BANDS = [
+        self::SICK_LEAVE_CODE => [
+            ['key' => 'full_pay', 'label' => 'Full pay', 'days' => 15.0],
+            ['key' => 'half_pay', 'label' => 'Half pay', 'days' => 30.0],
+            ['key' => 'unpaid', 'label' => 'Unpaid', 'days' => 45.0],
+        ],
+        self::MATERNITY_LEAVE_CODE => [
+            ['key' => 'full_pay', 'label' => 'Full pay', 'days' => 45.0],
+            ['key' => 'half_pay', 'label' => 'Half pay', 'days' => 15.0],
+        ],
+    ];
+
     public function __construct(private readonly HolidayService $holidays)
     {
     }
 
     public function allowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
+    {
+        return $this->claimableAllowanceFor($user, $year, $attendanceCode);
+    }
+
+    public function claimableAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
     {
         if ($attendanceCode === self::ANNUAL_LEAVE_CODE && $user->annual_leave_allowance_days !== null) {
             return (float) $user->annual_leave_allowance_days;
@@ -45,6 +65,20 @@ class LeaveEntitlementService
             $this->settingKeyFor($user, $attendanceCode),
             $this->fallbackAllowanceFor($user, $attendanceCode),
         );
+    }
+
+    public function visibleAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
+    {
+        $claimableAllowance = $this->claimableAllowanceFor($user, $year, $attendanceCode);
+
+        if ($this->regionFor($user) === 'uae' && isset(self::UAE_PAY_BANDS[$attendanceCode])) {
+            $fullPayDays = (float) collect(self::UAE_PAY_BANDS[$attendanceCode])
+                ->firstWhere('key', 'full_pay')['days'];
+
+            return min($fullPayDays, $claimableAllowance);
+        }
+
+        return $claimableAllowance;
     }
 
     public function usedAnnualDaysByYear(User $user, ?int $excludeLeavePlanId = null): Collection
@@ -92,16 +126,25 @@ class LeaveEntitlementService
 
     public function balanceFor(User $user, int $year, ?int $excludeLeavePlanId = null, string $attendanceCode = self::ANNUAL_LEAVE_CODE): array
     {
-        $allowance = $this->allowanceFor($user, $year, $attendanceCode);
+        $allowance = $this->visibleAllowanceFor($user, $year, $attendanceCode);
+        $claimableAllowance = $this->claimableAllowanceFor($user, $year, $attendanceCode);
         $used = (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
+        $isVisibleFullPayAllowance = $claimableAllowance > $allowance;
 
         return [
             'year' => $year,
             'attendance_code' => $attendanceCode,
             'label' => $this->entitlementLabel($attendanceCode),
             'allowance' => $allowance,
+            'claimable_allowance' => $claimableAllowance,
             'used' => $used,
             'remaining' => max(0.0, $allowance - $used),
+            'claimable_remaining' => max(0.0, $claimableAllowance - $used),
+            'allowance_label' => $isVisibleFullPayAllowance ? 'Full-pay allowance' : 'Allowance',
+            'remaining_label' => $isVisibleFullPayAllowance ? 'Full-pay remaining' : 'Remaining',
+            'description' => $isVisibleFullPayAllowance
+                ? 'Additional approved days may move into half-pay or unpaid bands.'
+                : null,
             'uses_override' => $attendanceCode === self::ANNUAL_LEAVE_CODE && $user->annual_leave_allowance_days !== null,
             'region' => $this->regionFor($user),
             'region_label' => $this->regionLabelFor($user),
@@ -117,8 +160,10 @@ class LeaveEntitlementService
                 $balance = $this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode);
                 $balance['formatted'] = [
                     'allowance' => $this->formatDays($balance['allowance']),
+                    'claimable_allowance' => $this->formatDays($balance['claimable_allowance']),
                     'used' => $this->formatDays($balance['used']),
                     'remaining' => $this->formatDays($balance['remaining']),
+                    'claimable_remaining' => $this->formatDays($balance['claimable_remaining']),
                 ];
 
                 return [$attendanceCode => $balance];
@@ -147,6 +192,7 @@ class LeaveEntitlementService
         return match ($attendanceCode) {
             self::MATERNITY_LEAVE_CODE => $user->gender === 'female',
             self::PARENTAL_LEAVE_CODE => $user->marital_status === 'married',
+            self::SERVICE_INCENTIVE_LEAVE_CODE => $this->regionFor($user) === 'ph',
             default => true,
         };
     }
@@ -156,6 +202,7 @@ class LeaveEntitlementService
         return match ($attendanceCode) {
             self::MATERNITY_LEAVE_CODE => 'Maternity leave is available only for employees whose gender is set to Female.',
             self::PARENTAL_LEAVE_CODE => 'Parental leave is available only for employees whose marital status is set to Married.',
+            self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave is available only for Philippines employees.',
             default => null,
         };
     }
@@ -178,7 +225,7 @@ class LeaveEntitlementService
 
         return $requestedByYear
             ->map(function (float $requested, int $year) use ($user, $usedByYear, $attendanceCode) {
-                $allowance = $this->allowanceFor($user, $year, $attendanceCode);
+                $allowance = $this->claimableAllowanceFor($user, $year, $attendanceCode);
                 $used = (float) $usedByYear->get($year, 0.0);
                 $remaining = $allowance - $used;
 
@@ -208,7 +255,7 @@ class LeaveEntitlementService
 
     public function daysByYearForPlan(LeavePlan $leavePlan): Collection
     {
-        $countedDates = $this->holidays->countedLeaveDates($leavePlan);
+        $countedDates = $this->countedLeaveDatesForPlan($leavePlan);
 
         if ($countedDates->isEmpty()) {
             return collect();
@@ -233,6 +280,67 @@ class LeaveEntitlementService
     public function formatDays(float $days): string
     {
         return floor($days) === $days ? (string) (int) $days : rtrim(rtrim(number_format($days, 2), '0'), '.');
+    }
+
+    public function countedLeaveDatesForPlan(LeavePlan $leavePlan): Collection
+    {
+        if ($this->usesCalendarDays($leavePlan)) {
+            $user = $leavePlan->relationLoaded('user')
+                ? $leavePlan->user
+                : User::find($leavePlan->user_id);
+            $holidayDates = $this->holidays->holidayDatesForUser($user, $leavePlan->start_date, $leavePlan->end_date);
+
+            return collect(CarbonPeriod::create($leavePlan->start_date, $leavePlan->end_date))
+                ->reject(fn ($date) => $holidayDates->contains($date->toDateString()))
+                ->map(fn ($date) => $date->toDateString())
+                ->values();
+        }
+
+        return $this->holidays->countedLeaveDates($leavePlan);
+    }
+
+    public function countedLeaveDayCountForPlan(LeavePlan $leavePlan): float
+    {
+        if ($leavePlan->duration_type === 'half_day') {
+            $startDate = $leavePlan->start_date instanceof CarbonInterface
+                ? $leavePlan->start_date
+                : Carbon::parse($leavePlan->start_date);
+
+            return $this->countedLeaveDatesForPlan($leavePlan)->contains($startDate->toDateString()) ? 0.5 : 0.0;
+        }
+
+        return (float) $this->countedLeaveDatesForPlan($leavePlan)->count();
+    }
+
+    public function countBasisLabelForPlan(LeavePlan $leavePlan): string
+    {
+        return $this->usesCalendarDays($leavePlan) ? 'calendar day' : 'counted leave day';
+    }
+
+    public function payBreakdownForPlan(LeavePlan $leavePlan, ?int $excludeLeavePlanId = null): array
+    {
+        $user = $leavePlan->relationLoaded('user')
+            ? $leavePlan->user
+            : User::find($leavePlan->user_id);
+
+        if (! $user || $this->regionFor($user) !== 'uae' || ! isset(self::UAE_PAY_BANDS[$leavePlan->attendance_code])) {
+            return [];
+        }
+
+        $excludeLeavePlanId ??= $leavePlan->exists ? $leavePlan->id : null;
+        $requestedByYear = $this->daysByYearForPlan($leavePlan);
+        $usedByYear = $this->usedDaysByYear($user, $leavePlan->attendance_code, $excludeLeavePlanId);
+
+        return $requestedByYear
+            ->map(fn (float $requested, int $year) => $this->payBreakdownForYear(
+                attendanceCode: $leavePlan->attendance_code,
+                year: $year,
+                previouslyUsed: (float) $usedByYear->get($year, 0.0),
+                requested: $requested,
+            ))
+            ->filter()
+            ->values()
+            ->all();
     }
 
     public function violationMessage(array $violation): string
@@ -270,6 +378,7 @@ class LeaveEntitlementService
             self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => $region === 'ph'
                 ? LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH
                 : LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE,
+            self::SERVICE_INCENTIVE_LEAVE_CODE => LeaveSetting::SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH,
             default => $region === 'ph'
                 ? LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH
                 : LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE,
@@ -281,7 +390,7 @@ class LeaveEntitlementService
         $region = $this->regionFor($user);
 
         if ($attendanceCode === self::SICK_LEAVE_CODE) {
-            return $region === 'ph' ? 5.0 : 15.0;
+            return $region === 'ph' ? 5.0 : 90.0;
         }
 
         if ($attendanceCode === self::MATERNITY_LEAVE_CODE) {
@@ -296,6 +405,10 @@ class LeaveEntitlementService
             return 5.0;
         }
 
+        if ($attendanceCode === self::SERVICE_INCENTIVE_LEAVE_CODE) {
+            return 5.0;
+        }
+
         if ($region === 'ph') {
             return 5.0;
         }
@@ -303,14 +416,14 @@ class LeaveEntitlementService
         return LeaveSetting::decimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 22.0);
     }
 
-    private function regionFor(User $user): string
+    public function regionFor(User $user): string
     {
         return is_string($user->employee_code) && str_starts_with($user->employee_code, 'MEC-PHIL-HR-')
             ? 'ph'
             : 'uae';
     }
 
-    private function regionLabelFor(User $user): string
+    public function regionLabelFor(User $user): string
     {
         return $this->regionFor($user) === 'ph' ? 'Philippines' : 'UAE';
     }
@@ -322,7 +435,65 @@ class LeaveEntitlementService
             self::MATERNITY_LEAVE_CODE => 'Maternity leave',
             self::PARENTAL_LEAVE_CODE => 'Parental leave',
             self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => 'Bereavement / compassionate leave',
+            self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave',
             default => 'Annual leave',
         };
+    }
+
+    private function usesCalendarDays(LeavePlan $leavePlan): bool
+    {
+        $user = $leavePlan->relationLoaded('user')
+            ? $leavePlan->user
+            : User::find($leavePlan->user_id);
+
+        return $user
+            && $this->regionFor($user) === 'uae'
+            && in_array($leavePlan->attendance_code, [self::SICK_LEAVE_CODE, self::MATERNITY_LEAVE_CODE], true);
+    }
+
+    private function payBreakdownForYear(string $attendanceCode, int $year, float $previouslyUsed, float $requested): array
+    {
+        $remainingRequest = $requested;
+        $cursor = 0.0;
+        $bands = [];
+
+        foreach (self::UAE_PAY_BANDS[$attendanceCode] as $band) {
+            $bandStart = $cursor;
+            $bandEnd = $cursor + $band['days'];
+            $availableInBand = max(0.0, $bandEnd - max($previouslyUsed, $bandStart));
+            $allocated = min($remainingRequest, $availableInBand);
+
+            $bands[] = [
+                'key' => $band['key'],
+                'label' => $band['label'],
+                'days' => $allocated,
+                'formatted_days' => $this->formatDays($allocated),
+            ];
+
+            $remainingRequest -= $allocated;
+            $cursor = $bandEnd;
+        }
+
+        if ($remainingRequest > 0) {
+            $bands[] = [
+                'key' => 'outside_policy',
+                'label' => 'Outside configured allowance',
+                'days' => $remainingRequest,
+                'formatted_days' => $this->formatDays($remainingRequest),
+            ];
+        }
+
+        $bands = collect($bands)->filter(fn (array $band) => $band['days'] > 0)->values()->all();
+
+        return [
+            'year' => $year,
+            'attendance_code' => $attendanceCode,
+            'label' => $this->entitlementLabel($attendanceCode),
+            'previously_used' => $previouslyUsed,
+            'requested' => $requested,
+            'formatted_previously_used' => $this->formatDays($previouslyUsed),
+            'formatted_requested' => $this->formatDays($requested),
+            'bands' => $bands,
+        ];
     }
 }

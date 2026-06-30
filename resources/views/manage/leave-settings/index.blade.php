@@ -4,7 +4,7 @@
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Leave Settings</h1>
-        <div class="text-muted">Manage leave policy allowances by region.</div>
+        <div class="text-muted">Manage leave policy allowances and maximum claimable calendar-day limits by region.</div>
     </div>
 </div>
 
@@ -22,7 +22,7 @@
         @endforeach
         <div class="col-12">
             <div class="alert alert-info mb-0">
-                Eligible entitlement balances are shown to users. Maternity leave appears only when gender is Female, and parental leave appears only when marital status is Married.
+                Eligible entitlement balances are shown to users. UAE sick and maternity balances show the full-pay allowance, while these settings keep the maximum claimable calendar-day limits for validation. Maternity leave appears only when gender is Female, and parental leave appears only when marital status is Married.
             </div>
         </div>
     </div>

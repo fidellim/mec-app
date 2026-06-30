@@ -4,7 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Services\HolidayService;
+use App\Services\LeaveEntitlementService;
 
 class LeavePlan extends Model
 {
@@ -174,12 +174,15 @@ class LeavePlan extends Model
 
     public function countedLeaveDayCount(): float
     {
-        return app(HolidayService::class)->countedLeaveDayCount($this);
+        return app(LeaveEntitlementService::class)->countedLeaveDayCountForPlan($this);
     }
 
     public function durationLabel(): string
     {
-        return $this->formatDayCount($this->countedLeaveDayCount(), 'counted leave day');
+        return $this->formatDayCount(
+            $this->countedLeaveDayCount(),
+            app(LeaveEntitlementService::class)->countBasisLabelForPlan($this),
+        );
     }
 
     public function leaveLengthLabel(): string

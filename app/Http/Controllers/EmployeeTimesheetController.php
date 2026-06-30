@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Services\AuditLogService;
+use App\Services\LeaveEntitlementService;
 use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetStatusHistoryService;
 use Carbon\CarbonPeriod;
@@ -58,7 +59,9 @@ class EmployeeTimesheetController extends Controller
             'timesheet' => null,
             'periods' => collect([$period]),
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
-            'attendanceCodes' => config('timesheet.attendance_codes'),
+            'attendanceCodes' => $this->attendanceCodes(auth()->user()),
+            'leaveAttendanceCodes' => $this->eligibleCodes(config('timesheet.leave_attendance_codes', []), auth()->user()),
+            'projectOptionalAttendanceCodes' => $this->eligibleCodes(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), auth()->user()),
             'entries' => $this->defaultEntries($period),
             'approvedLeavePlans' => $this->approvedLeavePlansForPeriod($period),
         ]);
@@ -138,7 +141,9 @@ class EmployeeTimesheetController extends Controller
             'timesheet' => $timesheet->load('entries'),
             'periods' => TimesheetPeriod::where('id', $timesheet->timesheet_period_id)->get(),
             'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
-            'attendanceCodes' => config('timesheet.attendance_codes'),
+            'attendanceCodes' => $this->attendanceCodes(auth()->user()),
+            'leaveAttendanceCodes' => $this->eligibleCodes(config('timesheet.leave_attendance_codes', []), auth()->user()),
+            'projectOptionalAttendanceCodes' => $this->eligibleCodes(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), auth()->user()),
             'entries' => $this->entriesWithMissingPeriodDays($timesheet),
             'approvedLeavePlans' => $this->approvedLeavePlansForPeriod($timesheet->period),
         ]);
@@ -245,6 +250,21 @@ class EmployeeTimesheetController extends Controller
             ->whereDate('end_date', '>=', $period->start_date)
             ->orderBy('start_date')
             ->get();
+    }
+
+    private function attendanceCodes($user): array
+    {
+        return collect(config('timesheet.attendance_codes'))
+            ->filter(fn ($label, string $attendanceCode) => app(LeaveEntitlementService::class)->userIsEligibleFor($user, $attendanceCode))
+            ->all();
+    }
+
+    private function eligibleCodes(array $attendanceCodes, $user): array
+    {
+        return collect($attendanceCodes)
+            ->filter(fn (string $attendanceCode) => app(LeaveEntitlementService::class)->userIsEligibleFor($user, $attendanceCode))
+            ->values()
+            ->all();
     }
 
     private function entriesWithMissingPeriodDays(Timesheet $timesheet)

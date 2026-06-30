@@ -21,9 +21,9 @@ class LeaveSettingSeeder extends Seeder
                 'decimal_value' => 5,
             ],
             LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE => [
-                'name' => 'UAE Sick Leave Default Days',
-                'description' => 'Default yearly L110 sick leave allowance for UAE employees. Unused days expire on December 31 and do not carry over.',
-                'decimal_value' => 15,
+                'name' => 'UAE Sick Leave Maximum Calendar Days',
+                'description' => 'Maximum yearly L110 sick leave calendar days for UAE employees. Employee-facing balances show the first 15 full-pay days; additional approved days move to 30 half-pay days and 45 unpaid days.',
+                'decimal_value' => 90,
             ],
             LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Sick Leave Default Days',
@@ -31,8 +31,8 @@ class LeaveSettingSeeder extends Seeder
                 'decimal_value' => 5,
             ],
             LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_UAE => [
-                'name' => 'UAE Maternity Leave Default Days',
-                'description' => 'Default L160 maternity leave policy allowance for UAE employees. Eligibility is reviewed manually.',
+                'name' => 'UAE Maternity Leave Maximum Calendar Days',
+                'description' => 'Maximum L160 maternity leave calendar days for UAE employees. Employee-facing balances show the first 45 full-pay days; additional approved days move to 15 half-pay days.',
                 'decimal_value' => 60,
             ],
             LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_PH => [
@@ -59,6 +59,11 @@ class LeaveSettingSeeder extends Seeder
                 'name' => 'Philippines Bereavement / Compassionate Leave Default Days',
                 'description' => 'Default L180 bereavement / compassionate leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
                 'decimal_value' => 8,
+            ],
+            LeaveSetting::SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH => [
+                'name' => 'Philippines Service Incentive Leave Default Days',
+                'description' => 'Default yearly L190 service incentive leave allowance for Philippines employees only. Unused days expire on December 31 and do not carry over.',
+                'decimal_value' => 5,
             ],
         ] as $key => $attributes) {
             LeaveSetting::updateOrCreate(['key' => $key], $attributes);
