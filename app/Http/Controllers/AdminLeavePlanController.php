@@ -52,6 +52,13 @@ class AdminLeavePlanController extends Controller
         ]);
     }
 
+    public function history(LeavePlan $leavePlan)
+    {
+        return view('shared.leave_plan_history_timeline', [
+            'leavePlan' => $leavePlan->load('statusHistories.user'),
+        ]);
+    }
+
     private function leaveAttendanceCodes(): array
     {
         return collect(config('timesheet.attendance_codes'))

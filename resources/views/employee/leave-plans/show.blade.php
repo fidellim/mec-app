@@ -14,6 +14,7 @@
     </div>
 </div>
 @include('shared.leave_plan_detail', ['leavePlan' => $leavePlan])
+@include('shared.leave_plan_history', ['leavePlan' => $leavePlan])
 @if($leavePlan->status === 'rejected')
     <div class="alert alert-warning mt-3"><strong>Rejection comment:</strong> {{ $leavePlan->rejection_comment }}</div>
 @endif

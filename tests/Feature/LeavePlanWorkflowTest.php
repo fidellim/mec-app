@@ -6,6 +6,7 @@ use App\Models\AuditLog;
 use App\Models\HolidayEvent;
 use App\Models\LeavePlan;
 use App\Models\LeavePlanApproverSetting;
+use App\Models\LeavePlanStatusHistory;
 use App\Models\LeaveSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\Support\CreatesTimesheetData;
@@ -38,6 +39,14 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->assertSame(LeavePlan::STATUS_SUBMITTED, $draft->fresh()->status);
         $this->assertSame(1, AuditLog::where('action', 'leave_plan_submitted')->count());
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $draft->id,
+            'actor_id' => $employee->id,
+            'action' => 'leave_plan_submitted',
+            'old_status' => LeavePlan::STATUS_DRAFT,
+            'new_status' => LeavePlan::STATUS_SUBMITTED,
+            'new_approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+        ]);
     }
 
     public function test_employee_can_delete_only_draft_leave_plan(): void
@@ -100,6 +109,13 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $approvedPlan->approval_stage);
         $this->assertSame($hod->id, $approvedPlan->hod_approved_by);
         $this->assertNull($approvedPlan->approved_by);
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $approvedPlan->id,
+            'actor_id' => $hod->id,
+            'action' => 'leave_plan_stage_approved',
+            'old_approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'new_approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+        ]);
 
         $this->actingAs($hod)
             ->post(route('hod.leave-plans.reject', $rejectedPlan), ['rejection_comment' => 'Project coverage needed.'])
@@ -108,6 +124,54 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame(LeavePlan::STATUS_REJECTED, $rejectedPlan->fresh()->status);
         $this->assertSame('Project coverage needed.', $rejectedPlan->fresh()->rejection_comment);
         $this->assertSame(LeavePlan::APPROVAL_STAGE_HOD, $rejectedPlan->fresh()->rejected_approval_stage);
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $rejectedPlan->id,
+            'actor_id' => $hod->id,
+            'action' => 'leave_plan_rejected',
+            'old_status' => LeavePlan::STATUS_SUBMITTED,
+            'new_status' => LeavePlan::STATUS_REJECTED,
+            'comment' => 'Project coverage needed.',
+        ]);
+    }
+
+    public function test_leave_plan_history_timeline_shows_approval_flow(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['name' => 'Harper HOD']);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $department->hods()->attach($hod);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+            'submitted_at' => now(),
+        ]);
+
+        LeavePlanStatusHistory::create([
+            'leave_plan_id' => $leavePlan->id,
+            'actor_id' => $hod->id,
+            'action' => 'leave_plan_stage_approved',
+            'old_status' => LeavePlan::STATUS_SUBMITTED,
+            'new_status' => LeavePlan::STATUS_SUBMITTED,
+            'old_approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'new_approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+            'occurred_at' => now(),
+        ]);
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-plans.show', $leavePlan))
+            ->assertOk()
+            ->assertSee('Leave plan history')
+            ->assertSee('Show history');
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-plans.history', $leavePlan))
+            ->assertOk()
+            ->assertSee('Approval Stage Completed')
+            ->assertSee('Harper HOD')
+            ->assertSee('moved approval from Head of Department to Director');
     }
 
     public function test_director_and_regional_hr_complete_sequential_leave_plan_approval(): void
@@ -317,6 +381,16 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->assertSame(LeavePlan::STATUS_CANCELLED, $leavePlan->fresh()->status);
         $this->assertSame($hod->id, $leavePlan->fresh()->cancelled_by);
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $leavePlan->id,
+            'action' => 'leave_plan_cancellation_requested',
+            'comment' => 'Plans changed.',
+        ]);
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $leavePlan->id,
+            'action' => 'leave_plan_cancellation_approved',
+            'new_status' => LeavePlan::STATUS_CANCELLED,
+        ]);
     }
 
     public function test_approved_leave_plan_can_be_recalled_for_employee_correction(): void
@@ -383,6 +457,12 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame($superAdmin->id, $leavePlan->voided_by);
         $this->assertSame('Approved against the wrong employee.', $leavePlan->void_reason);
         $this->assertSame(1, AuditLog::where('action', 'leave_plan_voided')->count());
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $leavePlan->id,
+            'actor_id' => $superAdmin->id,
+            'action' => 'leave_plan_voided',
+            'comment' => 'Approved against the wrong employee.',
+        ]);
     }
 
     public function test_hod_review_page_embeds_calendar_with_managed_department_active_leave(): void

@@ -53,6 +53,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/calendar', [EmployeeLeavePlanController::class, 'calendar'])->name('calendar');
         Route::get('/create', [EmployeeLeavePlanController::class, 'create'])->name('create');
         Route::post('/', [EmployeeLeavePlanController::class, 'store'])->name('store');
+        Route::get('/{leavePlan}/history', [EmployeeLeavePlanController::class, 'history'])->name('history');
         Route::get('/{leavePlan}', [EmployeeLeavePlanController::class, 'show'])->name('show');
         Route::get('/{leavePlan}/edit', [EmployeeLeavePlanController::class, 'edit'])->name('edit');
         Route::put('/{leavePlan}', [EmployeeLeavePlanController::class, 'update'])->name('update');
@@ -62,6 +63,7 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:employee,hod,admin,super_admin')->prefix('assigned-leave-plans')->name('assigned.leave-plans.')->group(function () {
         Route::get('/', [HodLeavePlanController::class, 'assignedIndex'])->name('index');
+        Route::get('/{leavePlan}/history', [HodLeavePlanController::class, 'history'])->name('history');
         Route::get('/{leavePlan}', [HodLeavePlanController::class, 'assignedShow'])->name('show');
         Route::post('/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->name('approve');
         Route::post('/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->name('reject');
@@ -78,6 +80,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/tracker/reminders', [HodTimesheetController::class, 'remindMissing'])->name('tracker.reminders');
         Route::get('/leave-plans', [HodLeavePlanController::class, 'index'])->name('leave-plans.index');
         Route::get('/leave-plans/calendar', [HodLeavePlanController::class, 'calendar'])->name('leave-plans.calendar');
+        Route::get('/leave-plans/{leavePlan}/history', [HodLeavePlanController::class, 'history'])->name('leave-plans.history');
         Route::get('/leave-plans/{leavePlan}', [HodLeavePlanController::class, 'show'])->name('leave-plans.show');
         Route::post('/leave-plans/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->name('leave-plans.approve');
         Route::post('/leave-plans/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->name('leave-plans.reject');
@@ -98,6 +101,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/hod-submission-tracker/reminders', [AdminHodTimesheetController::class, 'remindMissing'])->name('hod-tracker.reminders');
         Route::get('/leave-plans', [AdminLeavePlanController::class, 'index'])->name('leave-plans.index');
         Route::get('/leave-plans/calendar', [AdminLeavePlanController::class, 'calendar'])->name('leave-plans.calendar');
+        Route::get('/leave-plans/{leavePlan}/history', [AdminLeavePlanController::class, 'history'])->name('leave-plans.history');
         Route::get('/leave-plans/{leavePlan}', [AdminLeavePlanController::class, 'show'])->name('leave-plans.show');
         Route::post('/leave-plans/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->name('leave-plans.approve');
         Route::post('/leave-plans/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->name('leave-plans.reject');

@@ -8,6 +8,7 @@ use App\Services\AuditLogService;
 use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
 use App\Services\LeaveEntitlementService;
+use App\Services\LeavePlanStatusHistoryService;
 use App\Services\HolidayService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -59,7 +60,7 @@ class EmployeeLeavePlanController extends Controller
         ]);
     }
 
-    public function store(LeavePlanSaveRequest $request, AuditLogService $audit, LeavePlanEmailNotificationService $emails)
+    public function store(LeavePlanSaveRequest $request, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
         if ($redirect = $this->redirectIfMissingDepartment()) {
             return $redirect;
@@ -68,7 +69,7 @@ class EmployeeLeavePlanController extends Controller
         $user = $request->user();
         $submit = $request->boolean('submit');
 
-        $leavePlan = DB::transaction(function () use ($request, $user, $submit, $audit) {
+        $leavePlan = DB::transaction(function () use ($request, $user, $submit, $audit, $history) {
             $leavePlan = LeavePlan::create(array_merge($this->attributes($request), [
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
@@ -78,7 +79,9 @@ class EmployeeLeavePlanController extends Controller
             ]));
 
             if ($submit) {
-                $audit->record('leave_plan_submitted', $leavePlan, null, $leavePlan->fresh()->toArray());
+                $new = $leavePlan->fresh()->toArray();
+                $audit->record('leave_plan_submitted', $leavePlan, null, $new);
+                $history->record('leave_plan_submitted', $leavePlan, null, $new);
             }
 
             return $leavePlan;
@@ -103,6 +106,15 @@ class EmployeeLeavePlanController extends Controller
         ]);
     }
 
+    public function history(LeavePlan $leavePlan)
+    {
+        $this->authorizeOwner($leavePlan);
+
+        return view('shared.leave_plan_history_timeline', [
+            'leavePlan' => $leavePlan->load('statusHistories.user'),
+        ]);
+    }
+
     public function edit(Request $request, LeavePlan $leavePlan, LeavePlanCalendarService $calendar, LeaveEntitlementService $entitlements)
     {
         $this->authorizeOwner($leavePlan);
@@ -116,7 +128,7 @@ class EmployeeLeavePlanController extends Controller
         ]);
     }
 
-    public function update(LeavePlanSaveRequest $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails)
+    public function update(LeavePlanSaveRequest $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
         $this->authorizeOwner($leavePlan);
         abort_unless($leavePlan->editableBy($request->user()), 403);
@@ -127,8 +139,10 @@ class EmployeeLeavePlanController extends Controller
 
         $submit = $request->boolean('submit');
         $old = $leavePlan->toArray();
+        $wasRejected = $leavePlan->status === LeavePlan::STATUS_REJECTED;
+        $wasRecalled = $leavePlan->status === LeavePlan::STATUS_RECALLED;
 
-        DB::transaction(function () use ($request, $leavePlan, $submit, $audit, $old) {
+        DB::transaction(function () use ($request, $leavePlan, $submit, $audit, $history, $old, $wasRejected, $wasRecalled) {
             $leavePlan->update(array_merge($this->attributes($request), [
                 'department_id' => $request->user()->department_id,
                 'status' => $submit ? LeavePlan::STATUS_SUBMITTED : LeavePlan::STATUS_DRAFT,
@@ -155,12 +169,14 @@ class EmployeeLeavePlanController extends Controller
             ]));
 
             if ($submit) {
-                $audit->record('leave_plan_submitted', $leavePlan, $old, $leavePlan->fresh()->toArray());
+                $new = $leavePlan->fresh()->toArray();
+                $audit->record('leave_plan_submitted', $leavePlan, $old, $new);
+                $history->record($wasRejected || $wasRecalled ? 'leave_plan_resubmitted' : 'leave_plan_submitted', $leavePlan, $old, $new);
             }
         });
 
         if ($submit) {
-            $emails->submitted($leavePlan, true);
+            $emails->submitted($leavePlan, $wasRejected || $wasRecalled);
         }
 
         return redirect()
@@ -169,7 +185,7 @@ class EmployeeLeavePlanController extends Controller
             ->with('success', $submit ? 'Leave plan submitted for approval.' : 'Leave plan updated.');
     }
 
-    public function requestCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails)
+    public function requestCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
         $this->authorizeOwner($leavePlan);
         abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 403, 'Only approved leave plans can request cancellation.');
@@ -186,7 +202,9 @@ class EmployeeLeavePlanController extends Controller
             'cancellation_rejection_comment' => null,
         ]);
 
-        $audit->record('leave_plan_cancellation_requested', $leavePlan, $old, $leavePlan->fresh()->toArray());
+        $new = $leavePlan->fresh()->toArray();
+        $audit->record('leave_plan_cancellation_requested', $leavePlan, $old, $new);
+        $history->record('leave_plan_cancellation_requested', $leavePlan, $old, $new);
         $emails->cancellationRequested($leavePlan);
 
         return back()->with('success', 'Cancellation request sent for approval.');

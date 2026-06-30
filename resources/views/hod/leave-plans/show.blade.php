@@ -18,6 +18,7 @@
     @include('partials.status', ['status' => $leavePlan->status])
 </div>
 @include('shared.leave_plan_detail', ['leavePlan' => $leavePlan])
+@include('shared.leave_plan_history', ['leavePlan' => $leavePlan])
 @include('shared.leave_plan_review_calendar', ['reviewCalendarMonths' => $reviewCalendarMonths ?? collect()])
 @if($leavePlan->status === 'recalled')
     <div class="alert alert-warning mt-3">This approved leave plan was recalled and is waiting for the employee to correct and resubmit it.</div>

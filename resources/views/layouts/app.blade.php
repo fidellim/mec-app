@@ -1566,11 +1566,12 @@ window.setDatePickerReadonly = (input, isReadonly) => {
 
 initializeDatePickers();
 
-document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
+document.querySelectorAll('[data-timesheet-history], [data-leave-plan-history]').forEach((card) => {
     const toggle = card.querySelector('[data-history-toggle]');
     const panel = card.querySelector('[data-history-panel]');
     const content = card.querySelector('[data-history-content]');
     const url = card.dataset.historyUrl;
+    const historyLabel = card.dataset.historyLabel || 'Timesheet';
 
     if (!toggle || !panel || !content || !url) {
         return;
@@ -1603,7 +1604,7 @@ document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
             });
 
             if (!response.ok) {
-                throw new Error('Unable to load timesheet history.');
+                throw new Error(`Unable to load ${historyLabel.toLowerCase()} history.`);
             }
 
             content.innerHTML = await response.text();
@@ -1611,7 +1612,7 @@ document.querySelectorAll('[data-timesheet-history]').forEach((card) => {
             initializeTooltips(content);
             setVisible(true);
         } catch (error) {
-            content.innerHTML = '<div class="alert alert-warning mb-0">Timesheet history could not be loaded. Please try again.</div>';
+            content.innerHTML = `<div class="alert alert-warning mb-0">${historyLabel} history could not be loaded. Please try again.</div>`;
             toggle.textContent = 'Retry';
         } finally {
             toggle.disabled = false;

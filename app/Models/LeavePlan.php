@@ -151,6 +151,11 @@ class LeavePlan extends Model
         return $this->morphMany(AuditLog::class, 'auditable')->latest();
     }
 
+    public function statusHistories()
+    {
+        return $this->hasMany(LeavePlanStatusHistory::class)->latest('occurred_at');
+    }
+
     public function editableBy(User $user): bool
     {
         return (int) $this->user_id === (int) $user->id
