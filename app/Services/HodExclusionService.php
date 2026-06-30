@@ -35,9 +35,23 @@ class HodExclusionService
             ->exists();
     }
 
+    public function visibilityExcluded(User $hod, User|int|null $submitter): bool
+    {
+        $submitterId = $submitter instanceof User ? $submitter->id : $submitter;
+
+        if (! $submitterId || $hod->role !== 'hod') {
+            return false;
+        }
+
+        return $hod->hodVisibilityExcludedSubmitters()
+            ->whereKey($submitterId)
+            ->exists();
+    }
+
     public function shouldReceiveApprovalRequestEmail(User $hod, User $submitter): bool
     {
         return ! $this->notificationExcluded($hod, $submitter)
+            && ! $this->visibilityExcluded($hod, $submitter)
             && ! $this->approvalExcluded($hod, $submitter);
     }
 
@@ -50,7 +64,7 @@ class HodExclusionService
         $hodIds = DB::table('department_hod')
             ->where('department_id', $submitter->department_id)
             ->pluck('user_id')
-            ->push(DB::table('departments')->whereKey($submitter->department_id)->value('hod_id'))
+            ->push(DB::table('departments')->where('id', $submitter->department_id)->value('hod_id'))
             ->filter()
             ->map(fn ($id) => (int) $id)
             ->unique()
@@ -64,6 +78,7 @@ class HodExclusionService
             ->where('role', 'hod')
             ->where('is_active', true)
             ->when($excludingHodId, fn ($query) => $query->whereKeyNot($excludingHodId))
+            ->whereDoesntHave('hodVisibilityExcludedSubmitters', fn ($query) => $query->whereKey($submitter->id))
             ->whereDoesntHave('hodApprovalExcludedSubmitters', fn ($query) => $query->whereKey($submitter->id))
             ->count();
     }
@@ -88,6 +103,54 @@ class HodExclusionService
             ->get();
     }
 
+    public function visibleSubmittersForHod(User $hod): Collection
+    {
+        if ($hod->role !== 'hod') {
+            return collect();
+        }
+
+        $departmentIds = $this->hodApproverDepartmentIds($hod);
+
+        if ($departmentIds->isEmpty()) {
+            return collect();
+        }
+
+        return User::whereIn('department_id', $departmentIds)
+            ->whereIn('role', ['employee', 'hod'])
+            ->where('is_active', true)
+            ->whereKeyNot($hod->id)
+            ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey($hod->id))
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function visibleSubmitterIdsForHod(User $hod, bool $employeesOnly = false): Collection
+    {
+        $visible = $this->visibleSubmittersForHod($hod);
+
+        if ($employeesOnly) {
+            $visible = $visible->where('role', 'employee');
+        }
+
+        return $visible
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+    }
+
+    public function visibilityExcludableSubmitterIdsForHod(User $hod): Collection
+    {
+        if ($hod->role !== 'hod') {
+            return collect();
+        }
+
+        return $this->validSubmittersForHod($hod)
+            ->filter(fn (User $submitter) => $this->eligibleApproverCountFor($submitter, $hod->id) > 0)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+    }
+
     public function hodApproverDepartmentIds(User $hod): Collection
     {
         if ($hod->role !== 'hod') {
@@ -104,12 +167,13 @@ class HodExclusionService
             ->values();
     }
 
-    public function syncForHod(User $hod, array $notificationIds, array $approvalIds): array
+    public function syncForHod(User $hod, array $notificationIds, array $approvalIds, array $visibilityIds = []): array
     {
         if ($hod->role !== 'hod') {
             $old = $this->snapshotFor($hod);
             $hod->hodNotificationExcludedSubmitters()->sync([]);
             $hod->hodApprovalExcludedSubmitters()->sync([]);
+            $hod->hodVisibilityExcludedSubmitters()->sync([]);
 
             return [$old, $this->snapshotFor($hod)];
         }
@@ -117,6 +181,16 @@ class HodExclusionService
         $validIds = $this->validSubmittersForHod($hod)->pluck('id')->all();
         $notificationIds = $this->normalizeIds($notificationIds, $validIds);
         $approvalIds = $this->normalizeIds($approvalIds, $validIds);
+        $visibilityIds = $this->normalizeIds($visibilityIds, $validIds);
+
+        $visibilitySubmitters = User::whereIn('id', $visibilityIds)->get(['id', 'department_id']);
+        foreach ($visibilitySubmitters as $submitter) {
+            if ($this->eligibleApproverCountFor($submitter, $hod->id) < 1) {
+                throw ValidationException::withMessages([
+                    'hod_visibility_exclusion_ids' => 'Visibility exclusions must leave at least one eligible HOD who can see and approve every selected user.',
+                ]);
+            }
+        }
 
         $submitters = User::whereIn('id', $approvalIds)->get(['id', 'department_id']);
         foreach ($submitters as $submitter) {
@@ -130,6 +204,7 @@ class HodExclusionService
         $old = $this->snapshotFor($hod);
         $hod->hodNotificationExcludedSubmitters()->sync($notificationIds);
         $hod->hodApprovalExcludedSubmitters()->sync($approvalIds);
+        $hod->hodVisibilityExcludedSubmitters()->sync($visibilityIds);
 
         return [$old, $this->snapshotFor($hod)];
     }
@@ -139,11 +214,13 @@ class HodExclusionService
         if ($user->role !== 'hod') {
             DB::table('hod_notification_exclusions')->where('hod_user_id', $user->id)->delete();
             DB::table('hod_approval_exclusions')->where('hod_user_id', $user->id)->delete();
+            DB::table('hod_visibility_exclusions')->where('hod_user_id', $user->id)->delete();
         }
 
         if (! in_array($user->role, ['employee', 'hod'], true)) {
             DB::table('hod_notification_exclusions')->where('employee_user_id', $user->id)->delete();
             DB::table('hod_approval_exclusions')->where('employee_user_id', $user->id)->delete();
+            DB::table('hod_visibility_exclusions')->where('employee_user_id', $user->id)->delete();
         }
 
         $this->pruneInvalidPairs();
@@ -151,7 +228,7 @@ class HodExclusionService
 
     public function pruneInvalidPairs(): void
     {
-        foreach (['hod_notification_exclusions', 'hod_approval_exclusions'] as $table) {
+        foreach (['hod_notification_exclusions', 'hod_approval_exclusions', 'hod_visibility_exclusions'] as $table) {
             $invalidHodIds = DB::table($table)
                 ->join('users as hods', $table.'.hod_user_id', '=', 'hods.id')
                 ->where(function ($query) {
@@ -188,7 +265,7 @@ class HodExclusionService
                     ->where('user_id', $row->hod_user_id)
                     ->exists()
                     || DB::table('departments')
-                        ->whereKey($row->department_id)
+                        ->where('id', $row->department_id)
                         ->where('hod_id', $row->hod_user_id)
                         ->exists();
 
@@ -207,6 +284,16 @@ class HodExclusionService
                     DB::table('hod_approval_exclusions')->where('id', $row->id)->delete();
                 }
             });
+
+        DB::table('hod_visibility_exclusions')
+            ->orderBy('id')
+            ->get()
+            ->each(function ($row) {
+                $submitter = User::find($row->employee_user_id);
+                if (! $submitter || $this->eligibleApproverCountFor($submitter, (int) $row->hod_user_id) < 1) {
+                    DB::table('hod_visibility_exclusions')->where('id', $row->id)->delete();
+                }
+            });
     }
 
     public function snapshotFor(User $hod): array
@@ -214,6 +301,7 @@ class HodExclusionService
         return [
             'notification_excluded_user_ids' => $hod->hodNotificationExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->sort()->values()->all(),
             'approval_excluded_user_ids' => $hod->hodApprovalExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->sort()->values()->all(),
+            'visibility_excluded_user_ids' => $hod->hodVisibilityExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->sort()->values()->all(),
         ];
     }
 

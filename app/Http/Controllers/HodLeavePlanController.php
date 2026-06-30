@@ -38,6 +38,7 @@ class HodLeavePlanController extends Controller
         $employees = User::whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
             ->whereIn('role', ['employee', 'hod'])
             ->where('is_active', true)
+            ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey(auth()->id()))
             ->orderBy('name')
             ->get();
 
@@ -56,6 +57,7 @@ class HodLeavePlanController extends Controller
         $employees = User::whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
             ->whereIn('role', ['employee', 'hod'])
             ->where('is_active', true)
+            ->whereDoesntHave('visibilityExcludedByHods', fn ($employeeQuery) => $employeeQuery->whereKey(auth()->id()))
             ->orderBy('name')
             ->get();
 
@@ -83,7 +85,7 @@ class HodLeavePlanController extends Controller
             'leavePlan' => $leavePlan,
             'reviewCalendarMonths' => $reviewCalendar->build(
                 $leavePlan,
-                LeavePlan::query()->whereIn('department_id', $this->managedDepartmentIds()),
+                $this->scope(LeavePlan::query(), null),
             ),
         ]);
     }
@@ -321,7 +323,10 @@ class HodLeavePlanController extends Controller
 
         $departmentIds = $selectedDepartmentId ? [$selectedDepartmentId] : $this->managedDepartmentIds();
 
-        return $query->whereIn('department_id', $departmentIds);
+        return $query
+            ->whereIn('department_id', $departmentIds)
+            ->whereHas('user', fn ($userQuery) => $userQuery
+                ->whereDoesntHave('visibilityExcludedByHods', fn ($hodQuery) => $hodQuery->whereKey(auth()->id())));
     }
 
     private function authorizeDepartment(LeavePlan $leavePlan): void
@@ -331,6 +336,11 @@ class HodLeavePlanController extends Controller
         }
 
         abort_unless($this->managedDepartmentIds()->contains((int) $leavePlan->department_id), 403);
+        abort_if(
+            $this->hodExclusions->visibilityExcluded(auth()->user(), $leavePlan->user),
+            403,
+            'This employee is not visible to this Head of Department.'
+        );
     }
 
     private function authorizeApprovalAction(LeavePlan $leavePlan, string $action, bool $staged = true): void
@@ -344,6 +354,14 @@ class HodLeavePlanController extends Controller
             403,
             'You cannot '.$action.' your own leave plan.'
         );
+
+        if (
+            $actor->role === 'hod'
+            && $actor->managedDepartmentIds()->contains((int) $leavePlan->department_id)
+            && $this->hodExclusions->visibilityExcluded($actor, $leavePlan->user)
+        ) {
+            abort(403, 'This employee is not visible to this Head of Department.');
+        }
 
         if ($staged && $message = $approvals->currentStageMissingMessage($leavePlan)) {
             abort(422, $message);
@@ -362,6 +380,11 @@ class HodLeavePlanController extends Controller
         abort_unless($actor->role === 'hod', 403);
         abort_unless(! $staged || ($leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD) === LeavePlan::APPROVAL_STAGE_HOD, 403);
         abort_unless($actor->managedDepartmentIds()->contains((int) $leavePlan->department_id), 403);
+        abort_if(
+            $this->hodExclusions->visibilityExcluded($actor, $leavePlan->user),
+            403,
+            'This employee is not visible to this Head of Department.'
+        );
         abort_if(
             $this->hodExclusions->approvalExcluded($actor, $leavePlan->user),
             403,

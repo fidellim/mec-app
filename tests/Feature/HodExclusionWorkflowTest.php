@@ -116,6 +116,83 @@ class HodExclusionWorkflowTest extends TestCase
         $this->assertNull($leavePlan->approved_by);
     }
 
+    public function test_visibility_excluded_hod_cannot_see_or_action_employee_records(): void
+    {
+        Mail::fake();
+
+        [, $hiddenHod, $visibleHod, $employee] = $this->departmentWithTwoHods();
+        $hiddenHod->hodVisibilityExcludedSubmitters()->attach($employee->id);
+        $period = $this->openPeriod();
+        $project = $this->project();
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $this->validEntries($project),
+        ])->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload(['submit' => '1']))
+            ->assertRedirect();
+
+        $timesheet = $employee->timesheets()->firstOrFail();
+        $leavePlan = LeavePlan::firstOrFail();
+
+        $this->actingAs($hiddenHod)
+            ->get(route('hod.timesheets.index'))
+            ->assertOk()
+            ->assertDontSee($employee->name);
+
+        $this->actingAs($hiddenHod)
+            ->get(route('hod.leave-plans.index'))
+            ->assertOk()
+            ->assertDontSee($employee->name);
+
+        $this->actingAs($hiddenHod)
+            ->get(route('hod.leave-plans.calendar'))
+            ->assertOk()
+            ->assertDontSee($employee->name);
+
+        $this->actingAs($hiddenHod)
+            ->get(route('hod.tracker', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertDontSee($employee->name);
+
+        $this->actingAs($hiddenHod)
+            ->get(route('hod.timesheets.show', $timesheet))
+            ->assertForbidden();
+
+        $this->actingAs($hiddenHod)
+            ->get(route('hod.leave-plans.show', $leavePlan))
+            ->assertForbidden();
+
+        $this->actingAs($hiddenHod)
+            ->post(route('hod.timesheets.approve', $timesheet))
+            ->assertForbidden();
+
+        $this->actingAs($hiddenHod)
+            ->post(route('hod.leave-plans.approve', $leavePlan))
+            ->assertForbidden();
+
+        $this->actingAs($hiddenHod)
+            ->post(route('hod.tracker.reminders'), [
+                'period_id' => $period->id,
+                'employee_id' => $employee->id,
+            ])
+            ->assertNotFound();
+
+        $this->actingAs($visibleHod)
+            ->get(route('hod.timesheets.index'))
+            ->assertOk()
+            ->assertSee($employee->name);
+
+        $this->actingAs($visibleHod)
+            ->post(route('hod.timesheets.approve', $timesheet))
+            ->assertRedirect();
+
+        $this->assertSame($visibleHod->id, $timesheet->refresh()->approved_by);
+    }
+
     public function test_super_admin_can_manage_hod_exclusions_and_cannot_leave_zero_eligible_approvers(): void
     {
         $superAdmin = $this->userWithRole('super_admin');
@@ -125,12 +202,14 @@ class HodExclusionWorkflowTest extends TestCase
             ->get(route('manage.users.edit', $hod))
             ->assertOk()
             ->assertSee('HOD notification and approval exceptions')
+            ->assertSee('Do not show this employee to this HOD')
             ->assertSee($employee->name);
 
         $this->actingAs($superAdmin)
             ->put(route('manage.users.update', $hod), $this->userPayload($hod, [
                 'hod_notification_exclusion_ids' => [$employee->id],
                 'hod_approval_exclusion_ids' => [$employee->id],
+                'hod_visibility_exclusion_ids' => [$employee->id],
             ]))
             ->assertRedirect(route('manage.users.index'));
 
@@ -139,6 +218,10 @@ class HodExclusionWorkflowTest extends TestCase
             'employee_user_id' => $employee->id,
         ]);
         $this->assertDatabaseHas('hod_approval_exclusions', [
+            'hod_user_id' => $hod->id,
+            'employee_user_id' => $employee->id,
+        ]);
+        $this->assertDatabaseHas('hod_visibility_exclusions', [
             'hod_user_id' => $hod->id,
             'employee_user_id' => $employee->id,
         ]);
@@ -153,6 +236,35 @@ class HodExclusionWorkflowTest extends TestCase
             'hod_user_id' => $otherHod->id,
             'employee_user_id' => $employee->id,
         ]);
+
+        $this->actingAs($superAdmin)
+            ->put(route('manage.users.update', $otherHod), $this->userPayload($otherHod, [
+                'hod_visibility_exclusion_ids' => [$employee->id],
+            ]))
+            ->assertSessionHasErrors('hod_visibility_exclusion_ids');
+
+        $this->assertDatabaseMissing('hod_visibility_exclusions', [
+            'hod_user_id' => $otherHod->id,
+            'employee_user_id' => $employee->id,
+        ]);
+    }
+
+    public function test_visibility_selector_disables_employees_without_another_hod_available(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+
+        $department->update(['hod_id' => $hod->id]);
+        $department->hods()->sync([$hod->id]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.edit', $hod))
+            ->assertOk()
+            ->assertSee('Assign another HOD to the department first.')
+            ->assertSee($employee->name.' - Employee (assign another HOD first)')
+            ->assertSee('disabled', false);
     }
 
     public function test_exclusion_candidates_require_explicit_hod_approver_assignment(): void
@@ -218,6 +330,7 @@ class HodExclusionWorkflowTest extends TestCase
 
         $hod->hodNotificationExcludedSubmitters()->attach($employee->id);
         $hod->hodApprovalExcludedSubmitters()->attach($employee->id);
+        $hod->hodVisibilityExcludedSubmitters()->attach($employee->id);
 
         $this->actingAs($superAdmin)
             ->put(route('manage.users.update', $employee), $this->userPayload($employee, [
@@ -233,10 +346,15 @@ class HodExclusionWorkflowTest extends TestCase
             'hod_user_id' => $hod->id,
             'employee_user_id' => $employee->id,
         ]);
+        $this->assertDatabaseMissing('hod_visibility_exclusions', [
+            'hod_user_id' => $hod->id,
+            'employee_user_id' => $employee->id,
+        ]);
 
         $employee->update(['department_id' => $department->id]);
         $hod->hodNotificationExcludedSubmitters()->attach($employee->id);
         $hod->hodApprovalExcludedSubmitters()->attach($employee->id);
+        $hod->hodVisibilityExcludedSubmitters()->attach($employee->id);
 
         $this->actingAs($superAdmin)
             ->put(route('manage.users.update', $hod), $this->userPayload($hod, [
@@ -248,9 +366,11 @@ class HodExclusionWorkflowTest extends TestCase
 
         $this->assertDatabaseMissing('hod_notification_exclusions', ['hod_user_id' => $hod->id]);
         $this->assertDatabaseMissing('hod_approval_exclusions', ['hod_user_id' => $hod->id]);
+        $this->assertDatabaseMissing('hod_visibility_exclusions', ['hod_user_id' => $hod->id]);
 
         $otherHod->hodNotificationExcludedSubmitters()->attach($employee->id);
         $otherHod->hodApprovalExcludedSubmitters()->attach($employee->id);
+        $otherHod->hodVisibilityExcludedSubmitters()->attach($employee->id);
 
         $this->actingAs($superAdmin)
             ->put(route('manage.departments.update', $department), [
@@ -264,6 +384,7 @@ class HodExclusionWorkflowTest extends TestCase
 
         $this->assertDatabaseMissing('hod_notification_exclusions', ['hod_user_id' => $otherHod->id]);
         $this->assertDatabaseMissing('hod_approval_exclusions', ['hod_user_id' => $otherHod->id]);
+        $this->assertDatabaseMissing('hod_visibility_exclusions', ['hod_user_id' => $otherHod->id]);
     }
 
     private function departmentWithTwoHods(): array
@@ -293,6 +414,7 @@ class HodExclusionWorkflowTest extends TestCase
             'receives_hod_timesheet_submission_emails' => $user->receives_hod_timesheet_submission_emails ? '1' : '0',
             'hod_notification_exclusion_ids' => [],
             'hod_approval_exclusion_ids' => [],
+            'hod_visibility_exclusion_ids' => [],
         ], $overrides);
     }
 

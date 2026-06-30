@@ -39,6 +39,7 @@ class HodTimesheetController extends Controller
         $employees = User::whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
             ->whereIn('role', ['employee', 'hod'])
             ->where('is_active', true)
+            ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey(auth()->id()))
             ->orderBy('name')
             ->get();
 
@@ -153,6 +154,7 @@ class HodTimesheetController extends Controller
             ->whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
             ->where('role', 'employee')
             ->where('is_active', true)
+            ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey(auth()->id()))
             ->orderBy('name')
             ->get();
 
@@ -184,8 +186,17 @@ class HodTimesheetController extends Controller
             $employee = User::whereIn('department_id', $managedDepartmentIds)
                 ->where('role', 'employee')
                 ->where('is_active', true)
+                ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey(auth()->id()))
                 ->findOrFail($validated['employee_id']);
             $employeeIds = [$employee->id];
+        } else {
+            $employeeIds = User::whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
+                ->where('role', 'employee')
+                ->where('is_active', true)
+                ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey(auth()->id()))
+                ->pluck('id')
+                ->map(fn ($id) => (int) $id)
+                ->all();
         }
 
         $result = $reminders->sendForPeriodDetailed(
@@ -219,7 +230,10 @@ class HodTimesheetController extends Controller
 
         $departmentIds = $selectedDepartmentId ? [$selectedDepartmentId] : $this->managedDepartmentIds();
 
-        return $query->whereIn('department_id', $departmentIds);
+        return $query
+            ->whereIn('department_id', $departmentIds)
+            ->whereHas('user', fn ($userQuery) => $userQuery
+                ->whereDoesntHave('visibilityExcludedByHods', fn ($hodQuery) => $hodQuery->whereKey(auth()->id())));
     }
 
     private function authorizeDepartment(Timesheet $timesheet): void
@@ -229,6 +243,11 @@ class HodTimesheetController extends Controller
         }
 
         abort_unless($this->managedDepartmentIds()->contains((int) $timesheet->department_id), 403);
+        abort_if(
+            $this->hodExclusions->visibilityExcluded(auth()->user(), $timesheet->user),
+            403,
+            'This employee is not visible to this Head of Department.'
+        );
     }
 
     private function authorizeApprovalAction(Timesheet $timesheet, string $action): void
@@ -252,6 +271,11 @@ class HodTimesheetController extends Controller
 
         abort_unless($actor->role === 'hod', 403);
         abort_unless($actor->managedDepartmentIds()->contains((int) $timesheet->department_id), 403);
+        abort_if(
+            $this->hodExclusions->visibilityExcluded($actor, $timesheet->user),
+            403,
+            'This employee is not visible to this Head of Department.'
+        );
         abort_unless(
             $timesheet->user?->role === 'employee',
             403,

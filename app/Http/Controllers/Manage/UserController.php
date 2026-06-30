@@ -62,6 +62,8 @@ class UserController extends Controller
             'hodExclusionCandidates' => collect(),
             'hodNotificationExclusionIds' => [],
             'hodApprovalExclusionIds' => [],
+            'hodVisibilityExclusionIds' => [],
+            'hodVisibilityExcludableIds' => [],
         ]);
     }
 
@@ -86,7 +88,8 @@ class UserController extends Controller
         $hodExclusions->syncForHod(
             $user,
             $request->input('hod_notification_exclusion_ids', []),
-            $request->input('hod_approval_exclusion_ids', [])
+            $request->input('hod_approval_exclusion_ids', []),
+            $request->input('hod_visibility_exclusion_ids', [])
         );
         $audit->record('user_created', $user, null, $user->toArray());
 
@@ -104,6 +107,8 @@ class UserController extends Controller
             'hodExclusionCandidates' => $hodExclusions->validSubmittersForHod($user),
             'hodNotificationExclusionIds' => $user->hodNotificationExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
             'hodApprovalExclusionIds' => $user->hodApprovalExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
+            'hodVisibilityExclusionIds' => $user->hodVisibilityExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
+            'hodVisibilityExcludableIds' => $hodExclusions->visibilityExcludableSubmitterIdsForHod($user)->all(),
         ]);
     }
 
@@ -151,7 +156,8 @@ class UserController extends Controller
             [, $newExclusions] = $hodExclusions->syncForHod(
                 $user->fresh(),
                 $request->input('hod_notification_exclusion_ids', []),
-                $request->input('hod_approval_exclusion_ids', [])
+                $request->input('hod_approval_exclusion_ids', []),
+                $request->input('hod_visibility_exclusion_ids', [])
             );
 
             if ($oldHodExclusions !== $newExclusions) {
@@ -279,6 +285,8 @@ class UserController extends Controller
             'hod_notification_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
             'hod_approval_exclusion_ids' => ['nullable', 'array'],
             'hod_approval_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
+            'hod_visibility_exclusion_ids' => ['nullable', 'array'],
+            'hod_visibility_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
         ], [
             'employee_code.required' => 'Employee number is required for employees and HODs.',
             'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
@@ -293,7 +301,7 @@ class UserController extends Controller
         $data['joining_date'] = filled($data['joining_date'] ?? null) ? $data['joining_date'] : null;
         $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;
         $data['annual_leave_allowance_days'] = filled($data['annual_leave_allowance_days'] ?? null) ? $data['annual_leave_allowance_days'] : null;
-        unset($data['hod_notification_exclusion_ids'], $data['hod_approval_exclusion_ids']);
+        unset($data['hod_notification_exclusion_ids'], $data['hod_approval_exclusion_ids'], $data['hod_visibility_exclusion_ids']);
 
         return $data;
     }

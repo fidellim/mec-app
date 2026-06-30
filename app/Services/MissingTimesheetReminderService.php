@@ -109,7 +109,7 @@ class MissingTimesheetReminderService
             ->whereIn('role', $roles)
             ->where('is_active', true)
             ->when(is_array($departmentIds), fn ($query) => $query->whereIn('department_id', $departmentIds))
-            ->when($employeeIds, fn ($query) => $query->whereIn('id', $employeeIds))
+            ->when(is_array($employeeIds), fn ($query) => $query->whereIn('id', $employeeIds))
             ->whereDoesntHave('timesheets', function ($query) use ($period) {
                 $query->where('timesheet_period_id', $period->id)
                     ->whereIn('status', ['submitted', 'approved']);

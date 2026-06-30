@@ -7,6 +7,9 @@
     $maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'];
     $selectedNotificationExclusions = collect(old('hod_notification_exclusion_ids', $hodNotificationExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
     $selectedApprovalExclusions = collect(old('hod_approval_exclusion_ids', $hodApprovalExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
+    $selectedVisibilityExclusions = collect(old('hod_visibility_exclusion_ids', $hodVisibilityExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
+    $visibilityExcludableIds = collect($hodVisibilityExcludableIds ?? [])->map(fn ($id) => (int) $id)->all();
+    $hasVisibilityBlockedCandidates = $hodExclusionCandidates->contains(fn ($candidate) => ! in_array((int) $candidate->id, $visibilityExcludableIds, true));
 @endphp
 <div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $userModel->exists ? 'Edit User' : 'New User' }}</h1><div class="text-muted">Set employee identity, role, department, and account status.</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $userModel->exists ? route('manage.users.update', $userModel) : route('manage.users.store') }}">
@@ -121,6 +124,27 @@
                             <div class="form-text">Approval restriction. At least one other eligible HOD approver must remain.</div>
                             @error('hod_approval_exclusion_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                             @error('hod_approval_exclusion_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label" for="hodVisibilityExclusionIds">Do not show this employee to this HOD</label>
+                            @if($hasVisibilityBlockedCandidates)
+                                <div class="alert alert-info py-2 small">
+                                    Some employees cannot be hidden from this HOD yet because no other active HOD can still see and approve them. Assign another HOD to the department first.
+                                </div>
+                            @endif
+                            <select class="form-select @error('hod_visibility_exclusion_ids') is-invalid @enderror @error('hod_visibility_exclusion_ids.*') is-invalid @enderror" id="hodVisibilityExclusionIds" name="hod_visibility_exclusion_ids[]" multiple>
+                                @foreach($hodExclusionCandidates as $candidate)
+                                    @php
+                                        $candidateCanBeHidden = in_array((int) $candidate->id, $visibilityExcludableIds, true);
+                                    @endphp
+                                    <option value="{{ $candidate->id }}" @selected(in_array((int) $candidate->id, $selectedVisibilityExclusions, true)) @disabled(! $candidateCanBeHidden)>
+                                        {{ $candidate->name }} - {{ $roleLabels[$candidate->role] ?? $candidate->role }}{{ $candidateCanBeHidden ? '' : ' (assign another HOD first)' }}
+                                    </option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Visibility restriction. This also prevents approve, reject, recall, tracker, reminder, and direct detail access. At least one other eligible HOD must remain.</div>
+                            @error('hod_visibility_exclusion_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error('hod_visibility_exclusion_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                     </div>
                 @endif
