@@ -57,6 +57,13 @@ For forms:
 - visible validation errors
 - primary and secondary buttons
 
+## Testing Rules
+
+- Use `composer test` for full Laravel regression runs.
+- Use `php artisan test --parallel --processes=4 ...` for focused Laravel test runs.
+- Avoid plain `php artisan test` for broad runs because it is serial and can exceed command timeouts.
+- If a full regression still reaches the tool timeout, split it into parallel batches and report it as a runtime limit unless a test failure is shown.
+
 ## Development Priority
 
 Improve one page at a time.
