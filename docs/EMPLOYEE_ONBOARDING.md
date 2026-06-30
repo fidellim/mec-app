@@ -121,9 +121,7 @@ Use **My Leave Plans** to plan leave before filling the related weekly timesheet
 
 Draft and rejected leave plans can be edited. Submitted leave plans are locked until reviewed. Approved leave plans can be cancelled only by sending a cancellation request for review.
 
-For `L100 - Annual Leave` and `L110 - Sick Leave`, the form shows your yearly allowance, used or reserved days, and remaining days. The allowances refresh every January 1, unused days do not carry over, and submitted leave is blocked if it exceeds your remaining allowance. Maternity, parental, and bereavement / compassionate leave limits are checked at submission, but remaining balances are not shown because eligibility is reviewed manually.
-
-`L190 - Service Incentive Leave` is also available as a leave type. It does not show or enforce a leave balance.
+The leave form shows yearly allowance, used or reserved days, and remaining days for each leave entitlement available to your profile. The allowances refresh every January 1, unused days do not carry over, and submitted leave is blocked if it exceeds your remaining allowance. Maternity leave is available only when your gender is set to Female. Parental leave is available only when your marital status is set to Married. `L190 - Service Incentive Leave` is still available as a leave type, but it does not show or enforce a leave balance.
 
 Holiday entries are read-only. They help explain why a date range may use fewer counted leave days than the number of calendar days selected.
 

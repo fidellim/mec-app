@@ -41,6 +41,7 @@ class DashboardWorkflowTest extends TestCase
                 ->assertSee('Leave balances')
                 ->assertSee('Annual leave')
                 ->assertSee('Sick leave')
+                ->assertSee('Bereavement / compassionate leave')
                 ->assertDontSee('Maternity leave');
         }
     }

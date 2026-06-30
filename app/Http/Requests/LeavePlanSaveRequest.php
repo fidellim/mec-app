@@ -35,15 +35,28 @@ class LeavePlanSaveRequest extends FormRequest
                 $validator->errors()->add('end_date', 'Half-day leave must use the same start and end date.');
             }
 
-            if ($validator->errors()->isNotEmpty() || ! $this->boolean('submit')) {
+            if ($validator->errors()->isNotEmpty()) {
+                return;
+            }
+
+            $entitlements = app(LeaveEntitlementService::class);
+            $attendanceCode = $this->input('attendance_code');
+
+            if (is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode)) {
+                $validator->errors()->add('attendance_code', $entitlements->eligibilityMessage($attendanceCode) ?? 'This leave type is not available for your profile.');
+
+                return;
+            }
+
+            if (! $this->boolean('submit')) {
                 return;
             }
 
             $leavePlan = $this->route('leavePlan');
-            $violations = app(LeaveEntitlementService::class)->submissionViolations(
+            $violations = $entitlements->submissionViolations(
                 $this->user(),
                 [
-                    'attendance_code' => $this->input('attendance_code'),
+                    'attendance_code' => $attendanceCode,
                     'start_date' => $this->input('start_date'),
                     'end_date' => $this->input('end_date'),
                     'duration_type' => $this->input('duration_type'),
@@ -53,7 +66,7 @@ class LeavePlanSaveRequest extends FormRequest
             );
 
             foreach ($violations as $violation) {
-                $validator->errors()->add('attendance_code', app(LeaveEntitlementService::class)->violationMessage($violation));
+                $validator->errors()->add('attendance_code', $entitlements->violationMessage($violation));
             }
         });
     }

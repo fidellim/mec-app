@@ -42,7 +42,7 @@ class EmployeeLeavePlanController extends Controller
             includeUrls: false,
             allowedStatusFilters: LeavePlanCalendarService::DEFAULT_STATUSES,
         ) + [
-            'attendanceCodes' => $this->leaveAttendanceCodes(),
+            'attendanceCodes' => $this->leaveAttendanceCodes($request->user()),
         ]);
     }
 
@@ -54,7 +54,7 @@ class EmployeeLeavePlanController extends Controller
 
         return view('employee.leave-plans.form', [
             'leavePlan' => null,
-            'attendanceCodes' => $this->leaveAttendanceCodes(),
+            'attendanceCodes' => $this->leaveAttendanceCodes($request->user()),
             'availabilityCalendar' => $this->availabilityCalendar($request, $calendar),
             'leaveBalances' => $this->leaveBalances($request, $entitlements),
         ]);
@@ -122,7 +122,7 @@ class EmployeeLeavePlanController extends Controller
 
         return view('employee.leave-plans.form', [
             'leavePlan' => $leavePlan,
-            'attendanceCodes' => $this->leaveAttendanceCodes(),
+            'attendanceCodes' => $this->leaveAttendanceCodes($request->user()),
             'availabilityCalendar' => $this->availabilityCalendar($request, $calendar, $leavePlan),
             'leaveBalances' => $this->leaveBalances($request, $entitlements, $leavePlan),
         ]);
@@ -231,10 +231,12 @@ class EmployeeLeavePlanController extends Controller
         return $validated;
     }
 
-    private function leaveAttendanceCodes(): array
+    private function leaveAttendanceCodes($user): array
     {
+        $leaveAttendanceCodes = app(LeaveEntitlementService::class)->eligibleLeaveAttendanceCodesFor($user);
+
         return collect(config('timesheet.attendance_codes'))
-            ->only(config('timesheet.leave_attendance_codes', []))
+            ->only($leaveAttendanceCodes)
             ->all();
     }
 

@@ -64,12 +64,12 @@ return new class extends Migration
             'bereavement_compassionate_leave_default_days_uae' => [
                 'name' => 'UAE Bereavement / Compassionate Leave Default Days',
                 'description' => 'Default L180 bereavement / compassionate leave policy allowance for UAE employees. Eligibility is reviewed manually.',
-                'decimal_value' => 5,
+                'decimal_value' => 8,
             ],
             'bereavement_compassionate_leave_default_days_ph' => [
                 'name' => 'Philippines Bereavement / Compassionate Leave Default Days',
                 'description' => 'Default L180 bereavement / compassionate leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 5,
+                'decimal_value' => 8,
             ],
         ] as $key => $attributes) {
             DB::table('leave_settings')->updateOrInsert(

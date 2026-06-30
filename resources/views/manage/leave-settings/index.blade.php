@@ -22,7 +22,7 @@
         @endforeach
         <div class="col-12">
             <div class="alert alert-info mb-0">
-                Annual and sick leave balances are shown to users. Maternity, parental, and bereavement / compassionate leave are enforced at submission, but remaining balances are hidden because eligibility is reviewed manually.
+                Eligible entitlement balances are shown to users. Maternity leave appears only when gender is Female, and parental leave appears only when marital status is Married.
             </div>
         </div>
     </div>

@@ -84,7 +84,7 @@
         <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
             <div>
                 <h2 class="h5 mb-1">Leave balances</h2>
-                <div class="small text-muted">Annual and sick leave allowances reset every January 1. Unused days do not carry over.</div>
+                <div class="small text-muted">Eligible leave entitlements reset every January 1. Unused days do not carry over.</div>
             </div>
         </div>
         <div class="row g-3 mt-1">

@@ -1183,7 +1183,10 @@ class LeavePlanWorkflowTest extends TestCase
 
     public function test_parental_label_and_supporting_document_guidance_show_on_leave_form(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'marital_status' => 'married',
+        ]);
 
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
@@ -1196,13 +1199,17 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('Paternity Leave');
     }
 
-    public function test_special_leave_policy_limits_are_enforced_but_hidden_from_balance_cards(): void
+    public function test_eligible_special_leave_policy_balances_are_visible_and_enforced(): void
     {
         LeaveSetting::where('key', LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
         LeaveSetting::where('key', LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
         LeaveSetting::where('key', LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
 
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'gender' => 'female',
+            'marital_status' => 'married',
+        ]);
 
         foreach (['L160', 'L170', 'L180'] as $attendanceCode) {
             $this->actingAs($employee)
@@ -1220,9 +1227,88 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Annual leave')
             ->assertSee('Sick leave')
-            ->assertDontSee('Maternity leave allowance')
-            ->assertDontSee('Parental leave allowance')
-            ->assertDontSee('Bereavement / compassionate leave allowance');
+            ->assertSee('Maternity leave')
+            ->assertSee('Parental leave')
+            ->assertSee('Bereavement / compassionate leave');
+    }
+
+    public function test_leave_entitlement_visibility_obeys_profile_eligibility_rules(): void
+    {
+        $department = $this->department();
+        $femaleSingleEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'gender' => 'female',
+            'marital_status' => 'single',
+        ]);
+        $maleMarriedEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'gender' => 'male',
+            'marital_status' => 'married',
+        ]);
+        $profileIncompleteEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'gender' => null,
+            'marital_status' => null,
+        ]);
+
+        $this->actingAs($femaleSingleEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertSee('L160 - Maternity Leave')
+            ->assertDontSee('L170 - Parental Leave')
+            ->assertSee('Bereavement / compassionate leave');
+
+        $this->actingAs($maleMarriedEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L160 - Maternity Leave')
+            ->assertSee('L170 - Parental Leave')
+            ->assertSee('Bereavement / compassionate leave');
+
+        $this->actingAs($profileIncompleteEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L160 - Maternity Leave')
+            ->assertDontSee('L170 - Parental Leave')
+            ->assertSee('Bereavement / compassionate leave');
+    }
+
+    public function test_ineligible_maternity_and_parental_leave_cannot_be_saved_or_submitted(): void
+    {
+        $department = $this->department();
+        $maleEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'gender' => 'male',
+            'marital_status' => 'married',
+        ]);
+        $singleEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'gender' => 'female',
+            'marital_status' => 'single',
+        ]);
+
+        $this->actingAs($maleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L160',
+                'submit' => '0',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($singleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L170',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->assertDatabaseMissing('leave_plans', [
+            'user_id' => $maleEmployee->id,
+            'attendance_code' => 'L160',
+        ]);
+        $this->assertDatabaseMissing('leave_plans', [
+            'user_id' => $singleEmployee->id,
+            'attendance_code' => 'L170',
+        ]);
     }
 
     public function test_leave_plan_validation_and_overlap_warning(): void

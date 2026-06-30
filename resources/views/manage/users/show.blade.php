@@ -85,7 +85,7 @@
 
 @include('shared.leave_balance_cards', [
     'leaveBalances' => $leaveBalances,
-    'title' => 'Annual and sick leave balances',
-    'description' => 'Current calendar year balances for this user.',
+    'title' => 'Eligible leave balances',
+    'description' => 'Current calendar year eligible balances for this user.',
 ])
 @endsection

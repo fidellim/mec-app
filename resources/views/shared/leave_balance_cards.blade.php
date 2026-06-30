@@ -2,7 +2,7 @@
     <div class="content-card mb-4">
         <div class="content-card-header">
             <h2 class="h5 mb-1">{{ $title ?? 'Leave balances' }}</h2>
-            <div class="small text-muted">{{ $description ?? 'Annual and sick leave balances for the current calendar year.' }}</div>
+            <div class="small text-muted">{{ $description ?? 'Eligible leave entitlements for the current calendar year.' }}</div>
         </div>
         <div class="content-card-body">
             <div class="row g-3">

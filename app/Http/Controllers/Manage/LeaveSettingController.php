@@ -91,12 +91,12 @@ class LeaveSettingController extends Controller
             LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Bereavement / Compassionate Leave Default Days',
                 'description' => 'Default L180 bereavement / compassionate leave policy allowance for UAE employees. Eligibility is reviewed manually.',
-                'decimal_value' => 5,
+                'decimal_value' => 8,
             ],
             LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Bereavement / Compassionate Leave Default Days',
                 'description' => 'Default L180 bereavement / compassionate leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 5,
+                'decimal_value' => 8,
             ],
         ];
     }

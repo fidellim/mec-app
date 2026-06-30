@@ -98,7 +98,7 @@ By default, calendars show submitted, approved, and cancellation-requested leave
 
 ## Current Limitations
 
-- Annual, sick, maternity, parental, and bereavement / compassionate leave entitlements are tracked. Annual and sick balances are shown to employees; the other tracked balances are enforced but hidden because eligibility is reviewed manually. Other leave codes, including `L190 - Service Incentive Leave`, do not have balance limits.
+- Annual, sick, maternity, parental, and bereavement / compassionate leave entitlements are tracked and shown when the employee is eligible. Maternity leave is available only when the employee gender is set to Female. Parental leave is available only when the employee marital status is set to Married. Other leave codes, including `L190 - Service Incentive Leave`, do not have balance limits.
 - Approved leave does not automatically populate weekly timesheets.
 - Overlap detection warns only; it does not block submission.
 - Calendar entries link to existing detail or review pages instead of editing inline.

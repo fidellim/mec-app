@@ -79,8 +79,8 @@ class ManagementWorkflowTest extends TestCase
                 'maternity_leave_default_days_ph' => '60',
                 'parental_leave_default_days_uae' => '5',
                 'parental_leave_default_days_ph' => '5',
-                'bereavement_compassionate_leave_default_days_uae' => '5',
-                'bereavement_compassionate_leave_default_days_ph' => '5',
+                'bereavement_compassionate_leave_default_days_uae' => '8',
+                'bereavement_compassionate_leave_default_days_ph' => '8',
             ])
             ->assertRedirect(route('manage.leave-settings.index'));
 
@@ -142,8 +142,8 @@ class ManagementWorkflowTest extends TestCase
                     'maternity_leave_default_days_ph' => 60,
                     'parental_leave_default_days_uae' => 5,
                     'parental_leave_default_days_ph' => 5,
-                    'bereavement_compassionate_leave_default_days_uae' => 5,
-                    'bereavement_compassionate_leave_default_days_ph' => 5,
+                    'bereavement_compassionate_leave_default_days_uae' => 8,
+                    'bereavement_compassionate_leave_default_days_ph' => 8,
                 ])
                 ->assertForbidden();
         }
@@ -177,7 +177,7 @@ class ManagementWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('User Profile')
             ->assertSee('Project Engineer')
-            ->assertSee('Annual and sick leave balances')
+            ->assertSee('Eligible leave balances')
             ->assertDontSee('Edit');
 
         $this->actingAs($admin)

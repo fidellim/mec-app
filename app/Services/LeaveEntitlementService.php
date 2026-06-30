@@ -25,11 +25,6 @@ class LeaveEntitlementService
         self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
     ];
 
-    public const VISIBLE_BALANCE_LEAVE_CODES = [
-        self::ANNUAL_LEAVE_CODE,
-        self::SICK_LEAVE_CODE,
-    ];
-
     public const COUNTED_STATUSES = [
         LeavePlan::STATUS_SUBMITTED,
         LeavePlan::STATUS_APPROVED,
@@ -117,7 +112,7 @@ class LeaveEntitlementService
     {
         $year ??= (int) now()->year;
 
-        return collect(self::VISIBLE_BALANCE_LEAVE_CODES)
+        return collect($this->eligibleEntitledLeaveCodesFor($user))
             ->mapWithKeys(function (string $attendanceCode) use ($user, $year, $excludeLeavePlanId) {
                 $balance = $this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode);
                 $balance['formatted'] = [
@@ -129,6 +124,40 @@ class LeaveEntitlementService
                 return [$attendanceCode => $balance];
             })
             ->all();
+    }
+
+    public function eligibleEntitledLeaveCodesFor(User $user): array
+    {
+        return collect(self::ENTITLED_LEAVE_CODES)
+            ->filter(fn (string $attendanceCode) => $this->userIsEligibleFor($user, $attendanceCode))
+            ->values()
+            ->all();
+    }
+
+    public function eligibleLeaveAttendanceCodesFor(User $user): array
+    {
+        return collect(config('timesheet.leave_attendance_codes', []))
+            ->filter(fn (string $attendanceCode) => $this->userIsEligibleFor($user, $attendanceCode))
+            ->values()
+            ->all();
+    }
+
+    public function userIsEligibleFor(User $user, string $attendanceCode): bool
+    {
+        return match ($attendanceCode) {
+            self::MATERNITY_LEAVE_CODE => $user->gender === 'female',
+            self::PARENTAL_LEAVE_CODE => $user->marital_status === 'married',
+            default => true,
+        };
+    }
+
+    public function eligibilityMessage(string $attendanceCode): ?string
+    {
+        return match ($attendanceCode) {
+            self::MATERNITY_LEAVE_CODE => 'Maternity leave is available only for employees whose gender is set to Female.',
+            self::PARENTAL_LEAVE_CODE => 'Parental leave is available only for employees whose marital status is set to Married.',
+            default => null,
+        };
     }
 
     public function submissionViolations(User $user, array $attributes, ?int $excludeLeavePlanId = null): array
@@ -259,7 +288,11 @@ class LeaveEntitlementService
             return 60.0;
         }
 
-        if (in_array($attendanceCode, [self::PARENTAL_LEAVE_CODE, self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE], true)) {
+        if ($attendanceCode === self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE) {
+            return 8.0;
+        }
+
+        if ($attendanceCode === self::PARENTAL_LEAVE_CODE) {
             return 5.0;
         }
 
