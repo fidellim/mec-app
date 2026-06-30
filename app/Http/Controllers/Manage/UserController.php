@@ -267,6 +267,9 @@ class UserController extends Controller
             ],
             'initials' => ['nullable', 'string', 'max:20'],
             'job_title' => ['nullable', 'string', 'max:100'],
+            'gender' => ['nullable', Rule::in(['male', 'female'])],
+            'joining_date' => ['nullable', 'date'],
+            'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
             'department_id' => ['nullable', 'exists:departments,id'],
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
@@ -286,6 +289,9 @@ class UserController extends Controller
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
         $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
+        $data['gender'] = filled($data['gender'] ?? null) ? $data['gender'] : null;
+        $data['joining_date'] = filled($data['joining_date'] ?? null) ? $data['joining_date'] : null;
+        $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;
         $data['annual_leave_allowance_days'] = filled($data['annual_leave_allowance_days'] ?? null) ? $data['annual_leave_allowance_days'] : null;
         unset($data['hod_notification_exclusion_ids'], $data['hod_approval_exclusion_ids']);
 

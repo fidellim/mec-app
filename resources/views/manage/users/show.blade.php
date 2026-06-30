@@ -2,6 +2,8 @@
 
 @section('content')
 @php($roleLabels = config('roles.labels'))
+@php($genderLabels = ['male' => 'Male', 'female' => 'Female'])
+@php($maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'])
 @php($assignedDepartments = $userModel->primaryDepartments->merge($userModel->managedDepartments)->unique('id')->values())
 <div class="section-header">
     <div>
@@ -46,6 +48,18 @@
             <div class="col-md-4">
                 <div class="meta-label">Job Title</div>
                 <div class="meta-value">{{ $userModel->job_title ?: '-' }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="meta-label">Gender</div>
+                <div class="meta-value">{{ $genderLabels[$userModel->gender] ?? '-' }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="meta-label">Joining Date</div>
+                <div class="meta-value">{{ $userModel->joining_date?->format('M d, Y') ?: '-' }}</div>
+            </div>
+            <div class="col-md-4">
+                <div class="meta-label">Marital Status</div>
+                <div class="meta-value">{{ $maritalStatusLabels[$userModel->marital_status] ?? '-' }}</div>
             </div>
             <div class="col-md-4">
                 <div class="meta-label">Role</div>

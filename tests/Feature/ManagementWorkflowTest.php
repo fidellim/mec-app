@@ -428,6 +428,72 @@ class ManagementWorkflowTest extends TestCase
         ])->assertSessionHasErrors('job_title');
     }
 
+    public function test_super_admin_can_manage_optional_user_profile_fields(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), [
+            'name' => 'Profile Fields Employee',
+            'email' => 'profile.fields@example.com',
+            'password' => 'password123',
+            'employee_code' => 'MEC-HR-2026-105',
+            'gender' => 'female',
+            'joining_date' => '2026-06-15',
+            'marital_status' => 'married',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $user = User::where('email', 'profile.fields@example.com')->firstOrFail();
+
+        $this->assertDatabaseHas('users', [
+            'email' => 'profile.fields@example.com',
+            'gender' => 'female',
+            'marital_status' => 'married',
+        ]);
+        $this->assertSame('2026-06-15', $user->joining_date->toDateString());
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.show', $user))
+            ->assertOk()
+            ->assertSee('Female')
+            ->assertSee('Jun 15, 2026')
+            ->assertSee('Married');
+
+        $this->actingAs($superAdmin)->put(route('manage.users.update', $user), [
+            'name' => $user->name,
+            'email' => $user->email,
+            'employee_code' => $user->employee_code,
+            'gender' => '',
+            'joining_date' => '',
+            'marital_status' => '',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertRedirect(route('manage.users.index'));
+
+        $user->refresh();
+
+        $this->assertNull($user->gender);
+        $this->assertNull($user->joining_date);
+        $this->assertNull($user->marital_status);
+
+        $this->actingAs($superAdmin)->post(route('manage.users.store'), [
+            'name' => 'Invalid Profile Fields',
+            'email' => 'invalid.profile.fields@example.com',
+            'password' => 'password123',
+            'employee_code' => 'MEC-HR-2026-106',
+            'gender' => 'unknown',
+            'joining_date' => 'not-a-date',
+            'marital_status' => 'complicated',
+            'department_id' => $department->id,
+            'role' => 'employee',
+            'is_active' => '1',
+        ])->assertSessionHasErrors(['gender', 'joining_date', 'marital_status']);
+    }
+
     public function test_super_admin_can_filter_users_by_department(): void
     {
         $superAdmin = $this->userWithRole('super_admin', ['name' => 'Platform Admin']);

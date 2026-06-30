@@ -2,6 +2,8 @@
 
 @section('content')
 @php($roleLabels = config('roles.labels'))
+@php($genderLabels = ['male' => 'Male', 'female' => 'Female'])
+@php($maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'])
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Users</h1>
@@ -49,6 +51,7 @@
                     <th>Employee Number</th>
                     <th>Initials</th>
                     <th>Job Title</th>
+                    <th>Joining Date</th>
                     <th>Email</th>
                     <th>Role</th>
                     <th>Department</th>
@@ -69,7 +72,11 @@
                         </td>
                         <td>{{ $user->employee_code ?: '-' }}</td>
                         <td>{{ $user->initials ?: '-' }}</td>
-                        <td>{{ $user->job_title ?: '-' }}</td>
+                        <td>
+                            <div>{{ $user->job_title ?: '-' }}</div>
+                            <div class="small text-muted">{{ $genderLabels[$user->gender] ?? '-' }} / {{ $maritalStatusLabels[$user->marital_status] ?? '-' }}</div>
+                        </td>
+                        <td>{{ $user->joining_date?->format('M d, Y') ?: '-' }}</td>
                         <td>{{ $user->email }}</td>
                         <td><span class="badge text-bg-light border text-dark">{{ $roleLabels[$user->role] ?? $user->role }}</span></td>
                         <td>{{ $user->department?->name ?: '-' }}</td>
@@ -93,7 +100,7 @@
                 @endforeach
                 @if($users->isEmpty())
                     <tr>
-                        <td colspan="10" class="text-center text-muted py-4">No users match the selected department.</td>
+                        <td colspan="11" class="text-center text-muted py-4">No users match the selected department.</td>
                     </tr>
                 @endif
             </tbody>

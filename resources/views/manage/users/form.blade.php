@@ -3,6 +3,8 @@
 @section('content')
 @php
     $roleLabels = config('roles.labels');
+    $genderLabels = ['male' => 'Male', 'female' => 'Female'];
+    $maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'];
     $selectedNotificationExclusions = collect(old('hod_notification_exclusion_ids', $hodNotificationExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
     $selectedApprovalExclusions = collect(old('hod_approval_exclusion_ids', $hodApprovalExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
 @endphp
@@ -26,6 +28,37 @@
             <label class="form-label">Job Title</label>
             <input class="form-control" name="job_title" value="{{ old('job_title', $userModel->job_title) }}" maxlength="100" placeholder="Project Engineer">
             <div class="form-text">Optional. Shown in timesheet exports.</div>
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="gender">Gender</label>
+            <select class="form-select @error('gender') is-invalid @enderror" id="gender" name="gender">
+                <option value="">Not specified</option>
+                @foreach($genderLabels as $value => $label)
+                    <option value="{{ $value }}" @selected(old('gender', $userModel->gender) === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            @error('gender')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="joining_date">Joining Date</label>
+            <input class="form-control @error('joining_date') is-invalid @enderror" id="joining_date" name="joining_date" type="date" value="{{ old('joining_date', optional($userModel->joining_date)->format('Y-m-d')) }}">
+            @error('joining_date')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="col-md-4">
+            <label class="form-label" for="marital_status">Marital Status</label>
+            <select class="form-select @error('marital_status') is-invalid @enderror" id="marital_status" name="marital_status">
+                <option value="">Not specified</option>
+                @foreach($maritalStatusLabels as $value => $label)
+                    <option value="{{ $value }}" @selected(old('marital_status', $userModel->marital_status) === $value)>{{ $label }}</option>
+                @endforeach
+            </select>
+            @error('marital_status')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
         </div>
         <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role" id="roleSelect">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>

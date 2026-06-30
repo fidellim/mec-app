@@ -12,8 +12,8 @@ class User extends Authenticatable
     use HasFactory, Notifiable;
 
     protected $fillable = [
-        'name', 'email', 'password', 'employee_code', 'initials', 'job_title', 'department_id', 'role', 'is_active',
-        'receives_hod_timesheet_submission_emails', 'annual_leave_allowance_days',
+        'name', 'email', 'password', 'employee_code', 'initials', 'job_title', 'gender', 'joining_date', 'marital_status',
+        'department_id', 'role', 'is_active', 'receives_hod_timesheet_submission_emails', 'annual_leave_allowance_days',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -24,6 +24,7 @@ class User extends Authenticatable
             'id' => 'integer',
             'department_id' => 'integer',
             'password' => 'hashed',
+            'joining_date' => 'date',
             'is_active' => 'boolean',
             'receives_hod_timesheet_submission_emails' => 'boolean',
             'annual_leave_allowance_days' => 'decimal:2',
