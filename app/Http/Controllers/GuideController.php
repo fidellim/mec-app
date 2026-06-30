@@ -17,7 +17,7 @@ class GuideController extends Controller
     public function __invoke()
     {
         $user = auth()->user();
-        $fileName = self::ROLE_GUIDES[$user->role] ?? null;
+        $fileName = $this->guideFileNameFor($user);
 
         abort_unless($fileName, 404);
 
@@ -36,5 +36,24 @@ class GuideController extends Controller
             'roleLabel' => config('roles.labels.'.$user->role, Str::headline($user->role)),
             'updatedAt' => File::lastModified($path),
         ]);
+    }
+
+    private function guideFileNameFor($user): ?string
+    {
+        if ($this->isPhilippinesUser($user)) {
+            return match ($user->role) {
+                'employee' => 'PH_EMPLOYEE_ONBOARDING.md',
+                'hod' => 'PH_HOD_ONBOARDING.md',
+                default => self::ROLE_GUIDES[$user->role] ?? null,
+            };
+        }
+
+        return self::ROLE_GUIDES[$user->role] ?? null;
+    }
+
+    private function isPhilippinesUser($user): bool
+    {
+        return is_string($user->employee_code)
+            && str_starts_with($user->employee_code, 'MEC-PHIL-HR-');
     }
 }

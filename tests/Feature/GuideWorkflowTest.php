@@ -18,7 +18,7 @@ class GuideWorkflowTest extends TestCase
 
     public function test_guide_renders_employee_content_for_employee(): void
     {
-        $employee = $this->userWithRole('employee');
+        $employee = $this->userWithRole('employee', ['employee_code' => 'MEC-HR-2026-101']);
 
         $this->actingAs($employee)
             ->get(route('guide'))
@@ -30,9 +30,23 @@ class GuideWorkflowTest extends TestCase
             ->assertDontSee('Automation did not run');
     }
 
+    public function test_guide_renders_philippines_employee_content_for_philippines_employee(): void
+    {
+        $employee = $this->userWithRole('employee', ['employee_code' => 'MEC-PHIL-HR-2026-101']);
+
+        $this->actingAs($employee)
+            ->get(route('guide'))
+            ->assertOk()
+            ->assertSee('Philippines Employee Onboarding Guide')
+            ->assertSee('MEC-PHIL-HR-')
+            ->assertSee('Service Incentive Leave')
+            ->assertDontSee('15 sick leave days')
+            ->assertDontSee('45 maternity leave days');
+    }
+
     public function test_guide_renders_hod_content_for_hod(): void
     {
-        $hod = $this->userWithRole('hod');
+        $hod = $this->userWithRole('hod', ['employee_code' => 'MEC-HR-2026-102']);
 
         $this->actingAs($hod)
             ->get(route('guide'))
@@ -40,6 +54,20 @@ class GuideWorkflowTest extends TestCase
             ->assertSee('Head of Department guide for using MEC Group Portal.')
             ->assertSee('Submission Tracker')
             ->assertDontSee('Automation did not run');
+    }
+
+    public function test_guide_renders_philippines_hod_content_for_philippines_hod(): void
+    {
+        $hod = $this->userWithRole('hod', ['employee_code' => 'MEC-PHIL-HR-2026-102']);
+
+        $this->actingAs($hod)
+            ->get(route('guide'))
+            ->assertOk()
+            ->assertSee('Philippines Head Of Department Onboarding Guide')
+            ->assertSee('Philippines HR approver')
+            ->assertSee('Service Incentive Leave')
+            ->assertDontSee('15 full-pay days')
+            ->assertDontSee('45 full-pay days');
     }
 
     public function test_guide_renders_admin_content_for_admin(): void
