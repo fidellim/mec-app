@@ -22,6 +22,8 @@ The UI should be:
 - Do not remove Blade directives such as @csrf, @method, @foreach, @if, @error, @auth, or @can.
 - Preserve validation error messages.
 - Preserve existing functionality.
+- Always make frontend UI changes compatible with both light and dark themes.
+- Prefer existing theme variables, Bootstrap theme tokens, and color-mix patterns over hardcoded colors so contrast remains readable in both themes.
 
 ## UI Style
 
