@@ -826,6 +826,29 @@
             background: var(--bs-body-bg);
             color: var(--bs-body-color);
         }
+        .ts-wrapper.multi .ts-control > div {
+            align-items: center;
+            background: color-mix(in srgb, var(--bs-primary-bg-subtle) 58%, var(--app-card-bg));
+            border: 1px solid color-mix(in srgb, var(--bs-primary-border-subtle) 70%, var(--app-border));
+            border-radius: .45rem;
+            color: var(--bs-body-color);
+            display: inline-flex;
+            gap: .35rem;
+            line-height: 1.35;
+            padding: .15rem .35rem;
+        }
+        .ts-wrapper.multi .ts-control .remove {
+            border-left-color: color-mix(in srgb, var(--bs-body-color) 20%, transparent);
+            color: var(--bs-secondary-color);
+            margin-left: .15rem;
+            padding-left: .45rem;
+            text-decoration: none;
+        }
+        .ts-wrapper.multi .ts-control .remove:hover,
+        .ts-wrapper.multi .ts-control .remove:focus {
+            background: transparent;
+            color: var(--bs-danger);
+        }
         .ts-dropdown {
             background: var(--app-card-bg);
             border-color: var(--app-border);
@@ -1405,14 +1428,24 @@ const initializeSearchableSelects = (scope = document) => {
             return;
         }
 
-        new TomSelect(select, {
+        const options = {
             allowEmptyOption: true,
             create: false,
             dropdownParent: 'body',
             maxOptions: null,
             searchField: ['text'],
             sortField: [{ field: '$order' }],
-        });
+        };
+
+        if (select.multiple) {
+            options.plugins = {
+                remove_button: {
+                    title: 'Remove selected item',
+                },
+            };
+        }
+
+        new TomSelect(select, options);
     });
 };
 
