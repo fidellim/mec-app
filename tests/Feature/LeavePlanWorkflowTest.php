@@ -1623,10 +1623,11 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Sick leave')
             ->assertSee('Maternity leave')
             ->assertSee('Parental leave')
-            ->assertDontSee('Bereavement / compassionate leave');
+            ->assertSee('Bereavement / compassionate leave - Spouse')
+            ->assertSee('Bereavement / compassionate leave - Immediate family');
     }
 
-    public function test_uae_bereavement_leave_uses_configurable_relationship_limits_per_request(): void
+    public function test_uae_bereavement_leave_uses_configurable_relationship_balances_by_year(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
 
@@ -1652,7 +1653,7 @@ class LeavePlanWorkflowTest extends TestCase
                 'attendance_code' => 'L180',
                 'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
                 'start_date' => '2026-05-18',
-                'end_date' => '2026-05-25',
+                'end_date' => '2026-05-18',
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('bereavement_relationship');
@@ -1664,7 +1665,7 @@ class LeavePlanWorkflowTest extends TestCase
                 'attendance_code' => 'L180',
                 'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
                 'start_date' => '2026-05-18',
-                'end_date' => '2026-05-25',
+                'end_date' => '2026-05-18',
                 'submit' => '1',
             ]))
             ->assertRedirect();
@@ -1673,8 +1674,80 @@ class LeavePlanWorkflowTest extends TestCase
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                 'attendance_code' => 'L180',
                 'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY,
-                'start_date' => '2026-05-26',
-                'end_date' => '2026-05-29',
+                'start_date' => '2026-05-19',
+                'end_date' => '2026-05-21',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY,
+                'start_date' => '2026-05-22',
+                'end_date' => '2026-05-22',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('bereavement_relationship');
+    }
+
+    public function test_uae_bereavement_relationship_balances_refresh_by_calendar_year(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-15',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2027-05-10',
+                'end_date' => '2027-05-14',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+    }
+
+    public function test_cross_year_uae_bereavement_consumes_each_year_separately(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
+
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2026-12-31',
+                'end_date' => '2027-01-01',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2026-12-30',
+                'end_date' => '2026-12-30',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('bereavement_relationship');
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2027-01-04',
+                'end_date' => '2027-01-04',
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('bereavement_relationship');
@@ -1688,6 +1761,13 @@ class LeavePlanWorkflowTest extends TestCase
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                 'attendance_code' => 'L180',
                 'submit' => '0',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'submit' => '1',
             ]))
             ->assertSessionHasErrors('bereavement_relationship');
     }

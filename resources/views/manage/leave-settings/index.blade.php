@@ -22,7 +22,7 @@
         @endforeach
         <div class="col-12">
             <div class="alert alert-info mb-0">
-                Eligible entitlement balances are shown to users. UAE sick and maternity balances show the full-pay allowance, while these settings keep the maximum claimable calendar-day limits for validation. UAE bereavement spouse and immediate-family limits are checked per leave request. Maternity leave appears only when gender is Female, and parental leave appears only after HR eligibility approval on the user profile.
+                Eligible entitlement balances are shown to users. UAE sick and maternity balances show the full-pay allowance, while these settings keep the maximum claimable calendar-day limits for validation. UAE bereavement spouse and immediate-family allowances are tracked separately by calendar year. Maternity leave appears only when gender is Female, and parental leave appears only after HR eligibility approval on the user profile.
             </div>
         </div>
     </div>

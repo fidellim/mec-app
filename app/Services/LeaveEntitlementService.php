@@ -155,25 +155,18 @@ class LeaveEntitlementService
     {
         $year ??= (int) now()->year;
 
-        return collect($this->eligibleEntitledLeaveCodesFor($user))
+        $balances = collect($this->eligibleEntitledLeaveCodesFor($user))
             ->mapWithKeys(function (string $attendanceCode) use ($user, $year, $excludeLeavePlanId) {
-                $balance = $this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode);
-                $balance['formatted'] = [
-                    'allowance' => $this->formatDays($balance['allowance']),
-                    'claimable_allowance' => $this->formatDays($balance['claimable_allowance']),
-                    'used' => $this->formatDays($balance['used']),
-                    'remaining' => $this->formatDays($balance['remaining']),
-                    'claimable_remaining' => $this->formatDays($balance['claimable_remaining']),
-                ];
-                $balance['pay_bands'] = collect($balance['pay_bands'])
-                    ->map(fn (array $band) => $band + [
-                        'formatted_days' => $this->formatDays((float) $band['days']),
-                    ])
-                    ->all();
+                $balance = $this->formatBalance($this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode));
 
                 return [$attendanceCode => $balance];
-            })
-            ->all();
+            });
+
+        if ($this->regionFor($user) === 'uae') {
+            $balances = $balances->merge($this->visibleBereavementBalancesFor($user, $year, $excludeLeavePlanId));
+        }
+
+        return $balances->all();
     }
 
     public function eligibleEntitledLeaveCodesFor(User $user): array
@@ -294,18 +287,18 @@ class LeaveEntitlementService
             ->all();
     }
 
-    public function bereavementSubmissionViolation(User $user, array $attributes): ?array
+    public function bereavementSubmissionViolations(User $user, array $attributes, ?int $excludeLeavePlanId = null): array
     {
         if (($attributes['attendance_code'] ?? null) !== self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE
             || $this->regionFor($user) !== 'uae') {
-            return null;
+            return [];
         }
 
         $relationship = $attributes['bereavement_relationship'] ?? null;
-        $limit = is_string($relationship) ? $this->bereavementRelationshipLimit($relationship) : null;
+        $allowance = is_string($relationship) ? $this->bereavementRelationshipAllowance($relationship) : null;
 
-        if ($limit === null) {
-            return null;
+        if ($allowance === null) {
+            return [];
         }
 
         $leavePlan = new LeavePlan([
@@ -318,18 +311,31 @@ class LeaveEntitlementService
         ]);
         $leavePlan->setRelation('user', $user);
 
-        $requested = $this->countedLeaveDayCountForPlan($leavePlan);
+        $requestedByYear = $this->daysByYearForPlan($leavePlan);
+        $usedByYear = $this->usedBereavementDaysByYear($user, $relationship, $excludeLeavePlanId);
 
-        if ($requested <= $limit) {
-            return null;
-        }
+        return $requestedByYear
+            ->map(function (float $requested, int $year) use ($relationship, $allowance, $usedByYear) {
+                $used = (float) $usedByYear->get($year, 0.0);
+                $remaining = $allowance - $used;
 
-        return [
-            'relationship' => $relationship,
-            'relationship_label' => LeavePlan::bereavementRelationshipOptions()[$relationship] ?? 'Bereavement',
-            'limit' => $limit,
-            'requested' => $requested,
-        ];
+                if ($requested <= $remaining) {
+                    return null;
+                }
+
+                return [
+                    'year' => $year,
+                    'relationship' => $relationship,
+                    'relationship_label' => LeavePlan::bereavementRelationshipOptions()[$relationship] ?? 'Bereavement',
+                    'allowance' => $allowance,
+                    'used' => $used,
+                    'requested' => $requested,
+                    'remaining' => max(0.0, $remaining),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
     }
 
     public function annualDaysByYearForPlan(LeavePlan $leavePlan): Collection
@@ -438,9 +444,12 @@ class LeaveEntitlementService
 
     public function bereavementViolationMessage(array $violation): string
     {
-        return 'Bereavement / compassionate leave for '.$violation['relationship_label']
-            .' is limited to '.$this->formatDays((float) $violation['limit'])
-            .' days per request. Requested: '.$this->formatDays((float) $violation['requested']).' days.';
+        return 'Bereavement / compassionate leave - '.$violation['relationship_label']
+            .' limit exceeded for '.$violation['year'].'. Allowance: '
+            .$this->formatDays((float) $violation['allowance'])
+            .' days, used: '.$this->formatDays((float) $violation['used'])
+            .' days, requested: '.$this->formatDays((float) $violation['requested'])
+            .' days, remaining: '.$this->formatDays((float) $violation['remaining']).' days.';
     }
 
     private function addPlanDaysToYearTotals(Collection $totals, LeavePlan $leavePlan): Collection
@@ -537,6 +546,70 @@ class LeaveEntitlementService
             ->all();
     }
 
+    private function visibleBereavementBalancesFor(User $user, int $year, ?int $excludeLeavePlanId = null): array
+    {
+        return collect(LeavePlan::bereavementRelationshipOptions())
+            ->mapWithKeys(function (string $label, string $relationship) use ($user, $year, $excludeLeavePlanId) {
+                $allowance = (float) $this->bereavementRelationshipAllowance($relationship);
+                $used = (float) $this->usedBereavementDaysByYear($user, $relationship, $excludeLeavePlanId)->get($year, 0.0);
+
+                return ['L180_'.$relationship => $this->formatBalance([
+                    'year' => $year,
+                    'attendance_code' => self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
+                    'bereavement_relationship' => $relationship,
+                    'label' => 'Bereavement / compassionate leave - '.$label,
+                    'allowance' => $allowance,
+                    'claimable_allowance' => $allowance,
+                    'used' => $used,
+                    'remaining' => max(0.0, $allowance - $used),
+                    'claimable_remaining' => max(0.0, $allowance - $used),
+                    'allowance_label' => 'Yearly allowance',
+                    'remaining_label' => 'Remaining',
+                    'description' => 'Usage refreshes each January 1 and is tracked separately by relationship.',
+                    'pay_bands' => [],
+                    'uses_override' => false,
+                    'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+                    'source_label' => 'Leave Settings',
+                    'region' => 'uae',
+                    'region_label' => 'UAE',
+                ])];
+            })
+            ->all();
+    }
+
+    private function usedBereavementDaysByYear(User $user, string $relationship, ?int $excludeLeavePlanId = null): Collection
+    {
+        return LeavePlan::query()
+            ->with('user')
+            ->where('user_id', $user->id)
+            ->where('attendance_code', self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE)
+            ->where('bereavement_relationship', $relationship)
+            ->whereIn('status', self::COUNTED_STATUSES)
+            ->when($excludeLeavePlanId, fn ($query, $id) => $query->whereKeyNot($id))
+            ->get()
+            ->reduce(function (Collection $totals, LeavePlan $leavePlan) {
+                return $this->addPlanDaysToYearTotals($totals, $leavePlan);
+            }, collect());
+    }
+
+    private function formatBalance(array $balance): array
+    {
+        $balance['formatted'] = [
+            'allowance' => $this->formatDays((float) $balance['allowance']),
+            'claimable_allowance' => $this->formatDays((float) $balance['claimable_allowance']),
+            'used' => $this->formatDays((float) $balance['used']),
+            'remaining' => $this->formatDays((float) $balance['remaining']),
+            'claimable_remaining' => $this->formatDays((float) $balance['claimable_remaining']),
+        ];
+        $balance['pay_bands'] = collect($balance['pay_bands'] ?? [])
+            ->map(fn (array $band) => $band + [
+                'formatted_days' => $this->formatDays((float) $band['days']),
+            ])
+            ->all();
+
+        return $balance;
+    }
+
     private function settingKeyFor(User $user, string $attendanceCode): string
     {
         $region = $this->regionFor($user);
@@ -592,7 +665,7 @@ class LeaveEntitlementService
         return LeaveSetting::decimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 22.0);
     }
 
-    private function bereavementRelationshipLimit(string $relationship): ?float
+    private function bereavementRelationshipAllowance(string $relationship): ?float
     {
         return match ($relationship) {
             LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE => LeaveSetting::decimalValue(

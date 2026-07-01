@@ -77,7 +77,7 @@ class ManagementWorkflowTest extends TestCase
                 ->assertSee('UAE Bereavement Leave - Spouse Death Days')
                 ->assertSee('UAE Bereavement Leave - Immediate Family Death Days')
                 ->assertSee('Philippines Service Incentive Leave Default Days')
-                ->assertSee('UAE bereavement spouse and immediate-family limits are checked per leave request');
+                ->assertSee('UAE bereavement spouse and immediate-family allowances are tracked separately by calendar year');
 
             $this->actingAs($actor)
                 ->patch(route('manage.leave-settings.update'), [

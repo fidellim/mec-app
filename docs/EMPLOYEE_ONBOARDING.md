@@ -125,7 +125,7 @@ The leave form shows yearly allowance, used or reserved days, and remaining days
 
 For UAE employees, sick leave and maternity leave count calendar days, including weekends, but applicable company holidays are excluded. Balance cards show the full-pay allowance: 15 sick leave days and 45 maternity leave days. Additional approved days may move into half-pay or unpaid bands during payroll review.
 
-For UAE bereavement / compassionate leave, select whether the request is for spouse or immediate family. The request is checked against the relationship limit configured by HR/Admin.
+For UAE bereavement / compassionate leave, select whether the request is for spouse or immediate family. Spouse and immediate-family balances are tracked separately for each calendar year and reset each January 1.
 
 Holiday entries are read-only. They help explain why a date range may use fewer counted leave days than the number of calendar days selected.
 

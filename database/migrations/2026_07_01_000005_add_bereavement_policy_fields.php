@@ -53,12 +53,12 @@ return new class extends Migration
         return [
             LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE => [
                 'name' => 'UAE Bereavement Leave - Spouse Death Days',
-                'description' => 'Maximum L180 bereavement / compassionate leave days per UAE spouse-death request.',
+                'description' => 'Calendar-year L180 bereavement / compassionate leave allowance for UAE spouse death.',
                 'decimal_value' => 5,
             ],
             LeaveSetting::BEREAVEMENT_IMMEDIATE_FAMILY_LEAVE_DAYS_UAE => [
                 'name' => 'UAE Bereavement Leave - Immediate Family Death Days',
-                'description' => 'Maximum L180 bereavement / compassionate leave days per UAE immediate-family death request.',
+                'description' => 'Calendar-year L180 bereavement / compassionate leave allowance for UAE immediate-family death.',
                 'decimal_value' => 3,
             ],
         ];

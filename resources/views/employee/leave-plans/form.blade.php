@@ -74,7 +74,7 @@
                             <option value="{{ $value }}" @selected(old('bereavement_relationship', $leavePlan?->bereavement_relationship) === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
-                    <div class="form-text">UAE bereavement limits are checked per request from Leave Settings.</div>
+                    <div class="form-text">UAE bereavement usage is tracked by relationship for the calendar year.</div>
                     @error('bereavement_relationship')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-12">
@@ -193,7 +193,6 @@
 
         const isBereavement = attendanceCode.value === 'L180';
         bereavementRelationshipField.classList.toggle('d-none', !isBereavement);
-        bereavementRelationship.required = isBereavement;
 
         if (!isBereavement) {
             bereavementRelationship.value = '';
