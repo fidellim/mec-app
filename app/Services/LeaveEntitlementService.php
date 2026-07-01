@@ -481,19 +481,19 @@ class LeaveEntitlementService
         $region = $this->regionFor($user);
 
         if ($attendanceCode === self::SICK_LEAVE_CODE) {
-            return $region === 'ph' ? 5.0 : 90.0;
+            return $region === 'ph' ? 0.0 : 90.0;
         }
 
         if ($attendanceCode === self::MATERNITY_LEAVE_CODE) {
-            return 60.0;
+            return $region === 'ph' ? 0.0 : 60.0;
         }
 
         if ($attendanceCode === self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE) {
-            return 8.0;
+            return $region === 'ph' ? 0.0 : 8.0;
         }
 
         if ($attendanceCode === self::PARENTAL_LEAVE_CODE) {
-            return 5.0;
+            return $region === 'ph' ? 0.0 : 5.0;
         }
 
         if ($attendanceCode === self::SERVICE_INCENTIVE_LEAVE_CODE) {
@@ -501,7 +501,7 @@ class LeaveEntitlementService
         }
 
         if ($region === 'ph') {
-            return 5.0;
+            return 0.0;
         }
 
         return LeaveSetting::decimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 22.0);

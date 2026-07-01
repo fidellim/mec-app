@@ -18,7 +18,7 @@ class LeaveSettingSeeder extends Seeder
             LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Annual Leave Default Days',
                 'description' => 'Default yearly L100 annual leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
-                'decimal_value' => 5,
+                'decimal_value' => 0,
             ],
             LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Sick Leave Maximum Calendar Days',
@@ -28,7 +28,7 @@ class LeaveSettingSeeder extends Seeder
             LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Sick Leave Default Days',
                 'description' => 'Default yearly L110 sick leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
-                'decimal_value' => 5,
+                'decimal_value' => 0,
             ],
             LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Maternity Leave Maximum Calendar Days',
@@ -38,7 +38,7 @@ class LeaveSettingSeeder extends Seeder
             LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Maternity Leave Default Days',
                 'description' => 'Default L160 maternity leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 60,
+                'decimal_value' => 0,
             ],
             LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Parental Leave Default Days',
@@ -48,7 +48,7 @@ class LeaveSettingSeeder extends Seeder
             LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Parental Leave Default Days',
                 'description' => 'Default L170 parental leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 5,
+                'decimal_value' => 0,
             ],
             LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Bereavement / Compassionate Leave Default Days',
@@ -58,7 +58,7 @@ class LeaveSettingSeeder extends Seeder
             LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Bereavement / Compassionate Leave Default Days',
                 'description' => 'Default L180 bereavement / compassionate leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 8,
+                'decimal_value' => 0,
             ],
             LeaveSetting::SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Service Incentive Leave Default Days',

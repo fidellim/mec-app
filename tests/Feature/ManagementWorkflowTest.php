@@ -78,24 +78,24 @@ class ManagementWorkflowTest extends TestCase
             $this->actingAs($actor)
                 ->patch(route('manage.leave-settings.update'), [
                     'annual_leave_default_days_uae' => $uaeAnnualDays,
-                    'annual_leave_default_days_ph' => '6',
+                    'annual_leave_default_days_ph' => '0',
                     'sick_leave_default_days_uae' => '16',
-                    'sick_leave_default_days_ph' => '5.5',
+                    'sick_leave_default_days_ph' => '0',
                     'maternity_leave_default_days_uae' => '60',
-                    'maternity_leave_default_days_ph' => '60',
+                    'maternity_leave_default_days_ph' => '0',
                     'parental_leave_default_days_uae' => '5',
-                    'parental_leave_default_days_ph' => '5',
+                    'parental_leave_default_days_ph' => '0',
                     'bereavement_compassionate_leave_default_days_uae' => '8',
-                    'bereavement_compassionate_leave_default_days_ph' => '8',
+                    'bereavement_compassionate_leave_default_days_ph' => '0',
                     'service_incentive_leave_default_days_ph' => '5',
                 ])
                 ->assertRedirect(route('manage.leave-settings.index'));
         }
 
         $this->assertSame('24.50', $uaeAnnual->fresh()->decimal_value);
-        $this->assertSame('6.00', $phAnnual->fresh()->decimal_value);
+        $this->assertSame('0.00', $phAnnual->fresh()->decimal_value);
         $this->assertSame('16.00', $uaeSick->fresh()->decimal_value);
-        $this->assertSame('5.50', $phSick->fresh()->decimal_value);
+        $this->assertSame('0.00', $phSick->fresh()->decimal_value);
         $this->assertDatabaseHas('audit_logs', ['action' => 'leave_setting_updated']);
 
         $this->actingAs($superAdmin)
@@ -214,15 +214,15 @@ class ManagementWorkflowTest extends TestCase
             $this->actingAs($user)
                 ->patch(route('manage.leave-settings.update'), [
                     'annual_leave_default_days_uae' => 40,
-                    'annual_leave_default_days_ph' => 5,
+                    'annual_leave_default_days_ph' => 0,
                     'sick_leave_default_days_uae' => 15,
-                    'sick_leave_default_days_ph' => 5,
+                    'sick_leave_default_days_ph' => 0,
                     'maternity_leave_default_days_uae' => 60,
-                    'maternity_leave_default_days_ph' => 60,
+                    'maternity_leave_default_days_ph' => 0,
                     'parental_leave_default_days_uae' => 5,
-                    'parental_leave_default_days_ph' => 5,
+                    'parental_leave_default_days_ph' => 0,
                     'bereavement_compassionate_leave_default_days_uae' => 8,
-                    'bereavement_compassionate_leave_default_days_ph' => 8,
+                    'bereavement_compassionate_leave_default_days_ph' => 0,
                     'service_incentive_leave_default_days_ph' => 5,
                 ])
                 ->assertForbidden();

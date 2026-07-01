@@ -159,12 +159,12 @@ return new class extends Migration
     private function fallbackAllowanceFor(string $region, string $attendanceCode): float
     {
         return match ($attendanceCode) {
-            self::SICK => $region === 'ph' ? 5.0 : 90.0,
-            self::MATERNITY => 60.0,
-            self::PARENTAL => 5.0,
-            self::BEREAVEMENT => 8.0,
+            self::SICK => $region === 'ph' ? 0.0 : 90.0,
+            self::MATERNITY => $region === 'ph' ? 0.0 : 60.0,
+            self::PARENTAL => $region === 'ph' ? 0.0 : 5.0,
+            self::BEREAVEMENT => $region === 'ph' ? 0.0 : 8.0,
             self::SERVICE_INCENTIVE => 5.0,
-            default => $region === 'ph' ? 5.0 : 22.0,
+            default => $region === 'ph' ? 0.0 : 22.0,
         };
     }
 

@@ -29,7 +29,7 @@ return new class extends Migration
             'annual_leave_default_days_ph' => [
                 'name' => 'Philippines Annual Leave Default Days',
                 'description' => 'Default yearly L100 annual leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
-                'decimal_value' => 5,
+                'decimal_value' => 0,
             ],
             'sick_leave_default_days_uae' => [
                 'name' => 'UAE Sick Leave Maximum Calendar Days',
@@ -39,7 +39,7 @@ return new class extends Migration
             'sick_leave_default_days_ph' => [
                 'name' => 'Philippines Sick Leave Default Days',
                 'description' => 'Default yearly L110 sick leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
-                'decimal_value' => 5,
+                'decimal_value' => 0,
             ],
             'maternity_leave_default_days_uae' => [
                 'name' => 'UAE Maternity Leave Maximum Calendar Days',
@@ -49,7 +49,7 @@ return new class extends Migration
             'maternity_leave_default_days_ph' => [
                 'name' => 'Philippines Maternity Leave Default Days',
                 'description' => 'Default L160 maternity leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 60,
+                'decimal_value' => 0,
             ],
             'parental_leave_default_days_uae' => [
                 'name' => 'UAE Parental Leave Default Days',
@@ -59,7 +59,7 @@ return new class extends Migration
             'parental_leave_default_days_ph' => [
                 'name' => 'Philippines Parental Leave Default Days',
                 'description' => 'Default L170 parental leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 5,
+                'decimal_value' => 0,
             ],
             'bereavement_compassionate_leave_default_days_uae' => [
                 'name' => 'UAE Bereavement / Compassionate Leave Default Days',
@@ -69,7 +69,7 @@ return new class extends Migration
             'bereavement_compassionate_leave_default_days_ph' => [
                 'name' => 'Philippines Bereavement / Compassionate Leave Default Days',
                 'description' => 'Default L180 bereavement / compassionate leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 8,
+                'decimal_value' => 0,
             ],
             'service_incentive_leave_default_days_ph' => [
                 'name' => 'Philippines Service Incentive Leave Default Days',
