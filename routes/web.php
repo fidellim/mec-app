@@ -39,55 +39,55 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:employee,hod,admin,super_admin')->prefix('my-timesheets')->name('employee.timesheets.')->group(function () {
         Route::get('/', [EmployeeTimesheetController::class, 'index'])->name('index');
         Route::get('/create', [EmployeeTimesheetController::class, 'create'])->name('create');
-        Route::post('/', [EmployeeTimesheetController::class, 'store'])->name('store');
+        Route::post('/', [EmployeeTimesheetController::class, 'store'])->middleware('throttle:authenticated-writes')->name('store');
         Route::get('/{timesheet}/history', [EmployeeTimesheetController::class, 'history'])->name('history');
         Route::get('/{timesheet}', [EmployeeTimesheetController::class, 'show'])->name('show');
         Route::get('/{timesheet}/edit', [EmployeeTimesheetController::class, 'edit'])->name('edit');
-        Route::put('/{timesheet}', [EmployeeTimesheetController::class, 'update'])->name('update');
-        Route::post('/{timesheet}/recall', [EmployeeTimesheetController::class, 'recall'])->name('recall');
-        Route::delete('/{timesheet}', [EmployeeTimesheetController::class, 'destroy'])->name('destroy');
+        Route::put('/{timesheet}', [EmployeeTimesheetController::class, 'update'])->middleware('throttle:authenticated-writes')->name('update');
+        Route::post('/{timesheet}/recall', [EmployeeTimesheetController::class, 'recall'])->middleware('throttle:workflow-actions')->name('recall');
+        Route::delete('/{timesheet}', [EmployeeTimesheetController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('destroy');
     });
 
     Route::middleware('role:employee,hod,admin,super_admin')->prefix('my-leave-plans')->name('employee.leave-plans.')->group(function () {
         Route::get('/', [EmployeeLeavePlanController::class, 'index'])->name('index');
         Route::get('/calendar', [EmployeeLeavePlanController::class, 'calendar'])->name('calendar');
         Route::get('/create', [EmployeeLeavePlanController::class, 'create'])->name('create');
-        Route::post('/', [EmployeeLeavePlanController::class, 'store'])->name('store');
+        Route::post('/', [EmployeeLeavePlanController::class, 'store'])->middleware('throttle:authenticated-writes')->name('store');
         Route::get('/{leavePlan}/history', [EmployeeLeavePlanController::class, 'history'])->name('history');
         Route::get('/{leavePlan}', [EmployeeLeavePlanController::class, 'show'])->name('show');
         Route::get('/{leavePlan}/edit', [EmployeeLeavePlanController::class, 'edit'])->name('edit');
-        Route::put('/{leavePlan}', [EmployeeLeavePlanController::class, 'update'])->name('update');
-        Route::post('/{leavePlan}/cancel-request', [EmployeeLeavePlanController::class, 'requestCancellation'])->name('cancel-request');
-        Route::delete('/{leavePlan}', [EmployeeLeavePlanController::class, 'destroy'])->name('destroy');
+        Route::put('/{leavePlan}', [EmployeeLeavePlanController::class, 'update'])->middleware('throttle:authenticated-writes')->name('update');
+        Route::post('/{leavePlan}/cancel-request', [EmployeeLeavePlanController::class, 'requestCancellation'])->middleware('throttle:workflow-actions')->name('cancel-request');
+        Route::delete('/{leavePlan}', [EmployeeLeavePlanController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('destroy');
     });
 
     Route::middleware('role:employee,hod,admin,super_admin')->prefix('assigned-leave-plans')->name('assigned.leave-plans.')->group(function () {
         Route::get('/', [HodLeavePlanController::class, 'assignedIndex'])->name('index');
         Route::get('/{leavePlan}/history', [HodLeavePlanController::class, 'history'])->name('history');
         Route::get('/{leavePlan}', [HodLeavePlanController::class, 'assignedShow'])->name('show');
-        Route::post('/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->name('approve');
-        Route::post('/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->name('reject');
+        Route::post('/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->middleware('throttle:workflow-actions')->name('approve');
+        Route::post('/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->middleware('throttle:workflow-actions')->name('reject');
     });
 
     Route::middleware('role:hod')->prefix('department')->name('hod.')->group(function () {
         Route::get('/timesheets', [HodTimesheetController::class, 'index'])->name('timesheets.index');
         Route::get('/timesheets/{timesheet}/history', [HodTimesheetController::class, 'history'])->name('timesheets.history');
         Route::get('/timesheets/{timesheet}', [HodTimesheetController::class, 'show'])->name('timesheets.show');
-        Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
-        Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');
-        Route::post('/timesheets/{timesheet}/recall-approved', [HodTimesheetController::class, 'recallApproved'])->name('timesheets.recall-approved');
+        Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->middleware('throttle:workflow-actions')->name('timesheets.approve');
+        Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->middleware('throttle:workflow-actions')->name('timesheets.reject');
+        Route::post('/timesheets/{timesheet}/recall-approved', [HodTimesheetController::class, 'recallApproved'])->middleware('throttle:workflow-actions')->name('timesheets.recall-approved');
         Route::get('/tracker', [HodTimesheetController::class, 'tracker'])->name('tracker');
-        Route::post('/tracker/reminders', [HodTimesheetController::class, 'remindMissing'])->name('tracker.reminders');
+        Route::post('/tracker/reminders', [HodTimesheetController::class, 'remindMissing'])->middleware('throttle:manual-reminders')->name('tracker.reminders');
         Route::get('/leave-entitlements', [HodLeavePlanController::class, 'leaveEntitlements'])->name('leave-entitlements.index');
         Route::get('/leave-plans', [HodLeavePlanController::class, 'index'])->name('leave-plans.index');
         Route::get('/leave-plans/calendar', [HodLeavePlanController::class, 'calendar'])->name('leave-plans.calendar');
         Route::get('/leave-plans/{leavePlan}/history', [HodLeavePlanController::class, 'history'])->name('leave-plans.history');
         Route::get('/leave-plans/{leavePlan}', [HodLeavePlanController::class, 'show'])->name('leave-plans.show');
-        Route::post('/leave-plans/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->name('leave-plans.approve');
-        Route::post('/leave-plans/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->name('leave-plans.reject');
-        Route::post('/leave-plans/{leavePlan}/recall-approved', [HodLeavePlanController::class, 'recallApproved'])->name('leave-plans.recall-approved');
-        Route::post('/leave-plans/{leavePlan}/approve-cancellation', [HodLeavePlanController::class, 'approveCancellation'])->name('leave-plans.approve-cancellation');
-        Route::post('/leave-plans/{leavePlan}/reject-cancellation', [HodLeavePlanController::class, 'rejectCancellation'])->name('leave-plans.reject-cancellation');
+        Route::post('/leave-plans/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->middleware('throttle:workflow-actions')->name('leave-plans.approve');
+        Route::post('/leave-plans/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->middleware('throttle:workflow-actions')->name('leave-plans.reject');
+        Route::post('/leave-plans/{leavePlan}/recall-approved', [HodLeavePlanController::class, 'recallApproved'])->middleware('throttle:workflow-actions')->name('leave-plans.recall-approved');
+        Route::post('/leave-plans/{leavePlan}/approve-cancellation', [HodLeavePlanController::class, 'approveCancellation'])->middleware('throttle:workflow-actions')->name('leave-plans.approve-cancellation');
+        Route::post('/leave-plans/{leavePlan}/reject-cancellation', [HodLeavePlanController::class, 'rejectCancellation'])->middleware('throttle:workflow-actions')->name('leave-plans.reject-cancellation');
     });
 
     Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
@@ -95,50 +95,72 @@ Route::middleware('auth')->group(function () {
         Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->middleware('throttle:exports')->name('timesheets.export');
         Route::get('/timesheets/{timesheet}/history', [AdminTimesheetController::class, 'history'])->name('timesheets.history');
         Route::get('/timesheets/{timesheet}', [AdminTimesheetController::class, 'show'])->name('timesheets.show');
-        Route::post('/timesheets/{timesheet}/recall-approved', [AdminTimesheetController::class, 'recallApproved'])->name('timesheets.recall-approved');
-        Route::post('/timesheets/{timesheet}/void', [AdminTimesheetController::class, 'voidTimesheet'])->middleware('role:super_admin')->name('timesheets.void');
+        Route::post('/timesheets/{timesheet}/recall-approved', [AdminTimesheetController::class, 'recallApproved'])->middleware('throttle:workflow-actions')->name('timesheets.recall-approved');
+        Route::post('/timesheets/{timesheet}/void', [AdminTimesheetController::class, 'voidTimesheet'])->middleware('role:super_admin', 'throttle:workflow-actions')->name('timesheets.void');
         Route::get('/hod-timesheets', [AdminHodTimesheetController::class, 'index'])->name('hod-timesheets.index');
         Route::get('/hod-submission-tracker', [AdminHodTimesheetController::class, 'tracker'])->name('hod-tracker');
-        Route::post('/hod-submission-tracker/reminders', [AdminHodTimesheetController::class, 'remindMissing'])->name('hod-tracker.reminders');
+        Route::post('/hod-submission-tracker/reminders', [AdminHodTimesheetController::class, 'remindMissing'])->middleware('throttle:manual-reminders')->name('hod-tracker.reminders');
         Route::get('/leave-plans', [AdminLeavePlanController::class, 'index'])->name('leave-plans.index');
         Route::get('/leave-plans/calendar', [AdminLeavePlanController::class, 'calendar'])->name('leave-plans.calendar');
         Route::get('/leave-plans/{leavePlan}/history', [AdminLeavePlanController::class, 'history'])->name('leave-plans.history');
         Route::get('/leave-plans/{leavePlan}', [AdminLeavePlanController::class, 'show'])->name('leave-plans.show');
-        Route::post('/leave-plans/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->name('leave-plans.approve');
-        Route::post('/leave-plans/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->name('leave-plans.reject');
-        Route::post('/leave-plans/{leavePlan}/recall-approved', [HodLeavePlanController::class, 'recallApproved'])->name('leave-plans.recall-approved');
-        Route::post('/leave-plans/{leavePlan}/void', [HodLeavePlanController::class, 'voidApproved'])->middleware('role:super_admin')->name('leave-plans.void');
-        Route::post('/leave-plans/{leavePlan}/approve-cancellation', [HodLeavePlanController::class, 'approveCancellation'])->name('leave-plans.approve-cancellation');
-        Route::post('/leave-plans/{leavePlan}/reject-cancellation', [HodLeavePlanController::class, 'rejectCancellation'])->name('leave-plans.reject-cancellation');
+        Route::post('/leave-plans/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->middleware('throttle:workflow-actions')->name('leave-plans.approve');
+        Route::post('/leave-plans/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->middleware('throttle:workflow-actions')->name('leave-plans.reject');
+        Route::post('/leave-plans/{leavePlan}/recall-approved', [HodLeavePlanController::class, 'recallApproved'])->middleware('throttle:workflow-actions')->name('leave-plans.recall-approved');
+        Route::post('/leave-plans/{leavePlan}/void', [HodLeavePlanController::class, 'voidApproved'])->middleware('role:super_admin', 'throttle:workflow-actions')->name('leave-plans.void');
+        Route::post('/leave-plans/{leavePlan}/approve-cancellation', [HodLeavePlanController::class, 'approveCancellation'])->middleware('throttle:workflow-actions')->name('leave-plans.approve-cancellation');
+        Route::post('/leave-plans/{leavePlan}/reject-cancellation', [HodLeavePlanController::class, 'rejectCancellation'])->middleware('throttle:workflow-actions')->name('leave-plans.reject-cancellation');
         Route::middleware('role:admin,super_admin')->group(function () {
-            Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->name('timesheets.approve');
-            Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->name('timesheets.reject');
+            Route::post('/timesheets/{timesheet}/approve', [HodTimesheetController::class, 'approve'])->middleware('throttle:workflow-actions')->name('timesheets.approve');
+            Route::post('/timesheets/{timesheet}/reject', [HodTimesheetController::class, 'reject'])->middleware('throttle:workflow-actions')->name('timesheets.reject');
         });
     });
 
     Route::middleware('role:admin,super_admin')->prefix('manage')->name('manage.')->group(function () {
         Route::get('users', [UserController::class, 'index'])->name('users.index');
-        Route::patch('holidays/{holiday}/status', [HolidayController::class, 'status'])->name('holidays.status');
-        Route::resource('holidays', HolidayController::class)->except(['show', 'destroy']);
+        Route::patch('holidays/{holiday}/status', [HolidayController::class, 'status'])->middleware('throttle:authenticated-writes')->name('holidays.status');
+        Route::get('holidays', [HolidayController::class, 'index'])->name('holidays.index');
+        Route::get('holidays/create', [HolidayController::class, 'create'])->name('holidays.create');
+        Route::post('holidays', [HolidayController::class, 'store'])->middleware('throttle:authenticated-writes')->name('holidays.store');
+        Route::get('holidays/{holiday}/edit', [HolidayController::class, 'edit'])->name('holidays.edit');
+        Route::match(['put', 'patch'], 'holidays/{holiday}', [HolidayController::class, 'update'])->middleware('throttle:authenticated-writes')->name('holidays.update');
     });
 
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
-        Route::resource('users', UserController::class)->except(['index', 'show']);
-        Route::patch('departments/{department}/status', [DepartmentController::class, 'status'])->name('departments.status');
-        Route::resource('departments', DepartmentController::class)->except(['show']);
-        Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->name('projects.status');
-        Route::resource('projects', ProjectController::class)->except(['show']);
-        Route::resource('periods', TimesheetPeriodController::class)->except(['show', 'destroy'])->parameters(['periods' => 'period']);
+        Route::get('users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('users', [UserController::class, 'store'])->middleware('throttle:authenticated-writes')->name('users.store');
+        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::match(['put', 'patch'], 'users/{user}', [UserController::class, 'update'])->middleware('throttle:authenticated-writes')->name('users.update');
+        Route::delete('users/{user}', [UserController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('users.destroy');
+        Route::patch('departments/{department}/status', [DepartmentController::class, 'status'])->middleware('throttle:authenticated-writes')->name('departments.status');
+        Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
+        Route::get('departments/create', [DepartmentController::class, 'create'])->name('departments.create');
+        Route::post('departments', [DepartmentController::class, 'store'])->middleware('throttle:authenticated-writes')->name('departments.store');
+        Route::get('departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
+        Route::match(['put', 'patch'], 'departments/{department}', [DepartmentController::class, 'update'])->middleware('throttle:authenticated-writes')->name('departments.update');
+        Route::delete('departments/{department}', [DepartmentController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('departments.destroy');
+        Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->middleware('throttle:authenticated-writes')->name('projects.status');
+        Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
+        Route::get('projects/create', [ProjectController::class, 'create'])->name('projects.create');
+        Route::post('projects', [ProjectController::class, 'store'])->middleware('throttle:authenticated-writes')->name('projects.store');
+        Route::get('projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
+        Route::match(['put', 'patch'], 'projects/{project}', [ProjectController::class, 'update'])->middleware('throttle:authenticated-writes')->name('projects.update');
+        Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('projects.destroy');
+        Route::get('periods', [TimesheetPeriodController::class, 'index'])->name('periods.index');
+        Route::get('periods/create', [TimesheetPeriodController::class, 'create'])->name('periods.create');
+        Route::post('periods', [TimesheetPeriodController::class, 'store'])->middleware('throttle:authenticated-writes')->name('periods.store');
+        Route::get('periods/{period}/edit', [TimesheetPeriodController::class, 'edit'])->name('periods.edit');
+        Route::match(['put', 'patch'], 'periods/{period}', [TimesheetPeriodController::class, 'update'])->middleware('throttle:authenticated-writes')->name('periods.update');
         Route::get('leave-plan-approvers', [LeavePlanApproverController::class, 'index'])->name('leave-plan-approvers.index');
-        Route::patch('leave-plan-approvers', [LeavePlanApproverController::class, 'update'])->name('leave-plan-approvers.update');
+        Route::patch('leave-plan-approvers', [LeavePlanApproverController::class, 'update'])->middleware('throttle:authenticated-writes')->name('leave-plan-approvers.update');
         Route::get('leave-settings', [LeaveSettingController::class, 'index'])->name('leave-settings.index');
-        Route::patch('leave-settings', [LeaveSettingController::class, 'update'])->name('leave-settings.update');
+        Route::patch('leave-settings', [LeaveSettingController::class, 'update'])->middleware('throttle:authenticated-writes')->name('leave-settings.update');
         Route::get('automations', [AutomationSettingController::class, 'index'])->name('automations.index');
-        Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->name('automations.toggle');
+        Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->middleware('throttle:authenticated-writes')->name('automations.toggle');
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
         Route::get('audit-logs/export', [AuditLogController::class, 'export'])->middleware('throttle:exports')->name('audit-logs.export');
-        Route::delete('audit-logs/selected', [AuditLogController::class, 'destroySelected'])->name('audit-logs.destroy-selected');
-        Route::delete('audit-logs/matching', [AuditLogController::class, 'destroyMatching'])->name('audit-logs.destroy-matching');
+        Route::delete('audit-logs/selected', [AuditLogController::class, 'destroySelected'])->middleware('throttle:authenticated-writes')->name('audit-logs.destroy-selected');
+        Route::delete('audit-logs/matching', [AuditLogController::class, 'destroyMatching'])->middleware('throttle:authenticated-writes')->name('audit-logs.destroy-matching');
     });
 
     Route::middleware('role:admin,super_admin')->prefix('manage')->name('manage.')->group(function () {

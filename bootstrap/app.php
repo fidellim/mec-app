@@ -29,10 +29,12 @@ return Application::configure(basePath: dirname(__DIR__))
                     return back()->with('warning', $message);
                 }
 
+                $errorKey = $request->is('login', 'forgot-password', 'reset-password') ? 'email' : 'throttle';
+
                 return back()
                     ->withInput($request->except('password', 'password_confirmation'))
                     ->withErrors([
-                        'email' => $message,
+                        $errorKey => $message,
                     ]);
             }
 
