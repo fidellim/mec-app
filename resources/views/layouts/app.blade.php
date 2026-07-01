@@ -1269,6 +1269,7 @@
                                 @endif
                                 @if(auth()->user()->role === 'super_admin')
                                     <a href="{{ route('manage.automations.index') }}" @class(['active' => request()->routeIs('manage.automations.*')]) title="Automations"><img class="sidebar-icon" src="{{ asset('images/sidebar/automations.svg') }}" alt=""><span class="sidebar-label">Automations</span></a>
+                                    <a href="{{ route('manage.system-settings.index') }}" @class(['active' => request()->routeIs('manage.system-settings.*')]) title="System Settings"><img class="sidebar-icon" src="{{ asset('images/sidebar/automations.svg') }}" alt=""><span class="sidebar-label">System Settings</span></a>
                                     <a href="{{ route('manage.audit-logs.index') }}" @class(['active' => request()->routeIs('manage.audit-logs.*')]) title="Audit Logs"><img class="sidebar-icon" src="{{ asset('images/sidebar/audit-logs.svg') }}" alt=""><span class="sidebar-label">Audit Logs</span></a>
                                 @endif
                             </div>

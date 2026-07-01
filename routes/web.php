@@ -1,8 +1,8 @@
 <?php
 
-use App\Http\Controllers\AdminTimesheetController;
 use App\Http\Controllers\AdminHodTimesheetController;
 use App\Http\Controllers\AdminLeavePlanController;
+use App\Http\Controllers\AdminTimesheetController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeLeavePlanController;
@@ -10,13 +10,14 @@ use App\Http\Controllers\EmployeeTimesheetController;
 use App\Http\Controllers\GuideController;
 use App\Http\Controllers\HodLeavePlanController;
 use App\Http\Controllers\HodTimesheetController;
-use App\Http\Controllers\Manage\DepartmentController;
 use App\Http\Controllers\Manage\AuditLogController;
 use App\Http\Controllers\Manage\AutomationSettingController;
+use App\Http\Controllers\Manage\DepartmentController;
 use App\Http\Controllers\Manage\HolidayController;
-use App\Http\Controllers\Manage\LeaveSettingController;
 use App\Http\Controllers\Manage\LeavePlanApproverController;
+use App\Http\Controllers\Manage\LeaveSettingController;
 use App\Http\Controllers\Manage\ProjectController;
+use App\Http\Controllers\Manage\SystemSettingController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
 use Illuminate\Support\Facades\Route;
@@ -32,7 +33,9 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'setup.mode'])->group(function () {
+    Route::get('/setup-in-progress', fn () => view('setup.in-progress'))->name('setup.in-progress');
+
     Route::get('/', DashboardController::class)->name('dashboard');
     Route::get('/guide', GuideController::class)->name('guide');
 
@@ -158,6 +161,8 @@ Route::middleware('auth')->group(function () {
         Route::patch('leave-settings', [LeaveSettingController::class, 'update'])->middleware('throttle:authenticated-writes')->name('leave-settings.update');
         Route::get('automations', [AutomationSettingController::class, 'index'])->name('automations.index');
         Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->middleware('throttle:authenticated-writes')->name('automations.toggle');
+        Route::get('system-settings', [SystemSettingController::class, 'index'])->name('system-settings.index');
+        Route::patch('system-settings/setup-mode', [SystemSettingController::class, 'setupMode'])->middleware('throttle:authenticated-writes')->name('system-settings.setup-mode');
         Route::get('audit-logs', [AuditLogController::class, 'index'])->name('audit-logs.index');
         Route::get('audit-logs/export', [AuditLogController::class, 'export'])->middleware('throttle:exports')->name('audit-logs.export');
         Route::delete('audit-logs/selected', [AuditLogController::class, 'destroySelected'])->middleware('throttle:authenticated-writes')->name('audit-logs.destroy-selected');
