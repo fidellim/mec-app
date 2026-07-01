@@ -137,7 +137,8 @@ class SetupModeTest extends TestCase
                     'maternity_leave_default_days_ph' => '0',
                     'parental_leave_default_days_uae' => '5',
                     'parental_leave_default_days_ph' => '0',
-                    'bereavement_compassionate_leave_default_days_uae' => '8',
+                    'bereavement_spouse_leave_days_uae' => '5',
+                    'bereavement_immediate_family_leave_days_uae' => '3',
                     'bereavement_compassionate_leave_default_days_ph' => '0',
                     'service_incentive_leave_default_days_ph' => '5',
                 ])

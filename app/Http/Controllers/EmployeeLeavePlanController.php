@@ -235,6 +235,10 @@ class EmployeeLeavePlanController extends Controller
             $validated['half_day_period'] = null;
         }
 
+        if ($validated['attendance_code'] !== LeaveEntitlementService::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE) {
+            $validated['bereavement_relationship'] = null;
+        }
+
         return $validated;
     }
 

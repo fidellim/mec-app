@@ -179,6 +179,8 @@ class LeaveEntitlementService
     public function eligibleEntitledLeaveCodesFor(User $user): array
     {
         return collect(self::ENTITLED_LEAVE_CODES)
+            ->reject(fn (string $attendanceCode) => $attendanceCode === self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE
+                && $this->regionFor($user) === 'uae')
             ->filter(fn (string $attendanceCode) => $this->userIsEligibleFor($user, $attendanceCode))
             ->values()
             ->all();
@@ -251,6 +253,10 @@ class LeaveEntitlementService
     {
         $attendanceCode = $attributes['attendance_code'] ?? null;
 
+        if ($attendanceCode === self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE && $this->regionFor($user) === 'uae') {
+            return [];
+        }
+
         if (! in_array($attendanceCode, self::ENTITLED_LEAVE_CODES, true)) {
             return [];
         }
@@ -286,6 +292,44 @@ class LeaveEntitlementService
             ->filter()
             ->values()
             ->all();
+    }
+
+    public function bereavementSubmissionViolation(User $user, array $attributes): ?array
+    {
+        if (($attributes['attendance_code'] ?? null) !== self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE
+            || $this->regionFor($user) !== 'uae') {
+            return null;
+        }
+
+        $relationship = $attributes['bereavement_relationship'] ?? null;
+        $limit = is_string($relationship) ? $this->bereavementRelationshipLimit($relationship) : null;
+
+        if ($limit === null) {
+            return null;
+        }
+
+        $leavePlan = new LeavePlan([
+            'user_id' => $user->id,
+            'attendance_code' => $attributes['attendance_code'],
+            'start_date' => $attributes['start_date'],
+            'end_date' => $attributes['end_date'],
+            'duration_type' => $attributes['duration_type'],
+            'half_day_period' => $attributes['half_day_period'] ?? null,
+        ]);
+        $leavePlan->setRelation('user', $user);
+
+        $requested = $this->countedLeaveDayCountForPlan($leavePlan);
+
+        if ($requested <= $limit) {
+            return null;
+        }
+
+        return [
+            'relationship' => $relationship,
+            'relationship_label' => LeavePlan::bereavementRelationshipOptions()[$relationship] ?? 'Bereavement',
+            'limit' => $limit,
+            'requested' => $requested,
+        ];
     }
 
     public function annualDaysByYearForPlan(LeavePlan $leavePlan): Collection
@@ -390,6 +434,13 @@ class LeaveEntitlementService
             .' days, used: '.$this->formatDays((float) $violation['used'])
             .' days, requested: '.$this->formatDays((float) $violation['requested'])
             .' days, remaining: '.$this->formatDays((float) $violation['remaining']).' days.';
+    }
+
+    public function bereavementViolationMessage(array $violation): string
+    {
+        return 'Bereavement / compassionate leave for '.$violation['relationship_label']
+            .' is limited to '.$this->formatDays((float) $violation['limit'])
+            .' days per request. Requested: '.$this->formatDays((float) $violation['requested']).' days.';
     }
 
     private function addPlanDaysToYearTotals(Collection $totals, LeavePlan $leavePlan): Collection
@@ -539,6 +590,21 @@ class LeaveEntitlementService
         }
 
         return LeaveSetting::decimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 22.0);
+    }
+
+    private function bereavementRelationshipLimit(string $relationship): ?float
+    {
+        return match ($relationship) {
+            LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE => LeaveSetting::decimalValue(
+                LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE,
+                5.0,
+            ),
+            LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY => LeaveSetting::decimalValue(
+                LeaveSetting::BEREAVEMENT_IMMEDIATE_FAMILY_LEAVE_DAYS_UAE,
+                3.0,
+            ),
+            default => null,
+        };
     }
 
     public function regionFor(User $user): string

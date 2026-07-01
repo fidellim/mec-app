@@ -1427,7 +1427,10 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('15 days')
             ->assertSee('45 days')
             ->assertDontSee('90 days')
-            ->assertDontSee('60 days');
+            ->assertDontSee('60 days')
+            ->assertDontSee('Additional pay bands reached')
+            ->assertDontSee('Half pay')
+            ->assertDontSee('Unpaid: 45 days');
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
@@ -1466,6 +1469,112 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSessionHasErrors('attendance_code');
     }
 
+    public function test_uae_sick_balance_reveals_supplemental_pay_bands_only_after_thresholds(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-704',
+            'gender' => 'male',
+        ]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L110',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-01-15',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertSee('Additional pay bands reached')
+            ->assertSee('Half pay: 30 days')
+            ->assertDontSee('Unpaid: 45 days');
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L110',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-02-01',
+            'end_date' => '2026-03-02',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertSee('Half pay: 30 days')
+            ->assertSee('Unpaid: 45 days');
+    }
+
+    public function test_uae_maternity_balance_reveals_half_pay_only_after_threshold(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-705',
+            'gender' => 'female',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('Additional pay bands reached')
+            ->assertDontSee('Half pay')
+            ->assertDontSee('Unpaid: 45 days');
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L160',
+            'status' => LeavePlan::STATUS_CANCELLATION_REQUESTED,
+            'start_date' => '2026-05-01',
+            'end_date' => '2026-06-14',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertSee('Additional pay bands reached')
+            ->assertSee('Half pay: 15 days')
+            ->assertDontSee('Unpaid: 45 days');
+    }
+
+    public function test_ph_sick_and_maternity_balances_do_not_show_uae_pay_bands(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-706',
+            'gender' => 'female',
+        ]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L110',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-01-01',
+            'end_date' => '2026-01-20',
+        ]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L160',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-01',
+            'end_date' => '2026-06-14',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('Additional pay bands reached')
+            ->assertDontSee('Half pay')
+            ->assertDontSee('Unpaid: 45 days');
+    }
+
     public function test_parental_label_and_supporting_document_guidance_show_on_leave_form(): void
     {
         $employee = $this->userWithRole('employee', [
@@ -1489,7 +1598,6 @@ class LeavePlanWorkflowTest extends TestCase
     {
         LeaveSetting::where('key', LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
         LeaveSetting::where('key', LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
-        LeaveSetting::where('key', LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
 
         $employee = $this->userWithRole('employee', [
             'department_id' => $this->department()->id,
@@ -1497,7 +1605,7 @@ class LeavePlanWorkflowTest extends TestCase
             'eligible_for_parental_leave' => true,
         ]);
 
-        foreach (['L160', 'L170', 'L180'] as $attendanceCode) {
+        foreach (['L160', 'L170'] as $attendanceCode) {
             $this->actingAs($employee)
                 ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                     'attendance_code' => $attendanceCode,
@@ -1515,7 +1623,73 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Sick leave')
             ->assertSee('Maternity leave')
             ->assertSee('Parental leave')
-            ->assertSee('Bereavement / compassionate leave');
+            ->assertDontSee('Bereavement / compassionate leave');
+    }
+
+    public function test_uae_bereavement_leave_uses_configurable_relationship_limits_per_request(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-15',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('leave_plans', [
+            'user_id' => $employee->id,
+            'attendance_code' => 'L180',
+            'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2026-05-18',
+                'end_date' => '2026-05-25',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('bereavement_relationship');
+
+        LeaveSetting::where('key', LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 6]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2026-05-18',
+                'end_date' => '2026-05-25',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY,
+                'start_date' => '2026-05-26',
+                'end_date' => '2026-05-29',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('bereavement_relationship');
+    }
+
+    public function test_bereavement_relationship_is_required_for_l180_leave(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'submit' => '0',
+            ]))
+            ->assertSessionHasErrors('bereavement_relationship');
     }
 
     public function test_leave_entitlement_visibility_obeys_profile_eligibility_rules(): void
@@ -1549,28 +1723,28 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('Bereavement / compassionate leave');
+            ->assertSee('L180 - Bereavement / Compassionate Leave');
 
         $this->actingAs($parentalEligibleEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertSee('L170 - Parental Leave')
-            ->assertSee('Bereavement / compassionate leave');
+            ->assertSee('L180 - Bereavement / Compassionate Leave');
 
         $this->actingAs($marriedNotParentallyEligibleEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('Bereavement / compassionate leave');
+            ->assertSee('L180 - Bereavement / Compassionate Leave');
 
         $this->actingAs($profileIncompleteEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('Bereavement / compassionate leave');
+            ->assertSee('L180 - Bereavement / Compassionate Leave');
     }
 
     public function test_ineligible_maternity_and_parental_leave_cannot_be_saved_or_submitted(): void

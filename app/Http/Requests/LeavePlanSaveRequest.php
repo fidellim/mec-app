@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\LeavePlan;
 use App\Services\LeaveEntitlementService;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,7 @@ class LeavePlanSaveRequest extends FormRequest
             'end_date' => ['required', 'date', 'after_or_equal:start_date'],
             'duration_type' => ['required', Rule::in(['full_day', 'half_day'])],
             'half_day_period' => ['nullable', 'required_if:duration_type,half_day', Rule::in(['morning', 'afternoon'])],
+            'bereavement_relationship' => ['nullable', 'required_if:attendance_code,L180', Rule::in(LeavePlan::BEREAVEMENT_RELATIONSHIPS)],
             'reason' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -61,12 +63,29 @@ class LeavePlanSaveRequest extends FormRequest
                     'end_date' => $this->input('end_date'),
                     'duration_type' => $this->input('duration_type'),
                     'half_day_period' => $this->input('half_day_period'),
+                    'bereavement_relationship' => $this->input('bereavement_relationship'),
                 ],
                 $leavePlan?->id,
             );
 
             foreach ($violations as $violation) {
                 $validator->errors()->add('attendance_code', $entitlements->violationMessage($violation));
+            }
+
+            $bereavementViolation = $entitlements->bereavementSubmissionViolation(
+                $this->user(),
+                [
+                    'attendance_code' => $attendanceCode,
+                    'start_date' => $this->input('start_date'),
+                    'end_date' => $this->input('end_date'),
+                    'duration_type' => $this->input('duration_type'),
+                    'half_day_period' => $this->input('half_day_period'),
+                    'bereavement_relationship' => $this->input('bereavement_relationship'),
+                ],
+            );
+
+            if ($bereavementViolation) {
+                $validator->errors()->add('bereavement_relationship', $entitlements->bereavementViolationMessage($bereavementViolation));
             }
         });
     }
@@ -75,6 +94,8 @@ class LeavePlanSaveRequest extends FormRequest
     {
         return [
             'attendance_code.in' => 'Select a valid leave attendance code.',
+            'bereavement_relationship.required_if' => 'Select the bereavement relationship for this leave request.',
+            'bereavement_relationship.in' => 'Select a valid bereavement relationship.',
             'half_day_period.required_if' => 'Select morning or afternoon for half-day leave.',
         ];
     }

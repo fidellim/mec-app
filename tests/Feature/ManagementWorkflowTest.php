@@ -74,8 +74,10 @@ class ManagementWorkflowTest extends TestCase
                 ->assertSee('UAE Sick Leave Maximum Calendar Days')
                 ->assertSee('UAE Maternity Leave Maximum Calendar Days')
                 ->assertSee('UAE Parental Leave Default Days')
+                ->assertSee('UAE Bereavement Leave - Spouse Death Days')
+                ->assertSee('UAE Bereavement Leave - Immediate Family Death Days')
                 ->assertSee('Philippines Service Incentive Leave Default Days')
-                ->assertSee('parental leave appears only after HR eligibility approval on the user profile');
+                ->assertSee('UAE bereavement spouse and immediate-family limits are checked per leave request');
 
             $this->actingAs($actor)
                 ->patch(route('manage.leave-settings.update'), [
@@ -87,7 +89,8 @@ class ManagementWorkflowTest extends TestCase
                     'maternity_leave_default_days_ph' => '0',
                     'parental_leave_default_days_uae' => '5',
                     'parental_leave_default_days_ph' => '0',
-                    'bereavement_compassionate_leave_default_days_uae' => '8',
+                    'bereavement_spouse_leave_days_uae' => '5',
+                    'bereavement_immediate_family_leave_days_uae' => '3',
                     'bereavement_compassionate_leave_default_days_ph' => '0',
                     'service_incentive_leave_default_days_ph' => '5',
                 ])
@@ -223,7 +226,8 @@ class ManagementWorkflowTest extends TestCase
                     'maternity_leave_default_days_ph' => 0,
                     'parental_leave_default_days_uae' => 5,
                     'parental_leave_default_days_ph' => 0,
-                    'bereavement_compassionate_leave_default_days_uae' => 8,
+                    'bereavement_spouse_leave_days_uae' => 5,
+                    'bereavement_immediate_family_leave_days_uae' => 3,
                     'bereavement_compassionate_leave_default_days_ph' => 0,
                     'service_incentive_leave_default_days_ph' => 5,
                 ])

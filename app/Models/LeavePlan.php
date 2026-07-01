@@ -23,6 +23,14 @@ class LeavePlan extends Model
     public const APPROVAL_STAGE_DIRECTOR = 'director';
     public const APPROVAL_STAGE_HR = 'hr';
 
+    public const BEREAVEMENT_RELATIONSHIP_SPOUSE = 'spouse';
+    public const BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY = 'immediate_family';
+
+    public const BEREAVEMENT_RELATIONSHIPS = [
+        self::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+        self::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY,
+    ];
+
     public const ACTIVE_OVERLAP_STATUSES = [
         self::STATUS_DRAFT,
         self::STATUS_SUBMITTED,
@@ -38,6 +46,7 @@ class LeavePlan extends Model
         'end_date',
         'duration_type',
         'half_day_period',
+        'bereavement_relationship',
         'reason',
         'status',
         'approval_stage',
@@ -194,6 +203,23 @@ class LeavePlan extends Model
         }
 
         return ucfirst($label).' ('.$this->durationLabel().')';
+    }
+
+    public function bereavementRelationshipLabel(): ?string
+    {
+        return match ($this->bereavement_relationship) {
+            self::BEREAVEMENT_RELATIONSHIP_SPOUSE => 'Spouse',
+            self::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY => 'Immediate family',
+            default => null,
+        };
+    }
+
+    public static function bereavementRelationshipOptions(): array
+    {
+        return [
+            self::BEREAVEMENT_RELATIONSHIP_SPOUSE => 'Spouse',
+            self::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY => 'Immediate family',
+        ];
     }
 
     public function approvalStageLabel(?string $stage = null): string

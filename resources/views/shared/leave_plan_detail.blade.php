@@ -25,6 +25,12 @@
                 <div class="meta-label">Duration</div>
                 <div class="meta-value">{{ $leavePlan->leaveLengthLabel() }}</div>
             </div>
+            @if($leavePlan->attendance_code === \App\Services\LeaveEntitlementService::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE)
+                <div class="col-md-4">
+                    <div class="meta-label">Bereavement relationship</div>
+                    <div class="meta-value">{{ $leavePlan->bereavementRelationshipLabel() ?: 'Unspecified' }}</div>
+                </div>
+            @endif
             @php($leavePayBreakdowns = in_array(auth()->user()?->role, ['admin', 'super_admin'], true) ? app(\App\Services\LeaveEntitlementService::class)->payBreakdownForPlan($leavePlan) : [])
             @if(! empty($leavePayBreakdowns))
                 <div class="col-12">

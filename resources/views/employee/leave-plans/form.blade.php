@@ -8,6 +8,7 @@
     'L170' => 'Please add a link to the birth certificate or hospital birth notification in the Reason field.',
     'L180' => 'Please add a link to the death certificate in the Reason field.',
 ])
+@php($bereavementRelationshipOptions = \App\Models\LeavePlan::bereavementRelationshipOptions())
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">{{ $isEdit ? 'Edit Leave Plan' : 'Create Leave Plan' }}</h1>
@@ -65,6 +66,17 @@
                     </select>
                     @error('half_day_period')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
+                <div class="col-md-6 d-none" data-bereavement-relationship-field>
+                    <label class="form-label" for="bereavement_relationship">Relationship to deceased</label>
+                    <select id="bereavement_relationship" class="form-select @error('bereavement_relationship') is-invalid @enderror" name="bereavement_relationship">
+                        <option value="">Select relationship</option>
+                        @foreach($bereavementRelationshipOptions as $value => $label)
+                            <option value="{{ $value }}" @selected(old('bereavement_relationship', $leavePlan?->bereavement_relationship) === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <div class="form-text">UAE bereavement limits are checked per request from Leave Settings.</div>
+                    @error('bereavement_relationship')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                </div>
                 <div class="col-12">
                     <label class="form-label" for="reason">Reason <span class="text-muted fw-normal">(optional)</span></label>
                     <textarea id="reason" class="form-control @error('reason') is-invalid @enderror" name="reason" rows="4" placeholder="Add context for your HOD.">{{ old('reason', $leavePlan?->reason) }}</textarea>
@@ -120,6 +132,18 @@
                         @if(! empty($balance['description']))
                             <div class="small text-muted mt-3">{{ $balance['description'] }}</div>
                         @endif
+                        @if(! empty($balance['pay_bands']))
+                            <div class="border-top mt-3 pt-3">
+                                <div class="small text-muted mb-2">Additional pay bands reached</div>
+                                <div class="d-flex flex-wrap gap-2">
+                                    @foreach($balance['pay_bands'] as $band)
+                                        <span class="badge bg-body-secondary border text-body">
+                                            {{ $band['label'] }}: {{ $band['formatted_days'] }} days
+                                        </span>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
                     </div>
                 </div>
             @endforeach
@@ -145,6 +169,8 @@
     const attendanceCode = document.getElementById('attendance_code');
     const supportingDocumentNote = document.querySelector('[data-supporting-document-note]');
     const supportingDocumentMessage = document.querySelector('[data-supporting-document-message]');
+    const bereavementRelationshipField = document.querySelector('[data-bereavement-relationship-field]');
+    const bereavementRelationship = document.getElementById('bereavement_relationship');
     const availabilityCalendarShell = document.querySelector('[data-availability-calendar-shell]');
     const supportingDocumentNotes = @json($supportingDocumentNotes);
 
@@ -158,6 +184,21 @@
         const note = supportingDocumentNotes[attendanceCode.value] || '';
         supportingDocumentMessage.textContent = note;
         supportingDocumentNote.classList.toggle('d-none', !note);
+    };
+
+    const syncBereavementRelationshipField = () => {
+        if (!bereavementRelationshipField || !bereavementRelationship || !attendanceCode) {
+            return;
+        }
+
+        const isBereavement = attendanceCode.value === 'L180';
+        bereavementRelationshipField.classList.toggle('d-none', !isBereavement);
+        bereavementRelationship.required = isBereavement;
+
+        if (!isBereavement) {
+            bereavementRelationship.value = '';
+            bereavementRelationship.tomselect?.clear?.();
+        }
     };
 
     const syncAvailabilityCalendar = () => {
@@ -228,7 +269,10 @@
     startDate?.addEventListener('change', syncHalfDayControls);
     endDate?.addEventListener('change', syncDateRules);
     durationType?.addEventListener('change', syncHalfDayControls);
-    attendanceCode?.addEventListener('change', syncSupportingDocumentNote);
+    attendanceCode?.addEventListener('change', () => {
+        syncSupportingDocumentNote();
+        syncBereavementRelationshipField();
+    });
 
     const withCalendarFragment = (url) => {
         const nextUrl = new URL(url, window.location.href);
@@ -306,6 +350,7 @@
     syncHalfDayControls();
     syncAvailabilityCalendar();
     syncSupportingDocumentNote();
+    syncBereavementRelationshipField();
 })();
 </script>
 @endsection
