@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Mail\TimesheetWorkflowMail;
+use App\Models\LeavePlan;
 use App\Models\TimesheetEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
@@ -1144,6 +1145,236 @@ class AdminExportWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Please narrow the week range, or use Export Excel for larger reports.')
             ->assertDontSee('id="summary-report-preview"', false);
+    }
+
+    public function test_admin_can_export_leave_plans_to_excel_with_expected_columns(): void
+    {
+        $department = $this->department(['name' => 'HR Operations']);
+        $employee = $this->userWithRole('employee', [
+            'name' => 'Leave Export Employee',
+            'employee_code' => 'MEC-HR-2026-777',
+            'job_title' => 'HR Coordinator',
+            'department_id' => $department->id,
+        ]);
+        $hod = $this->userWithRole('hod', ['name' => 'HOD Approver']);
+        $director = $this->userWithRole('admin', ['name' => 'Director Approver']);
+        $hr = $this->userWithRole('admin', ['name' => 'HR Approver']);
+        $admin = $this->userWithRole('admin');
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-12',
+            'duration_type' => 'full_day',
+            'reason' => '=formula-like employee reason',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+            'submitted_at' => '2026-04-01 08:00:00',
+            'hod_approved_by' => $hod->id,
+            'hod_approved_at' => '2026-04-02 09:00:00',
+            'director_approved_by' => $director->id,
+            'director_approved_at' => '2026-04-03 10:00:00',
+            'hr_approved_by' => $hr->id,
+            'hr_approved_at' => '2026-04-04 11:00:00',
+            'approved_by' => $hr->id,
+            'approved_at' => '2026-04-04 11:00:00',
+        ]);
+
+        $response = $this->actingAs($admin)->get(route('admin.leave-plans.export', [
+            'year' => 2026,
+            'status' => LeavePlan::STATUS_APPROVED,
+        ]));
+
+        $response->assertOk();
+        $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $sheet = $spreadsheet->getSheet(0);
+
+        $this->assertSame(1, $spreadsheet->getSheetCount());
+        $this->assertSame('Leave Plans', $sheet->getTitle());
+        $this->assertSame('Leave Plan ID', $sheet->getCell('A1')->getValue());
+        $this->assertSame('Employee Name', $sheet->getCell('B1')->getValue());
+        $this->assertSame('Updated At', $sheet->getCell('AN1')->getValue());
+        $this->assertEquals($leavePlan->id, $sheet->getCell('A2')->getValue());
+        $this->assertSame('Leave Export Employee', $sheet->getCell('B2')->getValue());
+        $this->assertSame('MEC-HR-2026-777', $sheet->getCell('C2')->getValue());
+        $this->assertSame('HR Coordinator', $sheet->getCell('D2')->getValue());
+        $this->assertSame('HR Operations', $sheet->getCell('E2')->getValue());
+        $this->assertSame('L100', $sheet->getCell('F2')->getValue());
+        $this->assertSame('2026-05-11', $sheet->getCell('H2')->getValue());
+        $this->assertSame('2026-05-12', $sheet->getCell('I2')->getValue());
+        $this->assertEquals(2, $sheet->getCell('L2')->getValue());
+        $this->assertSame(LeavePlan::STATUS_APPROVED, $sheet->getCell('M2')->getValue());
+        $this->assertSame('Approved by HR', $sheet->getCell('N2')->getValue());
+        $this->assertSame('HOD Approver', $sheet->getCell('P2')->getValue());
+        $this->assertSame('Director Approver', $sheet->getCell('R2')->getValue());
+        $this->assertSame('HR Approver', $sheet->getCell('T2')->getValue());
+        $this->assertSame('HR Approver', $sheet->getCell('V2')->getValue());
+        $this->assertSame("'=formula-like employee reason", $sheet->getCell('AL2')->getValue());
+        $this->assertSame('A2', $sheet->getFreezePane());
+    }
+
+    public function test_super_admin_can_export_leave_plans_and_filters_include_overlapping_dates(): void
+    {
+        $department = $this->department(['name' => 'Filtered Department']);
+        $otherDepartment = $this->department(['name' => 'Other Department']);
+        $employeeA = $this->userWithRole('employee', ['name' => 'Filtered Employee A', 'department_id' => $department->id]);
+        $employeeB = $this->userWithRole('employee', ['name' => 'Filtered Employee B', 'department_id' => $department->id]);
+        $otherEmployee = $this->userWithRole('employee', ['name' => 'Other Employee', 'department_id' => $otherDepartment->id]);
+        $superAdmin = $this->userWithRole('super_admin');
+
+        LeavePlan::factory()->create([
+            'user_id' => $employeeA->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'start_date' => '2025-12-30',
+            'end_date' => '2026-01-02',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $employeeB->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-01-15',
+            'end_date' => '2026-01-15',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $otherEmployee->id,
+            'department_id' => $otherDepartment->id,
+            'attendance_code' => 'L120',
+            'start_date' => '2026-01-02',
+            'end_date' => '2026-01-02',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+        ]);
+
+        $response = $this->actingAs($superAdmin)->get(route('admin.leave-plans.export', [
+            'date_from' => '2026-01-01',
+            'date_to' => '2026-01-10',
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'employee_ids' => [$employeeA->id, $employeeB->id],
+        ]));
+
+        $response->assertOk();
+
+        $sheet = IOFactory::load($response->getFile()->getPathname())->getSheet(0);
+
+        $this->assertSame('Filtered Employee A', $sheet->getCell('B2')->getValue());
+        $this->assertNull($sheet->getCell('B3')->getValue());
+    }
+
+    public function test_leave_plan_export_permissions_empty_results_and_validation(): void
+    {
+        $employee = $this->userWithRole('employee');
+        $hod = $this->userWithRole('hod');
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($employee)
+            ->get(route('admin.leave-plans.export'))
+            ->assertForbidden();
+
+        $this->actingAs($hod)
+            ->get(route('admin.leave-plans.export'))
+            ->assertForbidden();
+
+        $emptyResponse = $this->actingAs($admin)->get(route('admin.leave-plans.export', ['year' => 2026]));
+        $emptyResponse->assertOk();
+
+        $emptySheet = IOFactory::load($emptyResponse->getFile()->getPathname())->getSheet(0);
+        $this->assertSame('Leave Plan ID', $emptySheet->getCell('A1')->getValue());
+        $this->assertNull($emptySheet->getCell('A2')->getValue());
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.index'))
+            ->get(route('admin.leave-plans.export', [
+                'date_from' => '2026-05-20',
+                'date_to' => '2026-05-10',
+            ]))
+            ->assertRedirect(route('admin.leave-plans.index'))
+            ->assertSessionHasErrors('date_to');
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.index'))
+            ->get(route('admin.leave-plans.index', ['year' => 1999]))
+            ->assertRedirect(route('admin.leave-plans.index'))
+            ->assertSessionHasErrors('year');
+    }
+
+    public function test_admin_leave_plan_index_shows_export_controls_and_date_filter_badges(): void
+    {
+        $department = $this->department(['name' => 'Leave Badge Department']);
+        $employee = $this->userWithRole('employee', ['name' => 'Leave Badge Employee', 'department_id' => $department->id]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'status' => LeavePlan::STATUS_APPROVED,
+        ]);
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.leave-plans.index', [
+                'year' => 2026,
+                'date_from' => '2026-05-01',
+                'date_to' => '2026-05-31',
+                'department_id' => $department->id,
+                'employee_ids' => [$employee->id],
+            ]))
+            ->assertOk()
+            ->assertSee('Export Excel')
+            ->assertSee('/admin/leave-plans/export?year=2026', false)
+            ->assertSee('date_from=2026-05-01', false)
+            ->assertSee('date_to=2026-05-31', false)
+            ->assertSee('department_id='.$department->id, false)
+            ->assertSee('employee_ids%5B0%5D='.$employee->id, false)
+            ->assertSee('Export started. Your Excel file will download when ready.')
+            ->assertSee('Year: 2026')
+            ->assertSee('From: 2026-05-01')
+            ->assertSee('To: 2026-05-31')
+            ->assertSee('Leave Badge Department')
+            ->assertSee('Employee: Leave Badge Employee');
+    }
+
+    public function test_admin_leave_plan_export_is_throttled(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        for ($attempt = 0; $attempt < 6; $attempt++) {
+            $this->actingAs($admin)
+                ->withServerVariables(['REMOTE_ADDR' => '10.20.30.30'])
+                ->get(route('admin.leave-plans.export'))
+                ->assertOk();
+        }
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.index'))
+            ->withServerVariables(['REMOTE_ADDR' => '10.20.30.30'])
+            ->get(route('admin.leave-plans.export'))
+            ->assertRedirect(route('admin.leave-plans.index'))
+            ->assertSessionHas('warning');
+    }
+
+    public function test_admin_leave_plan_export_warns_when_export_is_already_running(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $lock = Cache::lock('exports:user:'.$admin->id, 120);
+        $this->assertTrue($lock->get());
+
+        try {
+            $this->actingAs($admin)
+                ->from(route('admin.leave-plans.index'))
+                ->get(route('admin.leave-plans.export'))
+                ->assertRedirect(route('admin.leave-plans.index'))
+                ->assertSessionHas('warning', 'An export is already running. Please wait for it to finish before starting another export.');
+        } finally {
+            $lock->release();
+        }
     }
 
     public function test_summary_report_preview_requires_week_year_and_submitted_statuses(): void

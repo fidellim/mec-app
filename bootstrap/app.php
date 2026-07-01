@@ -27,7 +27,7 @@ return Application::configure(basePath: dirname(__DIR__))
                 $seconds = max(1, $retryAfter);
                 $message = 'Too many attempts. Please wait '.$seconds.' '.Str::plural('second', $seconds).' and try again.';
 
-                if ($request->routeIs('admin.timesheets.export', 'manage.audit-logs.export')) {
+                if ($request->routeIs('admin.timesheets.export', 'admin.leave-plans.export', 'manage.audit-logs.export')) {
                     return back()->with('warning', $message);
                 }
 
