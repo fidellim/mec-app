@@ -1430,7 +1430,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('60 days')
             ->assertDontSee('Additional pay bands reached')
             ->assertDontSee('Half pay')
-            ->assertDontSee('Unpaid: 45 days');
+            ->assertDontSee('Unpaid: 0 of 45 days used');
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
@@ -1490,8 +1490,8 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertSee('Additional pay bands reached')
-            ->assertSee('Half pay: 30 days')
-            ->assertDontSee('Unpaid: 45 days');
+            ->assertSee('Half pay: 0 of 30 days used')
+            ->assertDontSee('Unpaid: 0 of 45 days used');
 
         LeavePlan::factory()->create([
             'user_id' => $employee->id,
@@ -1499,14 +1499,14 @@ class LeavePlanWorkflowTest extends TestCase
             'attendance_code' => 'L110',
             'status' => LeavePlan::STATUS_APPROVED,
             'start_date' => '2026-02-01',
-            'end_date' => '2026-03-02',
+            'end_date' => '2026-03-05',
         ]);
 
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('Half pay: 30 days')
-            ->assertSee('Unpaid: 45 days');
+            ->assertSee('Half pay: 30 of 30 days used')
+            ->assertSee('Unpaid: 3 of 45 days used');
     }
 
     public function test_uae_maternity_balance_reveals_half_pay_only_after_threshold(): void
@@ -1522,7 +1522,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertDontSee('Additional pay bands reached')
             ->assertDontSee('Half pay')
-            ->assertDontSee('Unpaid: 45 days');
+            ->assertDontSee('Unpaid: 0 of 45 days used');
 
         LeavePlan::factory()->create([
             'user_id' => $employee->id,
@@ -1537,8 +1537,8 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertSee('Additional pay bands reached')
-            ->assertSee('Half pay: 15 days')
-            ->assertDontSee('Unpaid: 45 days');
+            ->assertSee('Half pay: 0 of 15 days used')
+            ->assertDontSee('Unpaid: 0 of 45 days used');
     }
 
     public function test_ph_sick_and_maternity_balances_do_not_show_uae_pay_bands(): void
@@ -1572,7 +1572,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertDontSee('Additional pay bands reached')
             ->assertDontSee('Half pay')
-            ->assertDontSee('Unpaid: 45 days');
+            ->assertDontSee('Unpaid: 0 of 45 days used');
     }
 
     public function test_parental_label_and_supporting_document_guidance_show_on_leave_form(): void

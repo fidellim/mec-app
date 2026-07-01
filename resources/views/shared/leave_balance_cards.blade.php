@@ -43,7 +43,7 @@
                                     <div class="d-flex flex-wrap gap-2">
                                         @foreach($balance['pay_bands'] as $band)
                                             <span class="badge bg-body-secondary border text-body">
-                                                {{ $band['label'] }}: {{ $band['formatted_days'] }} days
+                                                {{ $band['label'] }}: {{ $band['formatted_used_days'] }} of {{ $band['formatted_days'] }} days used
                                             </span>
                                         @endforeach
                                     </div>

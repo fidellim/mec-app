@@ -541,6 +541,17 @@ class LeaveEntitlementService
                 'label' => $band['label'],
                 'days' => (float) $band['days'],
                 'threshold' => (float) $band['threshold'],
+                'used_days' => min(
+                    (float) $band['days'],
+                    max(0.0, $used - (float) $band['threshold']),
+                ),
+                'remaining_days' => max(
+                    0.0,
+                    (float) $band['days'] - min(
+                        (float) $band['days'],
+                        max(0.0, $used - (float) $band['threshold']),
+                    ),
+                ),
             ])
             ->values()
             ->all();
@@ -604,6 +615,8 @@ class LeaveEntitlementService
         $balance['pay_bands'] = collect($balance['pay_bands'] ?? [])
             ->map(fn (array $band) => $band + [
                 'formatted_days' => $this->formatDays((float) $band['days']),
+                'formatted_used_days' => $this->formatDays((float) ($band['used_days'] ?? 0.0)),
+                'formatted_remaining_days' => $this->formatDays((float) ($band['remaining_days'] ?? $band['days'])),
             ])
             ->all();
 
