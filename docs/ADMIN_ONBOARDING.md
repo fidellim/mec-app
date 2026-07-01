@@ -126,7 +126,7 @@ When an Admin recalls an approved timesheet, the recall reason, Admin, timestamp
 
 Use **All Leave Plans** to review leave plans across all departments.
 
-- Filter leave plans by department, employee, or status.
+- Filter leave plans by department, multiple employees, status, or attendance code.
 - Approve or reject submitted leave plans, except your own.
 - Approve or reject cancellation requests, except your own.
 - Use **Calendar** to visualize submitted, approved, cancellation-requested leave, and company holidays by month.

@@ -1885,6 +1885,145 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('calendar day');
     }
 
+    public function test_admin_can_filter_all_leave_plans_by_attendance_code_and_multiple_users(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $firstEmployee = $this->userWithRole('employee', ['name' => 'Ava Leave', 'department_id' => $department->id]);
+        $secondEmployee = $this->userWithRole('employee', ['name' => 'Ben Leave', 'department_id' => $department->id]);
+        $otherEmployee = $this->userWithRole('employee', ['name' => 'Cara Leave', 'department_id' => $department->id]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $firstEmployee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $secondEmployee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $otherEmployee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L110',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.leave-plans.index', [
+                'attendance_code' => 'L100',
+                'employee_ids' => [$firstEmployee->id, $secondEmployee->id],
+            ]))
+            ->assertOk()
+            ->assertSee('Ava Leave')
+            ->assertSee('Ben Leave')
+            ->assertDontSee('Cara Leave')
+            ->assertSee('L100 - Annual Leave');
+    }
+
+    public function test_all_leave_plans_filters_preserve_query_strings_and_selected_users(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'name' => 'Query String Employee',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-QS-001',
+        ]);
+
+        foreach (range(1, 16) as $day) {
+            LeavePlan::factory()->create([
+                'user_id' => $employee->id,
+                'department_id' => $department->id,
+                'attendance_code' => 'L100',
+                'status' => LeavePlan::STATUS_SUBMITTED,
+                'start_date' => '2026-05-'.str_pad((string) $day, 2, '0', STR_PAD_LEFT),
+                'end_date' => '2026-05-'.str_pad((string) $day, 2, '0', STR_PAD_LEFT),
+            ]);
+        }
+
+        $this->actingAs($admin)
+            ->get(route('admin.leave-plans.index', [
+                'department_id' => $department->id,
+                'status' => LeavePlan::STATUS_SUBMITTED,
+                'attendance_code' => 'L100',
+                'employee_ids' => [$employee->id],
+            ]))
+            ->assertOk()
+            ->assertSee('Query String Employee')
+            ->assertDontSee('Query String Employee - MEC-QS-001')
+            ->assertSee('attendance_code=L100', false)
+            ->assertSee('employee_ids%5B0%5D='.$employee->id, false);
+    }
+
+    public function test_admin_leave_plan_employee_lookup_is_paginated_browsable_and_minimal(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        foreach (range(1, 52) as $index) {
+            $this->userWithRole('employee', [
+                'name' => 'Lookup Person '.str_pad((string) $index, 2, '0', STR_PAD_LEFT),
+                'employee_code' => 'LOOK-'.$index,
+            ]);
+        }
+
+        $this->userWithRole('employee', ['name' => 'Lookup Inactive', 'is_active' => false]);
+        $this->userWithRole('admin', ['name' => 'Lookup Admin']);
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('admin.leave-plans.index', [
+                'employee_lookup' => 1,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(50, 'results')
+            ->assertJsonPath('has_more', true)
+            ->assertJsonPath('page', 1);
+
+        $this->assertArrayHasKey('value', $response->json('results.0'));
+        $this->assertArrayHasKey('text', $response->json('results.0'));
+        $this->assertArrayNotHasKey('email', $response->json('results.0'));
+
+        $resultLabels = collect($response->json('results'))->pluck('text');
+        $this->assertFalse($resultLabels->contains(fn ($label) => str_contains($label, 'Lookup Inactive')));
+        $this->assertFalse($resultLabels->contains(fn ($label) => str_contains($label, 'Lookup Admin')));
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.leave-plans.index', [
+                'employee_lookup' => 1,
+                'page' => 2,
+            ]))
+            ->assertOk()
+            ->assertJsonCount(2, 'results')
+            ->assertJsonPath('has_more', false)
+            ->assertJsonPath('page', 2);
+    }
+
+    public function test_admin_leave_plan_employee_lookup_can_search_by_name_or_employee_code(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $this->userWithRole('employee', [
+            'name' => 'Searchable Leave Employee',
+            'employee_code' => 'SPECIAL-LOOKUP-001',
+        ]);
+        $this->userWithRole('employee', [
+            'name' => 'Other Leave Employee',
+            'employee_code' => 'OTHER-LOOKUP-001',
+        ]);
+
+        $this->actingAs($admin)
+            ->getJson(route('admin.leave-plans.index', [
+                'employee_lookup' => 1,
+                'q' => 'SPECIAL',
+            ]))
+            ->assertOk()
+            ->assertJsonCount(1, 'results')
+            ->assertJsonPath('results.0.text', 'Searchable Leave Employee')
+            ->assertJsonPath('has_more', false);
+    }
+
     private function validLeavePlanPayload(array $overrides = []): array
     {
         return array_merge([

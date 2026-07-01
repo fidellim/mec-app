@@ -698,8 +698,14 @@
         .form-control,
         .form-select,
         .ts-control {
+            background-color: var(--bs-body-bg);
             border-color: var(--app-border);
             border-radius: .55rem;
+            color: var(--bs-body-color);
+        }
+        .form-control::placeholder {
+            color: var(--bs-secondary-color);
+            opacity: 1;
         }
         .form-control:focus,
         .form-select:focus,
@@ -825,6 +831,15 @@
             min-height: calc(2.25rem + 2px);
             background: var(--bs-body-bg);
             color: var(--bs-body-color);
+        }
+        .ts-control input {
+            color: var(--bs-body-color) !important;
+            -webkit-text-fill-color: var(--bs-body-color);
+        }
+        .ts-control input::placeholder {
+            color: var(--bs-secondary-color);
+            opacity: 1;
+            -webkit-text-fill-color: var(--bs-secondary-color);
         }
         .ts-wrapper.multi .ts-control > div {
             align-items: center;

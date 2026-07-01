@@ -320,7 +320,7 @@ When a Super Admin approves, rejects, or recalls a Head of Department timesheet,
 
 Use **All Leave Plans** to review leave plans across all departments.
 
-- Filter leave plans by department, employee, status, or leave type.
+- Filter leave plans by department, multiple employees, status, or attendance code.
 - Review the staged approval progress for HOD, Director, and HR.
 - Approve or reject the current submitted approval stage when the required approver is configured, except your own.
 - Approve or reject cancellation requests, except your own.
