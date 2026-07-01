@@ -48,6 +48,7 @@ class ManagementWorkflowTest extends TestCase
             'employee_code' => 'MEC-HR-2026-095',
             'initials' => 'NE',
             'job_title' => 'Project Engineer',
+            'eligible_for_parental_leave' => false,
         ]);
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
     }
@@ -73,7 +74,8 @@ class ManagementWorkflowTest extends TestCase
                 ->assertSee('UAE Sick Leave Maximum Calendar Days')
                 ->assertSee('UAE Maternity Leave Maximum Calendar Days')
                 ->assertSee('UAE Parental Leave Default Days')
-                ->assertSee('Philippines Service Incentive Leave Default Days');
+                ->assertSee('Philippines Service Incentive Leave Default Days')
+                ->assertSee('parental leave appears only after HR eligibility approval on the user profile');
 
             $this->actingAs($actor)
                 ->patch(route('manage.leave-settings.update'), [
@@ -321,6 +323,7 @@ class ManagementWorkflowTest extends TestCase
                 'gender' => 'female',
                 'joining_date' => '2026-04-15',
                 'marital_status' => 'married',
+                'eligible_for_parental_leave' => '1',
                 'department_id' => $newDepartment->id,
                 'is_active' => '0',
             ])
@@ -347,6 +350,7 @@ class ManagementWorkflowTest extends TestCase
         $this->assertSame('female', $employee->gender);
         $this->assertSame('2026-04-15', $employee->joining_date->toDateString());
         $this->assertSame('married', $employee->marital_status);
+        $this->assertTrue($employee->eligible_for_parental_leave);
         $this->assertSame($newDepartment->id, $employee->department_id);
         $this->assertFalse($employee->is_active);
 
@@ -659,6 +663,7 @@ class ManagementWorkflowTest extends TestCase
             'gender' => 'female',
             'joining_date' => '2026-06-15',
             'marital_status' => 'married',
+            'eligible_for_parental_leave' => '1',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -670,6 +675,7 @@ class ManagementWorkflowTest extends TestCase
             'email' => 'profile.fields@example.com',
             'gender' => 'female',
             'marital_status' => 'married',
+            'eligible_for_parental_leave' => true,
         ]);
         $this->assertSame('2026-06-15', $user->joining_date->toDateString());
 
@@ -687,6 +693,7 @@ class ManagementWorkflowTest extends TestCase
             'gender' => '',
             'joining_date' => '',
             'marital_status' => '',
+            'eligible_for_parental_leave' => '0',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -697,6 +704,7 @@ class ManagementWorkflowTest extends TestCase
         $this->assertNull($user->gender);
         $this->assertNull($user->joining_date);
         $this->assertNull($user->marital_status);
+        $this->assertFalse($user->eligible_for_parental_leave);
 
         $this->actingAs($superAdmin)->post(route('manage.users.store'), [
             'name' => 'Invalid Profile Fields',

@@ -80,6 +80,16 @@
             </div>
         @endif
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
+        <div class="col-md-4 d-flex align-items-end">
+            <div>
+                <div class="form-check">
+                    <input type="hidden" name="eligible_for_parental_leave" value="0">
+                    <input class="form-check-input" type="checkbox" name="eligible_for_parental_leave" value="1" id="eligibleForParentalLeave" @checked(old('eligible_for_parental_leave', $userModel->eligible_for_parental_leave ?? false))>
+                    <label class="form-check-label" for="eligibleForParentalLeave">Eligible for parental leave</label>
+                </div>
+                <div class="form-text">Allow this employee to apply for parental leave. This will be automatically unticked after a parental leave plan is fully approved.</div>
+            </div>
+        </div>
         @if($isSuperAdmin)
             <div class="col-md-4">
                 <label class="form-label" for="annual_leave_allowance_days">Current-year annual leave override</label>

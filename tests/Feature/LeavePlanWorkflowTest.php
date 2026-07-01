@@ -185,6 +185,7 @@ class LeavePlanWorkflowTest extends TestCase
         $employee = $this->userWithRole('employee', [
             'department_id' => $department->id,
             'employee_code' => 'MEC-HR-2026-501',
+            'eligible_for_parental_leave' => true,
         ]);
         $this->setLeavePlanApprovers($director, $uaeHr, $this->userWithRole('employee'));
 
@@ -220,6 +221,60 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertNull($leavePlan->approval_stage);
         $this->assertSame($uaeHr->id, $leavePlan->hr_approved_by);
         $this->assertSame($uaeHr->id, $leavePlan->approved_by);
+        $this->assertTrue($employee->fresh()->eligible_for_parental_leave);
+    }
+
+    public function test_parental_leave_final_approval_removes_eligibility_but_keeps_approved_plan_visible(): void
+    {
+        $department = $this->department();
+        $director = $this->userWithRole('employee');
+        $uaeHr = $this->userWithRole('employee');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-503',
+            'eligible_for_parental_leave' => true,
+        ]);
+        $this->setLeavePlanApprovers($director, $uaeHr, $this->userWithRole('employee'));
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L170',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+            'submitted_at' => now(),
+            'hod_approved_at' => now(),
+            'hod_approved_by' => $this->userWithRole('hod')->id,
+            'director_approved_at' => now(),
+            'director_approved_by' => $director->id,
+        ]);
+
+        $this->actingAs($uaeHr)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $employee->refresh();
+
+        $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
+        $this->assertFalse($employee->eligible_for_parental_leave);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'parental_leave_eligibility_auto_removed',
+            'auditable_type' => $employee::class,
+            'auditable_id' => $employee->id,
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.index'))
+            ->assertOk()
+            ->assertSee('Parental Leave')
+            ->assertSee('approved');
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L170 - Parental Leave')
+            ->assertDontSee('Parental leave</h3>', false);
     }
 
     public function test_philippines_employee_routes_to_ph_hr_for_final_leave_plan_approval(): void
@@ -1415,7 +1470,7 @@ class LeavePlanWorkflowTest extends TestCase
     {
         $employee = $this->userWithRole('employee', [
             'department_id' => $this->department()->id,
-            'marital_status' => 'married',
+            'eligible_for_parental_leave' => true,
         ]);
 
         $this->actingAs($employee)
@@ -1423,6 +1478,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('L170 - Parental Leave')
             ->assertSee('L180 - Bereavement / Compassionate Leave')
+            ->assertSee('Parental leave requires HR eligibility approval. Contact HR if you need to apply. Eligibility is removed after approval.')
             ->assertSee('Supporting document needed')
             ->assertSee('Please add a link to your medical certificate in the Reason field.')
             ->assertSee('Please add a link to the birth certificate or hospital birth notification in the Reason field.')
@@ -1438,7 +1494,7 @@ class LeavePlanWorkflowTest extends TestCase
         $employee = $this->userWithRole('employee', [
             'department_id' => $this->department()->id,
             'gender' => 'female',
-            'marital_status' => 'married',
+            'eligible_for_parental_leave' => true,
         ]);
 
         foreach (['L160', 'L170', 'L180'] as $attendanceCode) {
@@ -1470,10 +1526,17 @@ class LeavePlanWorkflowTest extends TestCase
             'gender' => 'female',
             'marital_status' => 'single',
         ]);
-        $maleMarriedEmployee = $this->userWithRole('employee', [
+        $parentalEligibleEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'gender' => 'male',
+            'marital_status' => 'single',
+            'eligible_for_parental_leave' => true,
+        ]);
+        $marriedNotParentallyEligibleEmployee = $this->userWithRole('employee', [
             'department_id' => $department->id,
             'gender' => 'male',
             'marital_status' => 'married',
+            'eligible_for_parental_leave' => false,
         ]);
         $profileIncompleteEmployee = $this->userWithRole('employee', [
             'department_id' => $department->id,
@@ -1488,11 +1551,18 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('L170 - Parental Leave')
             ->assertSee('Bereavement / compassionate leave');
 
-        $this->actingAs($maleMarriedEmployee)
+        $this->actingAs($parentalEligibleEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertSee('L170 - Parental Leave')
+            ->assertSee('Bereavement / compassionate leave');
+
+        $this->actingAs($marriedNotParentallyEligibleEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L160 - Maternity Leave')
+            ->assertDontSee('L170 - Parental Leave')
             ->assertSee('Bereavement / compassionate leave');
 
         $this->actingAs($profileIncompleteEmployee)
@@ -1515,6 +1585,7 @@ class LeavePlanWorkflowTest extends TestCase
             'department_id' => $department->id,
             'gender' => 'female',
             'marital_status' => 'single',
+            'eligible_for_parental_leave' => false,
         ]);
 
         $this->actingAs($maleEmployee)
@@ -1527,6 +1598,15 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($singleEmployee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                 'attendance_code' => 'L170',
+                'submit' => '0',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($singleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L170',
+                'start_date' => '2026-05-12',
+                'end_date' => '2026-05-12',
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('attendance_code');

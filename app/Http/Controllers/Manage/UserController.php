@@ -298,6 +298,7 @@ class UserController extends Controller
             'gender' => ['nullable', Rule::in(['male', 'female'])],
             'joining_date' => ['nullable', 'date'],
             'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
+            'eligible_for_parental_leave' => ['boolean'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
@@ -314,6 +315,7 @@ class UserController extends Controller
             'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
         ]) + [
             'is_active' => false,
+            'eligible_for_parental_leave' => false,
             'receives_hod_timesheet_submission_emails' => false,
         ];
 
@@ -345,6 +347,7 @@ class UserController extends Controller
             'gender' => ['nullable', Rule::in(['male', 'female'])],
             'joining_date' => ['nullable', 'date'],
             'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
+            'eligible_for_parental_leave' => ['boolean'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'is_active' => ['boolean'],
         ], [
@@ -352,6 +355,7 @@ class UserController extends Controller
             'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
         ]) + [
             'is_active' => false,
+            'eligible_for_parental_leave' => false,
         ];
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;

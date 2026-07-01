@@ -13,6 +13,7 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password', 'employee_code', 'initials', 'job_title', 'gender', 'joining_date', 'marital_status',
+        'eligible_for_parental_leave',
         'department_id', 'role', 'is_active', 'receives_hod_timesheet_submission_emails', 'annual_leave_allowance_days',
     ];
 
@@ -25,6 +26,7 @@ class User extends Authenticatable
             'department_id' => 'integer',
             'password' => 'hashed',
             'joining_date' => 'date',
+            'eligible_for_parental_leave' => 'boolean',
             'is_active' => 'boolean',
             'receives_hod_timesheet_submission_emails' => 'boolean',
             'annual_leave_allowance_days' => 'decimal:2',

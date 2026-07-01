@@ -20,6 +20,7 @@ class UserFactory extends Factory
             'gender' => null,
             'joining_date' => null,
             'marital_status' => null,
+            'eligible_for_parental_leave' => false,
             'role' => 'employee',
             'is_active' => true,
         ];

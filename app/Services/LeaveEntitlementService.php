@@ -224,7 +224,7 @@ class LeaveEntitlementService
     {
         return match ($attendanceCode) {
             self::MATERNITY_LEAVE_CODE => $user->gender === 'female',
-            self::PARENTAL_LEAVE_CODE => $user->marital_status === 'married',
+            self::PARENTAL_LEAVE_CODE => (bool) $user->eligible_for_parental_leave,
             self::SERVICE_INCENTIVE_LEAVE_CODE => $this->regionFor($user) === 'ph',
             default => true,
         };
@@ -234,7 +234,7 @@ class LeaveEntitlementService
     {
         return match ($attendanceCode) {
             self::MATERNITY_LEAVE_CODE => 'Maternity leave is available only for employees whose gender is set to Female.',
-            self::PARENTAL_LEAVE_CODE => 'Parental leave is available only for employees whose marital status is set to Married.',
+            self::PARENTAL_LEAVE_CODE => 'Parental leave requires HR eligibility approval. Contact HR or an admin if you need to apply.',
             self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave is available only for Philippines employees.',
             default => null,
         };

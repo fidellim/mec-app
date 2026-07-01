@@ -22,7 +22,7 @@
         @endforeach
         <div class="col-12">
             <div class="alert alert-info mb-0">
-                Eligible entitlement balances are shown to users. UAE sick and maternity balances show the full-pay allowance, while these settings keep the maximum claimable calendar-day limits for validation. Maternity leave appears only when gender is Female, and parental leave appears only when marital status is Married.
+                Eligible entitlement balances are shown to users. UAE sick and maternity balances show the full-pay allowance, while these settings keep the maximum claimable calendar-day limits for validation. Maternity leave appears only when gender is Female, and parental leave appears only after HR eligibility approval on the user profile.
             </div>
         </div>
     </div>

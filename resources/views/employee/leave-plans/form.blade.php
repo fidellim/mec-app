@@ -85,6 +85,7 @@
             <div>
                 <h2 class="h5 mb-1">Leave balances</h2>
                 <div class="small text-muted">Eligible leave entitlements reset every January 1. Unused days do not carry over.</div>
+                <div class="small text-muted mt-1">Parental leave requires HR eligibility approval. Contact HR if you need to apply. Eligibility is removed after approval.</div>
             </div>
         </div>
         <div class="row g-3 mt-1">
