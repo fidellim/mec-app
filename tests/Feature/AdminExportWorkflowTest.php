@@ -1168,7 +1168,6 @@ class AdminExportWorkflowTest extends TestCase
             'start_date' => '2026-05-11',
             'end_date' => '2026-05-12',
             'duration_type' => 'full_day',
-            'reason' => '=formula-like employee reason',
             'status' => LeavePlan::STATUS_APPROVED,
             'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
             'submitted_at' => '2026-04-01 08:00:00',
@@ -1195,25 +1194,35 @@ class AdminExportWorkflowTest extends TestCase
 
         $this->assertSame(1, $spreadsheet->getSheetCount());
         $this->assertSame('Leave Plans', $sheet->getTitle());
-        $this->assertSame('Leave Plan ID', $sheet->getCell('A1')->getValue());
-        $this->assertSame('Employee Name', $sheet->getCell('B1')->getValue());
-        $this->assertSame('Updated At', $sheet->getCell('AN1')->getValue());
-        $this->assertEquals($leavePlan->id, $sheet->getCell('A2')->getValue());
-        $this->assertSame('Leave Export Employee', $sheet->getCell('B2')->getValue());
-        $this->assertSame('MEC-HR-2026-777', $sheet->getCell('C2')->getValue());
-        $this->assertSame('HR Coordinator', $sheet->getCell('D2')->getValue());
-        $this->assertSame('HR Operations', $sheet->getCell('E2')->getValue());
-        $this->assertSame('L100', $sheet->getCell('F2')->getValue());
-        $this->assertSame('2026-05-11', $sheet->getCell('H2')->getValue());
-        $this->assertSame('2026-05-12', $sheet->getCell('I2')->getValue());
-        $this->assertEquals(2, $sheet->getCell('L2')->getValue());
-        $this->assertSame(LeavePlan::STATUS_APPROVED, $sheet->getCell('M2')->getValue());
-        $this->assertSame('Approved by HR', $sheet->getCell('N2')->getValue());
-        $this->assertSame('HOD Approver', $sheet->getCell('P2')->getValue());
-        $this->assertSame('Director Approver', $sheet->getCell('R2')->getValue());
-        $this->assertSame('HR Approver', $sheet->getCell('T2')->getValue());
-        $this->assertSame('HR Approver', $sheet->getCell('V2')->getValue());
-        $this->assertSame("'=formula-like employee reason", $sheet->getCell('AL2')->getValue());
+        $this->assertSame('Employee Name', $sheet->getCell('A1')->getValue());
+        $this->assertSame('HR Approved At', $sheet->getCell('T1')->getValue());
+        $this->assertNull($sheet->getCell('U1')->getValue());
+        $this->assertSame('Leave Export Employee', $sheet->getCell('A2')->getValue());
+        $this->assertSame('MEC-HR-2026-777', $sheet->getCell('B2')->getValue());
+        $this->assertSame('HR Coordinator', $sheet->getCell('C2')->getValue());
+        $this->assertSame('HR Operations', $sheet->getCell('D2')->getValue());
+        $this->assertSame('L100', $sheet->getCell('E2')->getValue());
+        $this->assertSame('2026-05-11', $sheet->getCell('G2')->getValue());
+        $this->assertSame('2026-05-12', $sheet->getCell('H2')->getValue());
+        $this->assertEquals(2, $sheet->getCell('K2')->getValue());
+        $this->assertSame(LeavePlan::STATUS_APPROVED, $sheet->getCell('L2')->getValue());
+        $this->assertSame('Approved by HR', $sheet->getCell('M2')->getValue());
+        $this->assertSame('HOD Approver', $sheet->getCell('O2')->getValue());
+        $this->assertSame('Director Approver', $sheet->getCell('Q2')->getValue());
+        $this->assertSame('HR Approver', $sheet->getCell('S2')->getValue());
+        $this->assertSame('2026-04-04 11:00:00', $sheet->getCell('T2')->getValue());
+        $removedHeadings = [
+            'Leave Plan ID',
+            'Final Approved By',
+            'Final Approved At',
+            'Employee Reason',
+            'Updated At',
+        ];
+
+        foreach (range('A', 'T') as $column) {
+            $this->assertNotContains($sheet->getCell($column.'1')->getValue(), $removedHeadings);
+        }
+
         $this->assertSame('A2', $sheet->getFreezePane());
     }
 
@@ -1264,8 +1273,8 @@ class AdminExportWorkflowTest extends TestCase
 
         $sheet = IOFactory::load($response->getFile()->getPathname())->getSheet(0);
 
-        $this->assertSame('Filtered Employee A', $sheet->getCell('B2')->getValue());
-        $this->assertNull($sheet->getCell('B3')->getValue());
+        $this->assertSame('Filtered Employee A', $sheet->getCell('A2')->getValue());
+        $this->assertNull($sheet->getCell('A3')->getValue());
     }
 
     public function test_leave_plan_export_permissions_empty_results_and_validation(): void
@@ -1286,7 +1295,9 @@ class AdminExportWorkflowTest extends TestCase
         $emptyResponse->assertOk();
 
         $emptySheet = IOFactory::load($emptyResponse->getFile()->getPathname())->getSheet(0);
-        $this->assertSame('Leave Plan ID', $emptySheet->getCell('A1')->getValue());
+        $this->assertSame('Employee Name', $emptySheet->getCell('A1')->getValue());
+        $this->assertSame('HR Approved At', $emptySheet->getCell('T1')->getValue());
+        $this->assertNull($emptySheet->getCell('U1')->getValue());
         $this->assertNull($emptySheet->getCell('A2')->getValue());
 
         $this->actingAs($admin)
