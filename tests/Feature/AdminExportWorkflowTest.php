@@ -438,6 +438,69 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('Project Engineer', $spreadsheet->getSheet(2)->getCell('K5')->getValue());
     }
 
+    public function test_individual_excel_sheet_does_not_count_training_code_as_leave_hours(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'initials' => 'TR',
+            'job_title' => 'Training Coordinator',
+        ]);
+        $period = $this->openPeriod();
+        $timesheet = $this->submittedTimesheet($employee, $period, $this->project(), [
+            'status' => 'approved',
+            'total_regular_hours' => 14,
+            'total_overtime_hours' => 2,
+            'total_hours' => 16,
+        ]);
+        $timesheet->entries()->delete();
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-11',
+            'day_name' => 'Monday',
+            'attendance_code' => 'L200',
+            'project_id' => null,
+            'regular_hours' => 6,
+            'overtime_hours' => 2,
+            'remarks' => 'Training seminar',
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-12',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'L100',
+            'project_id' => null,
+            'regular_hours' => 8,
+            'overtime_hours' => 0,
+            'remarks' => 'Annual leave',
+        ]);
+
+        $admin = $this->userWithRole('admin');
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'week_number' => 20,
+            'year' => 2026,
+            'include_employee_sheets' => 1,
+        ]));
+
+        $response->assertOk();
+
+        $employeeSheet = IOFactory::load($response->getFile()->getPathname())->getSheet(2);
+
+        $this->assertSame('L200', $employeeSheet->getCell('B11')->getValue());
+        $this->assertEquals(6, $employeeSheet->getCell('P11')->getCalculatedValue());
+        $this->assertEquals(2, $employeeSheet->getCell('Q11')->getCalculatedValue());
+        $this->assertSame('-', $employeeSheet->getCell('R11')->getValue());
+        $this->assertEquals(8, $employeeSheet->getCell('T11')->getCalculatedValue());
+
+        $this->assertSame('L100', $employeeSheet->getCell('B12')->getValue());
+        $this->assertEquals(8, $employeeSheet->getCell('R12')->getCalculatedValue());
+        $this->assertEquals(8, $employeeSheet->getCell('T12')->getCalculatedValue());
+
+        $this->assertEquals(8, $employeeSheet->getCell('R17')->getCalculatedValue());
+        $this->assertEquals(16, $employeeSheet->getCell('T17')->getCalculatedValue());
+    }
+
     public function test_excel_export_includes_grouped_project_weekly_summary_sheet(): void
     {
         $department = $this->department();

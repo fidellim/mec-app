@@ -112,7 +112,9 @@ class TimesheetExportService
                 trim((string) $entry->remarks),
             ]));
 
-        $rows = $groups->map(function ($entries) use ($weekdayDates, $saturday, $sunday) {
+        $leaveCodes = config('timesheet.leave_attendance_codes', []);
+
+        $rows = $groups->map(function ($entries) use ($weekdayDates, $saturday, $sunday, $leaveCodes) {
             $first = $entries->first();
             $weekdayValues = [];
 
@@ -129,7 +131,7 @@ class TimesheetExportService
             $regular = (float) $entries->sum('regular_hours');
             $overtime = (float) $entries->sum('overtime_hours');
             $attendanceCode = $first->attendance_code ?? 'O100';
-            $isLeave = str_starts_with($attendanceCode, 'L');
+            $isLeave = in_array($attendanceCode, $leaveCodes, true);
             $isAbsent = $attendanceCode === 'L130';
             $holidayHours = $attendanceCode === 'L140' ? $regular + $overtime : 0;
             $leaveHours = $isLeave && ! $isAbsent && $attendanceCode !== 'L140' ? $regular + $overtime : 0;
