@@ -78,6 +78,7 @@ Route::middleware('auth')->group(function () {
         Route::post('/timesheets/{timesheet}/recall-approved', [HodTimesheetController::class, 'recallApproved'])->name('timesheets.recall-approved');
         Route::get('/tracker', [HodTimesheetController::class, 'tracker'])->name('tracker');
         Route::post('/tracker/reminders', [HodTimesheetController::class, 'remindMissing'])->name('tracker.reminders');
+        Route::get('/leave-entitlements', [HodLeavePlanController::class, 'leaveEntitlements'])->name('leave-entitlements.index');
         Route::get('/leave-plans', [HodLeavePlanController::class, 'index'])->name('leave-plans.index');
         Route::get('/leave-plans/calendar', [HodLeavePlanController::class, 'calendar'])->name('leave-plans.calendar');
         Route::get('/leave-plans/{leavePlan}/history', [HodLeavePlanController::class, 'history'])->name('leave-plans.history');

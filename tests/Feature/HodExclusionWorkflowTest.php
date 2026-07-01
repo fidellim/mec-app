@@ -154,6 +154,11 @@ class HodExclusionWorkflowTest extends TestCase
             ->assertDontSee($employee->name);
 
         $this->actingAs($hiddenHod)
+            ->get(route('hod.leave-entitlements.index'))
+            ->assertOk()
+            ->assertDontSee($employee->name);
+
+        $this->actingAs($hiddenHod)
             ->get(route('hod.tracker', ['period_id' => $period->id]))
             ->assertOk()
             ->assertDontSee($employee->name);
@@ -191,6 +196,67 @@ class HodExclusionWorkflowTest extends TestCase
             ->assertRedirect();
 
         $this->assertSame($visibleHod->id, $timesheet->refresh()->approved_by);
+    }
+
+    public function test_hod_can_view_visible_employee_leave_entitlements_with_filters(): void
+    {
+        [$department, $hod, , $employee] = $this->departmentWithTwoHods();
+        $employee->update(['annual_leave_allowance_days' => 12]);
+        $secondDepartment = $this->department(['name' => 'Managed Projects']);
+        $secondDepartment->hods()->attach($hod);
+        $secondEmployee = $this->userWithRole('employee', [
+            'department_id' => $secondDepartment->id,
+            'name' => 'Second Managed Employee',
+        ]);
+        $unmanagedDepartment = $this->department();
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-entitlements.index', ['year' => 2026]))
+            ->assertOk()
+            ->assertSee('Department Leave Entitlements')
+            ->assertSee($employee->name)
+            ->assertSee('Annual leave')
+            ->assertSee('12 days')
+            ->assertSee('User override')
+            ->assertSee($secondEmployee->name);
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-entitlements.index', [
+                'department_id' => $department->id,
+                'year' => 2026,
+            ]))
+            ->assertOk()
+            ->assertSee($employee->name)
+            ->assertDontSee($secondEmployee->name);
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-entitlements.index', ['department_id' => $unmanagedDepartment->id]))
+            ->assertForbidden();
+    }
+
+    public function test_hod_leave_plan_review_shows_employee_leave_balances(): void
+    {
+        [$department, $hod, , $employee] = $this->departmentWithTwoHods();
+        $employee->update(['annual_leave_allowance_days' => 12]);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-plans.show', $leavePlan))
+            ->assertOk()
+            ->assertSee('Employee leave balances')
+            ->assertSee('Eligible balances for 2026.')
+            ->assertSee('Annual Leave')
+            ->assertSee('12 days')
+            ->assertSee('User override');
     }
 
     public function test_super_admin_can_manage_hod_exclusions_and_cannot_leave_zero_eligible_approvers(): void

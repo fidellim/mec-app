@@ -18,6 +18,11 @@
     @include('partials.status', ['status' => $leavePlan->status])
 </div>
 @include('shared.leave_plan_detail', ['leavePlan' => $leavePlan])
+@include('shared.leave_balance_cards', [
+    'leaveBalances' => $leaveBalances ?? [],
+    'title' => 'Employee leave balances',
+    'description' => 'Eligible balances for '.($leaveBalanceYear ?? $leavePlan->start_date->year).'.',
+])
 @include('shared.leave_plan_history', ['leavePlan' => $leavePlan])
 @include('shared.leave_plan_review_calendar', ['reviewCalendarMonths' => $reviewCalendarMonths ?? collect()])
 @if($leavePlan->status === 'recalled')

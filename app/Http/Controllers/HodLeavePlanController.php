@@ -13,6 +13,7 @@ use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
 use App\Services\LeavePlanReviewCalendarService;
 use App\Services\LeavePlanStatusHistoryService;
+use App\Services\LeaveEntitlementService;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -76,13 +77,50 @@ class HodLeavePlanController extends Controller
         ]);
     }
 
-    public function show(LeavePlan $leavePlan, LeavePlanReviewCalendarService $reviewCalendar)
+    public function leaveEntitlements(Request $request, LeaveEntitlementService $entitlements)
+    {
+        $filters = $request->validate([
+            'department_id' => ['nullable', 'integer'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $managedDepartmentIds = $this->managedDepartmentIds();
+        $selectedDepartmentId = $this->selectedDepartmentId($managedDepartmentIds);
+        $year = (int) ($filters['year'] ?? now()->year);
+
+        $employees = User::with('department')
+            ->whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
+            ->whereIn('role', ['employee', 'hod'])
+            ->where('is_active', true)
+            ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey(auth()->id()))
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
+
+        $employees->getCollection()->transform(function (User $employee) use ($entitlements, $year) {
+            $employee->leaveBalances = $entitlements->visibleBalancesFor($employee, $year);
+
+            return $employee;
+        });
+
+        return view('hod.leave-entitlements.index', [
+            'employees' => $employees,
+            'departments' => Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get(),
+            'selectedDepartmentId' => $selectedDepartmentId,
+            'year' => $year,
+        ]);
+    }
+
+    public function show(LeavePlan $leavePlan, LeavePlanReviewCalendarService $reviewCalendar, LeaveEntitlementService $entitlements)
     {
         $this->authorizeDepartment($leavePlan);
         $leavePlan = $this->loadForShow($leavePlan);
+        $balanceYear = (int) $leavePlan->start_date->year;
 
         return view('hod.leave-plans.show', [
             'leavePlan' => $leavePlan,
+            'leaveBalances' => $entitlements->visibleBalancesFor($leavePlan->user, $balanceYear, $leavePlan->id),
+            'leaveBalanceYear' => $balanceYear,
             'reviewCalendarMonths' => $reviewCalendar->build(
                 $leavePlan,
                 $this->scope(LeavePlan::query(), null),
@@ -114,13 +152,16 @@ class HodLeavePlanController extends Controller
         return view('assigned.leave-plans.index', compact('leavePlans'));
     }
 
-    public function assignedShow(LeavePlan $leavePlan, LeavePlanApprovalService $approvals, LeavePlanReviewCalendarService $reviewCalendar)
+    public function assignedShow(LeavePlan $leavePlan, LeavePlanApprovalService $approvals, LeavePlanReviewCalendarService $reviewCalendar, LeaveEntitlementService $entitlements)
     {
         abort_unless($approvals->isAssignedCurrentStageApprover(auth()->user(), $leavePlan), 403);
         $leavePlan = $this->loadForShow($leavePlan);
+        $balanceYear = (int) $leavePlan->start_date->year;
 
         return view('hod.leave-plans.show', [
             'leavePlan' => $leavePlan,
+            'leaveBalances' => $entitlements->visibleBalancesFor($leavePlan->user, $balanceYear, $leavePlan->id),
+            'leaveBalanceYear' => $balanceYear,
             'reviewCalendarMonths' => $reviewCalendar->build(
                 $leavePlan,
                 LeavePlan::query()->where('department_id', $leavePlan->department_id),
