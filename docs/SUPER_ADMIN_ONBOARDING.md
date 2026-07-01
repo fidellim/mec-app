@@ -31,6 +31,8 @@ Super Admins can access:
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Leave Plans** | Lets you review leave plans and open the all-company leave calendar. |
+| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Leave Entitlements** | Shows company leave balances by employee, department, and year. |
+| ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Assigned Leave Plans** | Appears when you are configured as the Director, UAE HR, or Philippines HR leave approver. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **HOD Timesheets** | Shows Head of Department timesheets that Admins and Super Admins can review. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **HOD Tracker** | Shows which Heads of Department have submitted for a selected weekly period. |
 | ![Users](/images/sidebar/users.svg) **Users** | Create, edit, activate/deactivate, and delete users. |
@@ -39,6 +41,7 @@ Super Admins can access:
 | ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Weekly Periods** | Open or close weekly submission windows. |
 | ![Users](/images/sidebar/users.svg) **Leave Approvers** | Assign Director and regional HR approvers for leave-plan approvals. |
 | ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Leave Settings** | Set UAE and Philippines leave policy allowances. |
+| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Holidays** | Maintain global, UAE, and Philippines company holidays. |
 | ![Automations](/images/sidebar/automations.svg) **Automations** | Enable or disable scheduled background jobs. |
 | ![Audit Logs](/images/sidebar/audit-logs.svg) **Audit Logs** | Review, export, and clean up important system actions. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
@@ -76,11 +79,14 @@ For each user, manage:
 - Employee number.
 - Initials.
 - Job Title.
+- Gender.
+- Joining Date.
+- Marital Status.
 - Role.
 - Department.
 - Active/inactive status.
 - Whether an Admin or Super Admin receives HOD timesheet submission emails.
-- HOD notification and approval exceptions when editing an existing HOD.
+- HOD notification, approval, and visibility exceptions when editing an existing HOD.
 - Password when creating or resetting a user.
 
 Passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
@@ -97,11 +103,13 @@ The final number must have at least three digits.
 
 Job Title is optional and appears in timesheet exports. If it is left blank, exports show `-`.
 
+Gender, joining date, and marital status are optional profile details. Gender controls maternity-leave eligibility, and marital status controls parental-leave eligibility.
+
 Important user rules:
 
 - Inactive users cannot use the system normally.
 - Super Admins can turn off **Receive HOD timesheet submission emails** on Admin and Super Admin accounts if that user should not receive HOD approval-request emails.
-- When editing an existing HOD, Super Admins can exclude selected users from that HOD's approval-request emails, or prevent that HOD from approving/rejecting selected users when another HOD approver remains responsible.
+- When editing an existing HOD, Super Admins can exclude selected users from that HOD's approval-request emails, prevent that HOD from approving/rejecting selected users, or hide selected users from that HOD's managed-department views when another HOD approver remains responsible.
 - Users without a department cannot create or submit personal timesheets.
 - When a user's department changes, draft, withdrawn, recalled, and rejected timesheets move to the new department. Submitted and approved timesheets stay in the original department.
 - You cannot delete your own account.
@@ -135,15 +143,17 @@ Each department can have one primary **Head of Department** and multiple **HOD a
 - The HOD dashboard, Department Timesheets page, Submission Tracker, and reminder tools use the full list of departments assigned to the HOD.
 - If a HOD user's role is changed back to Employee, Admin, or Super Admin, MEC Group Portal automatically removes that user from primary HOD and additional HOD approver assignments.
 
-### HOD Notification And Approval Exceptions
+### HOD Notification, Approval, And Visibility Exceptions
 
 When a department has multiple HOD approvers, Super Admins can manage exceptions from the HOD's user edit page. Exceptions are available only for users in departments where the edited HOD is assigned as the primary HOD or an additional HOD approver.
 
 - **Do not email this HOD for submissions from** stops email notifications only. The HOD can still approve or reject those users.
 - **Do not allow this HOD to approve/reject submissions from** blocks approval, rejection, recall, and cancellation-review actions for those users. It also stops approval-request emails.
-- The excluded HOD can still view records in managed department pages.
+- **Do not show this employee to this HOD** removes those users from the HOD's managed-department timesheet, tracker, leave-plan, calendar, and leave-entitlement pages. It also prevents direct HOD action on those records.
+- Approval-excluded HODs can still view records in managed department pages unless a visibility exception is also configured.
 - The HOD's own profile department does not qualify unless the HOD is also selected as a primary/additional HOD approver for that department.
 - MEC Group Portal prevents approval exceptions that would leave a user without any eligible HOD approver.
+- MEC Group Portal also prevents visibility exceptions that would leave a user without any eligible HOD approver who can see and approve their records.
 - Exceptions are cleaned up automatically when users change role, users move department, or department HOD assignments change.
 - Changes are recorded in Audit Logs as `user_hod_exclusions_updated`.
 
@@ -202,6 +212,17 @@ Use **Leave Settings** to set UAE and Philippines default allowances for annual,
 - Unused days expire on December 31 and do not carry over.
 - No automation is required for refresh because leave usage is calculated dynamically from leave plans in each year.
 - Submitted, approved, and cancellation-requested entitled leave plans consume allowance. Draft, rejected, cancelled, recalled, and voided plans do not consume allowance.
+
+## Manage Holidays
+
+Use **Holidays** to maintain company holidays used by leave calendars and leave entitlement day counting.
+
+- Holidays can be global, UAE-specific, or Philippines-specific.
+- A holiday can be a single date or a date range.
+- The same region cannot have duplicate holiday dates.
+- Deactivate a holiday when it should stop affecting calendars and leave counts without deleting its history.
+- Active applicable holidays appear as read-only events in leave calendars.
+- Changes are recorded in Audit Logs as `holiday_created`, `holiday_updated`, `holiday_activated`, or `holiday_deactivated`.
 
 ## Automations
 

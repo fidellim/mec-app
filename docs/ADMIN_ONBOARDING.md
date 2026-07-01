@@ -23,8 +23,12 @@ Admins can access:
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Timesheets** | Shows your personal weekly timesheet history, if you are assigned to a department. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Timesheets** | Lets you filter, review, approve where allowed, and export timesheets. |
 | ![All Timesheets](/images/sidebar/all-timesheets.svg) **All Leave Plans** | Lets you review leave plans and open the all-company leave calendar. |
+| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Leave Entitlements** | Shows company leave balances by employee, department, and year. |
+| ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Assigned Leave Plans** | Appears when you are configured as the Director, UAE HR, or Philippines HR leave approver. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **HOD Timesheets** | Shows Head of Department timesheets that Admins can review. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **HOD Tracker** | Shows which Heads of Department have submitted for a selected weekly period. |
+| ![Users](/images/sidebar/users.svg) **Users** | Lets you view users and edit Employee/HOD profile details. |
+| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Holidays** | Lets you maintain global, UAE, and Philippines company holidays. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
 ## Timesheet Statuses
@@ -114,7 +118,8 @@ Admins cannot:
 - Approve or reject their own timesheet.
 - Recall their own approved timesheet.
 - Edit another user's timesheet.
-- Manage users, departments, projects, weekly periods, automations, or audit logs.
+- Create users, delete users, change user roles, or edit Super Admin accounts.
+- Manage departments, projects, weekly periods, leave settings, automations, or audit logs.
 
 Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
 
@@ -136,6 +141,26 @@ For entitled leave types, submitted, approved, and cancellation-requested plans 
 Holiday entries are read-only and include region labels where applicable.
 
 Employees receive email notifications when their leave plan or cancellation request is approved or rejected.
+
+## Leave Entitlements
+
+Use **Leave Entitlements** to review current leave balances for active Employees and Heads of Department.
+
+- Filter by department, employee, and year.
+- Balances use the same eligibility rules shown on employee leave forms.
+- Submitted, approved, and cancellation-requested leave reserves allowance. Draft, rejected, cancelled, recalled, and voided leave does not.
+- Active applicable holidays can change counted leave days and remaining balances when holiday records are added, updated, activated, or deactivated.
+
+## Users And Holidays
+
+Admins can use **Users** to view company users and edit Employee/HOD profile details such as name, employee number, initials, job title, gender, joining date, marital status, department, and active status. Admins cannot create users, delete users, change roles, reset passwords, edit Super Admin accounts, or configure HOD exclusions.
+
+Use **Holidays** to maintain company holidays used by leave calendars and leave entitlement day counting.
+
+- Holidays can be global, UAE-specific, or Philippines-specific.
+- A holiday can be a single date or a date range.
+- The same region cannot have duplicate holiday dates.
+- Deactivate a holiday when it should stop affecting calendars and leave counts without deleting its history.
 
 ## Submit Your Own Timesheet
 

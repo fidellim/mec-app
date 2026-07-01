@@ -59,8 +59,10 @@ password123
 - Job titles are optional user profile details and appear in timesheet exports. Blank job titles export as `-`.
 - Admin: view all timesheets, filter records, monitor dashboard summaries, export, approve/reject Employee and Head of Department timesheets, and recall approved Employee and Head of Department timesheets. Admin cannot approve, reject, or recall their own timesheet.
 - Admin: view and review all leave plans, use the all-company leave calendar, approve/reject leave plans and cancellation requests, and receive no self-approval ability.
-- Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, and track missing submissions. Head of Department cannot approve, reject, or recall their own timesheet.
+- Admin: view company leave entitlements, maintain company holidays, view users, and edit Employee/HOD profile details. Admin cannot create users, delete users, change roles, manage departments, manage projects, manage weekly periods, manage leave settings, manage automations, or delete audit logs.
+- Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, track missing submissions, and view managed-department leave entitlements. Head of Department cannot approve, reject, or recall their own timesheet.
 - Head of Department: view leave plans and the leave calendar for managed departments, approve/reject submitted leave plans, and review cancellation requests. Head of Department cannot approve or reject their own leave plan.
+- Director and regional HR leave approvers use **Assigned Leave Plans** for staged leave approvals when they are configured in **Leave Approvers**. This menu can appear for any active user assigned to a Director, UAE HR, or Philippines HR approval slot.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, withdraw submitted timesheets before approval, edit draft/rejected/withdrawn/recalled timesheets, and resubmit corrected records.
 - Employee: create leave plans, save drafts, submit them for HOD approval, request cancellation of approved leave, and view their department leave calendar.
 - Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
@@ -89,11 +91,12 @@ See `docs/LEAVE_PLANS.md` for the full workflow, email matrix, calendar visibili
 
 ## User Management
 
-Super Admin users can create, edit, activate/deactivate, and delete users from **Manage Users**.
+Super Admin users can create, edit, activate/deactivate, and delete users from **Manage Users**. Admin users can view users and edit Employee/HOD profile fields, but cannot create users, delete users, change roles, or edit Super Admin accounts.
 
 - Employee numbers are entered manually when creating or editing employees and HODs.
 - Initials can be entered manually when creating or editing users. If initials are blank, exports fall back to initials derived from the employee name.
 - Job Title can be entered manually when creating or editing users. It is optional, limited to 100 characters, and appears as `-` in exports when blank.
+- Gender, joining date, and marital status are optional profile fields. Gender and marital status control visibility for profile-eligible leave entitlements such as maternity and parental leave.
 - User passwords must be 10 to 64 characters. Letters, numbers, symbols, and spaces are allowed.
 - Users without a department cannot create or submit their own timesheets. Assign a department first if Admin, Super Admin, Head of Department, or Employee accounts need to submit personal weekly time.
 - When a user's department is changed, their existing draft, withdrawn, recalled, and rejected timesheets move to the new department. Submitted and approved timesheets remain with the original department for review and historical reporting.
@@ -144,13 +147,14 @@ Departments support one primary Head of Department and any number of additional 
 - When deleting a HOD assigned to one or more departments, Super Admin must select an active replacement HOD. The replacement is assigned to all departments previously managed by the deleted user.
 - If a HOD user's role is changed back to Employee, Admin, or Super Admin, their primary HOD assignments and additional HOD approver assignments are cleared automatically.
 
-### HOD Notification And Approval Exclusions
+### HOD Notification, Approval, And Visibility Exclusions
 
 Super Admin users can edit an existing HOD user and configure exceptions for specific users in departments where that HOD is explicitly assigned as primary HOD or additional HOD approver.
 
 - **Notification exclusion** stops email notifications for the selected HOD/user pair only. The HOD can still view, approve, reject, recall, and review cancellation requests where their normal HOD role allows it.
 - **Approval exclusion** stops approval-request emails and prevents that HOD from approving, rejecting, recalling, approving cancellation, or rejecting cancellation for the selected user.
-- Approval-excluded HODs can still view records in managed department pages, so department visibility and reporting remain intact.
+- **Visibility exclusion** hides the selected user's records from that HOD's managed-department timesheet, tracker, leave-plan, calendar, and leave-entitlement pages. It also prevents direct HOD action on that user's records.
+- Approval-excluded HODs can still view records in managed department pages unless a visibility exclusion is also configured.
 - A HOD's own profile department does not qualify for exclusions unless the HOD is also assigned as a primary/additional HOD approver for that department.
 - The system prevents approval exclusions that would leave a submitter with no eligible HOD approver.
 - Invalid exclusions are cleaned up when users change role, users move department, users are deleted, or department HOD assignments change.
@@ -163,7 +167,19 @@ The database change for this feature is additive:
 - `department_hod` stores the many-to-many list of department HOD approvers.
 - The migration backfills existing `departments.hod_id` values into `department_hod`.
 - `hod_notification_exclusions` and `hod_approval_exclusions` store optional HOD/user exceptions.
+- `hod_visibility_exclusions` stores optional HOD/user visibility exceptions.
 - No existing table should be deleted for this feature.
+
+## Holiday Management
+
+Admins and Super Admins can maintain company holidays from **Manage Holidays**.
+
+- Holidays can be global, UAE-specific, or Philippines-specific.
+- A holiday can cover a single date or a date range.
+- The system prevents duplicate holidays for the same region and date.
+- Holidays can be activated or deactivated without deleting history.
+- Active applicable holidays appear as read-only events in leave calendars and are excluded from counted leave days where the leave policy excludes holidays.
+- Holiday creation, updates, activation, and deactivation are recorded in audit logs.
 
 ## Automation Controls
 
