@@ -100,6 +100,8 @@ class UserController extends Controller
 
     public function edit(User $user, HodExclusionService $hodExclusions)
     {
+        $this->authorizeEditableUser(request()->user(), $user);
+
         return view('manage.users.form', [
             'userModel' => $user,
             'departments' => Department::where('is_active', true)
@@ -116,9 +118,14 @@ class UserController extends Controller
 
     public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard, HodExclusionService $hodExclusions, LeaveEntitlementService $entitlements)
     {
+        $this->authorizeEditableUser($request->user(), $user);
+
+        $isSuperAdminUpdate = $request->user()->role === 'super_admin';
         $old = $user->toArray();
-        $data = $this->validated($request, $user);
-        if ($request->filled('password')) {
+        $data = $isSuperAdminUpdate
+            ? $this->validated($request, $user)
+            : $this->validatedAdminProfile($request, $user);
+        if ($isSuperAdminUpdate && $request->filled('password')) {
             $data['password'] = $request->validate(
                 ['password' => ['nullable', 'string', 'min:10', 'max:64']],
                 $this->passwordValidationMessages()
@@ -126,15 +133,15 @@ class UserController extends Controller
         }
         $oldDepartmentId = $user->department_id;
         $oldRole = $user->role;
-        $oldHodExclusions = $hodExclusions->snapshotFor($user);
-        $assignedHodDepartmentIds = $oldRole === 'hod'
+        $oldHodExclusions = $isSuperAdminUpdate ? $hodExclusions->snapshotFor($user) : null;
+        $assignedHodDepartmentIds = $isSuperAdminUpdate && $oldRole === 'hod'
             ? $user->primaryDepartments()->pluck('id')
                 ->merge($user->managedDepartments()->pluck('departments.id'))
                 ->unique()
                 ->values()
             : collect();
 
-        DB::transaction(function () use ($request, $user, $data, $old, $oldDepartmentId, $oldRole, $oldHodExclusions, $assignedHodDepartmentIds, $audit, $dashboard, $hodExclusions, $entitlements) {
+        DB::transaction(function () use ($request, $user, $data, $old, $oldDepartmentId, $oldRole, $oldHodExclusions, $assignedHodDepartmentIds, $isSuperAdminUpdate, $audit, $dashboard, $hodExclusions, $entitlements) {
             $user->update($data);
             $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
 
@@ -149,7 +156,7 @@ class UserController extends Controller
                 $audit->record('leave_entitlement_synced', $annualEntitlement, $previousAnnualEntitlement, $annualEntitlement->toArray());
             }
 
-            if ($oldRole === 'hod' && ($data['role'] ?? null) !== 'hod') {
+            if ($isSuperAdminUpdate && $oldRole === 'hod' && ($data['role'] ?? null) !== 'hod') {
                 $clearedPrimaryDepartments = $user->primaryDepartments()->update(['hod_id' => null]);
                 $detachedApproverDepartments = $user->managedDepartments()->detach();
 
@@ -165,16 +172,18 @@ class UserController extends Controller
                 }
             }
 
-            $hodExclusions->pruneInvalidForUser($user->fresh());
-            [, $newExclusions] = $hodExclusions->syncForHod(
-                $user->fresh(),
-                $request->input('hod_notification_exclusion_ids', []),
-                $request->input('hod_approval_exclusion_ids', []),
-                $request->input('hod_visibility_exclusion_ids', [])
-            );
+            if ($isSuperAdminUpdate) {
+                $hodExclusions->pruneInvalidForUser($user->fresh());
+                [, $newExclusions] = $hodExclusions->syncForHod(
+                    $user->fresh(),
+                    $request->input('hod_notification_exclusion_ids', []),
+                    $request->input('hod_approval_exclusion_ids', []),
+                    $request->input('hod_visibility_exclusion_ids', [])
+                );
 
-            if ($oldHodExclusions !== $newExclusions) {
-                $audit->record('user_hod_exclusions_updated', $user, $oldHodExclusions, $newExclusions);
+                if ($oldHodExclusions !== $newExclusions) {
+                    $audit->record('user_hod_exclusions_updated', $user, $oldHodExclusions, $newExclusions);
+                }
             }
 
             if (
@@ -319,9 +328,58 @@ class UserController extends Controller
         return $data;
     }
 
+    private function validatedAdminProfile(Request $request, User $user): array
+    {
+        $data = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'employee_code' => [
+                Rule::requiredIf(fn () => in_array($user->role, ['employee', 'hod'], true)),
+                'nullable',
+                'string',
+                'max:50',
+                'regex:/^(MEC|MCE|MEC-PHIL)-HR-\d{4}-\d{3,}$/',
+                Rule::unique('users')->ignore($user),
+            ],
+            'initials' => ['nullable', 'string', 'max:20'],
+            'job_title' => ['nullable', 'string', 'max:100'],
+            'gender' => ['nullable', Rule::in(['male', 'female'])],
+            'joining_date' => ['nullable', 'date'],
+            'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
+            'department_id' => ['nullable', 'exists:departments,id'],
+            'is_active' => ['boolean'],
+        ], [
+            'employee_code.required' => 'Employee number is required for employees and HODs.',
+            'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
+        ]) + [
+            'is_active' => false,
+        ];
+
+        $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
+        $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
+        $data['gender'] = filled($data['gender'] ?? null) ? $data['gender'] : null;
+        $data['joining_date'] = filled($data['joining_date'] ?? null) ? $data['joining_date'] : null;
+        $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;
+
+        return $data;
+    }
+
+    private function authorizeEditableUser(User $actor, User $target): void
+    {
+        if ($actor->role === 'super_admin') {
+            return;
+        }
+
+        abort_unless($actor->role === 'admin' && in_array($target->role, $this->adminEditableRoles(), true), 403);
+    }
+
     private function adminViewableRoles(): array
     {
         return ['admin', 'hod', 'employee'];
+    }
+
+    private function adminEditableRoles(): array
+    {
+        return ['hod', 'employee'];
     }
 
     private function passwordValidationMessages(): array

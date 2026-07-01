@@ -85,7 +85,7 @@
                         <td class="text-end">
                             <div class="action-group">
                                 <a class="btn btn-sm btn-outline-primary" href="{{ route('manage.users.show', $user) }}">View</a>
-                                @if(auth()->user()->role === 'super_admin')
+                                @if(auth()->user()->role === 'super_admin' || (auth()->user()->role === 'admin' && in_array($user->role, ['hod', 'employee'], true)))
                                     <a class="btn btn-sm btn-primary" href="{{ route('manage.users.edit', $user) }}">Edit</a>
                                 @endif
                                 @if(auth()->user()->role === 'super_admin' && (int) $user->id !== (int) auth()->id())

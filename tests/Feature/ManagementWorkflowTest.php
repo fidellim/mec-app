@@ -226,7 +226,7 @@ class ManagementWorkflowTest extends TestCase
         }
     }
 
-    public function test_admin_can_view_read_only_user_profiles_but_cannot_manage_users(): void
+    public function test_admin_can_view_users_and_edit_only_hods_and_employees(): void
     {
         $admin = $this->userWithRole('admin', ['name' => 'Visible Admin']);
         $superAdmin = $this->userWithRole('super_admin', ['name' => 'Hidden Super Admin']);
@@ -245,6 +245,7 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('Profile Employee')
             ->assertSee('View Admin, HOD, and Employee profiles. Super Admin profiles are hidden.')
             ->assertSee('View')
+            ->assertSee('Edit')
             ->assertDontSee('Hidden Super Admin')
             ->assertDontSee('New User')
             ->assertDontSee('Delete');
@@ -255,7 +256,15 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('User Profile')
             ->assertSee('Project Engineer')
             ->assertSee('Eligible leave balances')
-            ->assertDontSee('Edit');
+            ->assertSee('Edit');
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.edit', $employee))
+            ->assertOk()
+            ->assertSee('Update employee profile details and account status.')
+            ->assertDontSee('data-password-toggle="password"', false)
+            ->assertDontSee('Current-year annual leave override')
+            ->assertDontSee('HOD notification and approval exceptions');
 
         $this->actingAs($admin)
             ->get(route('manage.users.show', $superAdmin))
@@ -263,6 +272,14 @@ class ManagementWorkflowTest extends TestCase
 
         $this->actingAs($admin)
             ->get(route('manage.users.create'))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.edit', $admin))
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.edit', $superAdmin))
             ->assertForbidden();
 
         $this->actingAs($superAdmin)
@@ -274,6 +291,127 @@ class ManagementWorkflowTest extends TestCase
             ->get(route('manage.users.show', $employee))
             ->assertOk()
             ->assertSee('Edit');
+    }
+
+    public function test_admin_can_update_safe_profile_fields_for_hod_and_employee(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $oldDepartment = $this->department(['name' => 'Old Admin Editable Department']);
+        $newDepartment = $this->department(['name' => 'New Admin Editable Department']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $oldDepartment->id,
+            'name' => 'Original Employee Name',
+            'employee_code' => 'MEC-HR-2026-501',
+        ]);
+        $hod = $this->userWithRole('hod', [
+            'department_id' => $oldDepartment->id,
+            'name' => 'Original HOD Name',
+            'employee_code' => 'MEC-HR-2026-502',
+        ]);
+
+        $this->actingAs($admin)
+            ->put(route('manage.users.update', $employee), [
+                'name' => 'Updated Employee Name',
+                'employee_code' => 'MEC-HR-2026-601',
+                'initials' => 'UEN',
+                'job_title' => 'Senior Engineer',
+                'gender' => 'female',
+                'joining_date' => '2026-04-15',
+                'marital_status' => 'married',
+                'department_id' => $newDepartment->id,
+                'is_active' => '0',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $this->actingAs($admin)
+            ->put(route('manage.users.update', $hod), [
+                'name' => 'Updated HOD Name',
+                'employee_code' => 'MEC-HR-2026-602',
+                'initials' => 'UHN',
+                'job_title' => 'Department Lead',
+                'department_id' => $newDepartment->id,
+                'is_active' => '1',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $employee->refresh();
+        $hod->refresh();
+
+        $this->assertSame('Updated Employee Name', $employee->name);
+        $this->assertSame('MEC-HR-2026-601', $employee->employee_code);
+        $this->assertSame('UEN', $employee->initials);
+        $this->assertSame('Senior Engineer', $employee->job_title);
+        $this->assertSame('female', $employee->gender);
+        $this->assertSame('2026-04-15', $employee->joining_date->toDateString());
+        $this->assertSame('married', $employee->marital_status);
+        $this->assertSame($newDepartment->id, $employee->department_id);
+        $this->assertFalse($employee->is_active);
+
+        $this->assertSame('Updated HOD Name', $hod->name);
+        $this->assertSame('MEC-HR-2026-602', $hod->employee_code);
+        $this->assertSame('hod', $hod->role);
+    }
+
+    public function test_admin_cannot_update_admin_or_super_admin_users(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $otherAdmin = $this->userWithRole('admin', ['name' => 'Other Admin']);
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'Target Super Admin']);
+
+        $this->actingAs($admin)
+            ->put(route('manage.users.update', $otherAdmin), [
+                'name' => 'Changed Other Admin',
+                'is_active' => '0',
+            ])
+            ->assertForbidden();
+
+        $this->actingAs($admin)
+            ->put(route('manage.users.update', $superAdmin), [
+                'name' => 'Changed Super Admin',
+                'is_active' => '0',
+            ])
+            ->assertForbidden();
+
+        $this->assertSame('Other Admin', $otherAdmin->fresh()->name);
+        $this->assertSame('Target Super Admin', $superAdmin->fresh()->name);
+    }
+
+    public function test_admin_submitted_sensitive_user_fields_are_ignored(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'email' => 'safe.employee@example.com',
+            'password' => Hash::make('original-password'),
+            'annual_leave_allowance_days' => '12.50',
+        ]);
+        $originalPassword = $employee->password;
+
+        $this->actingAs($admin)
+            ->put(route('manage.users.update', $employee), [
+                'name' => 'Safe Profile Update',
+                'email' => 'changed.employee@example.com',
+                'password' => 'new-password-123',
+                'employee_code' => $employee->employee_code,
+                'initials' => 'SPU',
+                'job_title' => 'Profile Maintained',
+                'department_id' => $department->id,
+                'role' => 'admin',
+                'is_active' => '1',
+                'annual_leave_allowance_days' => '99',
+                'receives_hod_timesheet_submission_emails' => '1',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $employee->refresh();
+
+        $this->assertSame('Safe Profile Update', $employee->name);
+        $this->assertSame('safe.employee@example.com', $employee->email);
+        $this->assertSame('employee', $employee->role);
+        $this->assertSame('12.50', $employee->annual_leave_allowance_days);
+        $this->assertSame($originalPassword, $employee->password);
+        $this->assertFalse(Hash::check('new-password-123', $employee->password));
     }
 
     public function test_super_admin_user_password_policy_is_enforced(): void

@@ -12,7 +12,7 @@
     </div>
     <div class="action-group">
         <a class="btn btn-outline-secondary" href="{{ route('manage.users.index') }}">Back to Users</a>
-        @if(auth()->user()->role === 'super_admin')
+        @if(auth()->user()->role === 'super_admin' || (auth()->user()->role === 'admin' && in_array($userModel->role, ['hod', 'employee'], true)))
             <a class="btn btn-primary" href="{{ route('manage.users.edit', $userModel) }}">Edit</a>
         @endif
     </div>

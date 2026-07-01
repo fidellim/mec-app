@@ -10,13 +10,21 @@
     $selectedVisibilityExclusions = collect(old('hod_visibility_exclusion_ids', $hodVisibilityExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
     $visibilityExcludableIds = collect($hodVisibilityExcludableIds ?? [])->map(fn ($id) => (int) $id)->all();
     $hasVisibilityBlockedCandidates = $hodExclusionCandidates->contains(fn ($candidate) => ! in_array((int) $candidate->id, $visibilityExcludableIds, true));
+    $isSuperAdmin = auth()->user()->role === 'super_admin';
 @endphp
-<div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $userModel->exists ? 'Edit User' : 'New User' }}</h1><div class="text-muted">Set employee identity, role, department, and account status.</div></div></div>
+<div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $userModel->exists ? 'Edit User' : 'New User' }}</h1><div class="text-muted">{{ $isSuperAdmin ? 'Set employee identity, role, department, and account status.' : 'Update employee profile details and account status.' }}</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $userModel->exists ? route('manage.users.update', $userModel) : route('manage.users.store') }}">
     @csrf @if($userModel->exists) @method('put') @endif
     <div class="row g-3">
         <div class="col-md-6"><label class="form-label">Name</label><input class="form-control" name="name" value="{{ old('name', $userModel->name) }}" required></div>
-        <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" type="email" name="email" value="{{ old('email', $userModel->email) }}" required></div>
+        @if($isSuperAdmin)
+            <div class="col-md-6"><label class="form-label">Email</label><input class="form-control" type="email" name="email" value="{{ old('email', $userModel->email) }}" required></div>
+        @else
+            <div class="col-md-6">
+                <div class="meta-label">Email</div>
+                <div class="meta-value">{{ $userModel->email }}</div>
+            </div>
+        @endif
         <div class="col-md-4">
             <label class="form-label">Employee Number</label>
             <input class="form-control" name="employee_code" value="{{ old('employee_code', $userModel->employee_code) }}" placeholder="MEC-PHIL-HR-2026-095">
@@ -63,36 +71,45 @@
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
         </div>
-        <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role" id="roleSelect">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
+        @if($isSuperAdmin)
+            <div class="col-md-4"><label class="form-label">Role</label><select class="form-select" name="role" id="roleSelect">@foreach(['super_admin','admin','hod','employee'] as $role)<option value="{{ $role }}" @selected(old('role', $userModel->role ?: 'employee') === $role)>{{ $roleLabels[$role] ?? $role }}</option>@endforeach</select></div>
+        @else
+            <div class="col-md-4">
+                <div class="meta-label">Role</div>
+                <div><span class="badge text-bg-light border text-dark">{{ $roleLabels[$userModel->role] ?? $userModel->role }}</span></div>
+            </div>
+        @endif
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
-        <div class="col-md-4">
-            <label class="form-label" for="annual_leave_allowance_days">Current-year annual leave override</label>
-            <input class="form-control @error('annual_leave_allowance_days') is-invalid @enderror" id="annual_leave_allowance_days" name="annual_leave_allowance_days" type="number" min="0" step="0.5" value="{{ old('annual_leave_allowance_days', $userModel->annual_leave_allowance_days) }}" placeholder="Use regional default">
-            <div class="form-text">Optional L100 allowance for the current calendar year. Blank uses the regional default; future years reset to default.</div>
-            @error('annual_leave_allowance_days')
-                <div class="invalid-feedback">{{ $message }}</div>
-            @enderror
-        </div>
-        <div class="col-md-4 d-flex align-items-end" data-admin-email-option>
-            <div class="form-check">
-                <input type="hidden" name="receives_hod_timesheet_submission_emails" value="0">
-                <input class="form-check-input" type="checkbox" name="receives_hod_timesheet_submission_emails" value="1" id="receivesHodSubmissionEmails" @checked(old('receives_hod_timesheet_submission_emails', $userModel->receives_hod_timesheet_submission_emails ?? true))>
-                <label class="form-check-label" for="receivesHodSubmissionEmails">Receive HOD timesheet submission emails</label>
+        @if($isSuperAdmin)
+            <div class="col-md-4">
+                <label class="form-label" for="annual_leave_allowance_days">Current-year annual leave override</label>
+                <input class="form-control @error('annual_leave_allowance_days') is-invalid @enderror" id="annual_leave_allowance_days" name="annual_leave_allowance_days" type="number" min="0" step="0.5" value="{{ old('annual_leave_allowance_days', $userModel->annual_leave_allowance_days) }}" placeholder="Use regional default">
+                <div class="form-text">Optional L100 allowance for the current calendar year. Blank uses the regional default; future years reset to default.</div>
+                @error('annual_leave_allowance_days')
+                    <div class="invalid-feedback">{{ $message }}</div>
+                @enderror
             </div>
-        </div>
-        <div class="col-md-6">
-            <label class="form-label">Password {{ $userModel->exists ? '(leave blank to keep current)' : '' }}</label>
-            <div class="input-group">
-                <input class="form-control @error('password') is-invalid @enderror" id="password" type="password" name="password" minlength="10" maxlength="64" {{ $userModel->exists ? '' : 'required' }}>
-                <button class="btn btn-outline-secondary" type="button" data-password-toggle="password" aria-label="Show password">Show</button>
+            <div class="col-md-4 d-flex align-items-end" data-admin-email-option>
+                <div class="form-check">
+                    <input type="hidden" name="receives_hod_timesheet_submission_emails" value="0">
+                    <input class="form-check-input" type="checkbox" name="receives_hod_timesheet_submission_emails" value="1" id="receivesHodSubmissionEmails" @checked(old('receives_hod_timesheet_submission_emails', $userModel->receives_hod_timesheet_submission_emails ?? true))>
+                    <label class="form-check-label" for="receivesHodSubmissionEmails">Receive HOD timesheet submission emails</label>
+                </div>
             </div>
-            @error('password')
-                <div class="invalid-feedback d-block">{{ $message }}</div>
-            @enderror
-        </div>
+            <div class="col-md-6">
+                <label class="form-label">Password {{ $userModel->exists ? '(leave blank to keep current)' : '' }}</label>
+                <div class="input-group">
+                    <input class="form-control @error('password') is-invalid @enderror" id="password" type="password" name="password" minlength="10" maxlength="64" {{ $userModel->exists ? '' : 'required' }}>
+                    <button class="btn btn-outline-secondary" type="button" data-password-toggle="password" aria-label="Show password">Show</button>
+                </div>
+                @error('password')
+                    <div class="invalid-feedback d-block">{{ $message }}</div>
+                @enderror
+            </div>
+        @endif
         <div class="col-md-6 d-flex align-items-end"><div class="form-check"><input type="hidden" name="is_active" value="0"><input class="form-check-input" type="checkbox" name="is_active" value="1" id="active" @checked(old('is_active', $userModel->is_active ?? true))><label class="form-check-label" for="active">Active</label></div></div>
     </div>
-    @if($userModel->exists && $userModel->role === 'hod')
+    @if($isSuperAdmin && $userModel->exists && $userModel->role === 'hod')
         <div class="content-card mt-4">
             <div class="content-card-header">
                 <h2 class="h5 mb-1">HOD notification and approval exceptions</h2>

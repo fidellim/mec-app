@@ -119,6 +119,8 @@ Route::middleware('auth')->group(function () {
 
     Route::middleware('role:admin,super_admin')->prefix('manage')->name('manage.')->group(function () {
         Route::get('users', [UserController::class, 'index'])->name('users.index');
+        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::match(['put', 'patch'], 'users/{user}', [UserController::class, 'update'])->middleware('throttle:authenticated-writes')->name('users.update');
         Route::patch('holidays/{holiday}/status', [HolidayController::class, 'status'])->middleware('throttle:authenticated-writes')->name('holidays.status');
         Route::get('holidays', [HolidayController::class, 'index'])->name('holidays.index');
         Route::get('holidays/create', [HolidayController::class, 'create'])->name('holidays.create');
@@ -130,8 +132,6 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
         Route::get('users/create', [UserController::class, 'create'])->name('users.create');
         Route::post('users', [UserController::class, 'store'])->middleware('throttle:authenticated-writes')->name('users.store');
-        Route::get('users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
-        Route::match(['put', 'patch'], 'users/{user}', [UserController::class, 'update'])->middleware('throttle:authenticated-writes')->name('users.update');
         Route::delete('users/{user}', [UserController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('users.destroy');
         Route::patch('departments/{department}/status', [DepartmentController::class, 'status'])->middleware('throttle:authenticated-writes')->name('departments.status');
         Route::get('departments', [DepartmentController::class, 'index'])->name('departments.index');
