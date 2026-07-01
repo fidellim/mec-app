@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Mail\TimesheetWorkflowMail;
+use App\Models\LeaveEntitlement;
+use App\Models\LeaveSetting;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -44,6 +46,54 @@ class DashboardWorkflowTest extends TestCase
                 ->assertSee('Bereavement / compassionate leave')
                 ->assertDontSee('Maternity leave');
         }
+    }
+
+    public function test_dashboard_access_on_january_first_creates_new_year_leave_entitlements(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 5]);
+
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'annual_leave_allowance_days' => 12,
+        ]);
+
+        LeaveEntitlement::create([
+            'user_id' => $employee->id,
+            'year' => 2026,
+            'attendance_code' => 'L100',
+            'allowance_days' => 3,
+            'claimable_allowance_days' => 3,
+            'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'region' => 'uae',
+            'setting_key' => LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE,
+        ]);
+
+        Carbon::setTestNow('2027-01-01 00:00:00');
+
+        $this->actingAs($employee)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Leave balances')
+            ->assertSee('Annual leave')
+            ->assertViewHas('leaveBalances', fn (array $leaveBalances) => ($leaveBalances['L100']['year'] ?? null) === 2027
+                && ($leaveBalances['L100']['formatted']['allowance'] ?? null) === '12'
+            );
+
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $employee->id,
+            'year' => 2026,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'claimable_allowance_days' => '3.00',
+        ]);
+
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $employee->id,
+            'year' => 2027,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_USER_OVERRIDE,
+            'claimable_allowance_days' => '12.00',
+        ]);
     }
 
     public function test_admin_dashboard_reports_latest_completed_period_before_current_period(): void
