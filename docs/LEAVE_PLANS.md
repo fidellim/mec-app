@@ -55,7 +55,7 @@ If the Director, UAE HR, or Philippines HR approver is not configured, the leave
 
 Annual, sick, maternity, parental, bereavement / compassionate, and Philippines service incentive leave have calendar-year entitlement limits.
 
-- Super Admins set UAE and Philippines default allowances in **Leave Settings**. UAE sick and maternity settings are maximum claimable calendar-day limits, not employee-facing full-pay balances.
+- Admins and Super Admins set UAE and Philippines default allowances in **Leave Settings**. UAE sick and maternity settings are maximum claimable calendar-day limits, not employee-facing full-pay balances.
 - Super Admins can set an employee-specific annual leave override in **Manage Users**. A blank override uses the regional default.
 - Leave allowances refresh automatically by year. Unused allowance expires on December 31 and does not carry over into the next year.
 - No scheduled automation is required for the yearly refresh because remaining allowance is calculated dynamically from leave plans in the requested year.

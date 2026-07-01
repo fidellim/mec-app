@@ -122,26 +122,27 @@ class SetupModeTest extends TestCase
         ]);
     }
 
-    public function test_super_admin_can_update_leave_settings_while_setup_mode_is_enabled(): void
+    public function test_admin_and_super_admin_can_update_leave_settings_while_setup_mode_is_enabled(): void
     {
         SystemSetting::setupMode()->update(['boolean_value' => true]);
-        $superAdmin = $this->userWithRole('super_admin');
 
-        $this->actingAs($superAdmin)
-            ->patch(route('manage.leave-settings.update'), [
-                'annual_leave_default_days_uae' => '24.5',
-                'annual_leave_default_days_ph' => '6',
-                'sick_leave_default_days_uae' => '16',
-                'sick_leave_default_days_ph' => '5.5',
-                'maternity_leave_default_days_uae' => '60',
-                'maternity_leave_default_days_ph' => '60',
-                'parental_leave_default_days_uae' => '5',
-                'parental_leave_default_days_ph' => '5',
-                'bereavement_compassionate_leave_default_days_uae' => '8',
-                'bereavement_compassionate_leave_default_days_ph' => '8',
-                'service_incentive_leave_default_days_ph' => '5',
-            ])
-            ->assertRedirect(route('manage.leave-settings.index'));
+        foreach (['admin', 'super_admin'] as $role) {
+            $this->actingAs($this->userWithRole($role))
+                ->patch(route('manage.leave-settings.update'), [
+                    'annual_leave_default_days_uae' => '24.5',
+                    'annual_leave_default_days_ph' => '6',
+                    'sick_leave_default_days_uae' => '16',
+                    'sick_leave_default_days_ph' => '5.5',
+                    'maternity_leave_default_days_uae' => '60',
+                    'maternity_leave_default_days_ph' => '60',
+                    'parental_leave_default_days_uae' => '5',
+                    'parental_leave_default_days_ph' => '5',
+                    'bereavement_compassionate_leave_default_days_uae' => '8',
+                    'bereavement_compassionate_leave_default_days_ph' => '8',
+                    'service_incentive_leave_default_days_ph' => '5',
+                ])
+                ->assertRedirect(route('manage.leave-settings.index'));
+        }
 
         $this->assertDatabaseHas('audit_logs', ['action' => 'leave_setting_updated']);
     }

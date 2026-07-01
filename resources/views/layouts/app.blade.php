@@ -1256,13 +1256,13 @@
                                 @endif
                                 @if(in_array(auth()->user()->role, ['admin', 'super_admin'], true))
                                     <a href="{{ route('manage.users.index') }}" @class(['active' => request()->routeIs('manage.users.*')]) title="Users"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Users</span></a>
+                                    <a href="{{ route('manage.leave-settings.index') }}" @class(['active' => request()->routeIs('manage.leave-settings.*')]) title="Leave Settings"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Leave Settings</span></a>
                                 @endif
                                 @if(auth()->user()->role === 'super_admin')
                                     <a href="{{ route('manage.departments.index') }}" @class(['active' => request()->routeIs('manage.departments.*')]) title="Departments"><img class="sidebar-icon" src="{{ asset('images/sidebar/departments.svg') }}" alt=""><span class="sidebar-label">Departments</span></a>
                                     <a href="{{ route('manage.projects.index') }}" @class(['active' => request()->routeIs('manage.projects.*')]) title="Projects"><img class="sidebar-icon" src="{{ asset('images/sidebar/projects.svg') }}" alt=""><span class="sidebar-label">Projects</span></a>
                                     <a href="{{ route('manage.periods.index') }}" @class(['active' => request()->routeIs('manage.periods.*')]) title="Weekly Periods"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Weekly Periods</span></a>
                                     <a href="{{ route('manage.leave-plan-approvers.index') }}" @class(['active' => request()->routeIs('manage.leave-plan-approvers.*')]) title="Leave Plan Approvers"><img class="sidebar-icon" src="{{ asset('images/sidebar/users.svg') }}" alt=""><span class="sidebar-label">Leave Approvers</span></a>
-                                    <a href="{{ route('manage.leave-settings.index') }}" @class(['active' => request()->routeIs('manage.leave-settings.*')]) title="Leave Settings"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Leave Settings</span></a>
                                 @endif
                                 @if(auth()->user()->isAdminLike())
                                     <a href="{{ route('manage.holidays.index') }}" @class(['active' => request()->routeIs('manage.holidays.*')]) title="Holidays"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Holidays</span></a>

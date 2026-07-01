@@ -28,6 +28,7 @@ Admins can access:
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **HOD Timesheets** | Shows Head of Department timesheets that Admins can review. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **HOD Tracker** | Shows which Heads of Department have submitted for a selected weekly period. |
 | ![Users](/images/sidebar/users.svg) **Users** | Lets you view users and edit Employee/HOD profile details. |
+| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Leave Settings** | Lets you maintain regional leave policy allowances and claimable limits. |
 | ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Holidays** | Lets you maintain global, UAE, and Philippines company holidays. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
 
@@ -119,7 +120,7 @@ Admins cannot:
 - Recall their own approved timesheet.
 - Edit another user's timesheet.
 - Create users, delete users, change user roles, or edit Super Admin accounts.
-- Manage departments, projects, weekly periods, leave settings, automations, or audit logs.
+- Manage departments, projects, weekly periods, automations, or audit logs.
 
 Rejecting a timesheet requires a comment. The comment is visible to the timesheet owner.
 
@@ -150,6 +151,12 @@ Use **Leave Entitlements** to review current leave balances for active Employees
 - Balances use the same eligibility rules shown on employee leave forms.
 - Submitted, approved, and cancellation-requested leave reserves allowance. Draft, rejected, cancelled, recalled, and voided leave does not.
 - Active applicable holidays can change counted leave days and remaining balances when holiday records are added, updated, activated, or deactivated.
+
+## Leave Settings
+
+Use **Leave Settings** to maintain UAE and Philippines default allowances for annual, sick, maternity, parental, bereavement / compassionate, and Philippines service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion.
+
+The annual default applies to every user whose **Annual leave allowance override** is blank. Leave allowances are calendar-year based, unused days expire on December 31, and remaining allowance is calculated dynamically from leave plans and active applicable holidays.
 
 ## Users And Holidays
 

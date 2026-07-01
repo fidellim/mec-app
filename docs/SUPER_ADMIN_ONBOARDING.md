@@ -202,7 +202,7 @@ If a Director or regional HR approver is missing, leave plans remain submitted a
 
 ## Manage Leave Settings
 
-Use **Leave Settings** to set UAE and Philippines default allowances for annual, sick, maternity, parental, bereavement / compassionate, and Philippines service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion.
+Admins and Super Admins use **Leave Settings** to set UAE and Philippines default allowances for annual, sick, maternity, parental, bereavement / compassionate, and Philippines service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion.
 
 - The annual default applies to every user whose **Annual leave allowance override** is blank.
 - Sick leave uses the regional default only. UAE sick leave counts calendar days excluding applicable holidays; employees and HODs see 15 full-pay days, while validation allows the configured maximum and Admin/Super Admin review shows 15 full-pay days, 30 half-pay days, and 45 unpaid days.

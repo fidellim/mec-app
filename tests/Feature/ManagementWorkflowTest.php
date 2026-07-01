@@ -52,42 +52,45 @@ class ManagementWorkflowTest extends TestCase
         $this->assertDatabaseHas('audit_logs', ['action' => 'user_created']);
     }
 
-    public function test_super_admin_can_manage_leave_entitlement_settings_and_annual_overrides(): void
+    public function test_admin_and_super_admin_can_manage_leave_entitlement_settings_and_super_admin_annual_overrides(): void
     {
         $superAdmin = $this->userWithRole('super_admin');
+        $admin = $this->userWithRole('admin');
         $department = $this->department();
-
-        $this->actingAs($superAdmin)
-            ->get(route('manage.leave-settings.index'))
-            ->assertOk()
-            ->assertSee('Leave Settings')
-            ->assertSee('UAE Annual Leave Default Days')
-            ->assertSee('Philippines Sick Leave Default Days')
-            ->assertSee('UAE Sick Leave Maximum Calendar Days')
-            ->assertSee('UAE Maternity Leave Maximum Calendar Days')
-            ->assertSee('UAE Parental Leave Default Days')
-            ->assertSee('Philippines Service Incentive Leave Default Days');
 
         $uaeAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail();
         $phAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH)->firstOrFail();
         $uaeSick = LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail();
         $phSick = LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH)->firstOrFail();
 
-        $this->actingAs($superAdmin)
-            ->patch(route('manage.leave-settings.update'), [
-                'annual_leave_default_days_uae' => '24.5',
-                'annual_leave_default_days_ph' => '6',
-                'sick_leave_default_days_uae' => '16',
-                'sick_leave_default_days_ph' => '5.5',
-                'maternity_leave_default_days_uae' => '60',
-                'maternity_leave_default_days_ph' => '60',
-                'parental_leave_default_days_uae' => '5',
-                'parental_leave_default_days_ph' => '5',
-                'bereavement_compassionate_leave_default_days_uae' => '8',
-                'bereavement_compassionate_leave_default_days_ph' => '8',
-                'service_incentive_leave_default_days_ph' => '5',
-            ])
-            ->assertRedirect(route('manage.leave-settings.index'));
+        foreach ([[$admin, '23.5'], [$superAdmin, '24.5']] as [$actor, $uaeAnnualDays]) {
+            $this->actingAs($actor)
+                ->get(route('manage.leave-settings.index'))
+                ->assertOk()
+                ->assertSee('Leave Settings')
+                ->assertSee('UAE Annual Leave Default Days')
+                ->assertSee('Philippines Sick Leave Default Days')
+                ->assertSee('UAE Sick Leave Maximum Calendar Days')
+                ->assertSee('UAE Maternity Leave Maximum Calendar Days')
+                ->assertSee('UAE Parental Leave Default Days')
+                ->assertSee('Philippines Service Incentive Leave Default Days');
+
+            $this->actingAs($actor)
+                ->patch(route('manage.leave-settings.update'), [
+                    'annual_leave_default_days_uae' => $uaeAnnualDays,
+                    'annual_leave_default_days_ph' => '6',
+                    'sick_leave_default_days_uae' => '16',
+                    'sick_leave_default_days_ph' => '5.5',
+                    'maternity_leave_default_days_uae' => '60',
+                    'maternity_leave_default_days_ph' => '60',
+                    'parental_leave_default_days_uae' => '5',
+                    'parental_leave_default_days_ph' => '5',
+                    'bereavement_compassionate_leave_default_days_uae' => '8',
+                    'bereavement_compassionate_leave_default_days_ph' => '8',
+                    'service_incentive_leave_default_days_ph' => '5',
+                ])
+                ->assertRedirect(route('manage.leave-settings.index'));
+        }
 
         $this->assertSame('24.50', $uaeAnnual->fresh()->decimal_value);
         $this->assertSame('6.00', $phAnnual->fresh()->decimal_value);
@@ -199,9 +202,9 @@ class ManagementWorkflowTest extends TestCase
         }
     }
 
-    public function test_non_super_admin_cannot_manage_annual_leave_settings(): void
+    public function test_non_admin_users_cannot_manage_annual_leave_settings(): void
     {
-        foreach (['admin', 'hod', 'employee'] as $role) {
+        foreach (['hod', 'employee'] as $role) {
             $user = $this->userWithRole($role);
 
             $this->actingAs($user)
@@ -1171,7 +1174,8 @@ class ManagementWorkflowTest extends TestCase
             $this->actingAs($actor)
                 ->get(route('manage.holidays.index'))
                 ->assertOk()
-                ->assertSee('Holidays');
+                ->assertSee('Holidays')
+                ->assertSee('Leave Settings');
 
             $this->actingAs($actor)
                 ->post(route('manage.holidays.store'), [

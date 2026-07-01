@@ -130,6 +130,8 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::post('holidays', [HolidayController::class, 'store'])->middleware('throttle:authenticated-writes')->name('holidays.store');
         Route::get('holidays/{holiday}/edit', [HolidayController::class, 'edit'])->name('holidays.edit');
         Route::match(['put', 'patch'], 'holidays/{holiday}', [HolidayController::class, 'update'])->middleware('throttle:authenticated-writes')->name('holidays.update');
+        Route::get('leave-settings', [LeaveSettingController::class, 'index'])->name('leave-settings.index');
+        Route::patch('leave-settings', [LeaveSettingController::class, 'update'])->middleware('throttle:authenticated-writes')->name('leave-settings.update');
     });
 
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
@@ -157,8 +159,6 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::match(['put', 'patch'], 'periods/{period}', [TimesheetPeriodController::class, 'update'])->middleware('throttle:authenticated-writes')->name('periods.update');
         Route::get('leave-plan-approvers', [LeavePlanApproverController::class, 'index'])->name('leave-plan-approvers.index');
         Route::patch('leave-plan-approvers', [LeavePlanApproverController::class, 'update'])->middleware('throttle:authenticated-writes')->name('leave-plan-approvers.update');
-        Route::get('leave-settings', [LeaveSettingController::class, 'index'])->name('leave-settings.index');
-        Route::patch('leave-settings', [LeaveSettingController::class, 'update'])->middleware('throttle:authenticated-writes')->name('leave-settings.update');
         Route::get('automations', [AutomationSettingController::class, 'index'])->name('automations.index');
         Route::patch('automations/{automation}/toggle', [AutomationSettingController::class, 'toggle'])->middleware('throttle:authenticated-writes')->name('automations.toggle');
         Route::get('system-settings', [SystemSettingController::class, 'index'])->name('system-settings.index');
