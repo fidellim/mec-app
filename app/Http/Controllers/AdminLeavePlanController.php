@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\LeavePlan;
 use App\Models\User;
+use App\Services\LeaveEntitlementService;
 use App\Services\LeavePlanCalendarService;
 use App\Services\LeavePlanReviewCalendarService;
 use Illuminate\Http\Request;
@@ -71,6 +72,49 @@ class AdminLeavePlanController extends Controller
             'departments' => Department::orderBy('name')->get(),
             'employees' => User::whereIn('role', ['employee', 'hod'])->where('is_active', true)->orderBy('name')->get(),
             'attendanceCodes' => $this->leaveAttendanceCodes(),
+        ]);
+    }
+
+    public function leaveEntitlements(Request $request, LeaveEntitlementService $entitlements)
+    {
+        $filters = $request->validate([
+            'department_id' => ['nullable', 'integer', 'exists:departments,id'],
+            'employee_id' => ['nullable', 'integer', Rule::exists('users', 'id')->where(fn ($query) => $query
+                ->whereIn('role', ['employee', 'hod'])
+                ->where('is_active', true)
+            )],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+
+        $year = (int) ($filters['year'] ?? now()->year);
+
+        $employees = User::with('department')
+            ->whereIn('role', ['employee', 'hod'])
+            ->where('is_active', true)
+            ->when($filters['department_id'] ?? null, fn ($query, $departmentId) => $query->where('department_id', $departmentId))
+            ->when($filters['employee_id'] ?? null, fn ($query, $employeeId) => $query->whereKey($employeeId))
+            ->orderBy('name')
+            ->paginate(10)
+            ->withQueryString();
+
+        $employees->getCollection()->transform(function (User $employee) use ($entitlements, $year) {
+            $employee->leaveBalances = $entitlements->visibleBalancesFor($employee, $year);
+
+            return $employee;
+        });
+
+        return view('admin.leave-entitlements.index', [
+            'employees' => $employees,
+            'departments' => Department::orderBy('name')->get(),
+            'filterEmployees' => User::whereIn('role', ['employee', 'hod'])
+                ->where('is_active', true)
+                ->orderBy('name')
+                ->get(['id', 'name', 'employee_code']),
+            'selectedDepartmentId' => $filters['department_id'] ?? null,
+            'selectedEmployee' => isset($filters['employee_id'])
+                ? User::whereIn('role', ['employee', 'hod'])->where('is_active', true)->whereKey($filters['employee_id'])->first(['id', 'name', 'employee_code'])
+                : null,
+            'year' => $year,
         ]);
     }
 

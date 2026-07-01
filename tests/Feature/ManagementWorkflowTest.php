@@ -143,6 +143,62 @@ class ManagementWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_admin_and_super_admin_can_view_company_leave_entitlements_with_filters(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 5]);
+
+        $admin = $this->userWithRole('admin');
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department(['name' => 'Entitlement Operations']);
+        $otherDepartment = $this->department(['name' => 'Entitlement Engineering']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Entitlement Employee',
+            'annual_leave_allowance_days' => 12,
+        ]);
+        $otherEmployee = $this->userWithRole('employee', [
+            'department_id' => $otherDepartment->id,
+            'name' => 'Other Entitlement Employee',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.leave-entitlements.index', ['year' => now()->year]))
+            ->assertOk()
+            ->assertSee('Leave Entitlements')
+            ->assertSee($employee->name)
+            ->assertSee($otherEmployee->name)
+            ->assertSee('Current-year override');
+
+        $this->actingAs($superAdmin)
+            ->get(route('admin.leave-entitlements.index', [
+                'department_id' => $department->id,
+                'employee_id' => $employee->id,
+                'year' => now()->year + 1,
+            ]))
+            ->assertOk()
+            ->assertSee($employee->name)
+            ->assertDontSee('<div class="fw-semibold">'.$otherEmployee->name.'</div>', false)
+            ->assertSee('Regional default')
+            ->assertSee('5 days');
+
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $employee->id,
+            'year' => now()->year + 1,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'claimable_allowance_days' => '5.00',
+        ]);
+    }
+
+    public function test_non_admin_users_cannot_view_company_leave_entitlements(): void
+    {
+        foreach (['employee', 'hod'] as $role) {
+            $this->actingAs($this->userWithRole($role))
+                ->get(route('admin.leave-entitlements.index'))
+                ->assertForbidden();
+        }
+    }
+
     public function test_non_super_admin_cannot_manage_annual_leave_settings(): void
     {
         foreach (['admin', 'hod', 'employee'] as $role) {
