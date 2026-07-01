@@ -47,6 +47,15 @@
                                 @if(! empty($balance['description']))
                                     <div class="small text-muted mt-1">{{ $balance['description'] }}</div>
                                 @endif
+                                @if(! empty($balance['pay_bands']))
+                                    <div class="d-flex flex-wrap gap-1 mt-2">
+                                        @foreach($balance['pay_bands'] as $band)
+                                            <span class="badge bg-body-secondary border text-body">
+                                                {{ $band['label'] }}: {{ $band['formatted_days'] }} days
+                                            </span>
+                                        @endforeach
+                                    </div>
+                                @endif
                             </td>
                         </tr>
                     @empty

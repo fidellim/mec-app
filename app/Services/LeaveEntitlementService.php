@@ -126,6 +126,7 @@ class LeaveEntitlementService
         $used = (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
         $isVisibleFullPayAllowance = $claimableAllowance > $allowance;
         $usesOverride = $entitlement?->source === LeaveEntitlement::SOURCE_USER_OVERRIDE;
+        $payBands = $this->visibleSupplementalPayBandsFor($user, $attendanceCode, $used);
 
         return [
             'year' => $year,
@@ -139,8 +140,9 @@ class LeaveEntitlementService
             'allowance_label' => $isVisibleFullPayAllowance ? 'Full-pay allowance' : 'Allowance',
             'remaining_label' => $isVisibleFullPayAllowance ? 'Full-pay remaining' : 'Remaining',
             'description' => $isVisibleFullPayAllowance
-                ? 'Additional approved days may move into half-pay or unpaid bands.'
+                ? 'Additional policy days may become available after the full-pay allowance is used.'
                 : null,
+            'pay_bands' => $payBands,
             'uses_override' => $usesOverride,
             'source' => $entitlement?->source ?? LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
             'source_label' => $usesOverride ? 'Current-year override' : 'Regional default',
@@ -163,6 +165,11 @@ class LeaveEntitlementService
                     'remaining' => $this->formatDays($balance['remaining']),
                     'claimable_remaining' => $this->formatDays($balance['claimable_remaining']),
                 ];
+                $balance['pay_bands'] = collect($balance['pay_bands'])
+                    ->map(fn (array $band) => $band + [
+                        'formatted_days' => $this->formatDays((float) $band['days']),
+                    ])
+                    ->all();
 
                 return [$attendanceCode => $balance];
             })
@@ -450,6 +457,33 @@ class LeaveEntitlementService
         }
 
         return $claimableAllowance;
+    }
+
+    private function visibleSupplementalPayBandsFor(User $user, string $attendanceCode, float $used): array
+    {
+        if ($this->regionFor($user) !== 'uae' || ! isset(self::UAE_PAY_BANDS[$attendanceCode])) {
+            return [];
+        }
+
+        $cursor = 0.0;
+
+        return collect(self::UAE_PAY_BANDS[$attendanceCode])
+            ->map(function (array $band) use (&$cursor) {
+                $band['threshold'] = $cursor;
+                $cursor += (float) $band['days'];
+
+                return $band;
+            })
+            ->reject(fn (array $band) => $band['key'] === 'full_pay')
+            ->filter(fn (array $band) => $used >= (float) $band['threshold'])
+            ->map(fn (array $band) => [
+                'key' => $band['key'],
+                'label' => $band['label'],
+                'days' => (float) $band['days'],
+                'threshold' => (float) $band['threshold'],
+            ])
+            ->values()
+            ->all();
     }
 
     private function settingKeyFor(User $user, string $attendanceCode): string
