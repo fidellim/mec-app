@@ -55,7 +55,7 @@
                     <th>Email</th>
                     <th>Role</th>
                     <th>Department</th>
-                    <th>Annual Leave</th>
+                    <th>Current-Year Leave</th>
                     <th>Status</th>
                     <th></th>
                 </tr>

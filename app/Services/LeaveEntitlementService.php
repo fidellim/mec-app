@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\LeaveEntitlement;
 use App\Models\LeavePlan;
 use App\Models\LeaveSetting;
 use App\Models\User;
@@ -9,6 +10,7 @@ use Carbon\Carbon;
 use Carbon\CarbonInterface;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 
 class LeaveEntitlementService
 {
@@ -57,28 +59,20 @@ class LeaveEntitlementService
 
     public function claimableAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
     {
-        if ($attendanceCode === self::ANNUAL_LEAVE_CODE && $user->annual_leave_allowance_days !== null) {
-            return (float) $user->annual_leave_allowance_days;
-        }
+        $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
 
-        return LeaveSetting::decimalValue(
-            $this->settingKeyFor($user, $attendanceCode),
-            $this->fallbackAllowanceFor($user, $attendanceCode),
-        );
+        return $entitlement
+            ? (float) $entitlement->claimable_allowance_days
+            : $this->defaultClaimableAllowanceFor($user, $attendanceCode);
     }
 
     public function visibleAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
     {
-        $claimableAllowance = $this->claimableAllowanceFor($user, $year, $attendanceCode);
+        $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
 
-        if ($this->regionFor($user) === 'uae' && isset(self::UAE_PAY_BANDS[$attendanceCode])) {
-            $fullPayDays = (float) collect(self::UAE_PAY_BANDS[$attendanceCode])
-                ->firstWhere('key', 'full_pay')['days'];
-
-            return min($fullPayDays, $claimableAllowance);
-        }
-
-        return $claimableAllowance;
+        return $entitlement
+            ? (float) $entitlement->allowance_days
+            : $this->visibleAllowanceFromClaimable($user, $attendanceCode, $this->defaultClaimableAllowanceFor($user, $attendanceCode));
     }
 
     public function usedAnnualDaysByYear(User $user, ?int $excludeLeavePlanId = null): Collection
@@ -126,10 +120,12 @@ class LeaveEntitlementService
 
     public function balanceFor(User $user, int $year, ?int $excludeLeavePlanId = null, string $attendanceCode = self::ANNUAL_LEAVE_CODE): array
     {
-        $allowance = $this->visibleAllowanceFor($user, $year, $attendanceCode);
-        $claimableAllowance = $this->claimableAllowanceFor($user, $year, $attendanceCode);
+        $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
+        $allowance = (float) ($entitlement?->allowance_days ?? $this->visibleAllowanceFor($user, $year, $attendanceCode));
+        $claimableAllowance = (float) ($entitlement?->claimable_allowance_days ?? $this->claimableAllowanceFor($user, $year, $attendanceCode));
         $used = (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
         $isVisibleFullPayAllowance = $claimableAllowance > $allowance;
+        $usesOverride = $entitlement?->source === LeaveEntitlement::SOURCE_USER_OVERRIDE;
 
         return [
             'year' => $year,
@@ -145,8 +141,10 @@ class LeaveEntitlementService
             'description' => $isVisibleFullPayAllowance
                 ? 'Additional approved days may move into half-pay or unpaid bands.'
                 : null,
-            'uses_override' => $attendanceCode === self::ANNUAL_LEAVE_CODE && $user->annual_leave_allowance_days !== null,
-            'region' => $this->regionFor($user),
+            'uses_override' => $usesOverride,
+            'source' => $entitlement?->source ?? LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'source_label' => $usesOverride ? 'Current-year override' : 'Regional default',
+            'region' => $entitlement?->region ?? $this->regionFor($user),
             'region_label' => $this->regionLabelFor($user),
         ];
     }
@@ -185,6 +183,41 @@ class LeaveEntitlementService
             ->filter(fn (string $attendanceCode) => $this->userIsEligibleFor($user, $attendanceCode))
             ->values()
             ->all();
+    }
+
+    public function ensureEntitlementsFor(User $user, int $year): Collection
+    {
+        $eligibleCodes = $this->eligibleEntitledLeaveCodesFor($user);
+        $existing = LeaveEntitlement::query()
+            ->where('user_id', $user->id)
+            ->where('year', $year)
+            ->whereIn('attendance_code', $eligibleCodes)
+            ->get()
+            ->keyBy('attendance_code');
+
+        foreach ($eligibleCodes as $attendanceCode) {
+            if ($existing->has($attendanceCode)) {
+                continue;
+            }
+
+            $existing[$attendanceCode] = LeaveEntitlement::create($this->entitlementAttributesFor($user, $year, $attendanceCode));
+        }
+
+        return $existing
+            ->filter(fn (LeaveEntitlement $entitlement) => in_array($entitlement->attendance_code, $eligibleCodes, true))
+            ->values();
+    }
+
+    public function syncCurrentYearAnnualOverride(User $user): LeaveEntitlement
+    {
+        $year = (int) now()->year;
+        $entitlement = $this->entitlementFor($user, $year, self::ANNUAL_LEAVE_CODE);
+        $attributes = $this->entitlementAttributesFor($user, $year, self::ANNUAL_LEAVE_CODE);
+        unset($attributes['created_by']);
+
+        $entitlement->update($attributes + ['updated_by' => Auth::id()]);
+
+        return $entitlement->fresh();
     }
 
     public function userIsEligibleFor(User $user, string $attendanceCode): bool
@@ -359,6 +392,64 @@ class LeaveEntitlementService
         });
 
         return $totals;
+    }
+
+    private function entitlementFor(User $user, int $year, string $attendanceCode): ?LeaveEntitlement
+    {
+        if (! $this->userIsEligibleFor($user, $attendanceCode)) {
+            return null;
+        }
+
+        return $this->ensureEntitlementsFor($user, $year)
+            ->firstWhere('attendance_code', $attendanceCode);
+    }
+
+    private function entitlementAttributesFor(User $user, int $year, string $attendanceCode): array
+    {
+        $region = $this->regionFor($user);
+        $settingKey = $this->settingKeyFor($user, $attendanceCode);
+        $claimableAllowance = $this->defaultClaimableAllowanceFor($user, $attendanceCode);
+        $usesOverride = $attendanceCode === self::ANNUAL_LEAVE_CODE
+            && $year === (int) now()->year
+            && $user->annual_leave_allowance_days !== null;
+
+        if ($usesOverride) {
+            $claimableAllowance = (float) $user->annual_leave_allowance_days;
+        }
+
+        return [
+            'user_id' => $user->id,
+            'year' => $year,
+            'attendance_code' => $attendanceCode,
+            'allowance_days' => $this->visibleAllowanceFromClaimable($user, $attendanceCode, $claimableAllowance),
+            'claimable_allowance_days' => $claimableAllowance,
+            'source' => $usesOverride ? LeaveEntitlement::SOURCE_USER_OVERRIDE : LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'region' => $region,
+            'setting_key' => $settingKey,
+            'notes' => $usesOverride ? 'Current-year annual leave override from user profile.' : null,
+            'created_by' => Auth::id(),
+            'updated_by' => Auth::id(),
+        ];
+    }
+
+    private function defaultClaimableAllowanceFor(User $user, string $attendanceCode): float
+    {
+        return LeaveSetting::decimalValue(
+            $this->settingKeyFor($user, $attendanceCode),
+            $this->fallbackAllowanceFor($user, $attendanceCode),
+        );
+    }
+
+    private function visibleAllowanceFromClaimable(User $user, string $attendanceCode, float $claimableAllowance): float
+    {
+        if ($this->regionFor($user) === 'uae' && isset(self::UAE_PAY_BANDS[$attendanceCode])) {
+            $fullPayDays = (float) collect(self::UAE_PAY_BANDS[$attendanceCode])
+                ->firstWhere('key', 'full_pay')['days'];
+
+            return min($fullPayDays, $claimableAllowance);
+        }
+
+        return $claimableAllowance;
     }
 
     private function settingKeyFor(User $user, string $attendanceCode): string

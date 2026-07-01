@@ -98,7 +98,7 @@
                             </div>
                             <div>
                                 <span class="badge {{ $balance['uses_override'] ? 'text-bg-info' : 'text-bg-light border text-dark' }}">
-                                    {{ $balance['uses_override'] ? 'User override' : 'Regional default' }}
+                                    {{ $balance['source_label'] ?? ($balance['uses_override'] ? 'Current-year override' : 'Regional default') }}
                                 </span>
                             </div>
                         </div>

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\AuditLog;
 use App\Models\HolidayEvent;
+use App\Models\LeaveEntitlement;
 use App\Models\LeavePlan;
 use App\Models\LeavePlanApproverSetting;
 use App\Models\LeavePlanStatusHistory;
@@ -1062,6 +1063,48 @@ class LeavePlanWorkflowTest extends TestCase
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_current_year_annual_override_does_not_carry_to_new_year(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
+
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'annual_leave_allowance_days' => 3,
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-13',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $employee->id,
+            'year' => 2026,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_USER_OVERRIDE,
+            'claimable_allowance_days' => '3.00',
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2027-05-10',
+                'end_date' => '2027-05-11',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $employee->id,
+            'year' => 2027,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'claimable_allowance_days' => '1.00',
+        ]);
     }
 
     public function test_inactive_annual_statuses_do_not_consume_entitlement_and_other_leave_codes_remain_unlimited(): void

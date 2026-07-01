@@ -7,6 +7,7 @@ use App\Models\AuditLog;
 use App\Models\Department;
 use App\Models\HolidayDate;
 use App\Models\HolidayEvent;
+use App\Models\LeaveEntitlement;
 use App\Models\LeaveSetting;
 use App\Models\Project;
 use App\Models\Timesheet;
@@ -109,6 +110,14 @@ class ManagementWorkflowTest extends TestCase
 
         $user = User::where('email', 'executive.employee@example.com')->firstOrFail();
         $this->assertSame('45.50', $user->annual_leave_allowance_days);
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $user->id,
+            'year' => now()->year,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_USER_OVERRIDE,
+            'claimable_allowance_days' => '45.50',
+        ]);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'leave_entitlement_synced']);
 
         $this->actingAs($superAdmin)
             ->put(route('manage.users.update', $user), [
@@ -125,6 +134,13 @@ class ManagementWorkflowTest extends TestCase
             ->assertRedirect(route('manage.users.index'));
 
         $this->assertNull($user->fresh()->annual_leave_allowance_days);
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $user->id,
+            'year' => now()->year,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'claimable_allowance_days' => '24.50',
+        ]);
     }
 
     public function test_non_super_admin_cannot_manage_annual_leave_settings(): void

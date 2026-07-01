@@ -78,6 +78,11 @@ class User extends Authenticatable
         return $this->hasMany(LeavePlan::class);
     }
 
+    public function leaveEntitlements()
+    {
+        return $this->hasMany(LeaveEntitlement::class);
+    }
+
     public function hodNotificationExcludedSubmitters()
     {
         return $this->belongsToMany(User::class, 'hod_notification_exclusions', 'hod_user_id', 'employee_user_id')

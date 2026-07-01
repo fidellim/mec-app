@@ -217,7 +217,7 @@ class HodExclusionWorkflowTest extends TestCase
             ->assertSee($employee->name)
             ->assertSee('Annual leave')
             ->assertSee('12 days')
-            ->assertSee('User override')
+            ->assertSee('Current-year override')
             ->assertSee($secondEmployee->name);
 
         $this->actingAs($hod)
@@ -256,7 +256,7 @@ class HodExclusionWorkflowTest extends TestCase
             ->assertSee('Eligible balances for 2026.')
             ->assertSee('Annual Leave')
             ->assertSee('12 days')
-            ->assertSee('User override');
+            ->assertSee('Current-year override');
     }
 
     public function test_super_admin_can_manage_hod_exclusions_and_cannot_leave_zero_eligible_approvers(): void

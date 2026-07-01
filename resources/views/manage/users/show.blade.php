@@ -70,7 +70,7 @@
                 <div class="meta-value">{{ $userModel->department?->name ?: '-' }}</div>
             </div>
             <div class="col-md-4">
-                <div class="meta-label">Annual Leave Override</div>
+                <div class="meta-label">Current-Year Annual Leave Override</div>
                 <div class="meta-value">{{ $userModel->annual_leave_allowance_days !== null ? rtrim(rtrim(number_format((float) $userModel->annual_leave_allowance_days, 2), '0'), '.').' days' : 'Regional default' }}</div>
             </div>
             @if($assignedDepartments->isNotEmpty())

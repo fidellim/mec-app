@@ -83,7 +83,7 @@
                             </td>
                             <td>
                                 <span class="badge {{ $balance['uses_override'] ? 'text-bg-info' : 'bg-body-secondary border text-body' }}">
-                                    {{ $balance['uses_override'] ? 'User override' : 'Regional default' }}
+                                    {{ $balance['source_label'] ?? ($balance['uses_override'] ? 'Current-year override' : 'Regional default') }}
                                 </span>
                                 @if(! empty($balance['description']))
                                     <div class="small text-muted mt-1">{{ $balance['description'] }}</div>

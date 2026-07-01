@@ -77,7 +77,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request, AuditLogService $audit, HodExclusionService $hodExclusions)
+    public function store(Request $request, AuditLogService $audit, HodExclusionService $hodExclusions, LeaveEntitlementService $entitlements)
     {
         $data = $this->validated($request);
         $data['password'] = $request->validate(
@@ -85,6 +85,7 @@ class UserController extends Controller
             $this->passwordValidationMessages()
         )['password'];
         $user = User::create($data);
+        $annualEntitlement = $entitlements->syncCurrentYearAnnualOverride($user);
         $hodExclusions->syncForHod(
             $user,
             $request->input('hod_notification_exclusion_ids', []),
@@ -92,6 +93,7 @@ class UserController extends Controller
             $request->input('hod_visibility_exclusion_ids', [])
         );
         $audit->record('user_created', $user, null, $user->toArray());
+        $audit->record('leave_entitlement_synced', $annualEntitlement, null, $annualEntitlement->toArray());
 
         return redirect()->route('manage.users.index')->with('success', 'User created.');
     }
@@ -112,7 +114,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard, HodExclusionService $hodExclusions)
+    public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard, HodExclusionService $hodExclusions, LeaveEntitlementService $entitlements)
     {
         $old = $user->toArray();
         $data = $this->validated($request, $user);
@@ -132,9 +134,20 @@ class UserController extends Controller
                 ->values()
             : collect();
 
-        DB::transaction(function () use ($request, $user, $data, $old, $oldDepartmentId, $oldRole, $oldHodExclusions, $assignedHodDepartmentIds, $audit, $dashboard, $hodExclusions) {
+        DB::transaction(function () use ($request, $user, $data, $old, $oldDepartmentId, $oldRole, $oldHodExclusions, $assignedHodDepartmentIds, $audit, $dashboard, $hodExclusions, $entitlements) {
             $user->update($data);
             $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
+
+            $previousAnnualEntitlement = $user->leaveEntitlements()
+                ->where('year', (int) now()->year)
+                ->where('attendance_code', LeaveEntitlementService::ANNUAL_LEAVE_CODE)
+                ->first()
+                ?->toArray();
+            $annualEntitlement = $entitlements->syncCurrentYearAnnualOverride($user->fresh());
+
+            if ($previousAnnualEntitlement !== $annualEntitlement->toArray()) {
+                $audit->record('leave_entitlement_synced', $annualEntitlement, $previousAnnualEntitlement, $annualEntitlement->toArray());
+            }
 
             if ($oldRole === 'hod' && ($data['role'] ?? null) !== 'hod') {
                 $clearedPrimaryDepartments = $user->primaryDepartments()->update(['hod_id' => null]);
