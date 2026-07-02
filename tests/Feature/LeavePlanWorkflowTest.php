@@ -277,6 +277,48 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('Parental leave</h3>', false);
     }
 
+    public function test_uae_bereavement_final_approval_removes_only_matching_relationship_eligibility(): void
+    {
+        $department = $this->department();
+        $director = $this->userWithRole('employee');
+        $uaeHr = $this->userWithRole('employee');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-505',
+            'eligible_for_bereavement_spouse_leave' => true,
+            'eligible_for_bereavement_immediate_family_leave' => true,
+        ]);
+        $this->setLeavePlanApprovers($director, $uaeHr, $this->userWithRole('employee'));
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L180',
+            'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+            'submitted_at' => now(),
+            'hod_approved_at' => now(),
+            'hod_approved_by' => $this->userWithRole('hod')->id,
+            'director_approved_at' => now(),
+            'director_approved_by' => $director->id,
+        ]);
+
+        $this->actingAs($uaeHr)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $employee->refresh();
+
+        $this->assertFalse($employee->eligible_for_bereavement_spouse_leave);
+        $this->assertTrue($employee->eligible_for_bereavement_immediate_family_leave);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'bereavement_leave_eligibility_auto_removed',
+            'auditable_type' => $employee::class,
+            'auditable_id' => $employee->id,
+        ]);
+    }
+
     public function test_philippines_one_shot_statutory_leave_final_approval_removes_matching_eligibility(): void
     {
         $department = $this->department();
@@ -1835,6 +1877,7 @@ class LeavePlanWorkflowTest extends TestCase
         $employee = $this->userWithRole('employee', [
             'department_id' => $this->department()->id,
             'eligible_for_parental_leave' => true,
+            'eligible_for_bereavement_spouse_leave' => true,
         ]);
 
         $this->actingAs($employee)
@@ -1843,7 +1886,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('L170 - Parental Leave')
             ->assertSee('L180 - Bereavement Leave')
             ->assertSee('UAE sick and maternity leave use calendar days. Annual, parental, and bereavement leave use working leave days, and applicable holidays are excluded from leave usage.')
-            ->assertSee('UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental leave requires HR eligibility approval, and bereavement is tracked by relationship.')
+            ->assertSee('UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental and bereavement leave require HR eligibility approval, and bereavement is tracked by relationship.')
             ->assertDontSee('Philippines leave balances show available statutory entitlements only.')
             ->assertSee('Supporting document needed')
             ->assertSee('Please add a link to your medical certificate in the Reason field.')
@@ -1860,6 +1903,8 @@ class LeavePlanWorkflowTest extends TestCase
             'department_id' => $this->department()->id,
             'gender' => 'female',
             'eligible_for_parental_leave' => true,
+            'eligible_for_bereavement_spouse_leave' => true,
+            'eligible_for_bereavement_immediate_family_leave' => true,
         ]);
 
         foreach (['L160', 'L170'] as $attendanceCode) {
@@ -1884,9 +1929,88 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Bereavement leave - Immediate family');
     }
 
+    public function test_uae_bereavement_leave_requires_hr_relationship_eligibility(): void
+    {
+        $department = $this->department();
+        $ineligibleEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $spouseEligibleEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'eligible_for_bereavement_spouse_leave' => true,
+        ]);
+        $immediateFamilyEligibleEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'eligible_for_bereavement_immediate_family_leave' => true,
+        ]);
+
+        $this->actingAs($ineligibleEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L180 - Bereavement Leave');
+
+        $response = $this->actingAs($ineligibleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'submit' => '0',
+            ]));
+
+        $response->assertSessionHasErrors('attendance_code');
+        $this->assertSame(
+            'UAE bereavement leave requires HR eligibility approval for spouse or immediate-family bereavement.',
+            session('errors')->get('attendance_code')[0],
+        );
+
+        $this->actingAs($spouseEligibleEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertSee('L180 - Bereavement Leave')
+            ->assertSee('Bereavement leave - Spouse')
+            ->assertDontSee('Bereavement leave - Immediate family');
+
+        $this->actingAs($spouseEligibleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($spouseEligibleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY,
+                'start_date' => '2026-05-12',
+                'end_date' => '2026-05-12',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('bereavement_relationship');
+
+        $this->actingAs($immediateFamilyEligibleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY,
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($immediateFamilyEligibleEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'bereavement_relationship' => LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE,
+                'start_date' => '2026-05-12',
+                'end_date' => '2026-05-12',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('bereavement_relationship');
+    }
+
     public function test_uae_bereavement_leave_uses_configurable_relationship_balances_by_year(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'eligible_for_bereavement_spouse_leave' => true,
+            'eligible_for_bereavement_immediate_family_leave' => true,
+        ]);
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
@@ -1950,7 +2074,10 @@ class LeavePlanWorkflowTest extends TestCase
 
     public function test_uae_bereavement_relationship_balances_refresh_by_calendar_year(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'eligible_for_bereavement_spouse_leave' => true,
+        ]);
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
@@ -1977,7 +2104,10 @@ class LeavePlanWorkflowTest extends TestCase
     {
         LeaveSetting::where('key', LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 1]);
 
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'eligible_for_bereavement_spouse_leave' => true,
+        ]);
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
@@ -2012,7 +2142,10 @@ class LeavePlanWorkflowTest extends TestCase
 
     public function test_bereavement_relationship_is_required_for_l180_leave(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'eligible_for_bereavement_spouse_leave' => true,
+        ]);
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
@@ -2042,6 +2175,7 @@ class LeavePlanWorkflowTest extends TestCase
             'gender' => 'male',
             'marital_status' => 'single',
             'eligible_for_parental_leave' => true,
+            'eligible_for_bereavement_spouse_leave' => true,
         ]);
         $marriedNotParentallyEligibleEmployee = $this->userWithRole('employee', [
             'department_id' => $department->id,
@@ -2060,7 +2194,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement Leave');
+            ->assertDontSee('L180 - Bereavement Leave');
 
         $this->actingAs($parentalEligibleEmployee)
             ->get(route('employee.leave-plans.create'))
@@ -2074,14 +2208,14 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement Leave');
+            ->assertDontSee('L180 - Bereavement Leave');
 
         $this->actingAs($profileIncompleteEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement Leave');
+            ->assertDontSee('L180 - Bereavement Leave');
     }
 
     public function test_ineligible_maternity_and_parental_leave_cannot_be_saved_or_submitted(): void

@@ -338,6 +338,8 @@ class ManagementWorkflowTest extends TestCase
                 'joining_date' => '2026-04-15',
                 'marital_status' => 'married',
                 'eligible_for_parental_leave' => '1',
+                'eligible_for_bereavement_spouse_leave' => '1',
+                'eligible_for_bereavement_immediate_family_leave' => '1',
                 'department_id' => $newDepartment->id,
                 'is_active' => '0',
             ])
@@ -365,6 +367,8 @@ class ManagementWorkflowTest extends TestCase
         $this->assertSame('2026-04-15', $employee->joining_date->toDateString());
         $this->assertSame('married', $employee->marital_status);
         $this->assertTrue($employee->eligible_for_parental_leave);
+        $this->assertTrue($employee->eligible_for_bereavement_spouse_leave);
+        $this->assertTrue($employee->eligible_for_bereavement_immediate_family_leave);
         $this->assertSame($newDepartment->id, $employee->department_id);
         $this->assertFalse($employee->is_active);
 
@@ -771,6 +775,8 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'employee_code' => 'MCE-HR-2026-107',
             'eligible_for_parental_leave' => true,
+            'eligible_for_bereavement_spouse_leave' => true,
+            'eligible_for_bereavement_immediate_family_leave' => true,
             'eligible_for_maternity_leave' => true,
         ]);
         $phEmployee = $this->userWithRole('employee', [
@@ -786,6 +792,8 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('data-region-panel="uae"', false)
             ->assertSee('UAE leave eligibility')
             ->assertSee('Eligible for UAE parental leave')
+            ->assertSee('Eligible for spouse bereavement leave')
+            ->assertSee('Eligible for immediate-family bereavement leave')
             ->assertSee('data-region-panel="ph"', false)
             ->assertSee('data-region-control="ph" disabled', false)
             ->assertDontSee('PH Statutory Leave Eligibility');
@@ -807,6 +815,8 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('UAE')
             ->assertSee('UAE leave eligibility')
             ->assertSee('Parental: Eligible')
+            ->assertSee('Bereavement - spouse: Eligible')
+            ->assertSee('Bereavement - immediate family: Eligible')
             ->assertDontSee('Philippines statutory leave eligibility')
             ->assertDontSee('Maternity: Eligible');
 

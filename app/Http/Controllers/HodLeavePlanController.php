@@ -229,6 +229,7 @@ class HodLeavePlanController extends Controller
 
         if ($fresh->status === LeavePlan::STATUS_APPROVED) {
             $this->removeOneShotStatutoryEligibilityAfterApproval($fresh, $audit);
+            $this->removeOneShotBereavementEligibilityAfterApproval($fresh, $audit);
             $emails->approved($fresh);
         } else {
             $emails->stagePending($fresh);
@@ -251,6 +252,26 @@ class HodLeavePlanController extends Controller
         $user->update([$flag => false]);
         $freshUser = $user->fresh();
         $audit->record('statutory_leave_eligibility_auto_removed', $freshUser, $old, $freshUser->toArray());
+    }
+
+    private function removeOneShotBereavementEligibilityAfterApproval(LeavePlan $leavePlan, AuditLogService $audit): void
+    {
+        if ($leavePlan->attendance_code !== LeaveEntitlementService::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE) {
+            return;
+        }
+
+        $flag = LeaveEntitlementService::ONE_SHOT_UAE_BEREAVEMENT_LEAVE_FLAGS[$leavePlan->bereavement_relationship] ?? null;
+
+        if (! $flag || ! $leavePlan->user || ! (bool) $leavePlan->user->{$flag}) {
+            return;
+        }
+
+        $user = $leavePlan->user;
+        $old = $user->toArray();
+
+        $user->update([$flag => false]);
+        $freshUser = $user->fresh();
+        $audit->record('bereavement_leave_eligibility_auto_removed', $freshUser, $old, $freshUser->toArray());
     }
 
     public function reject(RejectLeavePlanRequest $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)

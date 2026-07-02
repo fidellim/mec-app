@@ -13,7 +13,7 @@ Employees use **My Leave Plans** to create, save, submit, and track leave plans.
 - Cancellation requests require HOD, Admin, or Super Admin review only; they do not repeat the Director/HR chain.
 - Recalled approved leave plans can be edited and resubmitted by the employee.
 - Overlapping active leave plans show a warning but are not blocked.
-- UAE annual, sick, maternity, parental, and bereavement / compassionate leave are checked against the employee's allowance when the employee submits. UAE bereavement / compassionate leave is checked against separate spouse and immediate-family calendar-year balances.
+- UAE annual, sick, maternity, parental, and bereavement / compassionate leave are checked against the employee's allowance when the employee submits. UAE bereavement / compassionate leave also requires HR eligibility approval for the selected spouse or immediate-family relationship, then checks the matching calendar-year balance.
 - Philippines employees do not see or apply for `L100 - Annual Leave`, `L110 - Sick Leave`, or `L180 - Bereavement Leave` while the Philippines defaults for those leave types are `0`.
 - Philippines statutory leave options are shown only when the employee is eligible: `L190 - Service Incentive Leave`, `L160 - Maternity Leave`, `L170 - Parental Leave`, `L210 - Paternity Leave`, `L220 - Leave for VAWC`, and `L230 - Special Leave for Women`.
 - Drafts can still be saved when they exceed an allowance, but submission enforces eligibility and balance checks.
@@ -55,7 +55,7 @@ If the Director, UAE HR, or Philippines HR approver is not configured, the leave
 
 ## Leave Entitlements
 
-Eligible leave entitlements have calendar-year limits. UAE annual, sick, maternity, and parental leave use the employee's regional or profile entitlement. UAE bereavement / compassionate leave uses separate spouse and immediate-family calendar-year balances. Philippines employees only receive balances for eligible statutory leave options and do not receive Annual, Sick, or Bereavement balances while those Philippines defaults are `0`.
+Eligible leave entitlements have calendar-year limits. UAE annual, sick, maternity, and parental leave use the employee's regional or profile entitlement. UAE bereavement / compassionate leave uses HR-attested spouse and immediate-family eligibility with separate calendar-year balances. Philippines employees only receive balances for eligible statutory leave options and do not receive Annual, Sick, or Bereavement balances while those Philippines defaults are `0`.
 
 - Admins and Super Admins set UAE and Philippines default allowances in **Leave Settings**. UAE sick and maternity settings are maximum claimable calendar-day limits, not employee-facing full-pay balances. UAE bereavement settings define yearly spouse-death and immediate-family-death allowances.
 - Super Admins can set an employee-specific annual leave override in **Manage Users** for employees who are eligible for annual leave. A blank override uses the regional default.
@@ -65,7 +65,7 @@ Eligible leave entitlements have calendar-year limits. UAE annual, sick, materni
 - Draft, rejected, cancelled, recalled, and voided plans do not consume allowance.
 - Leave usage is recalculated dynamically from active applicable holidays for every leave type. If Admin or Super Admin adds, updates, activates, or deactivates a holiday after a leave plan is submitted or approved, those plans' counted leave days and remaining balance may change.
 - UAE sick and maternity leave count calendar days, excluding applicable holidays. Employee and HOD balance cards show only the full-pay allowance: 15 sick days and 45 maternity days. Validation still allows the full claimable limits: 90 sick days and 60 maternity days. Admin review can see the payroll split.
-- UAE bereavement leave requires a relationship selection on `L180`. The selected relationship controls which calendar-year balance is consumed; older records without a relationship are treated as manual-review records and are not assigned to either relationship bucket.
+- UAE bereavement leave requires HR eligibility approval and a relationship selection on `L180`. The selected relationship must match the approved spouse or immediate-family eligibility and controls which calendar-year balance is consumed; older records without a relationship are treated as manual-review records and are not assigned to either relationship bucket.
 - Philippines service incentive leave requires at least one year of service and defaults to 5 days.
 - Philippines maternity leave requires Female gender and HR eligibility approval. Qualified solo parents receive 120 days instead of the standard 105 days.
 - Philippines parental leave requires HR eligibility approval and at least six months of service.

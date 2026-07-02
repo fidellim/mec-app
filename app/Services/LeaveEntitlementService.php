@@ -44,6 +44,11 @@ class LeaveEntitlementService
         self::SPECIAL_WOMEN_LEAVE_CODE => 'eligible_for_special_women_leave',
     ];
 
+    public const ONE_SHOT_UAE_BEREAVEMENT_LEAVE_FLAGS = [
+        LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE => 'eligible_for_bereavement_spouse_leave',
+        LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY => 'eligible_for_bereavement_immediate_family_leave',
+    ];
+
     public const COUNTED_STATUSES = [
         LeavePlan::STATUS_SUBMITTED,
         LeavePlan::STATUS_APPROVED,
@@ -266,8 +271,11 @@ class LeaveEntitlementService
 
         return match ($attendanceCode) {
             self::ANNUAL_LEAVE_CODE,
-            self::SICK_LEAVE_CODE,
-            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => $region !== 'ph',
+            self::SICK_LEAVE_CODE => $region !== 'ph',
+            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => $region !== 'ph' && (
+                (bool) $user->eligible_for_bereavement_spouse_leave
+                || (bool) $user->eligible_for_bereavement_immediate_family_leave
+            ),
             self::MATERNITY_LEAVE_CODE => $region === 'ph'
                 ? $user->gender === 'female' && (bool) $user->eligible_for_maternity_leave
                 : $user->gender === 'female',
@@ -301,6 +309,7 @@ class LeaveEntitlementService
             self::PARENTAL_LEAVE_CODE => $region === 'ph'
                 ? 'Philippines parental leave requires HR eligibility approval and at least six months of service.'
                 : 'UAE parental leave requires HR eligibility approval. Contact HR or an admin if you need to apply.',
+            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => 'UAE bereavement leave requires HR eligibility approval for spouse or immediate-family bereavement.',
             self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave is available only for Philippines employees with at least one year of service.',
             self::PATERNITY_LEAVE_CODE => 'Paternity leave requires Philippines region, Male gender, Married status, and HR eligibility approval.',
             self::VAWC_LEAVE_CODE => 'Leave for VAWC requires Philippines region, Female gender, and HR eligibility approval.',
@@ -403,6 +412,26 @@ class LeaveEntitlementService
             ->filter()
             ->values()
             ->all();
+    }
+
+    public function userIsEligibleForBereavementRelationship(User $user, ?string $relationship): bool
+    {
+        if ($this->regionFor($user) !== 'uae' || ! is_string($relationship)) {
+            return false;
+        }
+
+        $flag = self::ONE_SHOT_UAE_BEREAVEMENT_LEAVE_FLAGS[$relationship] ?? null;
+
+        return $flag !== null && (bool) $user->{$flag};
+    }
+
+    public function bereavementRelationshipEligibilityMessage(?string $relationship): string
+    {
+        $label = is_string($relationship)
+            ? (LeavePlan::bereavementRelationshipOptions()[$relationship] ?? 'selected relationship')
+            : 'selected relationship';
+
+        return 'UAE bereavement leave for '.$label.' requires HR eligibility approval.';
     }
 
     public function annualDaysByYearForPlan(LeavePlan $leavePlan): Collection
@@ -633,6 +662,7 @@ class LeaveEntitlementService
     private function visibleBereavementBalancesFor(User $user, int $year, ?int $excludeLeavePlanId = null): array
     {
         return collect(LeavePlan::bereavementRelationshipOptions())
+            ->filter(fn (string $label, string $relationship) => $this->userIsEligibleForBereavementRelationship($user, $relationship))
             ->mapWithKeys(function (string $label, string $relationship) use ($user, $year, $excludeLeavePlanId) {
                 $allowance = (float) $this->bereavementRelationshipAllowance($relationship);
                 $used = (float) $this->usedBereavementDaysByYear($user, $relationship, $excludeLeavePlanId)->get($year, 0.0);

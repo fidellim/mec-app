@@ -87,6 +87,8 @@
         @endif
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
         <input type="hidden" name="eligible_for_parental_leave" value="0">
+        <input type="hidden" name="eligible_for_bereavement_spouse_leave" value="0">
+        <input type="hidden" name="eligible_for_bereavement_immediate_family_leave" value="0">
         <input type="hidden" name="eligible_for_maternity_leave" value="0">
         <input type="hidden" name="eligible_for_paternity_leave" value="0">
         <input type="hidden" name="eligible_for_vawc_leave" value="0">
@@ -101,12 +103,24 @@
         <div class="col-12 {{ $workRegion === 'uae' ? '' : 'd-none' }}" data-region-panel="uae">
             <div class="p-3 bg-body-tertiary border rounded-3">
                 <div class="fw-semibold mb-1">UAE leave eligibility</div>
-                <div class="form-text mb-3">HR-attested UAE eligibility controls. Parental leave eligibility is automatically unticked after the related leave plan is fully approved.</div>
+                <div class="form-text mb-3">HR-attested UAE eligibility controls. Event-based eligibility is automatically unticked after the related leave plan is fully approved.</div>
                 <div class="row g-3">
                     <div class="col-md-4">
                         <div class="form-check">
                             <input class="form-check-input" type="checkbox" name="eligible_for_parental_leave" value="1" id="eligibleForUaeParentalLeave" @checked(old('eligible_for_parental_leave', $userModel->eligible_for_parental_leave ?? false)) data-region-control="uae" @disabled($workRegion !== 'uae')>
                             <label class="form-check-label" for="eligibleForUaeParentalLeave">Eligible for UAE parental leave</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_bereavement_spouse_leave" value="1" id="eligibleForBereavementSpouseLeave" @checked(old('eligible_for_bereavement_spouse_leave', $userModel->eligible_for_bereavement_spouse_leave ?? false)) data-region-control="uae" @disabled($workRegion !== 'uae')>
+                            <label class="form-check-label" for="eligibleForBereavementSpouseLeave">Eligible for spouse bereavement leave</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_bereavement_immediate_family_leave" value="1" id="eligibleForBereavementImmediateFamilyLeave" @checked(old('eligible_for_bereavement_immediate_family_leave', $userModel->eligible_for_bereavement_immediate_family_leave ?? false)) data-region-control="uae" @disabled($workRegion !== 'uae')>
+                            <label class="form-check-label" for="eligibleForBereavementImmediateFamilyLeave">Eligible for immediate-family bereavement leave</label>
                         </div>
                     </div>
                 </div>

@@ -119,9 +119,15 @@
     <div class="content-card-body">
         @if($workRegion === 'uae')
             <div class="d-flex flex-wrap gap-2">
-                <span class="badge text-wrap text-start lh-sm {{ $userModel->eligible_for_parental_leave ? 'text-bg-success' : 'text-bg-secondary' }}">
-                    Parental: {{ $userModel->eligible_for_parental_leave ? 'Eligible' : 'Not eligible' }}
-                </span>
+                @foreach([
+                    'Parental' => $userModel->eligible_for_parental_leave,
+                    'Bereavement - spouse' => $userModel->eligible_for_bereavement_spouse_leave,
+                    'Bereavement - immediate family' => $userModel->eligible_for_bereavement_immediate_family_leave,
+                ] as $label => $enabled)
+                    <span class="badge text-wrap text-start lh-sm {{ $enabled ? 'text-bg-success' : 'text-bg-secondary' }}">
+                        {{ $label }}: {{ $enabled ? 'Eligible' : 'Not eligible' }}
+                    </span>
+                @endforeach
             </div>
         @elseif($workRegion === 'ph')
             <div class="d-flex flex-wrap gap-2">

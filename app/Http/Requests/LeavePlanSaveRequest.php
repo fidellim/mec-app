@@ -63,6 +63,14 @@ class LeavePlanSaveRequest extends FormRequest
                 return;
             }
 
+            if ($attendanceCode === LeaveEntitlementService::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE
+                && $entitlements->regionFor($this->user()) === 'uae'
+                && ! $entitlements->userIsEligibleForBereavementRelationship($this->user(), $this->input('bereavement_relationship'))) {
+                $validator->errors()->add('bereavement_relationship', $entitlements->bereavementRelationshipEligibilityMessage($this->input('bereavement_relationship')));
+
+                return;
+            }
+
             $violations = $entitlements->submissionViolations(
                 $this->user(),
                 [

@@ -21,6 +21,8 @@ class UserFactory extends Factory
             'joining_date' => null,
             'marital_status' => null,
             'eligible_for_parental_leave' => false,
+            'eligible_for_bereavement_spouse_leave' => false,
+            'eligible_for_bereavement_immediate_family_leave' => false,
             'eligible_for_maternity_leave' => false,
             'eligible_for_paternity_leave' => false,
             'eligible_for_vawc_leave' => false,

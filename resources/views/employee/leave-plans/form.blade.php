@@ -8,7 +8,7 @@
     : 'UAE sick and maternity leave use calendar days. Annual, parental, and bereavement leave use working leave days, and applicable holidays are excluded from leave usage.')
 @php($leaveBalanceDescription = $leaveRegion === 'ph'
     ? 'Philippines leave balances show available statutory entitlements only. Service incentive leave requires one year of service; maternity, paternity, parental, VAWC, and special leave for women require HR eligibility approval.'
-    : 'UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental leave requires HR eligibility approval, and bereavement is tracked by relationship.')
+    : 'UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental and bereavement leave require HR eligibility approval, and bereavement is tracked by relationship.')
 @php($supportingDocumentNotes = [
     'L110' => 'Please add a link to your medical certificate in the Reason field.',
     'L160' => 'Please add a link to your medical certificate, birth certificate, or hospital notification in the Reason field.',
@@ -18,7 +18,7 @@
     'L220' => 'Please add a link to the VAWC case certification in the Reason field.',
     'L230' => 'Please add a link to the medical certificate for the gynecological surgery in the Reason field.',
 ])
-@php($bereavementRelationshipOptions = \App\Models\LeavePlan::bereavementRelationshipOptions())
+@php($bereavementRelationshipOptions = collect(\App\Models\LeavePlan::bereavementRelationshipOptions())->filter(fn ($label, $relationship) => app(\App\Services\LeaveEntitlementService::class)->userIsEligibleForBereavementRelationship(auth()->user(), $relationship))->all())
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">{{ $isEdit ? 'Edit Leave Plan' : 'Create Leave Plan' }}</h1>
@@ -84,7 +84,7 @@
                             <option value="{{ $value }}" @selected(old('bereavement_relationship', $leavePlan?->bereavement_relationship) === $value)>{{ $label }}</option>
                         @endforeach
                     </select>
-                    <div class="form-text">UAE bereavement usage is tracked by relationship for the calendar year.</div>
+                    <div class="form-text">UAE bereavement requires HR eligibility approval and is tracked by relationship for the calendar year.</div>
                     @error('bereavement_relationship')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
                 <div class="col-12">

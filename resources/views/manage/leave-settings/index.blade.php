@@ -311,7 +311,7 @@
             <div>
                 <div class="leave-settings-guidance-title">How these rules are applied</div>
                 <div class="alert alert-info mb-0">
-                    Eligible entitlement balances are shown to users. UAE sick and maternity balances show the full-pay allowance, while these settings keep the maximum claimable calendar-day limits for validation. UAE bereavement spouse and immediate-family allowances are tracked separately by calendar year. Maternity leave appears only when gender is Female, and parental leave appears only after HR eligibility approval on the user profile.
+                    Eligible entitlement balances are shown to users. UAE sick and maternity balances show the full-pay allowance, while these settings keep the maximum claimable calendar-day limits for validation. UAE bereavement spouse and immediate-family allowances are tracked separately by calendar year after HR eligibility approval on the user profile. Maternity leave appears only when gender is Female, and parental leave appears only after HR eligibility approval.
                 </div>
             </div>
             <div class="leave-settings-count" aria-label="{{ collect($regionalGroups)->sum(fn ($group) => count($group['settings'])) }} configured leave rules">

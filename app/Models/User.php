@@ -13,8 +13,8 @@ class User extends Authenticatable
 
     protected $fillable = [
         'name', 'email', 'password', 'employee_code', 'initials', 'job_title', 'gender', 'joining_date', 'marital_status',
-        'eligible_for_parental_leave', 'eligible_for_maternity_leave', 'eligible_for_paternity_leave', 'eligible_for_vawc_leave',
-        'eligible_for_special_women_leave', 'is_solo_parent',
+        'eligible_for_parental_leave', 'eligible_for_bereavement_spouse_leave', 'eligible_for_bereavement_immediate_family_leave',
+        'eligible_for_maternity_leave', 'eligible_for_paternity_leave', 'eligible_for_vawc_leave', 'eligible_for_special_women_leave', 'is_solo_parent',
         'department_id', 'role', 'is_active', 'receives_hod_timesheet_submission_emails', 'annual_leave_allowance_days',
     ];
 
@@ -28,6 +28,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'joining_date' => 'date',
             'eligible_for_parental_leave' => 'boolean',
+            'eligible_for_bereavement_spouse_leave' => 'boolean',
+            'eligible_for_bereavement_immediate_family_leave' => 'boolean',
             'eligible_for_maternity_leave' => 'boolean',
             'eligible_for_paternity_leave' => 'boolean',
             'eligible_for_vawc_leave' => 'boolean',
