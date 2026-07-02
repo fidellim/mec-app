@@ -638,6 +638,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.timesheets.show', $timesheet))
             ->assertOk()
+            ->assertSee('Week 20, 2026')
+            ->assertSee('2026-05-11 to 2026-05-17')
             ->assertSee('Monday')
             ->assertSee('P-GROUP')
             ->assertSee('Grouped Project Display')

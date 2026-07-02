@@ -395,6 +395,8 @@ class HodApprovalWorkflowTest extends TestCase
         $this->actingAs($hod)
             ->get(route('hod.timesheets.show', $timesheet))
             ->assertOk()
+            ->assertSee('Week 20, 2026')
+            ->assertSee('2026-05-11 to 2026-05-17')
             ->assertSee('You cannot approve or reject your own timesheet')
             ->assertDontSee('Approve this timesheet?')
             ->assertDontSee('Rejection comment');

@@ -321,6 +321,8 @@ class AdminExportWorkflowTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.timesheets.show', $timesheet))
             ->assertOk()
+            ->assertSee('Week 20, 2026')
+            ->assertSee('2026-05-11 to 2026-05-17')
             ->assertSee('Approve this timesheet?')
             ->assertSee('Rejection comment');
     }

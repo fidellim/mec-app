@@ -7,6 +7,8 @@
     <div class="row g-3">
         <div class="col-md-3"><div class="meta-label">Employee</div><div class="meta-value">{{ $timesheet->user->name }}</div><div class="small text-muted">{{ $timesheet->user->employee_code }}</div></div>
         <div class="col-md-3"><div class="meta-label">Department</div><div class="meta-value">{{ $timesheet->department->name }}</div></div>
+        <div class="col-md-2"><div class="meta-label">Period</div><div class="meta-value">Week {{ $timesheet->period->week_number }}, {{ $timesheet->period->year }}</div></div>
+        <div class="col-md-4"><div class="meta-label">Dates</div><div class="meta-value">{{ $timesheet->period->start_date->toDateString() }} to {{ $timesheet->period->end_date->toDateString() }}</div></div>
         <div class="col-md-2"><div class="meta-label">Regular</div><div class="meta-value">{{ $timesheet->total_regular_hours }}</div></div>
         <div class="col-md-2"><div class="meta-label">Overtime</div><div class="meta-value">{{ $timesheet->total_overtime_hours }}</div></div>
         <div class="col-md-2"><div class="meta-label">Total</div><div class="meta-value">{{ $timesheet->total_hours }}</div></div>
