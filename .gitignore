@@ -1,5 +1,7 @@
 /vendor
 /node_modules
+/.agents
+/skills-lock.json
 /.env
 /.env.e2e
 /.phpunit.cache
@@ -7,6 +9,7 @@
 /playwright-report
 /test-results
 /storage/*.key
+/storage/framework/cache/laravel-excel/
 /storage/framework/cache/data/*
 /storage/framework/sessions/*
 /storage/framework/views/*
