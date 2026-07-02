@@ -34,6 +34,7 @@ class DashboardWorkflowTest extends TestCase
         foreach ($roles as $role) {
             $user = $this->userWithRole($role, [
                 'department_id' => in_array($role, ['employee', 'hod'], true) ? $department->id : null,
+                'eligible_for_bereavement_spouse_leave' => true,
             ]);
 
             $this->actingAs($user)
@@ -43,7 +44,7 @@ class DashboardWorkflowTest extends TestCase
                 ->assertSee('Leave balances')
                 ->assertSee('Annual leave')
                 ->assertSee('Sick leave')
-                ->assertSee('Bereavement leave')
+                ->assertSee('Bereavement leave - Spouse')
                 ->assertDontSee('Maternity leave');
         }
     }
