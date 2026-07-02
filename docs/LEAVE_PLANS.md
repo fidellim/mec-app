@@ -13,8 +13,10 @@ Employees use **My Leave Plans** to create, save, submit, and track leave plans.
 - Cancellation requests require HOD, Admin, or Super Admin review only; they do not repeat the Director/HR chain.
 - Recalled approved leave plans can be edited and resubmitted by the employee.
 - Overlapping active leave plans show a warning but are not blocked.
-- Annual, sick, maternity, parental, Philippines bereavement / compassionate, and Philippines service incentive leave are checked against the employee's allowance when the employee submits. UAE bereavement / compassionate leave is checked against separate spouse and immediate-family calendar-year balances. Drafts can still be saved when they exceed an allowance.
-- `L190 - Service Incentive Leave` is available only to Philippines employees and defaults to 5 days.
+- UAE annual, sick, maternity, parental, and bereavement / compassionate leave are checked against the employee's allowance when the employee submits. UAE bereavement / compassionate leave is checked against separate spouse and immediate-family calendar-year balances.
+- Philippines employees do not see or apply for `L100 - Annual Leave`, `L110 - Sick Leave`, or `L180 - Bereavement Leave` while the Philippines defaults for those leave types are `0`.
+- Philippines statutory leave options are shown only when the employee is eligible: `L190 - Service Incentive Leave`, `L160 - Maternity Leave`, `L170 - Parental Leave`, `L210 - Paternity Leave`, `L220 - Leave for VAWC`, and `L230 - Special Leave for Women`.
+- Drafts can still be saved when they exceed an allowance, but submission enforces eligibility and balance checks.
 
 Half-day leave is single-date only and must be marked as morning or afternoon.
 Leave plan screens show counted leave days. Most leave types exclude Saturday, Sunday, and active applicable company holidays. UAE sick and maternity leave count calendar days, including weekends, but still exclude active applicable company holidays.
@@ -53,10 +55,10 @@ If the Director, UAE HR, or Philippines HR approver is not configured, the leave
 
 ## Leave Entitlements
 
-Annual, sick, maternity, parental, Philippines bereavement / compassionate, and Philippines service incentive leave have calendar-year entitlement limits. UAE bereavement / compassionate leave uses separate spouse and immediate-family calendar-year balances.
+Eligible leave entitlements have calendar-year limits. UAE annual, sick, maternity, and parental leave use the employee's regional or profile entitlement. UAE bereavement / compassionate leave uses separate spouse and immediate-family calendar-year balances. Philippines employees only receive balances for eligible statutory leave options and do not receive Annual, Sick, or Bereavement balances while those Philippines defaults are `0`.
 
 - Admins and Super Admins set UAE and Philippines default allowances in **Leave Settings**. UAE sick and maternity settings are maximum claimable calendar-day limits, not employee-facing full-pay balances. UAE bereavement settings define yearly spouse-death and immediate-family-death allowances.
-- Super Admins can set an employee-specific annual leave override in **Manage Users**. A blank override uses the regional default.
+- Super Admins can set an employee-specific annual leave override in **Manage Users** for employees who are eligible for annual leave. A blank override uses the regional default.
 - Leave allowances refresh automatically by year. Unused allowance expires on December 31 and does not carry over into the next year.
 - No scheduled automation is required for the yearly refresh because remaining allowance is calculated dynamically from leave plans in the requested year.
 - Submitted, approved, and cancellation-requested entitled leave plans consume allowance.
@@ -64,6 +66,12 @@ Annual, sick, maternity, parental, Philippines bereavement / compassionate, and 
 - Leave usage is recalculated dynamically from active applicable holidays for every leave type. If Admin or Super Admin adds, updates, activates, or deactivates a holiday after a leave plan is submitted or approved, those plans' counted leave days and remaining balance may change.
 - UAE sick and maternity leave count calendar days, excluding applicable holidays. Employee and HOD balance cards show only the full-pay allowance: 15 sick days and 45 maternity days. Validation still allows the full claimable limits: 90 sick days and 60 maternity days. Admin review can see the payroll split.
 - UAE bereavement leave requires a relationship selection on `L180`. The selected relationship controls which calendar-year balance is consumed; older records without a relationship are treated as manual-review records and are not assigned to either relationship bucket.
+- Philippines service incentive leave requires at least one year of service and defaults to 5 days.
+- Philippines maternity leave requires Female gender and HR eligibility approval. Qualified solo parents receive 120 days instead of the standard 105 days.
+- Philippines parental leave requires HR eligibility approval and at least six months of service.
+- Philippines paternity leave requires Philippines region, Male gender, Married status, and HR eligibility approval.
+- Philippines leave for VAWC requires Philippines region, Female gender, and HR eligibility approval.
+- Philippines special leave for women requires Philippines region, Female gender, HR eligibility approval, and at least six months of service.
 - Cross-year entitled leave is split by counted leave date. For example, counted December dates consume the old year's allowance and counted January dates consume the new year's allowance.
 - Half-day entitled leave consumes `0.5` counted leave day when the date is not a weekend or applicable company holiday. For UAE sick and maternity leave, a half day consumes `0.5` calendar day.
 
@@ -100,7 +108,8 @@ By default, calendars show submitted, approved, and cancellation-requested leave
 
 ## Current Limitations
 
-- Annual, sick, maternity, parental, Philippines bereavement / compassionate, and Philippines service incentive leave entitlements are tracked and shown when the employee is eligible. UAE bereavement remains available as `L180` and is shown as spouse and immediate-family balances. Maternity leave is available only when the employee gender is set to Female. Parental leave is available only when the employee marital status is set to Married. Service incentive leave is available only to Philippines employees.
+- Leave options and balance cards are region-specific. UAE employees can see UAE Annual, Sick, Maternity, Parental, and Bereavement behavior. Philippines employees see eligible statutory leave options only and do not see Annual, Sick, or Bereavement while those Philippines defaults are `0`.
+- Existing historical leave plans remain readable even if the employee is no longer eligible to create a new request for that leave code.
 - Approved leave does not automatically populate weekly timesheets.
 - Overlap detection warns only; it does not block submission.
 - Calendar entries link to existing detail or review pages instead of editing inline.

@@ -50,11 +50,22 @@ Use **My Leave Plans** to plan leave before filling the related weekly timesheet
 4. Select **Save Draft** if you are not ready, or **Submit for Approval** to send it to your HOD approvers.
 5. Use **Calendar** to see submitted, approved, cancellation-requested leave, and applicable company holidays in your department by month.
 
-For Philippines employees, the leave form shows Philippines leave allowances only. Employee numbers beginning with `MEC-PHIL-HR-` use Philippines leave settings and Philippines HR approval.
+For Philippines employees, the leave form shows Philippines statutory leave allowances only. Employee numbers beginning with `MEC-PHIL-HR-` use Philippines leave settings and Philippines HR approval.
 
 Philippines leave entitlements are calendar-year based. Unused days expire on December 31 and do not carry over. Submitted, approved, and cancellation-requested leave plans reserve allowance. Draft, rejected, cancelled, recalled, and voided plans do not reserve allowance.
 
-Philippines employees can see `L190 - Service Incentive Leave`, which defaults to 5 days. Maternity leave is available only when your gender is set to Female. Parental leave is available only when your marital status is set to Married.
+Philippines employees do not see or apply for `L100 - Annual Leave`, `L110 - Sick Leave`, or `L180 - Bereavement Leave` while the Philippines defaults for those leave types are `0`.
+
+Philippines employees can see these statutory leave types when their profile meets the requirement:
+
+| Leave type | When it appears |
+| --- | --- |
+| `L190 - Service Incentive Leave` | After at least one year of service. |
+| `L160 - Maternity Leave` | Female gender and HR eligibility approval. Qualified solo parents receive 120 days instead of the standard 105 days. |
+| `L170 - Parental Leave` | HR eligibility approval and at least six months of service. |
+| `L210 - Paternity Leave` | Male gender, Married status, and HR eligibility approval. |
+| `L220 - Leave for VAWC` | Female gender and HR eligibility approval. |
+| `L230 - Special Leave for Women` | Female gender, HR eligibility approval, and at least six months of service. |
 
 Most Philippines leave types use working leave days: Saturdays, Sundays, and active applicable company holidays are excluded from leave usage. Holiday entries are read-only and help explain why a selected date range may use fewer counted leave days than the number of calendar days selected.
 
