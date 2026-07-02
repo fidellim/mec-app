@@ -23,6 +23,7 @@ class AdminTimesheetController extends Controller
     use GuardsExports;
 
     private const SUMMARY_PREVIEW_MAX_WEEKS = 6;
+    private const EMPLOYEE_SHEET_EXPORT_MAX_TIMESHEETS = 250;
 
     public function index(TimesheetExportService $export)
     {
@@ -61,7 +62,23 @@ class AdminTimesheetController extends Controller
 
     public function export(TimesheetExportService $export)
     {
-        return $this->guardedExport(fn () => $export->excel($this->validatedFilters()));
+        $filters = $this->validatedFilters();
+
+        if (! ($filters['year'] ?? null)) {
+            return back()->with('warning', 'Timesheet Excel exports are limited to one year at a time. Please select a year before exporting.');
+        }
+
+        if (
+            filter_var($filters['include_employee_sheets'] ?? false, FILTER_VALIDATE_BOOL)
+            && $export->matchingTimesheetCount($filters) > self::EMPLOYEE_SHEET_EXPORT_MAX_TIMESHEETS
+        ) {
+            return back()->with(
+                'warning',
+                'Individual employee sheets are limited to 250 timesheets. Please narrow the week range, department, employee, or export summary only.'
+            );
+        }
+
+        return $this->guardedExport(fn () => $export->excel($filters));
     }
 
     public function voidTimesheet(Request $request, Timesheet $timesheet, AuditLogService $audit, TimesheetStatusHistoryService $history)

@@ -368,6 +368,39 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('', (string) $spreadsheet->getSheet(0)->getCell('H4')->getValue());
     }
 
+    public function test_admin_timesheet_export_requires_year_to_limit_summary_export_range(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->from(route('admin.timesheets.index'))
+            ->get(route('admin.timesheets.export'))
+            ->assertRedirect(route('admin.timesheets.index'))
+            ->assertSessionHas('warning', 'Timesheet Excel exports are limited to one year at a time. Please select a year before exporting.');
+    }
+
+    public function test_admin_timesheet_export_limits_individual_employee_sheets_to_250_timesheets(): void
+    {
+        $department = $this->department();
+        $project = $this->project();
+        $period = $this->openPeriod();
+        $admin = $this->userWithRole('admin');
+
+        foreach (range(1, 251) as $index) {
+            $employee = $this->userWithRole('employee', [
+                'department_id' => $department->id,
+            ]);
+
+            $this->submittedTimesheet($employee, $period, $project, ['status' => 'approved']);
+        }
+
+        $this->actingAs($admin)
+            ->from(route('admin.timesheets.index', ['year' => 2026, 'include_employee_sheets' => 1]))
+            ->get(route('admin.timesheets.export', ['year' => 2026, 'include_employee_sheets' => 1]))
+            ->assertRedirect(route('admin.timesheets.index', ['year' => 2026, 'include_employee_sheets' => 1]))
+            ->assertSessionHas('warning', 'Individual employee sheets are limited to 250 timesheets. Please narrow the week range, department, employee, or export summary only.');
+    }
+
     public function test_admin_timesheet_export_is_throttled(): void
     {
         $admin = $this->userWithRole('admin');
@@ -375,14 +408,14 @@ class AdminExportWorkflowTest extends TestCase
         for ($attempt = 0; $attempt < 6; $attempt++) {
             $this->actingAs($admin)
                 ->withServerVariables(['REMOTE_ADDR' => '10.20.30.10'])
-                ->get(route('admin.timesheets.export'))
+                ->get(route('admin.timesheets.export', ['year' => 2026]))
                 ->assertOk();
         }
 
         $this->actingAs($admin)
             ->from(route('admin.timesheets.index'))
             ->withServerVariables(['REMOTE_ADDR' => '10.20.30.10'])
-            ->get(route('admin.timesheets.export'))
+            ->get(route('admin.timesheets.export', ['year' => 2026]))
             ->assertRedirect(route('admin.timesheets.index'))
             ->assertSessionHas('warning');
     }
@@ -396,7 +429,7 @@ class AdminExportWorkflowTest extends TestCase
         try {
             $this->actingAs($admin)
                 ->from(route('admin.timesheets.index'))
-                ->get(route('admin.timesheets.export'))
+                ->get(route('admin.timesheets.export', ['year' => 2026]))
                 ->assertRedirect(route('admin.timesheets.index'))
                 ->assertSessionHas('warning', 'An export is already running. Please wait for it to finish before starting another export.');
         } finally {

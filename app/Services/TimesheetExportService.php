@@ -17,9 +17,8 @@ class TimesheetExportService
 {
     public function excel(array $filters): BinaryFileResponse
     {
-        $timesheets = Timesheet::query()
+        $timesheets = $this->query($filters)
             ->with(['user', 'department', 'period', 'entries.project', 'approver'])
-            ->tap(fn ($query) => $this->applyFilters($query, $filters))
             ->orderByDesc('id')
             ->get();
 
@@ -32,6 +31,11 @@ class TimesheetExportService
         $fileName = 'employee_weekly_timesheets_'.now()->format('Ymd_His').'.xlsx';
 
         return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $attendanceSummary, $includeEmployeeSheets), $fileName, ExcelWriter::XLSX);
+    }
+
+    public function matchingTimesheetCount(array $filters): int
+    {
+        return $this->query($filters)->count();
     }
 
     public function summaryPreview(array $filters): array
@@ -200,11 +204,16 @@ class TimesheetExportService
 
     private function summaryTimesheets(array $filters): Collection
     {
-        return Timesheet::query()
+        return $this->query($filters)
             ->with(['user', 'department', 'period', 'entries.project'])
-            ->tap(fn ($query) => $this->applyFilters($query, $filters))
             ->orderByDesc('id')
             ->get();
+    }
+
+    private function query(array $filters)
+    {
+        return Timesheet::query()
+            ->tap(fn ($query) => $this->applyFilters($query, $filters));
     }
 
     private function applyFilters($query, array $filters): void
