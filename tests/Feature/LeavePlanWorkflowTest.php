@@ -816,7 +816,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.calendar', ['month' => '2026-05']))
             ->assertOk()
             ->assertSee('Department Leave Calendar')
-            ->assertSee('Viewing')
+            ->assertSee('Jump to')
             ->assertSee('May 2026')
             ->assertSee('Holiday - Global - Global Company Day')
             ->assertSee('Holiday - Philippines - Philippines Holiday')
@@ -836,7 +836,7 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.calendar', ['month' => '2026-10']))
             ->assertOk()
-            ->assertSee('Viewing')
+            ->assertSee('Jump to')
             ->assertSee('October 2026')
             ->assertSee('<option value="10" selected>October</option>', false);
     }
@@ -905,7 +905,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('admin.leave-plans.calendar', ['month' => '2026-05']))
             ->assertOk()
             ->assertSee('All Leave Calendar')
-            ->assertSee('Viewing')
+            ->assertSee('Jump to')
             ->assertSee('May 2026')
             ->assertSee('Holiday - Global - Global Review Holiday')
             ->assertSee('Holiday - United Arab Emirates - UAE Review Holiday')

@@ -3,73 +3,55 @@
         display: flex;
         align-items: center;
         justify-content: flex-end;
-        gap: .6rem;
+        gap: .45rem;
         flex-wrap: wrap;
-    }
-    .leave-calendar-viewing {
-        display: inline-flex;
-        align-items: center;
-        gap: .35rem;
-        min-height: 2.15rem;
-        padding: .42rem .7rem;
-        border: 1px solid var(--app-soft-border);
-        border-radius: .65rem;
-        background: var(--app-muted-bg);
-        color: var(--bs-body-color);
-        font-size: .85rem;
-        font-weight: 700;
-        line-height: 1.2;
-        white-space: nowrap;
-    }
-    .leave-calendar-viewing-label {
-        color: var(--bs-secondary-color);
-        font-size: .72rem;
-        font-weight: 800;
-        letter-spacing: .02em;
-        text-transform: uppercase;
     }
     .leave-calendar-jump {
         display: grid;
-        grid-template-columns: auto minmax(8.5rem, 1fr) minmax(6.25rem, .75fr) auto;
-        gap: .5rem;
+        grid-template-columns: auto minmax(7.75rem, 1fr) minmax(5.75rem, .7fr) auto;
+        gap: .42rem;
         align-items: center;
-        min-width: min(100%, 28rem);
-        padding: .35rem;
+        min-width: min(100%, 25rem);
+        padding: .28rem;
         border: 1px solid var(--app-soft-border);
         border-radius: .65rem;
-        background: color-mix(in srgb, var(--app-muted-bg) 70%, var(--app-card-bg));
+        background: color-mix(in srgb, var(--app-muted-bg) 56%, var(--app-card-bg));
     }
     .leave-calendar-jump-label {
         color: var(--bs-secondary-color);
-        font-size: .78rem;
+        font-size: .74rem;
         font-weight: 800;
         letter-spacing: .02em;
-        padding-inline: .35rem;
+        padding-inline: .32rem .2rem;
         text-transform: uppercase;
         white-space: nowrap;
     }
     .leave-calendar-jump .form-select {
-        min-height: 2.15rem;
+        min-height: 2rem;
         padding-top: .25rem;
         padding-bottom: .25rem;
     }
     .leave-calendar-nav {
         display: inline-flex;
         align-items: center;
-        gap: .35rem;
-        padding: .35rem;
+        gap: .28rem;
+        padding: .28rem;
         border: 1px solid var(--app-soft-border);
         border-radius: .65rem;
-        background: color-mix(in srgb, var(--app-muted-bg) 70%, var(--app-card-bg));
+        background: color-mix(in srgb, var(--app-muted-bg) 56%, var(--app-card-bg));
+    }
+    .leave-calendar-nav .btn-outline-secondary {
+        border-color: color-mix(in srgb, var(--bs-secondary-color) 42%, var(--app-soft-border));
+        color: var(--bs-body-color);
     }
     .leave-calendar-icon-btn {
-        min-width: 2.15rem;
-        min-height: 2.15rem;
+        min-width: 2rem;
+        min-height: 2rem;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: .35rem;
-        padding-inline: .55rem;
+        padding-inline: .52rem;
         white-space: nowrap;
     }
     .leave-calendar-icon-btn svg {
@@ -311,17 +293,11 @@
             text-transform: uppercase;
         }
         .leave-calendar-toolbar,
+        .leave-calendar-jump,
         .leave-calendar-nav {
             width: 100%;
         }
-        .leave-calendar-viewing {
-            width: 100%;
-            justify-content: center;
-            white-space: normal;
-            text-align: center;
-        }
         .leave-calendar-jump {
-            width: 100%;
             grid-template-columns: minmax(0, 1fr) minmax(0, .85fr) auto;
         }
         .leave-calendar-jump-label {
@@ -392,10 +368,6 @@
             <div class="small text-muted">{{ $calendarDescription }}</div>
         </div>
         <div class="leave-calendar-toolbar">
-            <div class="leave-calendar-viewing" aria-label="Calendar month">
-                <span class="leave-calendar-viewing-label">Viewing</span>
-                <span>{{ $month->format('F Y') }}</span>
-            </div>
             <form class="leave-calendar-jump" method="get" data-calendar-month-selector>
                 @foreach(request()->except(['month', 'calendar_month', 'calendar_year', 'calendar_fragment']) as $key => $value)
                     @if(is_array($value))
@@ -418,7 +390,7 @@
                         <option value="{{ $calendarYear }}" @selected((int) $month->format('Y') === $calendarYear)>{{ $calendarYear }}</option>
                     @endforeach
                 </select>
-                <button class="btn btn-primary btn-sm leave-calendar-icon-btn" title="Go to selected month" aria-label="Go to selected month">
+                <button @class(['btn btn-sm leave-calendar-icon-btn', 'btn-outline-primary' => $isAvailabilityCalendar, 'btn-primary' => ! $isAvailabilityCalendar]) title="Go to selected month" aria-label="Go to selected month">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
                     <span>Go</span>
                 </button>
