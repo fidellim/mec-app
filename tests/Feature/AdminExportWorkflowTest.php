@@ -8,6 +8,7 @@ use App\Models\TimesheetEntry;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Style\Border;
 use Tests\Support\CreatesTimesheetData;
@@ -439,6 +440,96 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame(3, $spreadsheet->getSheetCount());
         $this->assertSame('ZX', $spreadsheet->getSheet(2)->getCell('B4')->getValue());
         $this->assertSame('Project Engineer', $spreadsheet->getSheet(2)->getCell('K5')->getValue());
+    }
+
+    public function test_timesheet_excel_export_neutralizes_formula_like_text_values(): void
+    {
+        $department = $this->department(['name' => '=Operations']);
+        $project = $this->project([
+            'project_code' => '=P-FORMULA',
+            'project_name' => '=Project Formula',
+            'client_name' => '=Client Formula',
+        ]);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => '=Employee Formula',
+            'employee_code' => '=EMP-001',
+            'initials' => '=EF',
+            'job_title' => '=Engineer',
+        ]);
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $project, ['status' => 'approved']);
+        $timesheet->entries()->update(['remarks' => '=HYPERLINK("https://example.test","Open")']);
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-12',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'L100',
+            'project_id' => null,
+            'regular_hours' => 1,
+            'overtime_hours' => 0,
+            'remarks' => '=Leave Formula',
+        ]);
+        $admin = $this->userWithRole('admin');
+
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'week_number' => 20,
+            'year' => 2026,
+            'include_employee_sheets' => 1,
+        ]));
+
+        $response->assertOk();
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $projectSummary = $spreadsheet->getSheet(0);
+        $attendanceSummary = $spreadsheet->getSheet(1);
+        $employeeSheet = $spreadsheet->getSheet(2);
+
+        $this->assertSame(DataType::TYPE_STRING, $projectSummary->getCell('A3')->getDataType());
+        $this->assertStringContainsString("'=P-FORMULA", $projectSummary->getCell('A3')->getValue());
+        $this->assertStringContainsString("'=Project Formula", $projectSummary->getCell('A3')->getValue());
+        $this->assertStringContainsString("'=Client Formula", $projectSummary->getCell('A3')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $projectSummary->getCell('A6')->getDataType());
+        $this->assertSame("'=EMP-001", $projectSummary->getCell('A6')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $projectSummary->getCell('B6')->getDataType());
+        $this->assertSame("'=EF", $projectSummary->getCell('B6')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $projectSummary->getCell('C6')->getDataType());
+        $this->assertSame("'=Employee Formula", $projectSummary->getCell('C6')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $projectSummary->getCell('D6')->getDataType());
+        $this->assertSame("'=Engineer", $projectSummary->getCell('D6')->getValue());
+
+        $this->assertSame(DataType::TYPE_STRING, $attendanceSummary->getCell('A6')->getDataType());
+        $this->assertSame("'=EMP-001", $attendanceSummary->getCell('A6')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $attendanceSummary->getCell('B6')->getDataType());
+        $this->assertSame("'=EF", $attendanceSummary->getCell('B6')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $attendanceSummary->getCell('C6')->getDataType());
+        $this->assertSame("'=Employee Formula", $attendanceSummary->getCell('C6')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $attendanceSummary->getCell('D6')->getDataType());
+        $this->assertSame("'=Operations", $attendanceSummary->getCell('D6')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $attendanceSummary->getCell('E6')->getDataType());
+        $this->assertSame("'=Engineer", $attendanceSummary->getCell('E6')->getValue());
+
+        $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell('B3')->getDataType());
+        $this->assertSame("'=Employee Formula", $employeeSheet->getCell('B3')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell('K3')->getDataType());
+        $this->assertSame("'=EMP-001", $employeeSheet->getCell('K3')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell('B4')->getDataType());
+        $this->assertSame("'=EF", $employeeSheet->getCell('B4')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell('K4')->getDataType());
+        $this->assertSame("'=Operations", $employeeSheet->getCell('K4')->getValue());
+        $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell('K5')->getDataType());
+        $this->assertSame("'=Engineer", $employeeSheet->getCell('K5')->getValue());
+        $formulaProjectRow = null;
+        for ($row = 1; $row <= $employeeSheet->getHighestRow(); $row++) {
+            if ($employeeSheet->getCell("A{$row}")->getValue() === "'=P-FORMULA") {
+                $formulaProjectRow = $row;
+                break;
+            }
+        }
+
+        $this->assertNotNull($formulaProjectRow, 'The formula-like project row should be present in the employee sheet.');
+        $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell("A{$formulaProjectRow}")->getDataType());
+        $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell("U{$formulaProjectRow}")->getDataType());
+        $this->assertSame("'=HYPERLINK(\"https://example.test\",\"Open\")", $employeeSheet->getCell("U{$formulaProjectRow}")->getValue());
     }
 
     public function test_individual_excel_sheet_does_not_count_training_code_as_leave_hours(): void

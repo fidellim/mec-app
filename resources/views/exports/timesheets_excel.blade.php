@@ -111,10 +111,10 @@
         </tr>
         <tr>
             <td class="meta-band">Name:</td>
-            <td colspan="4" class="meta-input">{{ $timesheet->user->name }}</td>
+            <td colspan="4" class="meta-input">{{ $worksheet['employee_name'] }}</td>
             <td colspan="3" class="meta-band"></td>
             <td colspan="2" class="meta-band">Emp. # :</td>
-            <td colspan="3" class="meta-input">{{ $timesheet->user->employee_code }}</td>
+            <td colspan="3" class="meta-input">{{ $worksheet['employee_code'] }}</td>
             <td colspan="8" class="note">Note: OT is subject to prior Approval</td>
         </tr>
         <tr>
@@ -122,7 +122,7 @@
             <td colspan="2" class="meta-input center">{{ $worksheet['initials'] }}</td>
             <td colspan="5" class="meta-band"></td>
             <td colspan="2" class="meta-band">Department :</td>
-            <td colspan="4" class="meta-input">{{ $timesheet->department->name }}</td>
+            <td colspan="4" class="meta-input">{{ $worksheet['department_name'] }}</td>
             <td colspan="7" class="meta-band"></td>
         </tr>
         <tr>
@@ -130,7 +130,7 @@
             <td colspan="2" class="meta-input center">Full Time</td>
             <td colspan="5" class="meta-band"></td>
             <td colspan="2" class="meta-band">Job Title :</td>
-            <td colspan="4" class="meta-input">{{ $timesheet->user->job_title ?: '-' }}</td>
+            <td colspan="4" class="meta-input">{{ $worksheet['job_title'] }}</td>
             <td colspan="7" class="meta-band"></td>
         </tr>
         <tr class="spacer"><td colspan="21"></td></tr>

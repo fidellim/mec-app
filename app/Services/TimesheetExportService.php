@@ -138,8 +138,8 @@ class TimesheetExportService
             $absentHours = $isAbsent ? $regular + $overtime : 0;
 
             return [
-                'project_code' => $first->project?->project_code ?: '-',
-                'attendance_code' => $attendanceCode,
+                'project_code' => $this->spreadsheetText($first->project?->project_code ?: '-'),
+                'attendance_code' => $this->spreadsheetText($attendanceCode),
                 'weekdays' => $weekdayValues,
                 'saturday' => (float) $saturdayEntries->sum('regular_hours') + (float) $saturdayEntries->sum('overtime_hours'),
                 'sunday' => (float) $sundayEntries->sum('regular_hours') + (float) $sundayEntries->sum('overtime_hours'),
@@ -149,7 +149,7 @@ class TimesheetExportService
                 'leave' => $leaveHours,
                 'absent' => $absentHours,
                 'total' => $regular + $overtime,
-                'remarks' => trim((string) $first->remarks),
+                'remarks' => $this->spreadsheetText(trim((string) $first->remarks)),
             ];
         })->values();
 
@@ -172,12 +172,16 @@ class TimesheetExportService
 
         return [
             'timesheet' => $timesheet,
+            'employee_name' => $this->spreadsheetText($timesheet->user->name),
+            'employee_code' => $this->spreadsheetText($timesheet->user->employee_code),
+            'department_name' => $this->spreadsheetText($timesheet->department->name),
+            'job_title' => $this->spreadsheetText($timesheet->user->job_title ?: '-'),
             'dates' => $dates,
             'weekday_dates' => $weekdayDates,
             'saturday' => $saturday,
             'sunday' => $sunday,
             'rows' => $rows,
-            'initials' => $timesheet->user->initials ?: $this->initialsFromName($timesheet->user->name),
+            'initials' => $this->spreadsheetText($timesheet->user->initials ?: $this->initialsFromName($timesheet->user->name)),
         ];
     }
 
@@ -264,13 +268,13 @@ class TimesheetExportService
             'week_start' => $timesheet->period->start_date,
             'week_end' => $timesheet->period->end_date,
             'project_id' => $entry->project_id,
-            'project_code' => $entry->project?->project_code ?? '-',
-            'project_name' => $entry->project?->project_name ?? 'Unknown Project',
-            'client_name' => $entry->project?->client_name ?? '',
-            'employee_id' => $user->employee_code ?? '',
-            'initials' => $user->initials ?: $this->initialsFromName($user->name),
-            'employee_name' => $user->name,
-            'job_title' => $user->job_title ?: '-',
+            'project_code' => $this->spreadsheetText($entry->project?->project_code ?? '-'),
+            'project_name' => $this->spreadsheetText($entry->project?->project_name ?? 'Unknown Project'),
+            'client_name' => $this->spreadsheetText($entry->project?->client_name ?? ''),
+            'employee_id' => $this->spreadsheetText($user->employee_code ?? ''),
+            'initials' => $this->spreadsheetText($user->initials ?: $this->initialsFromName($user->name)),
+            'employee_name' => $this->spreadsheetText($user->name),
+            'job_title' => $this->spreadsheetText($user->job_title ?: '-'),
             'regular_hours' => $regular,
             'overtime_hours' => $overtime,
             'total_hours' => $regular + $overtime,
@@ -315,18 +319,18 @@ class TimesheetExportService
                     'year' => $timesheet->period->year,
                     'week_start' => $timesheet->period->start_date,
                     'week_end' => $timesheet->period->end_date,
-                    'employee_id' => $user->employee_code ?? '',
-                    'initials' => $user->initials ?: $this->initialsFromName($user->name),
-                    'employee_name' => $user->name,
-                    'department_name' => $timesheet->department->name,
-                    'job_title' => $user->job_title ?: '-',
-                    'attendance_code' => $attendanceCode,
-                    'attendance_label' => $attendanceLabels[$attendanceCode] ?? 'Uncoded non-project hours',
-                    'project_code' => $entry->project?->project_code ?? 'Non-project',
+                    'employee_id' => $this->spreadsheetText($user->employee_code ?? ''),
+                    'initials' => $this->spreadsheetText($user->initials ?: $this->initialsFromName($user->name)),
+                    'employee_name' => $this->spreadsheetText($user->name),
+                    'department_name' => $this->spreadsheetText($timesheet->department->name),
+                    'job_title' => $this->spreadsheetText($user->job_title ?: '-'),
+                    'attendance_code' => $this->spreadsheetText($attendanceCode),
+                    'attendance_label' => $this->spreadsheetText($attendanceLabels[$attendanceCode] ?? 'Uncoded non-project hours'),
+                    'project_code' => $this->spreadsheetText($entry->project?->project_code ?? 'Non-project'),
                     'regular_hours' => $regular,
                     'overtime_hours' => $overtime,
                     'total_hours' => $regular + $overtime,
-                    'status' => $timesheet->status,
+                    'status' => $this->spreadsheetText($timesheet->status),
                 ];
             })
             ->sortBy([
@@ -337,5 +341,14 @@ class TimesheetExportService
                 ['project_code', 'asc'],
             ])
             ->values();
+    }
+
+    private function spreadsheetText(?string $value): ?string
+    {
+        if ($value === null || $value === '' || $value === '-') {
+            return $value;
+        }
+
+        return preg_match('/^[=\-+@]/', $value) ? "'".$value : $value;
     }
 }
