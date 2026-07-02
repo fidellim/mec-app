@@ -87,7 +87,7 @@ class AuthAndAccessTest extends TestCase
         $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
     }
 
-    public function test_missing_or_inactive_users_cannot_request_password_reset_link(): void
+    public function test_missing_or_inactive_password_reset_requests_use_generic_response_without_sending_links(): void
     {
         Notification::fake();
 
@@ -98,11 +98,13 @@ class AuthAndAccessTest extends TestCase
 
         $this->post(route('password.email'), [
             'email' => 'missing@example.com',
-        ])->assertSessionHasErrors('email');
+        ])->assertSessionHas('success')
+            ->assertSessionHasNoErrors();
 
         $this->post(route('password.email'), [
             'email' => $inactive->email,
-        ])->assertSessionHasErrors('email');
+        ])->assertSessionHas('success')
+            ->assertSessionHasNoErrors();
 
         Notification::assertNothingSent();
         $this->assertDatabaseMissing('password_reset_tokens', ['email' => 'missing@example.com']);
@@ -120,7 +122,8 @@ class AuthAndAccessTest extends TestCase
                 ->post(route('password.email'), [
                     'email' => $attempt % 2 === 0 ? strtoupper($email) : ' '.$email.' ',
                 ])
-                ->assertSessionHasErrors('email');
+                ->assertSessionHas('success')
+                ->assertSessionHasNoErrors();
         }
 
         $this->from(route('password.request'))
@@ -221,9 +224,31 @@ class AuthAndAccessTest extends TestCase
             'email' => $user->email,
             'password' => 'fresh-password',
             'password_confirmation' => 'fresh-password',
-        ])->assertSessionHasErrors('email');
+        ])->assertSessionHasErrors(['email' => 'We could not reset your password. Please check the reset link and try again.']);
 
         $this->assertTrue(Hash::check('password123', $user->fresh()->password));
+    }
+
+    public function test_password_reset_failures_do_not_reveal_account_status(): void
+    {
+        $inactive = $this->userWithRole('employee', [
+            'email' => 'inactive-update@example.com',
+            'is_active' => false,
+        ]);
+        $active = $this->userWithRole('employee', ['email' => 'active-update@example.com']);
+        $message = 'We could not reset your password. Please check the reset link and try again.';
+
+        foreach (['missing-update@example.com', $inactive->email, $active->email] as $email) {
+            $this->post(route('password.update'), [
+                'token' => 'invalid-token',
+                'email' => $email,
+                'password' => 'fresh-password',
+                'password_confirmation' => 'fresh-password',
+            ])->assertSessionHasErrors(['email' => $message]);
+        }
+
+        $this->assertTrue(Hash::check('password123', $inactive->fresh()->password));
+        $this->assertTrue(Hash::check('password123', $active->fresh()->password));
     }
 
     public function test_reset_password_requests_are_throttled_by_ip(): void

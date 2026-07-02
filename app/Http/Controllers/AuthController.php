@@ -2,16 +2,19 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\User;
 use Illuminate\Auth\Events\PasswordReset;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
-use Illuminate\Validation\Rule;
 
 class AuthController extends Controller
 {
+    private const PASSWORD_RESET_LINK_RESPONSE = 'If an active account exists for that email, we will send a password reset link that expires in 1 hour.';
+    private const PASSWORD_RESET_FAILED_RESPONSE = 'We could not reset your password. Please check the reset link and try again.';
+
     public function showLogin()
     {
         return view('auth.login');
@@ -39,21 +42,15 @@ class AuthController extends Controller
 
     public function sendPasswordResetLink(Request $request)
     {
-        $request->validate([
-            'email' => [
-                'required',
-                'email',
-                Rule::exists('users', 'email')->where('is_active', true),
-            ],
-        ], [
-            'email.exists' => 'We could not find an active account with that email address.',
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
         ]);
 
-        $status = Password::sendResetLink($request->only('email'));
+        if (User::where('email', $validated['email'])->where('is_active', true)->exists()) {
+            Password::sendResetLink($validated);
+        }
 
-        return $status === Password::RESET_LINK_SENT
-            ? back()->with('success', 'Password reset link sent. Please check your email. The link expires in 1 hour.')
-            : back()->withErrors(['email' => __($status)])->onlyInput('email');
+        return back()->with('success', self::PASSWORD_RESET_LINK_RESPONSE);
     }
 
     public function showResetPassword(Request $request, string $token)
@@ -68,17 +65,16 @@ class AuthController extends Controller
     {
         $request->validate([
             'token' => ['required'],
-            'email' => [
-                'required',
-                'email',
-                Rule::exists('users', 'email')->where('is_active', true),
-            ],
+            'email' => ['required', 'email'],
             'password' => ['required', 'string', 'confirmed', 'min:10', 'max:64'],
         ], [
-            'email.exists' => 'We could not find an active account with that email address.',
             'password.min' => 'Password must be between 10 and 64 characters. Letters, numbers, symbols, and spaces are allowed.',
             'password.max' => 'Password must be between 10 and 64 characters. Letters, numbers, symbols, and spaces are allowed.',
         ]);
+
+        if (! User::where('email', $request->email)->where('is_active', true)->exists()) {
+            return back()->withErrors(['email' => self::PASSWORD_RESET_FAILED_RESPONSE])->onlyInput('email');
+        }
 
         $status = Password::reset(
             $request->only('email', 'password', 'password_confirmation', 'token'),
@@ -94,7 +90,7 @@ class AuthController extends Controller
 
         return $status === Password::PASSWORD_RESET
             ? redirect()->route('login')->with('success', 'Password reset successfully. You can now sign in.')
-            : back()->withErrors(['email' => __($status)])->onlyInput('email');
+            : back()->withErrors(['email' => self::PASSWORD_RESET_FAILED_RESPONSE])->onlyInput('email');
     }
 
     public function logout(Request $request)
