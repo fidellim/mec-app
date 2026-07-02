@@ -322,20 +322,31 @@
         .leave-balance-card {
             display: flex;
             flex-direction: column;
-            gap: .9rem;
-            padding: 1rem;
+            gap: .72rem;
+            position: relative;
+            overflow: hidden;
+            min-height: 100%;
+            padding: .9rem;
             border: 1px solid var(--app-soft-border);
             border-radius: .75rem;
             background:
-                linear-gradient(180deg, color-mix(in srgb, var(--app-muted-bg) 42%, transparent), transparent 58%),
+                linear-gradient(135deg, color-mix(in srgb, var(--bs-primary-bg-subtle) 18%, transparent), transparent 40%),
+                linear-gradient(180deg, color-mix(in srgb, var(--app-muted-bg) 48%, transparent), transparent 62%),
                 var(--app-card-bg);
             box-shadow: var(--app-shadow-sm);
+        }
+        .leave-balance-card::before {
+            content: "";
+            position: absolute;
+            inset: 0 auto 0 0;
+            width: .28rem;
+            background: linear-gradient(180deg, var(--bs-primary), color-mix(in srgb, var(--bs-primary) 42%, var(--bs-info)));
         }
         .leave-balance-card-header {
             display: flex;
             align-items: flex-start;
             justify-content: space-between;
-            gap: .85rem;
+            gap: .65rem;
             min-width: 0;
         }
         .leave-balance-heading {
@@ -343,7 +354,7 @@
         }
         .leave-balance-title {
             margin: 0 0 .18rem;
-            font-size: 1rem;
+            font-size: .95rem;
             font-weight: 800;
             line-height: 1.25;
             letter-spacing: 0;
@@ -351,60 +362,96 @@
         .leave-balance-meta,
         .leave-balance-note {
             color: var(--bs-secondary-color);
-            font-size: .84rem;
+            font-size: .78rem;
             line-height: 1.45;
         }
         .leave-balance-source {
             flex: 0 0 auto;
-            max-width: 12rem;
-            padding: .42rem .58rem;
-            border-radius: 999px;
+            max-width: 9.5rem;
+            padding: .32rem .45rem;
+            border-radius: .55rem;
+            font-size: .68rem;
+            line-height: 1.15;
             white-space: normal;
             text-align: center;
         }
+        .leave-balance-summary {
+            display: grid;
+            grid-template-columns: minmax(7rem, .86fr) minmax(0, 1.14fr);
+            gap: .62rem;
+            align-items: stretch;
+        }
+        .leave-balance-remaining {
+            min-width: 0;
+            padding: .68rem .72rem;
+            border: 1px solid color-mix(in srgb, var(--bs-success) 34%, var(--app-soft-border));
+            border-radius: .7rem;
+            background:
+                linear-gradient(180deg, color-mix(in srgb, var(--bs-success-bg-subtle) 50%, transparent), transparent),
+                color-mix(in srgb, var(--app-card-bg) 80%, var(--app-muted-bg));
+        }
+        .leave-balance-remaining.is-depleted {
+            border-color: color-mix(in srgb, var(--bs-warning) 42%, var(--app-soft-border));
+            background:
+                linear-gradient(180deg, color-mix(in srgb, var(--bs-warning-bg-subtle) 44%, transparent), transparent),
+                color-mix(in srgb, var(--app-card-bg) 80%, var(--app-muted-bg));
+        }
+        .leave-balance-remaining-value {
+            margin-top: .1rem;
+            color: color-mix(in srgb, var(--bs-success) 76%, var(--bs-body-color));
+            font-size: clamp(1.65rem, 3vw, 2.12rem);
+            font-weight: 800;
+            letter-spacing: 0;
+            line-height: .95;
+        }
+        .leave-balance-remaining.is-depleted .leave-balance-remaining-value {
+            color: color-mix(in srgb, var(--bs-warning) 76%, var(--bs-body-color));
+        }
+        .leave-balance-remaining-unit {
+            margin-top: .18rem;
+            color: var(--bs-secondary-color);
+            font-size: .72rem;
+            font-weight: 700;
+        }
         .leave-balance-metrics {
             display: grid;
-            grid-template-columns: repeat(3, minmax(0, 1fr));
-            gap: .75rem;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .48rem;
         }
         .leave-balance-metric {
             min-width: 0;
-            padding: .7rem .75rem;
+            padding: .58rem .62rem;
             border: 1px solid var(--app-soft-border);
             border-radius: .7rem;
             background: color-mix(in srgb, var(--app-card-bg) 78%, var(--app-muted-bg));
         }
         .leave-balance-metric-label {
             color: var(--bs-secondary-color);
-            font-size: .72rem;
+            font-size: .66rem;
             font-weight: 800;
             letter-spacing: .02em;
             line-height: 1.25;
             text-transform: uppercase;
         }
         .leave-balance-metric-value {
-            margin-top: .28rem;
+            margin-top: .2rem;
             color: var(--bs-body-color);
-            font-size: 1.38rem;
+            font-size: .9rem;
             font-weight: 800;
-            line-height: 1.05;
+            line-height: 1.15;
         }
-        .leave-balance-metric-muted .leave-balance-metric-value {
+        .leave-balance-track-group {
+            display: grid;
+            gap: .34rem;
+        }
+        .leave-balance-track-labels {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .5rem;
             color: var(--bs-secondary-color);
-        }
-        .leave-balance-metric-remaining {
-            border-color: color-mix(in srgb, var(--bs-success) 34%, var(--app-soft-border));
-            background: color-mix(in srgb, var(--bs-success-bg-subtle) 52%, var(--app-card-bg));
-        }
-        .leave-balance-metric-remaining .leave-balance-metric-value {
-            color: color-mix(in srgb, var(--bs-success) 76%, var(--bs-body-color));
-        }
-        .leave-balance-metric-remaining.is-depleted {
-            border-color: color-mix(in srgb, var(--bs-warning) 42%, var(--app-soft-border));
-            background: color-mix(in srgb, var(--bs-warning-bg-subtle) 44%, var(--app-card-bg));
-        }
-        .leave-balance-metric-remaining.is-depleted .leave-balance-metric-value {
-            color: color-mix(in srgb, var(--bs-warning) 76%, var(--bs-body-color));
+            font-size: .7rem;
+            font-weight: 700;
         }
         .leave-balance-progress {
             height: .42rem;
@@ -420,11 +467,14 @@
             background: linear-gradient(90deg, var(--bs-primary), color-mix(in srgb, var(--bs-primary) 68%, var(--bs-info)));
         }
         .leave-balance-note {
-            padding-top: .15rem;
+            padding: .58rem .65rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .65rem;
+            background: color-mix(in srgb, var(--app-muted-bg) 54%, transparent);
         }
         .leave-balance-pay-bands {
             border-top: 1px solid var(--app-soft-border);
-            padding-top: .8rem;
+            padding-top: .65rem;
         }
         .section-header {
             display: flex;
@@ -1122,11 +1172,17 @@
                 align-self: flex-start;
                 max-width: 100%;
             }
-            .leave-balance-metrics {
+            .leave-balance-summary {
                 grid-template-columns: 1fr;
             }
+            .leave-balance-metrics {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
             .leave-balance-metric-value {
-                font-size: 1.35rem;
+                font-size: .9rem;
+            }
+            .leave-balance-track-labels {
+                flex-wrap: wrap;
             }
         }
         @media (max-width: 767.98px) {

@@ -12,37 +12,47 @@
                         $used = (float) ($balance['used'] ?? 0);
                         $remaining = (float) ($balance['remaining'] ?? 0);
                         $usedPercent = $allowance > 0 ? min(100, max(0, ($used / $allowance) * 100)) : 0;
+                        $remainingPercent = $allowance > 0 ? min(100, max(0, ($remaining / $allowance) * 100)) : 0;
                         $remainingIsDepleted = $remaining <= 0;
                     @endphp
-                    <div class="col-md-6">
+                    <div class="col-12 col-md-6 col-xl-4">
                         <div class="leave-balance-card h-100">
                             <div class="leave-balance-card-header">
                                 <div class="leave-balance-heading">
                                     <h3 class="leave-balance-title">{{ $balance['label'] }}</h3>
-                                    <div class="leave-balance-meta">{{ $balance['attendance_code'] }} for {{ $balance['year'] }} - {{ $balance['region_label'] }}</div>
+                                    <div class="leave-balance-meta">{{ $balance['attendance_code'] }} for {{ $balance['year'] }} / {{ $balance['region_label'] }}</div>
                                 </div>
                                 <span class="badge leave-balance-source {{ $balance['uses_override'] ? 'text-bg-info' : 'bg-body-secondary border text-body' }}">
                                     {{ $balance['source_label'] ?? ($balance['uses_override'] ? 'Current-year override' : 'Regional default') }}
                                 </span>
                             </div>
 
-                            <div class="leave-balance-metrics">
-                                <div class="leave-balance-metric">
-                                    <div class="leave-balance-metric-label">{{ $balance['allowance_label'] ?? 'Allowance' }}</div>
-                                    <div class="leave-balance-metric-value">{{ $balance['formatted']['allowance'] }} days</div>
-                                </div>
-                                <div class="leave-balance-metric leave-balance-metric-muted">
-                                    <div class="leave-balance-metric-label">Used</div>
-                                    <div class="leave-balance-metric-value">{{ $balance['formatted']['used'] }} days</div>
-                                </div>
-                                <div class="leave-balance-metric leave-balance-metric-remaining {{ $remainingIsDepleted ? 'is-depleted' : '' }}">
+                            <div class="leave-balance-summary">
+                                <div class="leave-balance-remaining {{ $remainingIsDepleted ? 'is-depleted' : '' }}">
                                     <div class="leave-balance-metric-label">{{ $balance['remaining_label'] ?? 'Remaining' }}</div>
-                                    <div class="leave-balance-metric-value">{{ $balance['formatted']['remaining'] }} days</div>
+                                    <div class="leave-balance-remaining-value">{{ $balance['formatted']['remaining'] }}</div>
+                                    <div class="leave-balance-remaining-unit">days available</div>
+                                </div>
+                                <div class="leave-balance-metrics" aria-label="Leave balance details">
+                                    <div class="leave-balance-metric">
+                                        <div class="leave-balance-metric-label">{{ $balance['allowance_label'] ?? 'Allowance' }}</div>
+                                        <div class="leave-balance-metric-value">{{ $balance['formatted']['allowance'] }} days</div>
+                                    </div>
+                                    <div class="leave-balance-metric">
+                                        <div class="leave-balance-metric-label">Used</div>
+                                        <div class="leave-balance-metric-value">{{ $balance['formatted']['used'] }} days</div>
+                                    </div>
                                 </div>
                             </div>
 
-                            <div class="leave-balance-progress" role="img" aria-label="{{ $balance['formatted']['used'] }} of {{ $balance['formatted']['allowance'] }} days used">
-                                <span style="width: {{ $usedPercent }}%;"></span>
+                            <div class="leave-balance-track-group">
+                                <div class="leave-balance-track-labels">
+                                    <span>{{ number_format($usedPercent, 0) }}% used</span>
+                                    <span>{{ number_format($remainingPercent, 0) }}% remaining</span>
+                                </div>
+                                <div class="leave-balance-progress" role="img" aria-label="{{ $balance['formatted']['used'] }} of {{ $balance['formatted']['allowance'] }} days used">
+                                    <span style="width: {{ $usedPercent }}%;"></span>
+                                </div>
                             </div>
 
                             @if(! empty($balance['description']))
