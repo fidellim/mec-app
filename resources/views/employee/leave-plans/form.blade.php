@@ -91,65 +91,11 @@
         </div>
     </div>
 </form>
-@if(! empty($leaveBalances))
-    <div class="content-card p-3 mt-3">
-        <div class="d-flex flex-column flex-lg-row justify-content-between gap-3">
-            <div>
-                <h2 class="h5 mb-1">Leave balances</h2>
-                <div class="small text-muted">Eligible leave entitlements reset every January 1. Unused days do not carry over.</div>
-                <div class="small text-muted mt-1">Parental leave requires HR eligibility approval. Contact HR if you need to apply. Eligibility is removed after approval.</div>
-            </div>
-        </div>
-        <div class="row g-3 mt-1">
-            @foreach($leaveBalances as $balance)
-                <div class="col-lg-6">
-                    <div class="border rounded p-3 h-100">
-                        <div class="d-flex flex-column flex-sm-row justify-content-between gap-2 mb-3">
-                            <div>
-                                <h3 class="h6 mb-1">{{ $balance['label'] }}</h3>
-                                <div class="small text-muted">{{ $balance['attendance_code'] }} allowance for {{ $balance['year'] }} - {{ $balance['region_label'] }}</div>
-                            </div>
-                            <div>
-                                <span class="badge {{ $balance['uses_override'] ? 'text-bg-info' : 'text-bg-light border text-dark' }}">
-                                    {{ $balance['source_label'] ?? ($balance['uses_override'] ? 'Current-year override' : 'Regional default') }}
-                                </span>
-                            </div>
-                        </div>
-                        <div class="row g-3">
-                            <div class="col-sm-4">
-                                <div class="small text-muted">{{ $balance['allowance_label'] ?? 'Allowance' }}</div>
-                                <div class="h4 mb-0">{{ $balance['formatted']['allowance'] }} days</div>
-                            </div>
-                            <div class="col-sm-4">
-                                <div class="small text-muted">Used or reserved</div>
-                                <div class="h4 mb-0">{{ $balance['formatted']['used'] }} days</div>
-                            </div>
-                            <div class="col-sm-4">
-                                <div class="small text-muted">{{ $balance['remaining_label'] ?? 'Remaining' }}</div>
-                                <div class="h4 mb-0">{{ $balance['formatted']['remaining'] }} days</div>
-                            </div>
-                        </div>
-                        @if(! empty($balance['description']))
-                            <div class="small text-muted mt-3">{{ $balance['description'] }}</div>
-                        @endif
-                        @if(! empty($balance['pay_bands']))
-                            <div class="border-top mt-3 pt-3">
-                                <div class="small text-muted mb-2">Additional pay bands reached</div>
-                                <div class="d-flex flex-wrap gap-2">
-                                    @foreach($balance['pay_bands'] as $band)
-                                        <span class="badge bg-body-secondary border text-body">
-                                            {{ $band['label'] }}: {{ $band['formatted_used_days'] }} of {{ $band['formatted_days'] }} days used
-                                        </span>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endif
-                    </div>
-                </div>
-            @endforeach
-        </div>
-    </div>
-@endif
+@include('shared.leave_balance_cards', [
+    'leaveBalances' => $leaveBalances,
+    'class' => 'mt-3 mb-4',
+    'description' => 'Eligible leave entitlements reset every January 1. Unused days do not carry over. Parental leave requires HR eligibility approval. Contact HR if you need to apply. Eligibility is removed after approval.',
+])
 @if(! empty($availabilityCalendar))
     <div class="mt-3" data-availability-calendar-shell>
         @include('shared.leave_plan_calendar', array_merge($availabilityCalendar, [

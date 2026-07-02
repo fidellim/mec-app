@@ -6,6 +6,28 @@
         gap: .6rem;
         flex-wrap: wrap;
     }
+    .leave-calendar-viewing {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        min-height: 2.15rem;
+        padding: .42rem .7rem;
+        border: 1px solid var(--app-soft-border);
+        border-radius: .65rem;
+        background: var(--app-muted-bg);
+        color: var(--bs-body-color);
+        font-size: .85rem;
+        font-weight: 700;
+        line-height: 1.2;
+        white-space: nowrap;
+    }
+    .leave-calendar-viewing-label {
+        color: var(--bs-secondary-color);
+        font-size: .72rem;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
     .leave-calendar-jump {
         display: grid;
         grid-template-columns: auto minmax(8.5rem, 1fr) minmax(6.25rem, .75fr) auto;
@@ -146,6 +168,12 @@
         .leave-calendar-nav {
             width: 100%;
         }
+        .leave-calendar-viewing {
+            width: 100%;
+            justify-content: center;
+            white-space: normal;
+            text-align: center;
+        }
         .leave-calendar-jump {
             width: 100%;
             grid-template-columns: minmax(0, 1fr) minmax(0, .85fr) auto;
@@ -173,8 +201,9 @@
 
         return request()->url().'?'.http_build_query($query);
     };
-    $calendarMonthOptions = collect(range(1, 12))->mapWithKeys(fn ($calendarMonthNumber) => [
-        str_pad((string) $calendarMonthNumber, 2, '0', STR_PAD_LEFT) => \Carbon\Carbon::create(null, $calendarMonthNumber, 1)->format('F'),
+    $calendarMonthOptions = collect(range(1, 12))->map(fn ($calendarMonthNumber) => [
+        'value' => str_pad((string) $calendarMonthNumber, 2, '0', STR_PAD_LEFT),
+        'label' => \Carbon\Carbon::create(null, $calendarMonthNumber, 1)->format('F'),
     ]);
     $calendarYearStart = min($month->copy()->subYears(5)->year, now()->subYears(2)->year);
     $calendarYearEnd = max($month->copy()->addYears(5)->year, now()->addYears(5)->year);
@@ -187,6 +216,10 @@
             <div class="small text-muted">{{ $calendarDescription }}</div>
         </div>
         <div class="leave-calendar-toolbar">
+            <div class="leave-calendar-viewing" aria-label="Calendar month">
+                <span class="leave-calendar-viewing-label">Viewing</span>
+                <span>{{ $month->format('F Y') }}</span>
+            </div>
             <form class="leave-calendar-jump" method="get" data-calendar-month-selector>
                 @foreach(request()->except(['month', 'calendar_month', 'calendar_year', 'calendar_fragment']) as $key => $value)
                     @if(is_array($value))
@@ -200,8 +233,8 @@
                 <input type="hidden" name="month" value="{{ $month->format('Y-m') }}" data-calendar-month-value>
                 <div class="leave-calendar-jump-label">Jump to</div>
                 <select class="form-select form-select-sm" id="calendar_month" data-calendar-month data-searchable="false" aria-label="Calendar month">
-                    @foreach($calendarMonthOptions as $calendarMonthValue => $calendarMonthLabel)
-                        <option value="{{ $calendarMonthValue }}" @selected($month->format('m') === $calendarMonthValue)>{{ $calendarMonthLabel }}</option>
+                    @foreach($calendarMonthOptions as $calendarMonthOption)
+                        <option value="{{ $calendarMonthOption['value'] }}" @selected($month->format('m') === $calendarMonthOption['value'])>{{ $calendarMonthOption['label'] }}</option>
                     @endforeach
                 </select>
                 <select class="form-select form-select-sm" id="calendar_year" data-calendar-year data-searchable="false" aria-label="Calendar year">

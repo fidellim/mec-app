@@ -816,6 +816,8 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.calendar', ['month' => '2026-05']))
             ->assertOk()
             ->assertSee('Department Leave Calendar')
+            ->assertSee('Viewing')
+            ->assertSee('May 2026')
             ->assertSee('Holiday - Global - Global Company Day')
             ->assertSee('Holiday - Philippines - Philippines Holiday')
             ->assertDontSee('UAE Hidden Holiday')
@@ -830,6 +832,13 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('Rami Recalled')
             ->assertDontSee('Iris Cancelled')
             ->assertDontSee('Vera Voided');
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.calendar', ['month' => '2026-10']))
+            ->assertOk()
+            ->assertSee('Viewing')
+            ->assertSee('October 2026')
+            ->assertSee('<option value="10" selected>October</option>', false);
     }
 
     public function test_employee_calendar_ignores_inactive_status_filter_and_does_not_link_coworker_entries(): void
@@ -896,6 +905,8 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('admin.leave-plans.calendar', ['month' => '2026-05']))
             ->assertOk()
             ->assertSee('All Leave Calendar')
+            ->assertSee('Viewing')
+            ->assertSee('May 2026')
             ->assertSee('Holiday - Global - Global Review Holiday')
             ->assertSee('Holiday - United Arab Emirates - UAE Review Holiday')
             ->assertSee('Holiday - Philippines - PH Review Holiday')
@@ -1489,7 +1500,6 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('Additional pay bands reached')
             ->assertSee('Half pay: 0 of 30 days used')
             ->assertDontSee('Unpaid: 0 of 45 days used');
 
@@ -1536,7 +1546,6 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('Additional pay bands reached')
             ->assertSee('Half pay: 0 of 15 days used')
             ->assertDontSee('Unpaid: 0 of 45 days used');
     }

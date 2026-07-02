@@ -228,6 +228,8 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
         $this->actingAs($hod)
             ->get(route('hod.leave-plans.calendar', ['month' => '2026-06']))
             ->assertOk()
+            ->assertSee('Viewing')
+            ->assertSee('June 2026')
             ->assertSee($employee->name)
             ->assertSee('L100')
             ->assertDontSee($otherEmployee->name)

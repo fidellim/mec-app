@@ -319,6 +319,113 @@
             font-weight: 800;
             line-height: 1;
         }
+        .leave-balance-card {
+            display: flex;
+            flex-direction: column;
+            gap: .9rem;
+            padding: 1rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .75rem;
+            background:
+                linear-gradient(180deg, color-mix(in srgb, var(--app-muted-bg) 42%, transparent), transparent 58%),
+                var(--app-card-bg);
+            box-shadow: var(--app-shadow-sm);
+        }
+        .leave-balance-card-header {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: .85rem;
+            min-width: 0;
+        }
+        .leave-balance-heading {
+            min-width: 0;
+        }
+        .leave-balance-title {
+            margin: 0 0 .18rem;
+            font-size: 1rem;
+            font-weight: 800;
+            line-height: 1.25;
+            letter-spacing: 0;
+        }
+        .leave-balance-meta,
+        .leave-balance-note {
+            color: var(--bs-secondary-color);
+            font-size: .84rem;
+            line-height: 1.45;
+        }
+        .leave-balance-source {
+            flex: 0 0 auto;
+            max-width: 12rem;
+            padding: .42rem .58rem;
+            border-radius: 999px;
+            white-space: normal;
+            text-align: center;
+        }
+        .leave-balance-metrics {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: .75rem;
+        }
+        .leave-balance-metric {
+            min-width: 0;
+            padding: .7rem .75rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .7rem;
+            background: color-mix(in srgb, var(--app-card-bg) 78%, var(--app-muted-bg));
+        }
+        .leave-balance-metric-label {
+            color: var(--bs-secondary-color);
+            font-size: .72rem;
+            font-weight: 800;
+            letter-spacing: .02em;
+            line-height: 1.25;
+            text-transform: uppercase;
+        }
+        .leave-balance-metric-value {
+            margin-top: .28rem;
+            color: var(--bs-body-color);
+            font-size: 1.38rem;
+            font-weight: 800;
+            line-height: 1.05;
+        }
+        .leave-balance-metric-muted .leave-balance-metric-value {
+            color: var(--bs-secondary-color);
+        }
+        .leave-balance-metric-remaining {
+            border-color: color-mix(in srgb, var(--bs-success) 34%, var(--app-soft-border));
+            background: color-mix(in srgb, var(--bs-success-bg-subtle) 52%, var(--app-card-bg));
+        }
+        .leave-balance-metric-remaining .leave-balance-metric-value {
+            color: color-mix(in srgb, var(--bs-success) 76%, var(--bs-body-color));
+        }
+        .leave-balance-metric-remaining.is-depleted {
+            border-color: color-mix(in srgb, var(--bs-warning) 42%, var(--app-soft-border));
+            background: color-mix(in srgb, var(--bs-warning-bg-subtle) 44%, var(--app-card-bg));
+        }
+        .leave-balance-metric-remaining.is-depleted .leave-balance-metric-value {
+            color: color-mix(in srgb, var(--bs-warning) 76%, var(--bs-body-color));
+        }
+        .leave-balance-progress {
+            height: .42rem;
+            overflow: hidden;
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--bs-secondary-bg) 82%, var(--app-card-bg));
+            box-shadow: inset 0 0 0 1px var(--app-soft-border);
+        }
+        .leave-balance-progress span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--bs-primary), color-mix(in srgb, var(--bs-primary) 68%, var(--bs-info)));
+        }
+        .leave-balance-note {
+            padding-top: .15rem;
+        }
+        .leave-balance-pay-bands {
+            border-top: 1px solid var(--app-soft-border);
+            padding-top: .8rem;
+        }
         .section-header {
             display: flex;
             align-items: flex-start;
@@ -1006,6 +1113,21 @@
         }
         @media (min-width: 992px) {
             .timesheet-entry-table { min-width: 980px; }
+        }
+        @media (max-width: 575.98px) {
+            .leave-balance-card-header {
+                flex-direction: column;
+            }
+            .leave-balance-source {
+                align-self: flex-start;
+                max-width: 100%;
+            }
+            .leave-balance-metrics {
+                grid-template-columns: 1fr;
+            }
+            .leave-balance-metric-value {
+                font-size: 1.35rem;
+            }
         }
         @media (max-width: 767.98px) {
             .app-layout {
