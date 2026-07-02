@@ -86,6 +86,7 @@ class UserController extends Controller
         )['password'];
         $user = User::create($data);
         $annualEntitlement = $entitlements->syncCurrentYearAnnualOverride($user);
+        $entitlements->syncCurrentYearEligibleEntitlements($user->fresh());
         $hodExclusions->syncForHod(
             $user,
             $request->input('hod_notification_exclusion_ids', []),
@@ -93,7 +94,9 @@ class UserController extends Controller
             $request->input('hod_visibility_exclusion_ids', [])
         );
         $audit->record('user_created', $user, null, $user->toArray());
-        $audit->record('leave_entitlement_synced', $annualEntitlement, null, $annualEntitlement->toArray());
+        if ($annualEntitlement) {
+            $audit->record('leave_entitlement_synced', $annualEntitlement, null, $annualEntitlement->toArray());
+        }
 
         return redirect()->route('manage.users.index')->with('success', 'User created.');
     }
@@ -151,8 +154,9 @@ class UserController extends Controller
                 ->first()
                 ?->toArray();
             $annualEntitlement = $entitlements->syncCurrentYearAnnualOverride($user->fresh());
+            $entitlements->syncCurrentYearEligibleEntitlements($user->fresh());
 
-            if ($previousAnnualEntitlement !== $annualEntitlement->toArray()) {
+            if ($annualEntitlement && $previousAnnualEntitlement !== $annualEntitlement->toArray()) {
                 $audit->record('leave_entitlement_synced', $annualEntitlement, $previousAnnualEntitlement, $annualEntitlement->toArray());
             }
 
@@ -299,6 +303,11 @@ class UserController extends Controller
             'joining_date' => ['nullable', 'date'],
             'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
             'eligible_for_parental_leave' => ['boolean'],
+            'eligible_for_maternity_leave' => ['boolean'],
+            'eligible_for_paternity_leave' => ['boolean'],
+            'eligible_for_vawc_leave' => ['boolean'],
+            'eligible_for_special_women_leave' => ['boolean'],
+            'is_solo_parent' => ['boolean'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'role' => ['required', Rule::in(['super_admin', 'admin', 'hod', 'employee'])],
             'is_active' => ['boolean'],
@@ -316,6 +325,11 @@ class UserController extends Controller
         ]) + [
             'is_active' => false,
             'eligible_for_parental_leave' => false,
+            'eligible_for_maternity_leave' => false,
+            'eligible_for_paternity_leave' => false,
+            'eligible_for_vawc_leave' => false,
+            'eligible_for_special_women_leave' => false,
+            'is_solo_parent' => false,
             'receives_hod_timesheet_submission_emails' => false,
         ];
 
@@ -348,6 +362,11 @@ class UserController extends Controller
             'joining_date' => ['nullable', 'date'],
             'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
             'eligible_for_parental_leave' => ['boolean'],
+            'eligible_for_maternity_leave' => ['boolean'],
+            'eligible_for_paternity_leave' => ['boolean'],
+            'eligible_for_vawc_leave' => ['boolean'],
+            'eligible_for_special_women_leave' => ['boolean'],
+            'is_solo_parent' => ['boolean'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'is_active' => ['boolean'],
         ], [
@@ -356,6 +375,11 @@ class UserController extends Controller
         ]) + [
             'is_active' => false,
             'eligible_for_parental_leave' => false,
+            'eligible_for_maternity_leave' => false,
+            'eligible_for_paternity_leave' => false,
+            'eligible_for_vawc_leave' => false,
+            'eligible_for_special_women_leave' => false,
+            'is_solo_parent' => false,
         ];
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;

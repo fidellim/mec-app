@@ -78,6 +78,9 @@ class ManagementWorkflowTest extends TestCase
                 ->assertSee('UAE Bereavement Leave - Immediate Family Death Days')
                 ->assertSee('Philippines Bereavement Leave Default Days')
                 ->assertSee('Philippines Service Incentive Leave Default Days')
+                ->assertSee('Philippines Paternity Leave Default Days')
+                ->assertSee('Philippines VAWC Leave Default Days')
+                ->assertSee('Philippines Special Leave for Women Default Days')
                 ->assertSee('UAE bereavement spouse and immediate-family allowances are tracked separately by calendar year');
 
             $this->actingAs($actor)
@@ -87,9 +90,12 @@ class ManagementWorkflowTest extends TestCase
                     'sick_leave_default_days_uae' => '16',
                     'sick_leave_default_days_ph' => '0',
                     'maternity_leave_default_days_uae' => '60',
-                    'maternity_leave_default_days_ph' => '0',
+                    'maternity_leave_default_days_ph' => '105',
                     'parental_leave_default_days_uae' => '5',
-                    'parental_leave_default_days_ph' => '0',
+                    'parental_leave_default_days_ph' => '7',
+                    'paternity_leave_default_days_ph' => '7',
+                    'vawc_leave_default_days_ph' => '10',
+                    'special_women_leave_default_days_ph' => '60',
                     'bereavement_spouse_leave_days_uae' => '5',
                     'bereavement_immediate_family_leave_days_uae' => '3',
                     'bereavement_compassionate_leave_default_days_ph' => '0',
@@ -224,9 +230,12 @@ class ManagementWorkflowTest extends TestCase
                     'sick_leave_default_days_uae' => 15,
                     'sick_leave_default_days_ph' => 0,
                     'maternity_leave_default_days_uae' => 60,
-                    'maternity_leave_default_days_ph' => 0,
+                    'maternity_leave_default_days_ph' => 105,
                     'parental_leave_default_days_uae' => 5,
-                    'parental_leave_default_days_ph' => 0,
+                    'parental_leave_default_days_ph' => 7,
+                    'paternity_leave_default_days_ph' => 7,
+                    'vawc_leave_default_days_ph' => 10,
+                    'special_women_leave_default_days_ph' => 60,
                     'bereavement_spouse_leave_days_uae' => 5,
                     'bereavement_immediate_family_leave_days_uae' => 3,
                     'bereavement_compassionate_leave_default_days_ph' => 0,
@@ -664,11 +673,16 @@ class ManagementWorkflowTest extends TestCase
             'name' => 'Profile Fields Employee',
             'email' => 'profile.fields@example.com',
             'password' => 'password123',
-            'employee_code' => 'MEC-HR-2026-105',
+            'employee_code' => 'MEC-PHIL-HR-2026-105',
             'gender' => 'female',
             'joining_date' => '2026-06-15',
             'marital_status' => 'married',
             'eligible_for_parental_leave' => '1',
+            'eligible_for_maternity_leave' => '1',
+            'eligible_for_paternity_leave' => '1',
+            'eligible_for_vawc_leave' => '1',
+            'eligible_for_special_women_leave' => '1',
+            'is_solo_parent' => '1',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -681,6 +695,11 @@ class ManagementWorkflowTest extends TestCase
             'gender' => 'female',
             'marital_status' => 'married',
             'eligible_for_parental_leave' => true,
+            'eligible_for_maternity_leave' => true,
+            'eligible_for_paternity_leave' => true,
+            'eligible_for_vawc_leave' => true,
+            'eligible_for_special_women_leave' => true,
+            'is_solo_parent' => true,
         ]);
         $this->assertSame('2026-06-15', $user->joining_date->toDateString());
 
@@ -689,7 +708,16 @@ class ManagementWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Female')
             ->assertSee('Jun 15, 2026')
-            ->assertSee('Married');
+            ->assertSee('Married')
+            ->assertSee('Work Region')
+            ->assertSee('Philippines')
+            ->assertSee('Philippines statutory leave eligibility')
+            ->assertDontSee('UAE leave eligibility')
+            ->assertSee('Solo parent: Yes')
+            ->assertSee('Maternity: Eligible')
+            ->assertSee('Paternity: Eligible')
+            ->assertSee('VAWC: Eligible')
+            ->assertSee('Special Leave for Women: Eligible');
 
         $this->actingAs($superAdmin)->put(route('manage.users.update', $user), [
             'name' => $user->name,
@@ -699,6 +727,11 @@ class ManagementWorkflowTest extends TestCase
             'joining_date' => '',
             'marital_status' => '',
             'eligible_for_parental_leave' => '0',
+            'eligible_for_maternity_leave' => '0',
+            'eligible_for_paternity_leave' => '0',
+            'eligible_for_vawc_leave' => '0',
+            'eligible_for_special_women_leave' => '0',
+            'is_solo_parent' => '0',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -710,6 +743,11 @@ class ManagementWorkflowTest extends TestCase
         $this->assertNull($user->joining_date);
         $this->assertNull($user->marital_status);
         $this->assertFalse($user->eligible_for_parental_leave);
+        $this->assertFalse($user->eligible_for_maternity_leave);
+        $this->assertFalse($user->eligible_for_paternity_leave);
+        $this->assertFalse($user->eligible_for_vawc_leave);
+        $this->assertFalse($user->eligible_for_special_women_leave);
+        $this->assertFalse($user->is_solo_parent);
 
         $this->actingAs($superAdmin)->post(route('manage.users.store'), [
             'name' => 'Invalid Profile Fields',
@@ -723,6 +761,74 @@ class ManagementWorkflowTest extends TestCase
             'role' => 'employee',
             'is_active' => '1',
         ])->assertSessionHasErrors(['gender', 'joining_date', 'marital_status']);
+    }
+
+    public function test_user_form_shows_region_specific_leave_eligibility_controls(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $department = $this->department();
+        $uaeEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MCE-HR-2026-107',
+            'eligible_for_parental_leave' => true,
+            'eligible_for_maternity_leave' => true,
+        ]);
+        $phEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-108',
+            'eligible_for_parental_leave' => true,
+            'eligible_for_maternity_leave' => true,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.edit', $uaeEmployee))
+            ->assertOk()
+            ->assertSee('data-region-panel="uae"', false)
+            ->assertSee('UAE leave eligibility')
+            ->assertSee('Eligible for UAE parental leave')
+            ->assertSee('data-region-panel="ph"', false)
+            ->assertSee('data-region-control="ph" disabled', false)
+            ->assertDontSee('PH Statutory Leave Eligibility');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.edit', $phEmployee))
+            ->assertOk()
+            ->assertSee('data-region-panel="ph"', false)
+            ->assertSee('Philippines statutory leave eligibility')
+            ->assertSee('Eligible for maternity leave')
+            ->assertSee('Eligible for paternity leave')
+            ->assertSee('data-region-panel="uae"', false)
+            ->assertSee('data-region-control="uae" disabled', false);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.show', $uaeEmployee))
+            ->assertOk()
+            ->assertSee('Work Region')
+            ->assertSee('UAE')
+            ->assertSee('UAE leave eligibility')
+            ->assertSee('Parental: Eligible')
+            ->assertDontSee('Philippines statutory leave eligibility')
+            ->assertDontSee('Maternity: Eligible');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.show', $phEmployee))
+            ->assertOk()
+            ->assertSee('Work Region')
+            ->assertSee('Philippines')
+            ->assertSee('Philippines statutory leave eligibility')
+            ->assertSee('Maternity: Eligible')
+            ->assertSee('Solo parent: No')
+            ->assertDontSee('UAE leave eligibility')
+            ->assertDontSee('Current-Year Annual Leave Override');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.create'))
+            ->assertOk()
+            ->assertSee('data-region-source', false)
+            ->assertSee('data-region-panel="unknown"', false)
+            ->assertSee('Enter an employee number to show UAE or Philippines leave eligibility controls.')
+            ->assertSee("code.startsWith('MEC-PHIL-HR-')", false)
+            ->assertSee("code.startsWith('MCE-HR-')", false);
     }
 
     public function test_super_admin_can_filter_users_by_department(): void

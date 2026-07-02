@@ -11,6 +11,12 @@
     $visibilityExcludableIds = collect($hodVisibilityExcludableIds ?? [])->map(fn ($id) => (int) $id)->all();
     $hasVisibilityBlockedCandidates = $hodExclusionCandidates->contains(fn ($candidate) => ! in_array((int) $candidate->id, $visibilityExcludableIds, true));
     $isSuperAdmin = auth()->user()->role === 'super_admin';
+    $employeeCodeForRegion = old('employee_code', $userModel->employee_code);
+    $workRegion = is_string($employeeCodeForRegion) && str_starts_with($employeeCodeForRegion, 'MEC-PHIL-HR-')
+        ? 'ph'
+        : (is_string($employeeCodeForRegion) && (str_starts_with($employeeCodeForRegion, 'MEC-HR-') || str_starts_with($employeeCodeForRegion, 'MCE-HR-'))
+            ? 'uae'
+            : null);
 @endphp
 <div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $userModel->exists ? 'Edit User' : 'New User' }}</h1><div class="text-muted">{{ $isSuperAdmin ? 'Set employee identity, role, department, and account status.' : 'Update employee profile details and account status.' }}</div></div></div>
 <form class="content-card p-3" method="post" action="{{ $userModel->exists ? route('manage.users.update', $userModel) : route('manage.users.store') }}">
@@ -27,7 +33,7 @@
         @endif
         <div class="col-md-4">
             <label class="form-label">Employee Number</label>
-            <input class="form-control" name="employee_code" value="{{ old('employee_code', $userModel->employee_code) }}" placeholder="MEC-PHIL-HR-2026-095">
+            <input class="form-control" id="employee_code" name="employee_code" value="{{ old('employee_code', $userModel->employee_code) }}" placeholder="MEC-PHIL-HR-2026-095" data-region-source>
             <div class="form-text">Required for employees and Heads of Department. Use MEC-HR, MCE-HR, or MEC-PHIL-HR followed by YYYY-NNN.</div>
         </div>
         <div class="col-md-4">
@@ -80,14 +86,74 @@
             </div>
         @endif
         <div class="col-md-4"><label class="form-label">Department</label><select class="form-select" name="department_id"><option value="">None</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(old('department_id', $userModel->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ? '' : ' (inactive)' }}</option>@endforeach</select></div>
-        <div class="col-md-4 d-flex align-items-end">
-            <div>
-                <div class="form-check">
-                    <input type="hidden" name="eligible_for_parental_leave" value="0">
-                    <input class="form-check-input" type="checkbox" name="eligible_for_parental_leave" value="1" id="eligibleForParentalLeave" @checked(old('eligible_for_parental_leave', $userModel->eligible_for_parental_leave ?? false))>
-                    <label class="form-check-label" for="eligibleForParentalLeave">Eligible for parental leave</label>
+        <input type="hidden" name="eligible_for_parental_leave" value="0">
+        <input type="hidden" name="eligible_for_maternity_leave" value="0">
+        <input type="hidden" name="eligible_for_paternity_leave" value="0">
+        <input type="hidden" name="eligible_for_vawc_leave" value="0">
+        <input type="hidden" name="eligible_for_special_women_leave" value="0">
+        <input type="hidden" name="is_solo_parent" value="0">
+        <div class="col-12 {{ $workRegion ? 'd-none' : '' }}" data-region-panel="unknown">
+            <div class="p-3 bg-body-tertiary border rounded-3">
+                <div class="fw-semibold mb-1">Leave eligibility region</div>
+                <div class="form-text">Enter an employee number to show UAE or Philippines leave eligibility controls.</div>
+            </div>
+        </div>
+        <div class="col-12 {{ $workRegion === 'uae' ? '' : 'd-none' }}" data-region-panel="uae">
+            <div class="p-3 bg-body-tertiary border rounded-3">
+                <div class="fw-semibold mb-1">UAE leave eligibility</div>
+                <div class="form-text mb-3">HR-attested UAE eligibility controls. Parental leave eligibility is automatically unticked after the related leave plan is fully approved.</div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_parental_leave" value="1" id="eligibleForUaeParentalLeave" @checked(old('eligible_for_parental_leave', $userModel->eligible_for_parental_leave ?? false)) data-region-control="uae" @disabled($workRegion !== 'uae')>
+                            <label class="form-check-label" for="eligibleForUaeParentalLeave">Eligible for UAE parental leave</label>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-text">Allow this employee to apply for parental leave. This will be automatically unticked after a parental leave plan is fully approved.</div>
+            </div>
+        </div>
+        <div class="col-12 {{ $workRegion === 'ph' ? '' : 'd-none' }}" data-region-panel="ph">
+            <div class="p-3 bg-body-tertiary border rounded-3">
+                <div class="fw-semibold mb-1">Philippines statutory leave eligibility</div>
+                <div class="form-text mb-3">HR-attested eligibility controls for event-based statutory leaves. One-shot eligibility is automatically unticked after the related leave plan is fully approved.</div>
+                <div class="row g-3">
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_maternity_leave" value="1" id="eligibleForMaternityLeave" @checked(old('eligible_for_maternity_leave', $userModel->eligible_for_maternity_leave ?? false)) data-region-control="ph" @disabled($workRegion !== 'ph')>
+                            <label class="form-check-label" for="eligibleForMaternityLeave">Eligible for maternity leave</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_paternity_leave" value="1" id="eligibleForPaternityLeave" @checked(old('eligible_for_paternity_leave', $userModel->eligible_for_paternity_leave ?? false)) data-region-control="ph" @disabled($workRegion !== 'ph')>
+                            <label class="form-check-label" for="eligibleForPaternityLeave">Eligible for paternity leave</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_parental_leave" value="1" id="eligibleForPhParentalLeave" @checked(old('eligible_for_parental_leave', $userModel->eligible_for_parental_leave ?? false)) data-region-control="ph" @disabled($workRegion !== 'ph')>
+                            <label class="form-check-label" for="eligibleForPhParentalLeave">Eligible for parental leave</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_vawc_leave" value="1" id="eligibleForVawcLeave" @checked(old('eligible_for_vawc_leave', $userModel->eligible_for_vawc_leave ?? false)) data-region-control="ph" @disabled($workRegion !== 'ph')>
+                            <label class="form-check-label" for="eligibleForVawcLeave">Eligible for VAWC leave</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="eligible_for_special_women_leave" value="1" id="eligibleForSpecialWomenLeave" @checked(old('eligible_for_special_women_leave', $userModel->eligible_for_special_women_leave ?? false)) data-region-control="ph" @disabled($workRegion !== 'ph')>
+                            <label class="form-check-label" for="eligibleForSpecialWomenLeave">Eligible for special leave for women</label>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="is_solo_parent" value="1" id="isSoloParent" @checked(old('is_solo_parent', $userModel->is_solo_parent ?? false)) data-region-control="ph" @disabled($workRegion !== 'ph')>
+                            <label class="form-check-label" for="isSoloParent">Qualified solo parent</label>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
         @if($isSuperAdmin)
@@ -180,6 +246,42 @@
     @endif
     <div class="text-end mt-3"><button class="btn btn-primary">Save User</button></div>
 </form>
+<script>
+(() => {
+    const source = document.querySelector('[data-region-source]');
+    const panels = document.querySelectorAll('[data-region-panel]');
+    const controls = document.querySelectorAll('[data-region-control]');
+
+    const regionFor = (value) => {
+        const code = (value || '').trim().toUpperCase();
+
+        if (code.startsWith('MEC-PHIL-HR-')) {
+            return 'ph';
+        }
+
+        if (code.startsWith('MEC-HR-') || code.startsWith('MCE-HR-')) {
+            return 'uae';
+        }
+
+        return 'unknown';
+    };
+
+    const syncRegionPanels = () => {
+        const region = regionFor(source?.value);
+
+        panels.forEach((panel) => {
+            panel.classList.toggle('d-none', panel.dataset.regionPanel !== region);
+        });
+
+        controls.forEach((control) => {
+            control.disabled = control.dataset.regionControl !== region;
+        });
+    };
+
+    source?.addEventListener('input', syncRegionPanels);
+    syncRegionPanels();
+})();
+</script>
 @endsection
 
 @push('scripts')
