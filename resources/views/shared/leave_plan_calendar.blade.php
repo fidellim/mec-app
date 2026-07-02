@@ -147,6 +147,140 @@
         border-left-color: var(--bs-info);
         background: color-mix(in srgb, var(--bs-info-bg-subtle) 36%, var(--app-card-bg));
     }
+    .leave-calendar-event-label {
+        font-weight: 700;
+        overflow-wrap: anywhere;
+    }
+    .leave-calendar-event-meta {
+        color: var(--bs-secondary-color);
+        overflow-wrap: anywhere;
+    }
+    .leave-calendar-status {
+        display: inline-flex;
+        align-items: center;
+        width: fit-content;
+        border: 1px solid var(--app-soft-border);
+        border-radius: 999px;
+        padding: .12rem .48rem;
+        margin-top: .25rem;
+        background: color-mix(in srgb, var(--app-card-bg) 88%, var(--app-muted-bg));
+        color: var(--bs-secondary-color);
+        font-size: .68rem;
+        font-weight: 800;
+        line-height: 1.15;
+        text-transform: uppercase;
+    }
+    .leave-calendar-status.approved {
+        background: color-mix(in srgb, var(--bs-success-bg-subtle) 72%, var(--app-card-bg));
+        border-color: color-mix(in srgb, var(--bs-success) 28%, var(--app-soft-border));
+        color: var(--bs-success-text-emphasis);
+    }
+    .leave-calendar-status.submitted {
+        background: color-mix(in srgb, var(--bs-primary-bg-subtle) 72%, var(--app-card-bg));
+        border-color: color-mix(in srgb, var(--bs-primary) 26%, var(--app-soft-border));
+        color: var(--bs-primary-text-emphasis);
+    }
+    .leave-calendar-status.cancellation_requested,
+    .leave-calendar-status.recalled {
+        background: color-mix(in srgb, var(--bs-warning-bg-subtle) 76%, var(--app-card-bg));
+        border-color: color-mix(in srgb, var(--bs-warning) 34%, var(--app-soft-border));
+        color: var(--bs-warning-text-emphasis);
+    }
+    .leave-calendar-status.holiday {
+        background: color-mix(in srgb, var(--bs-info-bg-subtle) 76%, var(--app-card-bg));
+        border-color: color-mix(in srgb, var(--bs-info) 30%, var(--app-soft-border));
+        color: var(--bs-info-text-emphasis);
+    }
+    .leave-calendar-availability-summary {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: .75rem;
+        margin-bottom: 1rem;
+    }
+    .leave-calendar-summary-item {
+        min-width: 0;
+        padding: .8rem .9rem;
+        border: 1px solid var(--app-soft-border);
+        border-radius: .65rem;
+        background: color-mix(in srgb, var(--app-muted-bg) 58%, var(--app-card-bg));
+    }
+    .leave-calendar-summary-label {
+        color: var(--bs-secondary-color);
+        font-size: .72rem;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+    .leave-calendar-summary-value {
+        margin-top: .2rem;
+        color: var(--bs-body-color);
+        font-size: 1.05rem;
+        font-weight: 800;
+        line-height: 1.15;
+        overflow-wrap: anywhere;
+    }
+    .leave-calendar-legend {
+        display: flex;
+        align-items: center;
+        gap: .55rem .8rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+        padding: .72rem .85rem;
+        border: 1px solid var(--app-soft-border);
+        border-radius: .65rem;
+        background: color-mix(in srgb, var(--app-card-bg) 82%, var(--app-muted-bg));
+    }
+    .leave-calendar-legend-label {
+        color: var(--bs-secondary-color);
+        font-size: .72rem;
+        font-weight: 800;
+        letter-spacing: .02em;
+        text-transform: uppercase;
+    }
+    .leave-calendar-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: .35rem;
+        color: var(--bs-body-color);
+        font-size: .8rem;
+        font-weight: 700;
+        white-space: nowrap;
+    }
+    .leave-calendar-legend-dot {
+        width: .72rem;
+        height: .72rem;
+        border-radius: 999px;
+        background: var(--bs-primary);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 15%, transparent);
+    }
+    .leave-calendar-legend-dot.approved { background: var(--bs-success); }
+    .leave-calendar-legend-dot.submitted { background: var(--bs-primary); }
+    .leave-calendar-legend-dot.cancellation_requested { background: var(--bs-warning); }
+    .leave-calendar-legend-dot.holiday { background: var(--bs-info); }
+    .leave-calendar-legend-dot.selected {
+        border: 2px solid color-mix(in srgb, var(--bs-primary) 62%, var(--app-card-bg));
+        background: color-mix(in srgb, var(--bs-primary-bg-subtle) 52%, var(--app-card-bg));
+    }
+    .leave-calendar-availability .leave-calendar {
+        border-radius: .65rem;
+        overflow: hidden;
+    }
+    .leave-calendar-availability .leave-calendar-day {
+        position: relative;
+    }
+    .leave-calendar-availability .leave-calendar-day-muted {
+        background: color-mix(in srgb, var(--app-muted-bg) 82%, var(--app-card-bg));
+        color: color-mix(in srgb, var(--bs-secondary-color) 82%, transparent);
+    }
+    .leave-calendar-availability .leave-calendar-day-selected {
+        box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--bs-primary) 50%, transparent);
+        background:
+            linear-gradient(90deg, color-mix(in srgb, var(--bs-primary) 62%, transparent) 0 .28rem, transparent .28rem),
+            color-mix(in srgb, var(--bs-primary-bg-subtle) 38%, var(--app-card-bg));
+    }
+    .leave-calendar-mobile-date {
+        display: none;
+    }
     @media (max-width: 767.98px) {
         .leave-calendar {
             display: block;
@@ -161,8 +295,20 @@
             border-radius: .65rem;
             margin-bottom: .75rem;
         }
-        .leave-calendar-day:empty {
+        .leave-calendar-day-empty.leave-calendar-day-muted {
             display: none;
+        }
+        .leave-calendar-date {
+            display: none;
+        }
+        .leave-calendar-mobile-date {
+            display: block;
+            margin-bottom: .5rem;
+            color: var(--bs-secondary-color);
+            font-size: .78rem;
+            font-weight: 800;
+            letter-spacing: .02em;
+            text-transform: uppercase;
         }
         .leave-calendar-toolbar,
         .leave-calendar-nav {
@@ -188,6 +334,23 @@
         .leave-calendar-nav .leave-calendar-icon-btn {
             flex: 1 1 0;
         }
+        .leave-calendar-availability-summary {
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .leave-calendar-legend {
+            align-items: flex-start;
+        }
+        .leave-calendar-legend-label {
+            width: 100%;
+        }
+    }
+    @media (max-width: 440px) {
+        .leave-calendar-availability-summary {
+            grid-template-columns: minmax(0, 1fr);
+        }
+        .leave-calendar-legend-item {
+            white-space: normal;
+        }
     }
 </style>
 
@@ -196,6 +359,19 @@
     $calendarDescription = $calendarDescription ?? 'Calendar shows submitted, approved, and cancellation-requested leave by default.';
     $calendarReadonly = $calendarReadonly ?? false;
     $calendarInteractiveRange = $calendarInteractiveRange ?? false;
+    $calendarVariant = $calendarVariant ?? null;
+    $isAvailabilityCalendar = $calendarVariant === 'availability';
+    $calendarDays = collect($weeks)->flatten(1);
+    $calendarMonthDays = $calendarDays->filter(fn ($day) => $day['in_month']);
+    $calendarMonthLeaveEvents = $calendarMonthDays->flatMap(fn ($day) => $day['events']->filter(fn ($event) => ($event['type'] ?? null) === 'leave'));
+    $calendarMonthHolidayEvents = $calendarMonthDays->flatMap(fn ($day) => $day['events']->filter(fn ($event) => ($event['type'] ?? null) === 'holiday'));
+    $availabilityLeaveEntryCount = $calendarMonthLeaveEvents
+        ->unique(fn ($event) => $event['leavePlan']?->getKey() ?? $event['label'].'-'.$event['title'])
+        ->count();
+    $availabilityBusyDateCount = $calendarMonthDays
+        ->filter(fn ($day) => $day['events']->contains(fn ($event) => ($event['type'] ?? null) === 'leave'))
+        ->count();
+    $availabilityHolidayCount = $calendarMonthHolidayEvents->count();
     $calendarUrl = function (string $calendarMonth) {
         $query = array_merge(request()->except(['month', 'calendar_fragment']), ['month' => $calendarMonth]);
 
@@ -209,7 +385,7 @@
     $calendarYearEnd = max($month->copy()->addYears(5)->year, now()->addYears(5)->year);
 @endphp
 
-<div class="content-card overflow-hidden">
+<div @class(['content-card overflow-hidden', 'leave-calendar-availability' => $isAvailabilityCalendar])>
     <div class="content-card-header d-flex flex-column flex-lg-row justify-content-between gap-3">
         <div>
             <h2 class="h5 mb-1">{{ $calendarTitle }}</h2>
@@ -262,6 +438,34 @@
         </div>
     </div>
     <div class="content-card-body">
+        @if($isAvailabilityCalendar)
+            <div class="leave-calendar-availability-summary" aria-label="Leave availability summary">
+                <div class="leave-calendar-summary-item">
+                    <div class="leave-calendar-summary-label">Viewing</div>
+                    <div class="leave-calendar-summary-value">{{ $month->format('F Y') }}</div>
+                </div>
+                <div class="leave-calendar-summary-item">
+                    <div class="leave-calendar-summary-label">Leave entries</div>
+                    <div class="leave-calendar-summary-value">{{ $availabilityLeaveEntryCount }}</div>
+                </div>
+                <div class="leave-calendar-summary-item">
+                    <div class="leave-calendar-summary-label">Busy leave dates</div>
+                    <div class="leave-calendar-summary-value">{{ $availabilityBusyDateCount }}</div>
+                </div>
+                <div class="leave-calendar-summary-item">
+                    <div class="leave-calendar-summary-label">Holidays</div>
+                    <div class="leave-calendar-summary-value">{{ $availabilityHolidayCount }}</div>
+                </div>
+            </div>
+            <div class="leave-calendar-legend" aria-label="Calendar legend">
+                <span class="leave-calendar-legend-label">Legend</span>
+                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot approved" aria-hidden="true"></span>Approved</span>
+                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot submitted" aria-hidden="true"></span>Submitted</span>
+                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot cancellation_requested" aria-hidden="true"></span>Cancellation requested</span>
+                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot holiday" aria-hidden="true"></span>Holiday</span>
+                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot selected" aria-hidden="true"></span>Your selected dates</span>
+            </div>
+        @endif
         <div class="leave-calendar" @if($calendarInteractiveRange) data-leave-plan-availability-calendar @endif>
             @foreach(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as $weekday)
                 <div class="leave-calendar-weekday">{{ $weekday }}</div>
@@ -269,10 +473,11 @@
             @foreach($weeks as $week)
                 @foreach($week as $day)
                     <div
-                        @class(['leave-calendar-day', 'leave-calendar-day-muted' => ! $day['in_month']])
+                        @class(['leave-calendar-day', 'leave-calendar-day-muted' => ! $day['in_month'], 'leave-calendar-day-empty' => $day['events']->isEmpty()])
                         @if($calendarInteractiveRange) data-calendar-date="{{ $day['date']->toDateString() }}" @endif
                     >
                         <div class="leave-calendar-date">{{ $day['date']->format('j') }}</div>
+                        <div class="leave-calendar-mobile-date">{{ $day['date']->format('D, M j') }}</div>
                         @foreach($day['events'] as $event)
                             @php($eventClasses = 'leave-calendar-event '.$event['status'].($calendarReadonly || empty($event['url']) ? ' leave-calendar-event-readonly' : ''))
                             @if(! $calendarReadonly && ! empty($event['url']))
@@ -280,10 +485,14 @@
                             @else
                                 <div class="{{ $eventClasses }}" title="{{ $event['title'] }}">
                             @endif
-                                <div class="fw-semibold text-truncate">{{ $event['label'] }}</div>
-                                <div class="text-muted text-capitalize">{{ str_replace('_', ' ', $event['status']) }}</div>
+                                @if($isAvailabilityCalendar)
+                                    <div class="leave-calendar-event-label">{{ $event['label'] }}</div>
+                                @else
+                                    <div class="fw-semibold text-truncate">{{ $event['label'] }}</div>
+                                @endif
+                                <div class="leave-calendar-status {{ $event['status'] }}">{{ str_replace('_', ' ', $event['status']) }}</div>
                                 @if(! empty($event['duration']))
-                                    <div class="text-muted">{{ $event['duration'] }}</div>
+                                    <div class="leave-calendar-event-meta">{{ $event['duration'] }}</div>
                                 @endif
                             @if(! $calendarReadonly && ! empty($event['url']))
                                 </a>

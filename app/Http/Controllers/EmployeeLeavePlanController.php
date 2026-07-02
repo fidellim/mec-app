@@ -274,6 +274,7 @@ class EmployeeLeavePlanController extends Controller
             'calendarDescription' => 'Shows submitted, approved, and cancellation-requested leave in your department. Your selected dates are highlighted for comparison.',
             'calendarReadonly' => true,
             'calendarInteractiveRange' => true,
+            'calendarVariant' => 'availability',
         ]));
     }
 
