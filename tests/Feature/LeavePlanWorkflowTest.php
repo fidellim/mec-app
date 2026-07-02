@@ -1586,7 +1586,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement / Compassionate Leave')
+            ->assertSee('L180 - Bereavement Leave')
             ->assertSee('Parental leave requires HR eligibility approval. Contact HR if you need to apply. Eligibility is removed after approval.')
             ->assertSee('Supporting document needed')
             ->assertSee('Please add a link to your medical certificate in the Reason field.')
@@ -1623,8 +1623,8 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Sick leave')
             ->assertSee('Maternity leave')
             ->assertSee('Parental leave')
-            ->assertSee('Bereavement / compassionate leave - Spouse')
-            ->assertSee('Bereavement / compassionate leave - Immediate family');
+            ->assertSee('Bereavement leave - Spouse')
+            ->assertSee('Bereavement leave - Immediate family');
     }
 
     public function test_uae_bereavement_leave_uses_configurable_relationship_balances_by_year(): void
@@ -1803,28 +1803,28 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement / Compassionate Leave');
+            ->assertSee('L180 - Bereavement Leave');
 
         $this->actingAs($parentalEligibleEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement / Compassionate Leave');
+            ->assertSee('L180 - Bereavement Leave');
 
         $this->actingAs($marriedNotParentallyEligibleEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement / Compassionate Leave');
+            ->assertSee('L180 - Bereavement Leave');
 
         $this->actingAs($profileIncompleteEmployee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertDontSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
-            ->assertSee('L180 - Bereavement / Compassionate Leave');
+            ->assertSee('L180 - Bereavement Leave');
     }
 
     public function test_ineligible_maternity_and_parental_leave_cannot_be_saved_or_submitted(): void

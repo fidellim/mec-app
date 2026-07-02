@@ -11,7 +11,7 @@ return [
         'L150' => 'Work From Home',
         'L160' => 'Maternity Leave',
         'L170' => 'Parental Leave',
-        'L180' => 'Bereavement / Compassionate Leave',
+        'L180' => 'Bereavement Leave',
         'L190' => 'Service Incentive Leave',
         'L200' => 'Training Seminar',
     ],

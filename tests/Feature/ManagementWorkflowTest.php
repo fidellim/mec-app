@@ -76,6 +76,7 @@ class ManagementWorkflowTest extends TestCase
                 ->assertSee('UAE Parental Leave Default Days')
                 ->assertSee('UAE Bereavement Leave - Spouse Death Days')
                 ->assertSee('UAE Bereavement Leave - Immediate Family Death Days')
+                ->assertSee('Philippines Bereavement Leave Default Days')
                 ->assertSee('Philippines Service Incentive Leave Default Days')
                 ->assertSee('UAE bereavement spouse and immediate-family allowances are tracked separately by calendar year');
 

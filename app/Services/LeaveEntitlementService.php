@@ -139,9 +139,7 @@ class LeaveEntitlementService
             'claimable_remaining' => max(0.0, $claimableAllowance - $used),
             'allowance_label' => $isVisibleFullPayAllowance ? 'Full-pay allowance' : 'Allowance',
             'remaining_label' => $isVisibleFullPayAllowance ? 'Full-pay remaining' : 'Remaining',
-            'description' => $isVisibleFullPayAllowance
-                ? 'Additional policy days may become available after the full-pay allowance is used.'
-                : null,
+            'description' => null,
             'pay_bands' => $payBands,
             'uses_override' => $usesOverride,
             'source' => $entitlement?->source ?? LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
@@ -444,7 +442,7 @@ class LeaveEntitlementService
 
     public function bereavementViolationMessage(array $violation): string
     {
-        return 'Bereavement / compassionate leave - '.$violation['relationship_label']
+        return 'Bereavement leave - '.$violation['relationship_label']
             .' limit exceeded for '.$violation['year'].'. Allowance: '
             .$this->formatDays((float) $violation['allowance'])
             .' days, used: '.$this->formatDays((float) $violation['used'])
@@ -568,15 +566,15 @@ class LeaveEntitlementService
                     'year' => $year,
                     'attendance_code' => self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
                     'bereavement_relationship' => $relationship,
-                    'label' => 'Bereavement / compassionate leave - '.$label,
+                    'label' => 'Bereavement leave - '.$label,
                     'allowance' => $allowance,
                     'claimable_allowance' => $allowance,
                     'used' => $used,
                     'remaining' => max(0.0, $allowance - $used),
                     'claimable_remaining' => max(0.0, $allowance - $used),
-                    'allowance_label' => 'Yearly allowance',
+                    'allowance_label' => 'Allowance',
                     'remaining_label' => 'Remaining',
-                    'description' => 'Usage refreshes each January 1 and is tracked separately by relationship.',
+                    'description' => null,
                     'pay_bands' => [],
                     'uses_override' => false,
                     'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
@@ -711,7 +709,7 @@ class LeaveEntitlementService
             self::SICK_LEAVE_CODE => 'Sick leave',
             self::MATERNITY_LEAVE_CODE => 'Maternity leave',
             self::PARENTAL_LEAVE_CODE => 'Parental leave',
-            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => 'Bereavement / compassionate leave',
+            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => 'Bereavement leave',
             self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave',
             default => 'Annual leave',
         };

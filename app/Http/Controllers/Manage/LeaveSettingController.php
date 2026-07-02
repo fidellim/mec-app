@@ -41,7 +41,12 @@ class LeaveSettingController extends Controller
     {
         return collect($this->settingDefinitions())
             ->mapWithKeys(fn (array $attributes, string $key) => [
-                $key => LeaveSetting::firstOrCreate(['key' => $key], $attributes),
+                $key => tap(LeaveSetting::firstOrCreate(['key' => $key], $attributes), function (LeaveSetting $setting) use ($attributes) {
+                    $setting->update([
+                        'name' => $attributes['name'],
+                        'description' => $attributes['description'],
+                    ]);
+                }),
             ]);
     }
 
@@ -90,17 +95,17 @@ class LeaveSettingController extends Controller
             ],
             LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE => [
                 'name' => 'UAE Bereavement Leave - Spouse Death Days',
-                'description' => 'Calendar-year L180 bereavement / compassionate leave allowance for UAE spouse death.',
+                'description' => 'Calendar-year L180 bereavement leave allowance for UAE spouse death.',
                 'decimal_value' => 5,
             ],
             LeaveSetting::BEREAVEMENT_IMMEDIATE_FAMILY_LEAVE_DAYS_UAE => [
                 'name' => 'UAE Bereavement Leave - Immediate Family Death Days',
-                'description' => 'Calendar-year L180 bereavement / compassionate leave allowance for UAE immediate-family death.',
+                'description' => 'Calendar-year L180 bereavement leave allowance for UAE immediate-family death.',
                 'decimal_value' => 3,
             ],
             LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH => [
-                'name' => 'Philippines Bereavement / Compassionate Leave Default Days',
-                'description' => 'Default L180 bereavement / compassionate leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
+                'name' => 'Philippines Bereavement Leave Default Days',
+                'description' => 'Default L180 bereavement leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
                 'decimal_value' => 0,
             ],
             LeaveSetting::SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH => [
