@@ -228,7 +228,7 @@ class HodLeavePlanController extends Controller
         $history->record($action, $fresh, $old, $fresh->toArray());
 
         if ($fresh->status === LeavePlan::STATUS_APPROVED) {
-            $this->removeParentalLeaveEligibilityAfterApproval($fresh, $audit);
+            $this->removeOneShotStatutoryEligibilityAfterApproval($fresh, $audit);
             $emails->approved($fresh);
         } else {
             $emails->stagePending($fresh);
@@ -237,18 +237,20 @@ class HodLeavePlanController extends Controller
         return back()->with('success', $fresh->status === LeavePlan::STATUS_APPROVED ? 'Leave plan approved.' : 'Leave plan moved to '.$fresh->approvalStageLabel().' review.');
     }
 
-    private function removeParentalLeaveEligibilityAfterApproval(LeavePlan $leavePlan, AuditLogService $audit): void
+    private function removeOneShotStatutoryEligibilityAfterApproval(LeavePlan $leavePlan, AuditLogService $audit): void
     {
-        if ($leavePlan->attendance_code !== LeaveEntitlementService::PARENTAL_LEAVE_CODE || ! $leavePlan->user?->eligible_for_parental_leave) {
+        $flag = LeaveEntitlementService::ONE_SHOT_PH_STATUTORY_LEAVE_FLAGS[$leavePlan->attendance_code] ?? null;
+
+        if (! $flag || ! $leavePlan->user || ! (bool) $leavePlan->user->{$flag}) {
             return;
         }
 
         $user = $leavePlan->user;
         $old = $user->toArray();
 
-        $user->update(['eligible_for_parental_leave' => false]);
+        $user->update([$flag => false]);
         $freshUser = $user->fresh();
-        $audit->record('parental_leave_eligibility_auto_removed', $freshUser, $old, $freshUser->toArray());
+        $audit->record('statutory_leave_eligibility_auto_removed', $freshUser, $old, $freshUser->toArray());
     }
 
     public function reject(RejectLeavePlanRequest $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)

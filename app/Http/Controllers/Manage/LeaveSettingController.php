@@ -80,8 +80,8 @@ class LeaveSettingController extends Controller
             ],
             LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Maternity Leave Default Days',
-                'description' => 'Default L160 maternity leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 0,
+                'description' => 'Default L160 maternity leave policy allowance for eligible Philippines employees. Qualified solo parents receive 120 days through profile eligibility.',
+                'decimal_value' => 105,
             ],
             LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Parental Leave Default Days',
@@ -90,8 +90,23 @@ class LeaveSettingController extends Controller
             ],
             LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Parental Leave Default Days',
-                'description' => 'Default L170 parental leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 0,
+                'description' => 'Default L170 solo parent leave allowance for eligible Philippines employees. Eligibility is reviewed manually.',
+                'decimal_value' => 7,
+            ],
+            LeaveSetting::PATERNITY_LEAVE_DEFAULT_DAYS_PH => [
+                'name' => 'Philippines Paternity Leave Default Days',
+                'description' => 'Default L210 paternity leave allowance for eligible married male Philippines employees. Eligibility is reviewed manually.',
+                'decimal_value' => 7,
+            ],
+            LeaveSetting::VAWC_LEAVE_DEFAULT_DAYS_PH => [
+                'name' => 'Philippines VAWC Leave Default Days',
+                'description' => 'Default L220 leave for VAWC allowance for eligible Philippines employees with HR-verified certification.',
+                'decimal_value' => 10,
+            ],
+            LeaveSetting::SPECIAL_WOMEN_LEAVE_DEFAULT_DAYS_PH => [
+                'name' => 'Philippines Special Leave for Women Default Days',
+                'description' => 'Default L230 special leave for women allowance for eligible Philippines employees following gynecological surgery.',
+                'decimal_value' => 60,
             ],
             LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE => [
                 'name' => 'UAE Bereavement Leave - Spouse Death Days',

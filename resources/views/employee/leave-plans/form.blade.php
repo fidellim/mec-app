@@ -2,11 +2,21 @@
 
 @section('content')
 @php($isEdit = (bool) $leavePlan)
+@php($leaveRegion = $leaveRegion ?? 'uae')
+@php($leaveUsageDescription = $leaveRegion === 'ph'
+    ? 'Philippines maternity leave uses calendar days. Service incentive and other approved statutory leaves use working leave days, and applicable holidays are excluded from leave usage.'
+    : 'UAE sick and maternity leave use calendar days. Annual, parental, and bereavement leave use working leave days, and applicable holidays are excluded from leave usage.')
+@php($leaveBalanceDescription = $leaveRegion === 'ph'
+    ? 'Philippines leave balances show available statutory entitlements only. Service incentive leave requires one year of service; maternity, paternity, parental, VAWC, and special leave for women require HR eligibility approval.'
+    : 'UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental leave requires HR eligibility approval, and bereavement is tracked by relationship.')
 @php($supportingDocumentNotes = [
     'L110' => 'Please add a link to your medical certificate in the Reason field.',
     'L160' => 'Please add a link to your medical certificate, birth certificate, or hospital notification in the Reason field.',
     'L170' => 'Please add a link to the birth certificate or hospital birth notification in the Reason field.',
     'L180' => 'Please add a link to the death certificate in the Reason field.',
+    'L210' => 'Please add a link to the birth certificate or hospital birth notification in the Reason field.',
+    'L220' => 'Please add a link to the VAWC case certification in the Reason field.',
+    'L230' => 'Please add a link to the medical certificate for the gynecological surgery in the Reason field.',
 ])
 @php($bereavementRelationshipOptions = \App\Models\LeavePlan::bereavementRelationshipOptions())
 <div class="section-header">
@@ -18,10 +28,10 @@
 <form method="post" action="{{ $isEdit ? route('employee.leave-plans.update', $leavePlan) : route('employee.leave-plans.store') }}">
     @csrf
     @if($isEdit) @method('put') @endif
-    <div class="content-card">
+        <div class="content-card">
         <div class="content-card-header">
             <h2 class="h5 mb-1">Leave details</h2>
-            <div class="small text-muted">Sick and maternity leave use calendar days; most other leave types use working leave days. Applicable holidays are excluded from leave usage.</div>
+            <div class="small text-muted">{{ $leaveUsageDescription }}</div>
         </div>
         <div class="content-card-body">
             <div class="row g-3">
@@ -94,7 +104,7 @@
 @include('shared.leave_balance_cards', [
     'leaveBalances' => $leaveBalances,
     'class' => 'mt-3 mb-4',
-    'description' => 'Eligible leave entitlements reset every January 1. Unused days do not carry over. Parental leave requires HR eligibility approval. Contact HR if you need to apply. Eligibility is removed after approval.',
+    'description' => $leaveBalanceDescription,
 ])
 @if(! empty($availabilityCalendar))
     <div class="mt-3" data-availability-calendar-shell>

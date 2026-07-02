@@ -45,7 +45,7 @@ class LeavePlanSaveRequest extends FormRequest
             $attendanceCode = $this->input('attendance_code');
 
             if (is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode)) {
-                $validator->errors()->add('attendance_code', $entitlements->eligibilityMessage($attendanceCode) ?? 'This leave type is not available for your profile.');
+                $validator->errors()->add('attendance_code', $entitlements->eligibilityMessage($attendanceCode, $this->user()) ?? 'This leave type is not available for your profile.');
 
                 return;
             }

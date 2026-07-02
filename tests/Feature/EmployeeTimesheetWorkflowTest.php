@@ -491,6 +491,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $phEmployee = $this->userWithRole('employee', [
             'department_id' => $department->id,
             'employee_code' => 'MEC-PHIL-HR-2026-902',
+            'joining_date' => now()->subYear()->toDateString(),
         ]);
 
         $this->actingAs($uaeEmployee)
@@ -516,13 +517,60 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->actingAs($phEmployee)
             ->get(route('employee.timesheets.create', ['period_id' => $period->id]))
             ->assertOk()
-            ->assertSee('L190 - Service Incentive Leave');
+            ->assertSee('L190 - Service Incentive Leave')
+            ->assertDontSee('L100 - Annual Leave')
+            ->assertDontSee('L110 - Sick Leave')
+            ->assertDontSee('L180 - Bereavement Leave');
 
         $this->actingAs($phEmployee)->post(route('employee.timesheets.store'), [
             'timesheet_period_id' => $period->id,
             'submit' => '1',
             'entries' => $entries,
         ])->assertRedirect();
+
+        foreach (['L100', 'L110', 'L180'] as $attendanceCode) {
+            $blockedEntries = $this->validEntries($project, [
+                '2026-05-11' => [
+                    'attendance_code' => $attendanceCode,
+                    'project_id' => '',
+                    'regular_hours' => 8,
+                    'overtime_hours' => 0,
+                ],
+            ]);
+
+            $this->actingAs($phEmployee)->post(route('employee.timesheets.store'), [
+                'timesheet_period_id' => $period->id,
+                'submit' => '1',
+                'entries' => $blockedEntries,
+            ])->assertSessionHasErrors('entries.0.attendance_code');
+        }
+    }
+
+    public function test_philippines_statutory_leave_codes_require_eligibility_on_timesheets(): void
+    {
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-903',
+            'gender' => 'female',
+            'joining_date' => now()->subYear()->toDateString(),
+        ]);
+
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => 'L220',
+                'project_id' => '',
+                'regular_hours' => 8,
+                'overtime_hours' => 0,
+            ],
+        ]);
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertSessionHasErrors('entries.0.attendance_code');
     }
 
     public function test_training_code_allows_regular_and_overtime_hours_without_project(): void

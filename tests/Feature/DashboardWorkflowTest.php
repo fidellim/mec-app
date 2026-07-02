@@ -48,6 +48,29 @@ class DashboardWorkflowTest extends TestCase
         }
     }
 
+    public function test_philippines_dashboard_hides_zero_day_non_statutory_leave_balances(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-131',
+            'joining_date' => now()->subYear()->toDateString(),
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Leave balances')
+            ->assertSee('Service incentive leave')
+            ->assertDontSee('Annual leave')
+            ->assertDontSee('Sick leave')
+            ->assertDontSee('Bereavement leave')
+            ->assertViewHas('leaveBalances', fn (array $leaveBalances) => array_key_exists('L190', $leaveBalances)
+                && ! array_key_exists('L100', $leaveBalances)
+                && ! array_key_exists('L110', $leaveBalances)
+                && ! array_key_exists('L180', $leaveBalances)
+            );
+    }
+
     public function test_dashboard_access_on_january_first_creates_new_year_leave_entitlements(): void
     {
         LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 5]);

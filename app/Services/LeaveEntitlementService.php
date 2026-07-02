@@ -20,6 +20,9 @@ class LeaveEntitlementService
     public const PARENTAL_LEAVE_CODE = 'L170';
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_CODE = 'L180';
     public const SERVICE_INCENTIVE_LEAVE_CODE = 'L190';
+    public const PATERNITY_LEAVE_CODE = 'L210';
+    public const VAWC_LEAVE_CODE = 'L220';
+    public const SPECIAL_WOMEN_LEAVE_CODE = 'L230';
 
     public const ENTITLED_LEAVE_CODES = [
         self::ANNUAL_LEAVE_CODE,
@@ -28,6 +31,17 @@ class LeaveEntitlementService
         self::PARENTAL_LEAVE_CODE,
         self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
         self::SERVICE_INCENTIVE_LEAVE_CODE,
+        self::PATERNITY_LEAVE_CODE,
+        self::VAWC_LEAVE_CODE,
+        self::SPECIAL_WOMEN_LEAVE_CODE,
+    ];
+
+    public const ONE_SHOT_PH_STATUTORY_LEAVE_FLAGS = [
+        self::MATERNITY_LEAVE_CODE => 'eligible_for_maternity_leave',
+        self::PATERNITY_LEAVE_CODE => 'eligible_for_paternity_leave',
+        self::PARENTAL_LEAVE_CODE => 'eligible_for_parental_leave',
+        self::VAWC_LEAVE_CODE => 'eligible_for_vawc_leave',
+        self::SPECIAL_WOMEN_LEAVE_CODE => 'eligible_for_special_women_leave',
     ];
 
     public const COUNTED_STATUSES = [
@@ -208,10 +222,15 @@ class LeaveEntitlementService
             ->values();
     }
 
-    public function syncCurrentYearAnnualOverride(User $user): LeaveEntitlement
+    public function syncCurrentYearAnnualOverride(User $user): ?LeaveEntitlement
     {
         $year = (int) now()->year;
         $entitlement = $this->entitlementFor($user, $year, self::ANNUAL_LEAVE_CODE);
+
+        if (! $entitlement) {
+            return null;
+        }
+
         $attributes = $this->entitlementAttributesFor($user, $year, self::ANNUAL_LEAVE_CODE);
         unset($attributes['created_by']);
 
@@ -220,22 +239,72 @@ class LeaveEntitlementService
         return $entitlement->fresh();
     }
 
+    public function syncCurrentYearEligibleEntitlements(User $user): Collection
+    {
+        $year = (int) now()->year;
+
+        return collect($this->eligibleEntitledLeaveCodesFor($user))
+            ->map(function (string $attendanceCode) use ($user, $year) {
+                $attributes = $this->entitlementAttributesFor($user, $year, $attendanceCode);
+                unset($attributes['created_by']);
+
+                return LeaveEntitlement::updateOrCreate(
+                    [
+                        'user_id' => $user->id,
+                        'year' => $year,
+                        'attendance_code' => $attendanceCode,
+                    ],
+                    $attributes + ['updated_by' => Auth::id()],
+                )->fresh();
+            })
+            ->values();
+    }
+
     public function userIsEligibleFor(User $user, string $attendanceCode): bool
     {
+        $region = $this->regionFor($user);
+
         return match ($attendanceCode) {
-            self::MATERNITY_LEAVE_CODE => $user->gender === 'female',
-            self::PARENTAL_LEAVE_CODE => (bool) $user->eligible_for_parental_leave,
-            self::SERVICE_INCENTIVE_LEAVE_CODE => $this->regionFor($user) === 'ph',
+            self::ANNUAL_LEAVE_CODE,
+            self::SICK_LEAVE_CODE,
+            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => $region !== 'ph',
+            self::MATERNITY_LEAVE_CODE => $region === 'ph'
+                ? $user->gender === 'female' && (bool) $user->eligible_for_maternity_leave
+                : $user->gender === 'female',
+            self::PARENTAL_LEAVE_CODE => $region === 'ph'
+                ? (bool) $user->eligible_for_parental_leave && $this->hasMinimumServiceMonths($user, 6)
+                : (bool) $user->eligible_for_parental_leave,
+            self::SERVICE_INCENTIVE_LEAVE_CODE => $region === 'ph' && $this->hasMinimumServiceMonths($user, 12),
+            self::PATERNITY_LEAVE_CODE => $region === 'ph'
+                && $user->gender === 'male'
+                && $user->marital_status === 'married'
+                && (bool) $user->eligible_for_paternity_leave,
+            self::VAWC_LEAVE_CODE => $region === 'ph'
+                && $user->gender === 'female'
+                && (bool) $user->eligible_for_vawc_leave,
+            self::SPECIAL_WOMEN_LEAVE_CODE => $region === 'ph'
+                && $user->gender === 'female'
+                && (bool) $user->eligible_for_special_women_leave
+                && $this->hasMinimumServiceMonths($user, 6),
             default => true,
         };
     }
 
-    public function eligibilityMessage(string $attendanceCode): ?string
+    public function eligibilityMessage(string $attendanceCode, ?User $user = null): ?string
     {
+        $region = $user ? $this->regionFor($user) : null;
+
         return match ($attendanceCode) {
-            self::MATERNITY_LEAVE_CODE => 'Maternity leave is available only for employees whose gender is set to Female.',
-            self::PARENTAL_LEAVE_CODE => 'Parental leave requires HR eligibility approval. Contact HR or an admin if you need to apply.',
-            self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave is available only for Philippines employees.',
+            self::MATERNITY_LEAVE_CODE => $region === 'ph'
+                ? 'Philippines maternity leave requires Female gender and HR eligibility approval.'
+                : 'Maternity leave is available only for employees whose gender is set to Female.',
+            self::PARENTAL_LEAVE_CODE => $region === 'ph'
+                ? 'Philippines parental leave requires HR eligibility approval and at least six months of service.'
+                : 'UAE parental leave requires HR eligibility approval. Contact HR or an admin if you need to apply.',
+            self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave is available only for Philippines employees with at least one year of service.',
+            self::PATERNITY_LEAVE_CODE => 'Paternity leave requires Philippines region, Male gender, Married status, and HR eligibility approval.',
+            self::VAWC_LEAVE_CODE => 'Leave for VAWC requires Philippines region, Female gender, and HR eligibility approval.',
+            self::SPECIAL_WOMEN_LEAVE_CODE => 'Special leave for women requires Philippines region, Female gender, HR eligibility approval, and at least six months of service.',
             default => null,
         };
     }
@@ -499,6 +568,12 @@ class LeaveEntitlementService
 
     private function defaultClaimableAllowanceFor(User $user, string $attendanceCode): float
     {
+        if ($this->regionFor($user) === 'ph'
+            && $attendanceCode === self::MATERNITY_LEAVE_CODE
+            && (bool) $user->is_solo_parent) {
+            return 120.0;
+        }
+
         return LeaveSetting::decimalValue(
             $this->settingKeyFor($user, $attendanceCode),
             $this->fallbackAllowanceFor($user, $attendanceCode),
@@ -639,6 +714,9 @@ class LeaveEntitlementService
                 ? LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH
                 : LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE,
             self::SERVICE_INCENTIVE_LEAVE_CODE => LeaveSetting::SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH,
+            self::PATERNITY_LEAVE_CODE => LeaveSetting::PATERNITY_LEAVE_DEFAULT_DAYS_PH,
+            self::VAWC_LEAVE_CODE => LeaveSetting::VAWC_LEAVE_DEFAULT_DAYS_PH,
+            self::SPECIAL_WOMEN_LEAVE_CODE => LeaveSetting::SPECIAL_WOMEN_LEAVE_DEFAULT_DAYS_PH,
             default => $region === 'ph'
                 ? LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH
                 : LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE,
@@ -654,7 +732,7 @@ class LeaveEntitlementService
         }
 
         if ($attendanceCode === self::MATERNITY_LEAVE_CODE) {
-            return $region === 'ph' ? 0.0 : 60.0;
+            return $region === 'ph' ? 105.0 : 60.0;
         }
 
         if ($attendanceCode === self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE) {
@@ -662,11 +740,23 @@ class LeaveEntitlementService
         }
 
         if ($attendanceCode === self::PARENTAL_LEAVE_CODE) {
-            return $region === 'ph' ? 0.0 : 5.0;
+            return $region === 'ph' ? 7.0 : 5.0;
         }
 
         if ($attendanceCode === self::SERVICE_INCENTIVE_LEAVE_CODE) {
             return 5.0;
+        }
+
+        if ($attendanceCode === self::PATERNITY_LEAVE_CODE) {
+            return 7.0;
+        }
+
+        if ($attendanceCode === self::VAWC_LEAVE_CODE) {
+            return 10.0;
+        }
+
+        if ($attendanceCode === self::SPECIAL_WOMEN_LEAVE_CODE) {
+            return 60.0;
         }
 
         if ($region === 'ph') {
@@ -711,8 +801,24 @@ class LeaveEntitlementService
             self::PARENTAL_LEAVE_CODE => 'Parental leave',
             self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => 'Bereavement leave',
             self::SERVICE_INCENTIVE_LEAVE_CODE => 'Service incentive leave',
+            self::PATERNITY_LEAVE_CODE => 'Paternity leave',
+            self::VAWC_LEAVE_CODE => 'Leave for VAWC',
+            self::SPECIAL_WOMEN_LEAVE_CODE => 'Special leave for women',
             default => 'Annual leave',
         };
+    }
+
+    private function hasMinimumServiceMonths(User $user, int $months): bool
+    {
+        if (! $user->joining_date) {
+            return false;
+        }
+
+        $joiningDate = $user->joining_date instanceof CarbonInterface
+            ? $user->joining_date
+            : Carbon::parse($user->joining_date);
+
+        return $joiningDate->copy()->addMonthsNoOverflow($months)->lte(now());
     }
 
     private function usesCalendarDays(LeavePlan $leavePlan): bool
@@ -722,8 +828,8 @@ class LeaveEntitlementService
             : User::find($leavePlan->user_id);
 
         return $user
-            && $this->regionFor($user) === 'uae'
-            && in_array($leavePlan->attendance_code, [self::SICK_LEAVE_CODE, self::MATERNITY_LEAVE_CODE], true);
+            && ($leavePlan->attendance_code === self::MATERNITY_LEAVE_CODE
+                || ($this->regionFor($user) === 'uae' && $leavePlan->attendance_code === self::SICK_LEAVE_CODE));
     }
 
     private function payBreakdownForYear(string $attendanceCode, int $year, float $previouslyUsed, float $requested): array

@@ -16,6 +16,9 @@ class LeaveSetting extends Model
     public const MATERNITY_LEAVE_DEFAULT_DAYS_PH = 'maternity_leave_default_days_ph';
     public const PARENTAL_LEAVE_DEFAULT_DAYS_UAE = 'parental_leave_default_days_uae';
     public const PARENTAL_LEAVE_DEFAULT_DAYS_PH = 'parental_leave_default_days_ph';
+    public const PATERNITY_LEAVE_DEFAULT_DAYS_PH = 'paternity_leave_default_days_ph';
+    public const VAWC_LEAVE_DEFAULT_DAYS_PH = 'vawc_leave_default_days_ph';
+    public const SPECIAL_WOMEN_LEAVE_DEFAULT_DAYS_PH = 'special_women_leave_default_days_ph';
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE = 'bereavement_compassionate_leave_default_days_uae';
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH = 'bereavement_compassionate_leave_default_days_ph';
     public const BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE = 'bereavement_spouse_leave_days_uae';

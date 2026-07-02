@@ -259,7 +259,7 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
         $this->assertFalse($employee->eligible_for_parental_leave);
         $this->assertDatabaseHas('audit_logs', [
-            'action' => 'parental_leave_eligibility_auto_removed',
+            'action' => 'statutory_leave_eligibility_auto_removed',
             'auditable_type' => $employee::class,
             'auditable_id' => $employee->id,
         ]);
@@ -275,6 +275,48 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertDontSee('L170 - Parental Leave')
             ->assertDontSee('Parental leave</h3>', false);
+    }
+
+    public function test_philippines_one_shot_statutory_leave_final_approval_removes_matching_eligibility(): void
+    {
+        $department = $this->department();
+        $director = $this->userWithRole('employee');
+        $phHr = $this->userWithRole('employee');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-504',
+            'gender' => 'male',
+            'marital_status' => 'married',
+            'joining_date' => now()->subYear()->toDateString(),
+            'eligible_for_paternity_leave' => true,
+        ]);
+        $this->setLeavePlanApprovers($director, $this->userWithRole('employee'), $phHr);
+
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L210',
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+            'submitted_at' => now(),
+            'hod_approved_at' => now(),
+            'hod_approved_by' => $this->userWithRole('hod')->id,
+            'director_approved_at' => now(),
+            'director_approved_by' => $director->id,
+        ]);
+
+        $this->actingAs($phHr)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $employee->refresh();
+
+        $this->assertFalse($employee->eligible_for_paternity_leave);
+        $this->assertDatabaseHas('audit_logs', [
+            'action' => 'statutory_leave_eligibility_auto_removed',
+            'auditable_type' => $employee::class,
+            'auditable_id' => $employee->id,
+        ]);
     }
 
     public function test_philippines_employee_routes_to_ph_hr_for_final_leave_plan_approval(): void
@@ -1227,6 +1269,7 @@ class LeavePlanWorkflowTest extends TestCase
         $phEmployee = $this->userWithRole('employee', [
             'department_id' => $department->id,
             'employee_code' => 'MEC-PHIL-HR-2026-702',
+            'joining_date' => now()->subYear()->toDateString(),
         ]);
 
         LeavePlan::factory()->create([
@@ -1382,6 +1425,12 @@ class LeavePlanWorkflowTest extends TestCase
         $phEmployee = $this->userWithRole('employee', [
             'department_id' => $department->id,
             'employee_code' => 'MEC-PHIL-HR-2026-702',
+            'joining_date' => now()->subYear()->toDateString(),
+        ]);
+        $newPhEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-707',
+            'joining_date' => now()->subMonths(11)->toDateString(),
         ]);
 
         $this->actingAs($uaeEmployee)
@@ -1395,6 +1444,11 @@ class LeavePlanWorkflowTest extends TestCase
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($newPhEmployee)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L190 - Service Incentive Leave');
 
         $this->actingAs($phEmployee)
             ->get(route('employee.leave-plans.create'))
@@ -1420,6 +1474,198 @@ class LeavePlanWorkflowTest extends TestCase
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_philippines_statutory_leave_visibility_requires_profile_conditions(): void
+    {
+        $department = $this->department();
+        $eligibleFemale = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-708',
+            'gender' => 'female',
+            'joining_date' => now()->subYear()->toDateString(),
+            'eligible_for_maternity_leave' => true,
+            'eligible_for_parental_leave' => true,
+            'eligible_for_vawc_leave' => true,
+            'eligible_for_special_women_leave' => true,
+        ]);
+        $eligibleMale = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-709',
+            'gender' => 'male',
+            'marital_status' => 'married',
+            'joining_date' => now()->subYear()->toDateString(),
+            'eligible_for_paternity_leave' => true,
+        ]);
+        $ineligibleFemale = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-710',
+            'gender' => 'female',
+            'joining_date' => now()->subMonths(5)->toDateString(),
+        ]);
+
+        $this->actingAs($eligibleFemale)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L100 - Annual Leave')
+            ->assertDontSee('L110 - Sick Leave')
+            ->assertSee('L160 - Maternity Leave')
+            ->assertSee('L170 - Parental Leave')
+            ->assertSee('L190 - Service Incentive Leave')
+            ->assertSee('L220 - Leave for VAWC')
+            ->assertSee('L230 - Special Leave for Women')
+            ->assertDontSee('L180 - Bereavement Leave')
+            ->assertDontSee('L210 - Paternity Leave')
+            ->assertSee('Philippines leave balances show available statutory entitlements only.')
+            ->assertDontSee('UAE leave balances reset every January 1.');
+
+        $this->actingAs($eligibleMale)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L100 - Annual Leave')
+            ->assertDontSee('L110 - Sick Leave')
+            ->assertSee('L190 - Service Incentive Leave')
+            ->assertSee('L210 - Paternity Leave')
+            ->assertDontSee('L160 - Maternity Leave')
+            ->assertDontSee('L180 - Bereavement Leave')
+            ->assertDontSee('L220 - Leave for VAWC')
+            ->assertDontSee('L230 - Special Leave for Women');
+
+        $this->actingAs($ineligibleFemale)
+            ->get(route('employee.leave-plans.create'))
+            ->assertOk()
+            ->assertDontSee('L100 - Annual Leave')
+            ->assertDontSee('L110 - Sick Leave')
+            ->assertDontSee('L160 - Maternity Leave')
+            ->assertDontSee('L170 - Parental Leave')
+            ->assertDontSee('L180 - Bereavement Leave')
+            ->assertDontSee('L190 - Service Incentive Leave')
+            ->assertDontSee('L220 - Leave for VAWC')
+            ->assertDontSee('L230 - Special Leave for Women');
+
+        $phMaternityResponse = $this->actingAs($ineligibleFemale)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L160',
+                'submit' => '0',
+            ]));
+
+        $phMaternityResponse->assertSessionHasErrors('attendance_code');
+        $this->assertSame(
+            'Philippines maternity leave requires Female gender and HR eligibility approval.',
+            session('errors')->get('attendance_code')[0],
+        );
+
+        $this->actingAs($eligibleFemale)
+            ->get(route('employee.leave-plans.create'))
+            ->assertViewHas('leaveBalances', fn (array $leaveBalances) => ! array_key_exists('L100', $leaveBalances)
+                && ! array_key_exists('L110', $leaveBalances)
+                && ! array_key_exists('L180', $leaveBalances)
+                && array_key_exists('L160', $leaveBalances)
+                && array_key_exists('L190', $leaveBalances)
+            );
+
+        foreach (['L100', 'L110', 'L180'] as $attendanceCode) {
+            $this->actingAs($eligibleFemale)
+                ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                    'attendance_code' => $attendanceCode,
+                    'submit' => '0',
+                ]))
+                ->assertSessionHasErrors('attendance_code');
+        }
+    }
+
+    public function test_philippines_statutory_leave_limits_are_enforced(): void
+    {
+        $department = $this->department();
+        $maternityEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-711',
+            'gender' => 'female',
+            'joining_date' => now()->subYear()->toDateString(),
+            'eligible_for_maternity_leave' => true,
+        ]);
+        $soloParentEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-712',
+            'gender' => 'female',
+            'joining_date' => now()->subYear()->toDateString(),
+            'eligible_for_maternity_leave' => true,
+            'is_solo_parent' => true,
+        ]);
+
+        $this->actingAs($maternityEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L160',
+                'start_date' => '2026-01-01',
+                'end_date' => '2026-04-15',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($maternityEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L160',
+                'start_date' => '2026-04-16',
+                'end_date' => '2026-04-16',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($soloParentEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L160',
+                'start_date' => '2026-01-01',
+                'end_date' => '2026-04-30',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        foreach ([
+            LeaveSetting::PATERNITY_LEAVE_DEFAULT_DAYS_PH,
+            LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_PH,
+            LeaveSetting::VAWC_LEAVE_DEFAULT_DAYS_PH,
+            LeaveSetting::SPECIAL_WOMEN_LEAVE_DEFAULT_DAYS_PH,
+        ] as $settingKey) {
+            LeaveSetting::where('key', $settingKey)->firstOrFail()->update(['decimal_value' => 1]);
+        }
+
+        foreach ([
+            'L210' => [
+                'gender' => 'male',
+                'marital_status' => 'married',
+                'eligible_for_paternity_leave' => true,
+                'employee_code' => 'MEC-PHIL-HR-2026-713',
+            ],
+            'L170' => [
+                'gender' => 'female',
+                'eligible_for_parental_leave' => true,
+                'employee_code' => 'MEC-PHIL-HR-2026-714',
+            ],
+            'L220' => [
+                'gender' => 'female',
+                'eligible_for_vawc_leave' => true,
+                'employee_code' => 'MEC-PHIL-HR-2026-715',
+            ],
+            'L230' => [
+                'gender' => 'female',
+                'eligible_for_special_women_leave' => true,
+                'employee_code' => 'MEC-PHIL-HR-2026-716',
+            ],
+        ] as $attendanceCode => $attributes) {
+            $employee = $this->userWithRole('employee', array_merge([
+                'department_id' => $department->id,
+                'joining_date' => now()->subYear()->toDateString(),
+            ], $attributes));
+
+            $this->actingAs($employee)
+                ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                    'attendance_code' => $attendanceCode,
+                    'start_date' => '2026-05-11',
+                    'end_date' => '2026-05-12',
+                    'submit' => '1',
+                ]))
+                ->assertSessionHasErrors('attendance_code');
+        }
     }
 
     public function test_uae_sick_and_maternity_balances_show_full_pay_allowance_but_validate_total_limit(): void
@@ -1596,7 +1842,9 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('L170 - Parental Leave')
             ->assertSee('L180 - Bereavement Leave')
-            ->assertSee('Parental leave requires HR eligibility approval. Contact HR if you need to apply. Eligibility is removed after approval.')
+            ->assertSee('UAE sick and maternity leave use calendar days. Annual, parental, and bereavement leave use working leave days, and applicable holidays are excluded from leave usage.')
+            ->assertSee('UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental leave requires HR eligibility approval, and bereavement is tracked by relationship.')
+            ->assertDontSee('Philippines leave balances show available statutory entitlements only.')
             ->assertSee('Supporting document needed')
             ->assertSee('Please add a link to your medical certificate in the Reason field.')
             ->assertSee('Please add a link to the birth certificate or hospital birth notification in the Reason field.')
@@ -1851,19 +2099,29 @@ class LeavePlanWorkflowTest extends TestCase
             'eligible_for_parental_leave' => false,
         ]);
 
-        $this->actingAs($maleEmployee)
+        $uaeMaternityResponse = $this->actingAs($maleEmployee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                 'attendance_code' => 'L160',
                 'submit' => '0',
-            ]))
-            ->assertSessionHasErrors('attendance_code');
+            ]));
 
-        $this->actingAs($singleEmployee)
+        $uaeMaternityResponse->assertSessionHasErrors('attendance_code');
+        $this->assertSame(
+            'Maternity leave is available only for employees whose gender is set to Female.',
+            session('errors')->get('attendance_code')[0],
+        );
+
+        $uaeParentalResponse = $this->actingAs($singleEmployee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                 'attendance_code' => 'L170',
                 'submit' => '0',
-            ]))
-            ->assertSessionHasErrors('attendance_code');
+            ]));
+
+        $uaeParentalResponse->assertSessionHasErrors('attendance_code');
+        $this->assertSame(
+            'UAE parental leave requires HR eligibility approval. Contact HR or an admin if you need to apply.',
+            session('errors')->get('attendance_code')[0],
+        );
 
         $this->actingAs($singleEmployee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([

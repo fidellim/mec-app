@@ -82,7 +82,7 @@ class TimesheetSaveRequest extends FormRequest
                     if (($regular > 0 || $overtime > 0) && is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode)) {
                         $validator->errors()->add(
                             "entries.$index.attendance_code",
-                            $entitlements->eligibilityMessage($attendanceCode) ?? "$entryLabel has an attendance code that is not available for your profile.",
+                            $entitlements->eligibilityMessage($attendanceCode, $this->user()) ?? "$entryLabel has an attendance code that is not available for your profile.",
                         );
                     }
 

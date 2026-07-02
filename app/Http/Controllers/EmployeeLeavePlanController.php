@@ -60,6 +60,7 @@ class EmployeeLeavePlanController extends Controller
             'attendanceCodes' => $this->leaveAttendanceCodes($request->user()),
             'availabilityCalendar' => $this->availabilityCalendar($request, $calendar),
             'leaveBalances' => $this->leaveBalances($request, $entitlements),
+            'leaveRegion' => $entitlements->regionFor($request->user()),
         ]);
     }
 
@@ -132,6 +133,7 @@ class EmployeeLeavePlanController extends Controller
             'attendanceCodes' => $this->leaveAttendanceCodes($request->user()),
             'availabilityCalendar' => $this->availabilityCalendar($request, $calendar, $leavePlan),
             'leaveBalances' => $this->leaveBalances($request, $entitlements, $leavePlan),
+            'leaveRegion' => $entitlements->regionFor($request->user()),
         ]);
     }
 

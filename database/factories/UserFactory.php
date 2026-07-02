@@ -21,6 +21,11 @@ class UserFactory extends Factory
             'joining_date' => null,
             'marital_status' => null,
             'eligible_for_parental_leave' => false,
+            'eligible_for_maternity_leave' => false,
+            'eligible_for_paternity_leave' => false,
+            'eligible_for_vawc_leave' => false,
+            'eligible_for_special_women_leave' => false,
+            'is_solo_parent' => false,
             'role' => 'employee',
             'is_active' => true,
         ];
