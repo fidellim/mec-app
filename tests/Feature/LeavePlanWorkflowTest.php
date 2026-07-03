@@ -901,6 +901,10 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Department Leave Calendar')
             ->assertSee('Jump to')
+            ->assertSee('leave-calendar-current-link', false)
+            ->assertDontSee('class="leave-calendar-nav', false)
+            ->assertDontSee('btn-primary leave-calendar-icon-btn', false)
+            ->assertDontSee('>Current</span>', false)
             ->assertSee('May 2026')
             ->assertSee('Holiday - Global - Global Company Day')
             ->assertSee('Holiday - Philippines - Philippines Holiday')
@@ -921,6 +925,9 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.calendar', ['month' => '2026-10']))
             ->assertOk()
             ->assertSee('Jump to')
+            ->assertSee('leave-calendar-current-link', false)
+            ->assertDontSee('class="leave-calendar-nav', false)
+            ->assertDontSee('btn-primary leave-calendar-icon-btn', false)
             ->assertSee('October 2026')
             ->assertSee('<option value="10" selected>October</option>', false);
     }
@@ -990,11 +997,159 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('All Leave Calendar')
             ->assertSee('Jump to')
+            ->assertSee('leave-calendar-current-link', false)
+            ->assertDontSee('class="leave-calendar-nav', false)
+            ->assertDontSee('btn-primary leave-calendar-icon-btn', false)
+            ->assertDontSee('>Current</span>', false)
             ->assertSee('May 2026')
             ->assertSee('Holiday - Global - Global Review Holiday')
             ->assertSee('Holiday - United Arab Emirates - UAE Review Holiday')
             ->assertSee('Holiday - Philippines - PH Review Holiday')
             ->assertDontSee('Inactive Review Holiday');
+    }
+
+    public function test_employee_leave_calendar_fragment_keeps_month_filters_without_full_page_chrome(): void
+    {
+        $department = $this->department();
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'Fragment Month Visible', 'department_id' => $department->id]);
+        $hiddenEmployee = $this->userWithRole('employee', ['name' => 'Fragment Month Hidden', 'department_id' => $department->id]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $hiddenEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.calendar', [
+                'month' => '2026-05',
+                'status' => LeavePlan::STATUS_SUBMITTED,
+                'calendar_fragment' => 'calendar',
+            ]))
+            ->assertOk()
+            ->assertSee('May 2026')
+            ->assertSee('Fragment Month Visible')
+            ->assertSee('status=submitted', false)
+            ->assertDontSee('Fragment Month Hidden')
+            ->assertDontSee('Department Leave Calendar')
+            ->assertDontSee('Create Leave Plan')
+            ->assertDontSee('filter-card', false)
+            ->assertDontSee('name="calendar_fragment"', false)
+            ->assertDontSee('calendar_fragment=calendar', false);
+    }
+
+    public function test_admin_leave_calendar_fragment_preserves_all_filters(): void
+    {
+        $department = $this->department(['name' => 'Filtered Department']);
+        $otherDepartment = $this->department(['name' => 'Other Department']);
+        $admin = $this->userWithRole('admin');
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'Admin Fragment Visible', 'department_id' => $department->id]);
+        $hiddenEmployee = $this->userWithRole('employee', ['name' => 'Admin Fragment Hidden', 'department_id' => $otherDepartment->id]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $hiddenEmployee->id,
+            'department_id' => $otherDepartment->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.leave-plans.calendar', [
+                'month' => '2026-05',
+                'department_id' => $department->id,
+                'employee_id' => $visibleEmployee->id,
+                'status' => LeavePlan::STATUS_APPROVED,
+                'attendance_code' => 'L100',
+                'calendar_fragment' => 'calendar',
+            ]))
+            ->assertOk()
+            ->assertSee('May 2026')
+            ->assertSee('Admin Fragment Visible')
+            ->assertSee('department_id='.$department->id, false)
+            ->assertSee('employee_id='.$visibleEmployee->id, false)
+            ->assertSee('status=approved', false)
+            ->assertSee('attendance_code=L100', false)
+            ->assertDontSee('Admin Fragment Hidden')
+            ->assertDontSee('All Leave Calendar')
+            ->assertDontSee('filter-card', false)
+            ->assertDontSee('name="calendar_fragment"', false)
+            ->assertDontSee('calendar_fragment=calendar', false);
+    }
+
+    public function test_hod_leave_calendar_fragment_keeps_managed_scope_and_filters(): void
+    {
+        $department = $this->department(['name' => 'Managed Department']);
+        $otherDepartment = $this->department(['name' => 'Other Managed Department']);
+        $unmanagedDepartment = $this->department(['name' => 'Unmanaged Department']);
+        $hod = $this->userWithRole('hod', ['name' => 'Calendar Fragment HOD']);
+        $department->hods()->attach($hod);
+        $otherDepartment->hods()->attach($hod);
+        $visibleEmployee = $this->userWithRole('employee', ['name' => 'HOD Fragment Visible', 'department_id' => $department->id]);
+        $hiddenManagedEmployee = $this->userWithRole('employee', ['name' => 'HOD Fragment Other Managed', 'department_id' => $otherDepartment->id]);
+        $hiddenUnmanagedEmployee = $this->userWithRole('employee', ['name' => 'HOD Fragment Unmanaged', 'department_id' => $unmanagedDepartment->id]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $visibleEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $hiddenManagedEmployee->id,
+            'department_id' => $otherDepartment->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $hiddenUnmanagedEmployee->id,
+            'department_id' => $unmanagedDepartment->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-plans.calendar', [
+                'month' => '2026-05',
+                'department_id' => $department->id,
+                'employee_id' => $visibleEmployee->id,
+                'status' => LeavePlan::STATUS_APPROVED,
+                'calendar_fragment' => 'calendar',
+            ]))
+            ->assertOk()
+            ->assertSee('May 2026')
+            ->assertSee('HOD Fragment Visible')
+            ->assertSee('department_id='.$department->id, false)
+            ->assertSee('employee_id='.$visibleEmployee->id, false)
+            ->assertSee('status=approved', false)
+            ->assertDontSee('HOD Fragment Other Managed')
+            ->assertDontSee('HOD Fragment Unmanaged')
+            ->assertDontSee('Department Leave Calendar')
+            ->assertDontSee('filter-card', false)
+            ->assertDontSee('name="calendar_fragment"', false)
+            ->assertDontSee('calendar_fragment=calendar', false);
     }
 
     public function test_employee_leave_plan_edit_availability_excludes_current_plan(): void
@@ -1051,9 +1206,24 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Department leave availability')
             ->assertSee('Fragment Visible')
             ->assertSee('data-leave-plan-availability-calendar', false)
+            ->assertSee('data-calendar-auto-submit', false)
+            ->assertSee("Back to today's month", false)
+            ->assertSee('leave-calendar-current-link', false)
+            ->assertDontSee('>Current</span>', false)
             ->assertDontSee('Leave details')
             ->assertDontSee('name="calendar_fragment"', false)
             ->assertDontSee('calendar_fragment=availability', false);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.create', [
+                'month' => now()->format('Y-m'),
+                'calendar_fragment' => 'availability',
+            ]))
+            ->assertOk()
+            ->assertSee('Department leave availability')
+            ->assertSee('data-calendar-auto-submit', false)
+            ->assertDontSee('leave-calendar-current-link', false)
+            ->assertDontSee("Back to today's month", false);
     }
 
     public function test_employee_leave_plan_edit_calendar_fragment_excludes_current_plan(): void

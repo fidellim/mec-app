@@ -59,7 +59,7 @@ class AdminLeavePlanController extends Controller
 
     public function calendar(Request $request, LeavePlanCalendarService $calendar)
     {
-        return view('admin.leave-plans.calendar', $calendar->build(
+        $calendarData = $calendar->build(
             request: $request,
             query: LeavePlan::query(),
             showRoute: 'admin.leave-plans.show',
@@ -68,7 +68,13 @@ class AdminLeavePlanController extends Controller
             'departments' => Department::orderBy('name')->get(),
             'employees' => User::whereIn('role', ['employee', 'hod'])->where('is_active', true)->orderBy('name')->get(),
             'attendanceCodes' => $this->leaveAttendanceCodes(),
-        ]);
+        ];
+
+        if ($request->query('calendar_fragment') === 'calendar') {
+            return view('shared.leave_plan_calendar', $calendarData);
+        }
+
+        return view('admin.leave-plans.calendar', $calendarData);
     }
 
     public function leaveEntitlements(Request $request, LeaveEntitlementService $entitlements)

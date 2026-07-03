@@ -33,7 +33,7 @@ class EmployeeLeavePlanController extends Controller
 
         $query = LeavePlan::query()->where('department_id', $request->user()->department_id);
 
-        return view('employee.leave-plans.calendar', $calendar->build(
+        $calendarData = $calendar->build(
             request: $request,
             query: $query,
             showRoute: 'employee.leave-plans.show',
@@ -42,7 +42,16 @@ class EmployeeLeavePlanController extends Controller
             allowedStatusFilters: LeavePlanCalendarService::DEFAULT_STATUSES,
         ) + [
             'attendanceCodes' => $this->leaveAttendanceCodes($request->user()),
-        ]);
+        ];
+        $calendarData['calendarTitle'] = $calendarData['month']->format('F Y');
+        $calendarData['calendarDescription'] = 'Calendar shows submitted, approved, and cancellation-requested leave in your department.';
+        $calendarData['calendarReadonly'] = true;
+
+        if ($request->query('calendar_fragment') === 'calendar') {
+            return view('shared.leave_plan_calendar', $calendarData);
+        }
+
+        return view('employee.leave-plans.calendar', $calendarData);
     }
 
     public function create(Request $request, LeavePlanCalendarService $calendar, LeaveEntitlementService $entitlements)

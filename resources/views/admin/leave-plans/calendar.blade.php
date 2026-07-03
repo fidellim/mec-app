@@ -9,5 +9,7 @@
     <a class="btn btn-outline-secondary" href="{{ route('admin.leave-plans.index') }}">List View</a>
 </div>
 @include('shared.leave_plan_calendar_filters', ['resetRoute' => 'admin.leave-plans.calendar'])
-@include('shared.leave_plan_calendar')
+<div data-calendar-shell>
+    @include('shared.leave_plan_calendar')
+</div>
 @endsection

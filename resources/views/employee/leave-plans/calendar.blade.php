@@ -38,9 +38,11 @@
         </div>
     </div>
 </form>
-@include('shared.leave_plan_calendar', [
-    'calendarTitle' => $month->format('F Y'),
-    'calendarDescription' => 'Calendar shows submitted, approved, and cancellation-requested leave in your department.',
-    'calendarReadonly' => true,
-])
+<div data-calendar-shell>
+    @include('shared.leave_plan_calendar', [
+        'calendarTitle' => $month->format('F Y'),
+        'calendarDescription' => 'Calendar shows submitted, approved, and cancellation-requested leave in your department.',
+        'calendarReadonly' => true,
+    ])
+</div>
 @endsection

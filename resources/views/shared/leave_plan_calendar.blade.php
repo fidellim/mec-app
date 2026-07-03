@@ -11,20 +11,26 @@
         grid-template-columns: auto minmax(7.75rem, 1fr) minmax(5.75rem, .7fr) auto;
         gap: .42rem;
         align-items: center;
-        min-width: min(100%, 25rem);
+        min-width: min(100%, 28rem);
         padding: .28rem;
         border: 1px solid var(--app-soft-border);
         border-radius: .65rem;
         background: color-mix(in srgb, var(--app-muted-bg) 56%, var(--app-card-bg));
     }
+    .leave-calendar-jump.has-current-link {
+        grid-template-columns: auto minmax(7.75rem, 1fr) minmax(5.75rem, .7fr) auto auto;
+        min-width: min(100%, 31rem);
+    }
     .leave-calendar-jump-label {
-        color: var(--bs-secondary-color);
-        font-size: .74rem;
-        font-weight: 800;
-        letter-spacing: .02em;
-        padding-inline: .32rem .2rem;
-        text-transform: uppercase;
+        position: absolute !important;
+        width: 1px !important;
+        height: 1px !important;
+        padding: 0 !important;
+        margin: -1px !important;
+        overflow: hidden !important;
+        clip: rect(0, 0, 0, 0) !important;
         white-space: nowrap;
+        border: 0 !important;
     }
     .leave-calendar-jump .form-select {
         min-height: 2rem;
@@ -298,11 +304,13 @@
             width: 100%;
         }
         .leave-calendar-jump {
-            grid-template-columns: minmax(0, 1fr) minmax(0, .85fr) auto;
+            grid-template-columns: auto minmax(0, 1fr) minmax(0, .8fr) auto;
+        }
+        .leave-calendar-jump.has-current-link {
+            grid-template-columns: auto minmax(0, 1fr) minmax(0, .8fr) auto auto;
         }
         .leave-calendar-jump-label {
-            grid-column: 1 / -1;
-            padding-inline: 0;
+            grid-column: auto;
         }
         .leave-calendar-jump button {
             min-width: 2.15rem;
@@ -337,6 +345,7 @@
     $calendarInteractiveRange = $calendarInteractiveRange ?? false;
     $calendarVariant = $calendarVariant ?? null;
     $isAvailabilityCalendar = $calendarVariant === 'availability';
+    $isViewingCurrentMonth = $month->isSameMonth(now());
     $calendarDays = collect($weeks)->flatten(1);
     $calendarMonthDays = $calendarDays->filter(fn ($day) => $day['in_month']);
     $calendarMonthLeaveEvents = $calendarMonthDays->flatMap(fn ($day) => $day['events']->filter(fn ($event) => ($event['type'] ?? null) === 'leave'));
@@ -368,7 +377,7 @@
             <div class="small text-muted">{{ $calendarDescription }}</div>
         </div>
         <div class="leave-calendar-toolbar">
-            <form class="leave-calendar-jump" method="get" data-calendar-month-selector>
+            <form @class(['leave-calendar-jump', 'has-current-link' => ! $isViewingCurrentMonth]) method="get" data-calendar-month-selector @if($isAvailabilityCalendar) data-calendar-auto-submit @endif>
                 @foreach(request()->except(['month', 'calendar_month', 'calendar_year', 'calendar_fragment']) as $key => $value)
                     @if(is_array($value))
                         @foreach($value as $item)
@@ -380,6 +389,9 @@
                 @endforeach
                 <input type="hidden" name="month" value="{{ $month->format('Y-m') }}" data-calendar-month-value>
                 <div class="leave-calendar-jump-label">Jump to</div>
+                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ $calendarUrl($previousMonth) }}" title="Previous month" aria-label="Previous month">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
+                </a>
                 <select class="form-select form-select-sm" id="calendar_month" data-calendar-month data-searchable="false" aria-label="Calendar month">
                     @foreach($calendarMonthOptions as $calendarMonthOption)
                         <option value="{{ $calendarMonthOption['value'] }}" @selected($month->format('m') === $calendarMonthOption['value'])>{{ $calendarMonthOption['label'] }}</option>
@@ -390,23 +402,20 @@
                         <option value="{{ $calendarYear }}" @selected((int) $month->format('Y') === $calendarYear)>{{ $calendarYear }}</option>
                     @endforeach
                 </select>
-                <button @class(['btn btn-sm leave-calendar-icon-btn', 'btn-outline-primary' => $isAvailabilityCalendar, 'btn-primary' => ! $isAvailabilityCalendar]) title="Go to selected month" aria-label="Go to selected month">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg>
-                    <span>Go</span>
-                </button>
-            </form>
-            <div class="leave-calendar-nav" aria-label="Calendar navigation">
-                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ $calendarUrl($previousMonth) }}" title="Previous month" aria-label="Previous month">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m15 18-6-6 6-6"></path></svg>
-                </a>
-                <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ $calendarUrl(now()->format('Y-m')) }}" title="Current month">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><path d="M3 10h18"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect></svg>
-                    <span>Current</span>
-                </a>
+                @unless($isViewingCurrentMonth)
+                    <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn leave-calendar-current-link" href="{{ $calendarUrl(now()->format('Y-m')) }}" title="Back to today's month" aria-label="Back to today's month">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="M8 2v4"></path><path d="M16 2v4"></path><path d="M3 10h18"></path><rect x="3" y="4" width="18" height="18" rx="2"></rect></svg>
+                    </a>
+                @endunless
                 <a class="btn btn-outline-secondary btn-sm leave-calendar-icon-btn" href="{{ $calendarUrl($nextMonth) }}" title="Next month" aria-label="Next month">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" aria-hidden="true"><path d="m9 18 6-6-6-6"></path></svg>
                 </a>
-            </div>
+                <noscript>
+                    <button class="btn btn-sm btn-outline-primary leave-calendar-icon-btn" title="Go to selected month" aria-label="Go to selected month">
+                        <span>Go</span>
+                    </button>
+                </noscript>
+            </form>
         </div>
     </div>
     <div class="content-card-body">
@@ -480,8 +489,8 @@
 </div>
 
 <script>
-document.querySelectorAll('[data-calendar-month-selector]').forEach((form) => {
-    form.addEventListener('submit', () => {
+(() => {
+    const syncCalendarMonthValue = (form) => {
         const monthInput = form.querySelector('[data-calendar-month-value]');
         const monthSelect = form.querySelector('[data-calendar-month]');
         const yearSelect = form.querySelector('[data-calendar-year]');
@@ -489,6 +498,132 @@ document.querySelectorAll('[data-calendar-month-selector]').forEach((form) => {
         if (monthInput && monthSelect && yearSelect) {
             monthInput.value = `${yearSelect.value}-${monthSelect.value}`;
         }
+    };
+
+    if (window.leaveCalendarMonthNavigationInitialized) {
+        return;
+    }
+
+    window.leaveCalendarMonthNavigationInitialized = true;
+
+    const calendarFormUrl = (form) => {
+        syncCalendarMonthValue(form);
+
+        const targetUrl = new URL(form.action || window.location.href, window.location.href);
+        const targetParams = new URLSearchParams(new FormData(form));
+        targetUrl.search = targetParams.toString();
+
+        return targetUrl;
+    };
+
+    const fragmentUrl = (url) => {
+        const nextUrl = new URL(url, window.location.href);
+        nextUrl.searchParams.set('calendar_fragment', 'calendar');
+
+        return nextUrl;
+    };
+
+    const browserUrl = (url) => {
+        const nextUrl = new URL(url, window.location.href);
+        nextUrl.searchParams.delete('calendar_fragment');
+
+        return nextUrl;
+    };
+
+    const loadCalendarShell = async (shell, url, pushState = true) => {
+        if (!shell || !window.fetch || !window.history?.pushState) {
+            window.location.href = browserUrl(url);
+            return;
+        }
+
+        shell.classList.add('opacity-75');
+
+        try {
+            const response = await fetch(fragmentUrl(url), {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html',
+                },
+                credentials: 'same-origin',
+            });
+
+            if (!response.ok) {
+                throw new Error(`Calendar request failed with ${response.status}`);
+            }
+
+            shell.innerHTML = await response.text();
+            window.initializeSearchableSelects?.(shell);
+
+            if (pushState) {
+                window.history.pushState({ leaveCalendarMonth: true }, '', browserUrl(url));
+            }
+        } catch (error) {
+            window.location.href = browserUrl(url);
+        } finally {
+            shell.classList.remove('opacity-75');
+        }
+    };
+
+    document.addEventListener('submit', (event) => {
+        const form = event.target.closest('[data-calendar-month-selector]');
+
+        if (!form) {
+            return;
+        }
+
+        syncCalendarMonthValue(form);
+
+        const shell = form.closest('[data-calendar-shell]');
+
+        if (!shell) {
+            return;
+        }
+
+        event.preventDefault();
+        loadCalendarShell(shell, calendarFormUrl(form));
     });
-});
+
+    document.addEventListener('click', (event) => {
+        const shell = event.target.closest('[data-calendar-shell]');
+
+        if (!shell) {
+            return;
+        }
+
+        const link = event.target.closest('.leave-calendar-nav a, [data-calendar-month-selector] a');
+
+        if (!link || !shell.contains(link)) {
+            return;
+        }
+
+        event.preventDefault();
+        loadCalendarShell(shell, link.href);
+    });
+
+    document.addEventListener('change', (event) => {
+        if (!event.target.matches('[data-calendar-month], [data-calendar-year]')) {
+            return;
+        }
+
+        const form = event.target.closest('[data-calendar-month-selector]');
+        const shell = form?.closest('[data-calendar-shell]');
+
+        if (!form || !shell) {
+            return;
+        }
+
+        window.clearTimeout(shell.leaveCalendarMonthTimer);
+        shell.leaveCalendarMonthTimer = window.setTimeout(() => {
+            loadCalendarShell(shell, calendarFormUrl(form));
+        }, 180);
+    });
+
+    window.addEventListener('popstate', () => {
+        const shell = document.querySelector('[data-calendar-shell]');
+
+        if (shell) {
+            loadCalendarShell(shell, window.location.href, false);
+        }
+    });
+})();
 </script>

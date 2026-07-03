@@ -130,6 +130,7 @@
     const bereavementRelationship = document.getElementById('bereavement_relationship');
     const availabilityCalendarShell = document.querySelector('[data-availability-calendar-shell]');
     const supportingDocumentNotes = @json($supportingDocumentNotes);
+    let availabilityCalendarChangeTimer = null;
 
     const getAvailabilityCalendar = () => availabilityCalendarShell?.querySelector('[data-leave-plan-availability-calendar]');
 
@@ -268,8 +269,35 @@
         }
     };
 
+    const syncCalendarMonthValue = (form) => {
+        const monthInput = form.querySelector('[data-calendar-month-value]');
+        const monthSelect = form.querySelector('[data-calendar-month]');
+        const yearSelect = form.querySelector('[data-calendar-year]');
+
+        if (monthInput && monthSelect && yearSelect) {
+            monthInput.value = `${yearSelect.value}-${monthSelect.value}`;
+        }
+    };
+
+    const calendarFormUrl = (form) => {
+        syncCalendarMonthValue(form);
+
+        const targetUrl = new URL(form.action || window.location.href, window.location.href);
+        const targetParams = new URLSearchParams(new FormData(form));
+        targetUrl.search = targetParams.toString();
+
+        return targetUrl;
+    };
+
+    const queueCalendarFormLoad = (form) => {
+        window.clearTimeout(availabilityCalendarChangeTimer);
+        availabilityCalendarChangeTimer = window.setTimeout(() => {
+            loadAvailabilityCalendar(calendarFormUrl(form));
+        }, 180);
+    };
+
     availabilityCalendarShell?.addEventListener('click', (event) => {
-        const link = event.target.closest('.leave-calendar-nav a');
+        const link = event.target.closest('.leave-calendar-nav a, [data-calendar-auto-submit] a');
 
         if (!link) {
             return;
@@ -277,6 +305,16 @@
 
         event.preventDefault();
         loadAvailabilityCalendar(link.href);
+    });
+
+    availabilityCalendarShell?.addEventListener('change', (event) => {
+        const form = event.target.closest('[data-calendar-auto-submit]');
+
+        if (!form || !event.target.matches('[data-calendar-month], [data-calendar-year]')) {
+            return;
+        }
+
+        queueCalendarFormLoad(form);
     });
 
     availabilityCalendarShell?.addEventListener('submit', (event) => {
@@ -287,20 +325,7 @@
         }
 
         event.preventDefault();
-
-        const monthInput = form.querySelector('[data-calendar-month-value]');
-        const monthSelect = form.querySelector('[data-calendar-month]');
-        const yearSelect = form.querySelector('[data-calendar-year]');
-
-        if (monthInput && monthSelect && yearSelect) {
-            monthInput.value = `${yearSelect.value}-${monthSelect.value}`;
-        }
-
-        const targetUrl = new URL(form.action || window.location.href, window.location.href);
-        const targetParams = new URLSearchParams(new FormData(form));
-        targetUrl.search = targetParams.toString();
-
-        loadAvailabilityCalendar(targetUrl);
+        loadAvailabilityCalendar(calendarFormUrl(form));
     });
 
     syncHalfDayControls();

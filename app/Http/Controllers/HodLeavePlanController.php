@@ -64,7 +64,7 @@ class HodLeavePlanController extends Controller
 
         $departments = Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get();
 
-        return view('hod.leave-plans.calendar', $calendar->build(
+        $calendarData = $calendar->build(
             request: $request,
             query: $query,
             showRoute: 'hod.leave-plans.show',
@@ -74,7 +74,13 @@ class HodLeavePlanController extends Controller
             'departments' => $departments,
             'selectedDepartmentId' => $selectedDepartmentId,
             'attendanceCodes' => $this->leaveAttendanceCodes(),
-        ]);
+        ];
+
+        if ($request->query('calendar_fragment') === 'calendar') {
+            return view('shared.leave_plan_calendar', $calendarData);
+        }
+
+        return view('hod.leave-plans.calendar', $calendarData);
     }
 
     public function leaveEntitlements(Request $request, LeaveEntitlementService $entitlements)
