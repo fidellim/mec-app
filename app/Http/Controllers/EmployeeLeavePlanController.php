@@ -299,7 +299,7 @@ class EmployeeLeavePlanController extends Controller
         $date = $this->oldStartDate($request) ?? $leavePlan?->start_date ?? now();
         $year = (int) Carbon::parse($date)->year;
 
-        return $entitlements->visibleBalancesFor($request->user(), $year, $leavePlan?->id);
+        return $entitlements->visibleBalancesFor($request->user(), $year, $leavePlan?->id, $date);
     }
 
     private function oldStartDate(Request $request): ?Carbon

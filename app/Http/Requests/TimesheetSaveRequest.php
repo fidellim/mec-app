@@ -79,10 +79,10 @@ class TimesheetSaveRequest extends FormRequest
                         $validator->errors()->add("entries.$index.attendance_code", "$entryLabel needs an attendance code when hours are entered.");
                     }
 
-                    if (($regular > 0 || $overtime > 0) && is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode)) {
+                    if (($regular > 0 || $overtime > 0) && is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode, $entry['work_date'] ?? null)) {
                         $validator->errors()->add(
                             "entries.$index.attendance_code",
-                            $entitlements->eligibilityMessage($attendanceCode, $this->user()) ?? "$entryLabel has an attendance code that is not available for your profile.",
+                            $entitlements->eligibilityMessage($attendanceCode, $this->user(), $entry['work_date'] ?? null) ?? "$entryLabel has an attendance code that is not available for your profile.",
                         );
                     }
 

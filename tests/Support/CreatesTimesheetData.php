@@ -27,12 +27,21 @@ trait CreatesTimesheetData
 
     protected function userWithRole(string $role = 'employee', array $attributes = []): User
     {
-        return User::factory()->create(array_merge([
+        $userAttributes = array_merge([
             'role' => $role,
             'password' => Hash::make('password123'),
             'employee_code' => in_array($role, ['employee', 'hod'], true) ? 'MEC-HR-2026-'.self::$employeeCodeSequence++ : null,
             'is_active' => true,
-        ], $attributes));
+        ], $attributes);
+
+        if (in_array($role, ['employee', 'hod'], true)
+            && ! array_key_exists('joining_date', $attributes)
+            && is_string($userAttributes['employee_code'] ?? null)
+            && ! str_starts_with($userAttributes['employee_code'], 'MEC-PHIL-HR-')) {
+            $userAttributes['joining_date'] = now()->subYear()->toDateString();
+        }
+
+        return User::factory()->create($userAttributes);
     }
 
     protected function openPeriod(array $attributes = []): TimesheetPeriod

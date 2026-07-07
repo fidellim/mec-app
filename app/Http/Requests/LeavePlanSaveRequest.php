@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\LeavePlan;
 use App\Services\LeaveEntitlementService;
+use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -43,9 +44,10 @@ class LeavePlanSaveRequest extends FormRequest
 
             $entitlements = app(LeaveEntitlementService::class);
             $attendanceCode = $this->input('attendance_code');
+            $startDate = $this->filled('start_date') ? Carbon::parse($this->input('start_date')) : null;
 
-            if (is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode)) {
-                $validator->errors()->add('attendance_code', $entitlements->eligibilityMessage($attendanceCode, $this->user()) ?? 'This leave type is not available for your profile.');
+            if (is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode, $startDate)) {
+                $validator->errors()->add('attendance_code', $entitlements->eligibilityMessage($attendanceCode, $this->user(), $startDate) ?? 'This leave type is not available for your profile.');
 
                 return;
             }

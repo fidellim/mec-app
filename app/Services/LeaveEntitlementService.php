@@ -71,27 +71,35 @@ class LeaveEntitlementService
     {
     }
 
-    public function allowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
+    public function allowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): float
     {
-        return $this->claimableAllowanceFor($user, $year, $attendanceCode);
+        return $this->claimableAllowanceFor($user, $year, $attendanceCode, $asOf);
     }
 
-    public function claimableAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
+    public function claimableAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): float
     {
         $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
+
+        if ($this->usesUaeAnnualServiceAllowance($user, $year, $attendanceCode, $entitlement)) {
+            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
+        }
 
         return $entitlement
             ? (float) $entitlement->claimable_allowance_days
-            : $this->defaultClaimableAllowanceFor($user, $attendanceCode);
+            : $this->defaultClaimableAllowanceFor($user, $attendanceCode, $asOf);
     }
 
-    public function visibleAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
+    public function visibleAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): float
     {
         $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
 
+        if ($this->usesUaeAnnualServiceAllowance($user, $year, $attendanceCode, $entitlement)) {
+            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
+        }
+
         return $entitlement
             ? (float) $entitlement->allowance_days
-            : $this->visibleAllowanceFromClaimable($user, $attendanceCode, $this->defaultClaimableAllowanceFor($user, $attendanceCode));
+            : $this->visibleAllowanceFromClaimable($user, $attendanceCode, $this->defaultClaimableAllowanceFor($user, $attendanceCode, $asOf));
     }
 
     public function usedAnnualDaysByYear(User $user, ?int $excludeLeavePlanId = null): Collection
@@ -137,11 +145,11 @@ class LeaveEntitlementService
         return $this->daysByYearForPlan($leavePlan);
     }
 
-    public function balanceFor(User $user, int $year, ?int $excludeLeavePlanId = null, string $attendanceCode = self::ANNUAL_LEAVE_CODE): array
+    public function balanceFor(User $user, int $year, ?int $excludeLeavePlanId = null, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): array
     {
         $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
-        $allowance = (float) ($entitlement?->allowance_days ?? $this->visibleAllowanceFor($user, $year, $attendanceCode));
-        $claimableAllowance = (float) ($entitlement?->claimable_allowance_days ?? $this->claimableAllowanceFor($user, $year, $attendanceCode));
+        $allowance = (float) $this->visibleAllowanceFor($user, $year, $attendanceCode, $asOf);
+        $claimableAllowance = (float) $this->claimableAllowanceFor($user, $year, $attendanceCode, $asOf);
         $used = (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
         $isVisibleFullPayAllowance = $claimableAllowance > $allowance;
         $usesOverride = $entitlement?->source === LeaveEntitlement::SOURCE_USER_OVERRIDE;
@@ -158,7 +166,7 @@ class LeaveEntitlementService
             'claimable_remaining' => max(0.0, $claimableAllowance - $used),
             'allowance_label' => $isVisibleFullPayAllowance ? 'Full-pay allowance' : 'Allowance',
             'remaining_label' => $isVisibleFullPayAllowance ? 'Full-pay remaining' : 'Remaining',
-            'description' => null,
+            'description' => $this->balanceDescription($user, $attendanceCode),
             'pay_bands' => $payBands,
             'uses_override' => $usesOverride,
             'source' => $entitlement?->source ?? LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
@@ -168,13 +176,13 @@ class LeaveEntitlementService
         ];
     }
 
-    public function visibleBalancesFor(User $user, ?int $year = null, ?int $excludeLeavePlanId = null): array
+    public function visibleBalancesFor(User $user, ?int $year = null, ?int $excludeLeavePlanId = null, CarbonInterface|string|null $asOf = null): array
     {
         $year ??= (int) now()->year;
 
         $balances = collect($this->eligibleEntitledLeaveCodesFor($user))
-            ->mapWithKeys(function (string $attendanceCode) use ($user, $year, $excludeLeavePlanId) {
-                $balance = $this->formatBalance($this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode));
+            ->mapWithKeys(function (string $attendanceCode) use ($user, $year, $excludeLeavePlanId, $asOf) {
+                $balance = $this->formatBalance($this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode, $asOf));
 
                 return [$attendanceCode => $balance];
             });
@@ -265,13 +273,14 @@ class LeaveEntitlementService
             ->values();
     }
 
-    public function userIsEligibleFor(User $user, string $attendanceCode): bool
+    public function userIsEligibleFor(User $user, string $attendanceCode, CarbonInterface|string|null $asOf = null): bool
     {
         $region = $this->regionFor($user);
 
         return match ($attendanceCode) {
             self::ANNUAL_LEAVE_CODE,
-            self::SICK_LEAVE_CODE => $region !== 'ph',
+            self::SICK_LEAVE_CODE => $region !== 'ph'
+                && ($asOf === null || $this->uaeProbationCompleted($user, $this->asOfDate($asOf))),
             self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE => $region !== 'ph' && (
                 (bool) $user->eligible_for_bereavement_spouse_leave
                 || (bool) $user->eligible_for_bereavement_immediate_family_leave
@@ -298,9 +307,19 @@ class LeaveEntitlementService
         };
     }
 
-    public function eligibilityMessage(string $attendanceCode, ?User $user = null): ?string
+    public function eligibilityMessage(string $attendanceCode, ?User $user = null, CarbonInterface|string|null $asOf = null): ?string
     {
         $region = $user ? $this->regionFor($user) : null;
+
+        if ($user && $region === 'uae' && in_array($attendanceCode, [self::ANNUAL_LEAVE_CODE, self::SICK_LEAVE_CODE], true) && $asOf !== null) {
+            if (! $user->joining_date) {
+                return 'Joining date is required before UAE annual/sick leave eligibility can be calculated. Please contact HR or an admin.';
+            }
+
+            $availableDate = $this->uaeProbationCompletionDate($user)->toFormattedDateString();
+
+            return 'This leave type is available from '.$availableDate.', after six completed months of service.';
+        }
 
         return match ($attendanceCode) {
             self::MATERNITY_LEAVE_CODE => $region === 'ph'
@@ -340,7 +359,7 @@ class LeaveEntitlementService
 
         return $requestedByYear
             ->map(function (float $requested, int $year) use ($user, $usedByYear, $attendanceCode) {
-                $allowance = $this->claimableAllowanceFor($user, $year, $attendanceCode);
+                $allowance = $this->claimableAllowanceFor($user, $year, $attendanceCode, $attributes['start_date'] ?? null);
                 $used = (float) $usedByYear->get($year, 0.0);
                 $remaining = $allowance - $used;
 
@@ -595,12 +614,61 @@ class LeaveEntitlementService
         ];
     }
 
-    private function defaultClaimableAllowanceFor(User $user, string $attendanceCode): float
+    public function completedServiceMonths(User $user, CarbonInterface $asOf): int
+    {
+        if (! $user->joining_date) {
+            return 0;
+        }
+
+        $joiningDate = $user->joining_date instanceof CarbonInterface
+            ? $user->joining_date->copy()->startOfDay()
+            : Carbon::parse($user->joining_date)->startOfDay();
+        $asOfDate = $asOf->copy()->startOfDay();
+
+        if ($asOfDate->lt($joiningDate)) {
+            return 0;
+        }
+
+        return (int) floor($joiningDate->diffInMonths($asOfDate));
+    }
+
+    public function uaeProbationCompleted(User $user, CarbonInterface $asOf): bool
+    {
+        if ($this->regionFor($user) !== 'uae' || ! $user->joining_date) {
+            return false;
+        }
+
+        return $this->completedServiceMonths($user, $asOf) >= 6;
+    }
+
+    public function uaeAnnualAllowanceForService(User $user, CarbonInterface $asOf): float
+    {
+        $serviceMonths = $this->completedServiceMonths($user, $asOf);
+
+        if ($serviceMonths < 6) {
+            return 0.0;
+        }
+
+        if ($serviceMonths < 12) {
+            return (float) ($serviceMonths * 2);
+        }
+
+        return LeaveSetting::decimalValue(
+            $this->settingKeyFor($user, self::ANNUAL_LEAVE_CODE),
+            $this->fallbackAllowanceFor($user, self::ANNUAL_LEAVE_CODE),
+        );
+    }
+
+    private function defaultClaimableAllowanceFor(User $user, string $attendanceCode, CarbonInterface|string|null $asOf = null): float
     {
         if ($this->regionFor($user) === 'ph'
             && $attendanceCode === self::MATERNITY_LEAVE_CODE
             && (bool) $user->is_solo_parent) {
             return 120.0;
+        }
+
+        if ($this->regionFor($user) === 'uae' && $attendanceCode === self::ANNUAL_LEAVE_CODE) {
+            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
         }
 
         return LeaveSetting::decimalValue(
@@ -849,6 +917,45 @@ class LeaveEntitlementService
             : Carbon::parse($user->joining_date);
 
         return $joiningDate->copy()->addMonthsNoOverflow($months)->lte(now());
+    }
+
+    private function usesUaeAnnualServiceAllowance(User $user, int $year, string $attendanceCode, ?LeaveEntitlement $entitlement = null): bool
+    {
+        return $this->regionFor($user) === 'uae'
+            && $attendanceCode === self::ANNUAL_LEAVE_CODE
+            && ! ($year === (int) now()->year && $user->annual_leave_allowance_days !== null)
+            && $entitlement?->source !== LeaveEntitlement::SOURCE_USER_OVERRIDE;
+    }
+
+    private function uaeProbationCompletionDate(User $user): CarbonInterface
+    {
+        $joiningDate = $user->joining_date instanceof CarbonInterface
+            ? $user->joining_date->copy()
+            : Carbon::parse($user->joining_date);
+
+        return $joiningDate->addMonthsNoOverflow(6);
+    }
+
+    private function asOfDate(CarbonInterface|string|null $asOf): CarbonInterface
+    {
+        if ($asOf instanceof CarbonInterface) {
+            return $asOf;
+        }
+
+        if (is_string($asOf) && $asOf !== '') {
+            return Carbon::parse($asOf);
+        }
+
+        return now();
+    }
+
+    private function balanceDescription(User $user, string $attendanceCode): ?string
+    {
+        if ($this->regionFor($user) === 'uae' && $attendanceCode === self::ANNUAL_LEAVE_CODE) {
+            return 'Available after six months of service. Between six months and one year, entitlement is two working days per completed service month.';
+        }
+
+        return null;
     }
 
     private function usesCalendarDays(LeavePlan $leavePlan): bool

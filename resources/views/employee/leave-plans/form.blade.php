@@ -8,7 +8,7 @@
     : 'UAE sick and maternity leave use calendar days. Annual, parental, and bereavement leave use working leave days, and applicable holidays are excluded from leave usage.')
 @php($leaveBalanceDescription = $leaveRegion === 'ph'
     ? 'Philippines leave balances show available statutory entitlements only. Service incentive leave requires one year of service; maternity, paternity, parental, VAWC, and special leave for women require HR eligibility approval.'
-    : 'UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental and bereavement leave require HR eligibility approval, and bereavement is tracked by relationship.')
+    : 'UAE leave balances reset every January 1. Annual leave starts after six months of service at two working days per completed service month until one year; sick and maternity balances show full-pay allowance first.')
 @php($supportingDocumentNotes = [
     'L110' => 'Please add a link to your medical certificate in the Reason field.',
     'L160' => 'Please add a link to your medical certificate, birth certificate, or hospital notification in the Reason field.',

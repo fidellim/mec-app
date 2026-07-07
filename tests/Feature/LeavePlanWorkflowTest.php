@@ -1554,6 +1554,183 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSessionHasErrors('attendance_code');
     }
 
+    public function test_uae_annual_and_sick_leave_require_joining_date_for_submission(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-901',
+            'joining_date' => null,
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L100',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L110',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+    }
+
+    public function test_uae_annual_and_sick_leave_are_blocked_before_six_completed_months(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-902',
+            'joining_date' => '2026-01-10',
+        ]);
+
+        foreach (['L100', 'L110'] as $attendanceCode) {
+            $this->actingAs($employee)
+                ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                    'attendance_code' => $attendanceCode,
+                    'start_date' => '2026-07-09',
+                    'end_date' => '2026-07-09',
+                    'submit' => '1',
+                ]))
+                ->assertSessionHasErrors('attendance_code');
+        }
+    }
+
+    public function test_uae_employee_can_apply_while_on_probation_for_leave_starting_after_probation(): void
+    {
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-903',
+            'joining_date' => '2026-01-10',
+        ]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L100',
+                'start_date' => '2026-07-10',
+                'end_date' => '2026-07-10',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L110',
+                'start_date' => '2026-07-10',
+                'end_date' => '2026-07-10',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+    }
+
+    public function test_uae_annual_leave_uses_two_working_days_per_completed_service_month_before_one_year(): void
+    {
+        $department = $this->department();
+        $sixMonthEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-904',
+            'joining_date' => '2026-01-10',
+        ]);
+        $sevenMonthEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-905',
+            'joining_date' => '2026-01-10',
+        ]);
+        $elevenMonthEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-906',
+            'joining_date' => '2025-11-01',
+        ]);
+
+        $this->actingAs($sixMonthEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-07-10',
+                'end_date' => '2026-07-27',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($sixMonthEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-07-28',
+                'end_date' => '2026-07-28',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($sevenMonthEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-08-10',
+                'end_date' => '2026-08-27',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($sevenMonthEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-08-28',
+                'end_date' => '2026-08-28',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $elevenMonthBalance = app(\App\Services\LeaveEntitlementService::class)
+            ->balanceFor($elevenMonthEmployee, 2026, null, 'L100', '2026-10-01');
+
+        $this->assertSame(22.0, $elevenMonthBalance['claimable_allowance']);
+    }
+
+    public function test_uae_annual_leave_uses_default_after_one_year_and_current_year_override_still_wins(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 5]);
+
+        $department = $this->department();
+        $defaultEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-907',
+            'joining_date' => '2025-05-01',
+        ]);
+        $overrideEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-908',
+            'joining_date' => '2026-01-10',
+            'annual_leave_allowance_days' => 3,
+        ]);
+
+        $this->actingAs($defaultEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-07-06',
+                'end_date' => '2026-07-10',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($defaultEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-07-13',
+                'end_date' => '2026-07-13',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($overrideEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-07-10',
+                'end_date' => '2026-07-14',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($overrideEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'start_date' => '2026-07-15',
+                'end_date' => '2026-07-15',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+    }
+
     public function test_sick_leave_limit_blocks_submit_but_allows_draft(): void
     {
         LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 2]);
@@ -1924,7 +2101,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                 'attendance_code' => 'L110',
                 'start_date' => '2026-07-01',
-                'end_date' => '2026-09-13',
+                'end_date' => '2026-09-30',
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('attendance_code');
@@ -2057,7 +2234,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('L170 - Parental Leave')
             ->assertSee('L180 - Bereavement Leave')
             ->assertSee('UAE sick and maternity leave use calendar days. Annual, parental, and bereavement leave use working leave days, and applicable holidays are excluded from leave usage.')
-            ->assertSee('UAE leave balances reset every January 1. Sick and maternity balances show full-pay allowance first; parental and bereavement leave require HR eligibility approval, and bereavement is tracked by relationship.')
+            ->assertSee('UAE leave balances reset every January 1. Annual leave starts after six months of service at two working days per completed service month until one year; sick and maternity balances show full-pay allowance first.')
             ->assertDontSee('Philippines leave balances show available statutory entitlements only.')
             ->assertSee('Supporting document needed')
             ->assertSee('Please add a link to your medical certificate in the Reason field.')
