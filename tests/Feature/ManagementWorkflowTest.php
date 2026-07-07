@@ -871,6 +871,221 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('value="unassigned" selected', false);
     }
 
+    public function test_super_admin_can_filter_users_by_role(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'Role Filter Actor']);
+        $this->userWithRole('super_admin', ['name' => 'Other Role Super Admin']);
+        $this->userWithRole('employee', ['name' => 'Role Filter Employee']);
+        $this->userWithRole('hod', ['name' => 'Role Filter HOD']);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['role' => 'employee']))
+            ->assertOk()
+            ->assertSee('Role Filter Employee')
+            ->assertDontSee('Role Filter HOD')
+            ->assertDontSee('Other Role Super Admin')
+            ->assertSee('value="employee" selected', false)
+            ->assertSee('Role: Employee');
+    }
+
+    public function test_super_admin_can_filter_users_by_region(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $uaeUser = $this->userWithRole('employee', [
+            'name' => 'UAE Region Employee',
+            'employee_code' => 'MEC-HR-2026-801',
+        ]);
+        $mceUser = $this->userWithRole('employee', [
+            'name' => 'MCE Region Employee',
+            'employee_code' => 'MCE-HR-2026-802',
+        ]);
+        $phUser = $this->userWithRole('employee', [
+            'name' => 'PH Region Employee',
+            'employee_code' => 'MEC-PHIL-HR-2026-803',
+        ]);
+        $unknownUser = $this->userWithRole('employee', [
+            'name' => 'Unknown Region Employee',
+            'employee_code' => 'LEGACY-2026-804',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['region' => 'uae']))
+            ->assertOk()
+            ->assertSee($uaeUser->name)
+            ->assertSee($mceUser->name)
+            ->assertDontSee($phUser->name)
+            ->assertDontSee($unknownUser->name)
+            ->assertSee('Region: United Arab Emirates');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['region' => 'ph']))
+            ->assertOk()
+            ->assertSee($phUser->name)
+            ->assertDontSee($uaeUser->name)
+            ->assertDontSee($mceUser->name)
+            ->assertDontSee($unknownUser->name)
+            ->assertSee('Region: Philippines');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['region' => 'unknown']))
+            ->assertOk()
+            ->assertSee($unknownUser->name)
+            ->assertDontSee($uaeUser->name)
+            ->assertDontSee($mceUser->name)
+            ->assertDontSee($phUser->name)
+            ->assertSee('Region: Unknown');
+    }
+
+    public function test_super_admin_can_search_users_by_name(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $this->userWithRole('employee', ['name' => 'Amina Search Match']);
+        $this->userWithRole('employee', [
+            'name' => 'Other Search Employee',
+            'email' => 'amina.email.only@example.com',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['search' => 'Amina']))
+            ->assertOk()
+            ->assertSee('Amina Search Match')
+            ->assertDontSee('Other Search Employee')
+            ->assertDontSee('amina.email.only@example.com')
+            ->assertSee('Search: Amina');
+    }
+
+    public function test_super_admin_can_search_users_by_multiple_names(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $this->userWithRole('employee', ['name' => 'Multi Search First']);
+        $this->userWithRole('employee', ['name' => 'Multi Search Second']);
+        $this->userWithRole('employee', ['name' => 'Multi Search Hidden']);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', [
+                'search' => ['Multi Search First', 'Multi Search Second'],
+            ]))
+            ->assertOk()
+            ->assertSee('Multi Search First')
+            ->assertSee('Multi Search Second')
+            ->assertDontSee('Multi Search Hidden')
+            ->assertSee('Search: Multi Search First')
+            ->assertSee('Search: Multi Search Second');
+    }
+
+    public function test_user_name_lookup_returns_matching_user_names(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $this->userWithRole('employee', ['name' => 'Lookup Amina Match']);
+        $this->userWithRole('employee', ['name' => 'Lookup Other Employee']);
+
+        $response = $this->actingAs($superAdmin)
+            ->getJson(route('manage.users.index', ['user_lookup' => 1, 'q' => 'Amina']));
+
+        $response
+            ->assertOk()
+            ->assertJsonFragment(['value' => 'Lookup Amina Match', 'text' => 'Lookup Amina Match'])
+            ->assertJsonMissing(['value' => 'Lookup Other Employee', 'text' => 'Lookup Other Employee']);
+    }
+
+    public function test_user_name_lookup_searches_name_only(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $this->userWithRole('employee', ['name' => 'Lookup Name Match']);
+        $this->userWithRole('employee', [
+            'name' => 'Lookup Email Only',
+            'email' => 'lookup.name.match@example.com',
+        ]);
+
+        $response = $this->actingAs($superAdmin)
+            ->getJson(route('manage.users.index', ['user_lookup' => 1, 'q' => 'Name Match']));
+
+        $response
+            ->assertOk()
+            ->assertJsonFragment(['value' => 'Lookup Name Match', 'text' => 'Lookup Name Match'])
+            ->assertJsonMissing(['value' => 'Lookup Email Only', 'text' => 'Lookup Email Only']);
+    }
+
+    public function test_admin_user_name_lookup_excludes_super_admins(): void
+    {
+        $admin = $this->userWithRole('admin', ['name' => 'Lookup Visible Admin']);
+        $this->userWithRole('super_admin', ['name' => 'Lookup Hidden Super Admin']);
+        $this->userWithRole('employee', ['name' => 'Lookup Visible Employee']);
+
+        $response = $this->actingAs($admin)
+            ->getJson(route('manage.users.index', ['user_lookup' => 1, 'q' => 'Lookup']));
+
+        $response
+            ->assertOk()
+            ->assertJsonFragment(['value' => 'Lookup Visible Admin', 'text' => 'Lookup Visible Admin'])
+            ->assertJsonFragment(['value' => 'Lookup Visible Employee', 'text' => 'Lookup Visible Employee'])
+            ->assertJsonMissing(['value' => 'Lookup Hidden Super Admin', 'text' => 'Lookup Hidden Super Admin']);
+    }
+
+    public function test_user_filters_can_be_combined(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $operations = $this->department(['name' => 'Combined Operations']);
+        $engineering = $this->department(['name' => 'Combined Engineering']);
+        $this->userWithRole('employee', [
+            'name' => 'Morgan Combined Target',
+            'department_id' => $operations->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-811',
+        ]);
+        $this->userWithRole('employee', [
+            'name' => 'Morgan Wrong Region',
+            'department_id' => $operations->id,
+            'employee_code' => 'MEC-HR-2026-812',
+        ]);
+        $this->userWithRole('employee', [
+            'name' => 'Morgan Wrong Department',
+            'department_id' => $engineering->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-813',
+        ]);
+        $this->userWithRole('hod', [
+            'name' => 'Morgan Wrong Role',
+            'department_id' => $operations->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-814',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', [
+                'department_id' => $operations->id,
+                'role' => 'employee',
+                'region' => 'ph',
+                'search' => 'Morgan',
+            ]))
+            ->assertOk()
+            ->assertSee('Morgan Combined Target')
+            ->assertDontSee('Morgan Wrong Region')
+            ->assertDontSee('Morgan Wrong Department')
+            ->assertDontSee('Morgan Wrong Role')
+            ->assertSee('Department: Combined Operations')
+            ->assertSee('Role: Employee')
+            ->assertSee('Region: Philippines')
+            ->assertSee('Search: Morgan');
+    }
+
+    public function test_admin_user_filters_do_not_expose_super_admins(): void
+    {
+        $admin = $this->userWithRole('admin', ['name' => 'Visible Filter Admin']);
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'Hidden Filter Super Admin']);
+        $employee = $this->userWithRole('employee', ['name' => 'Visible Filter Employee']);
+
+        $this->actingAs($admin)
+            ->get(route('manage.users.index', ['role' => 'admin']))
+            ->assertOk()
+            ->assertSee($admin->name)
+            ->assertDontSee($superAdmin->name)
+            ->assertDontSee($employee->name);
+
+        $this->actingAs($admin)
+            ->from(route('manage.users.index'))
+            ->get(route('manage.users.index', ['role' => 'super_admin']))
+            ->assertRedirect(route('manage.users.index'))
+            ->assertSessionHasErrors('role');
+    }
+
     public function test_user_department_filter_rejects_invalid_department(): void
     {
         $superAdmin = $this->userWithRole('super_admin');
@@ -880,6 +1095,17 @@ class ManagementWorkflowTest extends TestCase
             ->get(route('manage.users.index', ['department_id' => '999999']))
             ->assertRedirect(route('manage.users.index'))
             ->assertSessionHasErrors('department_id');
+    }
+
+    public function test_user_filters_reject_invalid_role_and_region(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+
+        $this->actingAs($superAdmin)
+            ->from(route('manage.users.index'))
+            ->get(route('manage.users.index', ['role' => 'owner', 'region' => 'emea']))
+            ->assertRedirect(route('manage.users.index'))
+            ->assertSessionHasErrors(['role', 'region']);
     }
 
     public function test_database_seeder_can_be_rerun_without_duplicate_errors(): void

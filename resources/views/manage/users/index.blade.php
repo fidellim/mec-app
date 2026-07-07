@@ -5,6 +5,9 @@
 @php($genderLabels = ['male' => 'Male', 'female' => 'Female'])
 @php($maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'])
 @php($selectedDepartment = filled($selectedDepartmentId) && $selectedDepartmentId !== 'unassigned' ? $departments->firstWhere('id', (int) $selectedDepartmentId) : null)
+@php($selectedRoleLabel = filled($selectedRole) ? ($roleLabels[$selectedRole] ?? $selectedRole) : null)
+@php($selectedRegionLabel = filled($selectedRegion) ? ($regionLabels[$selectedRegion] ?? $selectedRegion) : null)
+@php($hasUserFilters = filled($selectedDepartmentId) || filled($selectedRole) || filled($selectedRegion) || filled($selectedSearchNames))
 <style>
     .users-filter-card {
         padding: 1rem;
@@ -16,6 +19,52 @@
         font-weight: 700;
         letter-spacing: .02em;
         text-transform: uppercase;
+    }
+
+    .users-filter-card .ts-wrapper.single .ts-control {
+        align-items: center;
+        flex-wrap: nowrap;
+        height: calc(2.25rem + 2px);
+        min-height: calc(2.25rem + 2px);
+        max-height: calc(2.25rem + 2px);
+        overflow: hidden;
+    }
+
+    .users-filter-card .ts-wrapper.single .ts-control .item {
+        flex: 1 1 auto;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .users-filter-card .ts-wrapper.single .ts-control input {
+        flex: 0 1 1rem;
+        min-width: 0;
+        width: 1rem !important;
+    }
+
+    .users-name-filter .ts-wrapper.multi .ts-control {
+        align-items: center;
+        flex-wrap: nowrap;
+        height: calc(2.25rem + 2px);
+        min-height: calc(2.25rem + 2px);
+        max-height: calc(2.25rem + 2px);
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+
+    .users-name-filter .ts-wrapper.multi .ts-control > div {
+        flex: 0 0 auto;
+        max-width: 100%;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .users-name-filter .ts-wrapper.multi .ts-control input {
+        flex: 0 0 13rem;
+        min-width: 13rem;
     }
 
     .users-current-view {
@@ -140,7 +189,26 @@
 
 <form class="filter-card users-filter-card mb-3" method="get" action="{{ route('manage.users.index') }}">
     <div class="row g-3 align-items-end">
-        <div class="col-12 col-lg-5">
+        <div class="col-12 col-lg-3 users-name-filter">
+            <label class="form-label" for="search">Search by name</label>
+            <select
+                class="form-select @error('search') is-invalid @enderror"
+                id="search"
+                name="search[]"
+                multiple
+                data-searchable="false"
+                data-user-lookup-url="{{ route('manage.users.index') }}"
+                placeholder="Search employees by name"
+            >
+                @foreach($selectedSearchNames as $selectedSearchName)
+                    <option value="{{ $selectedSearchName }}" selected>{{ $selectedSearchName }}</option>
+                @endforeach
+            </select>
+            @error('search')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
             <label class="form-label" for="department_id">Department</label>
             <select class="form-select @error('department_id') is-invalid @enderror" id="department_id" name="department_id">
                 <option value="">All departments</option>
@@ -155,10 +223,34 @@
                 <div class="invalid-feedback">{{ $message }}</div>
             @enderror
         </div>
+        <div class="col-12 col-md-6 col-lg-2">
+            <label class="form-label" for="role">Role</label>
+            <select class="form-select @error('role') is-invalid @enderror" id="role" name="role">
+                <option value="">All roles</option>
+                @foreach($visibleRoleLabels as $role => $label)
+                    <option value="{{ $role }}" @selected($selectedRole === $role)>{{ $label }}</option>
+                @endforeach
+            </select>
+            @error('role')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="col-12 col-md-6 col-lg-2">
+            <label class="form-label" for="region">Region</label>
+            <select class="form-select @error('region') is-invalid @enderror" id="region" name="region">
+                <option value="">All regions</option>
+                @foreach($regionLabels as $region => $label)
+                    <option value="{{ $region }}" @selected($selectedRegion === $region)>{{ $label }}</option>
+                @endforeach
+            </select>
+            @error('region')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
         <div class="col-12 col-lg-auto">
             <div class="users-filter-actions d-flex flex-wrap gap-2">
-                <button class="btn btn-primary" type="submit">Apply Filter</button>
-                @if(filled($selectedDepartmentId))
+                <button class="btn btn-primary" type="submit">Apply Filters</button>
+                @if($hasUserFilters)
                     <a class="btn btn-outline-secondary" href="{{ route('manage.users.index') }}">Clear</a>
                 @endif
             </div>
@@ -171,10 +263,8 @@
         <div>
             <div class="fw-semibold">Current view</div>
             <div class="text-muted small">
-                @if($selectedDepartmentId === 'unassigned')
-                    Showing users without a primary department.
-                @elseif(filled($selectedDepartmentId))
-                    Showing users assigned to {{ $selectedDepartment?->name ?? 'the selected department' }}.
+                @if($hasUserFilters)
+                    Showing users matching the selected filters.
                 @else
                     Showing all visible users.
                 @endif
@@ -185,9 +275,19 @@
                 <span class="badge filter-summary-badge px-3 py-2">Department: Unassigned</span>
             @elseif(filled($selectedDepartmentId))
                 <span class="badge filter-summary-badge px-3 py-2">Department: {{ $selectedDepartment?->name ?? 'Selected department' }}</span>
-            @else
-                <span class="badge filter-summary-badge px-3 py-2">No filters applied</span>
             @endif
+            @if(filled($selectedRole))
+                <span class="badge filter-summary-badge px-3 py-2">Role: {{ $selectedRoleLabel }}</span>
+            @endif
+            @if(filled($selectedRegion))
+                <span class="badge filter-summary-badge px-3 py-2">Region: {{ $selectedRegionLabel }}</span>
+            @endif
+            @foreach($selectedSearchNames as $selectedSearchName)
+                <span class="badge filter-summary-badge px-3 py-2">Search: {{ $selectedSearchName }}</span>
+            @endforeach
+            @unless($hasUserFilters)
+                <span class="badge filter-summary-badge px-3 py-2">No filters applied</span>
+            @endunless
             <span class="badge filter-summary-badge px-3 py-2">{{ $users->total() }} {{ \Illuminate\Support\Str::plural('user', $users->total()) }}</span>
         </div>
     </div>
@@ -208,6 +308,7 @@
                 @foreach($users as $user)
                     @php($assignedDepartments = $user->primaryDepartments->merge($user->managedDepartments)->unique('id')->values())
                     @php($displayInitials = $user->initials ?: \Illuminate\Support\Str::of($user->name)->explode(' ')->filter()->take(2)->map(fn ($part) => \Illuminate\Support\Str::substr($part, 0, 1))->join(''))
+                    @php($userRegion = \Illuminate\Support\Str::startsWith((string) $user->employee_code, 'MEC-PHIL-HR-') ? 'ph' : (\Illuminate\Support\Str::startsWith((string) $user->employee_code, ['MEC-HR-', 'MCE-HR-']) ? 'uae' : 'unknown'))
                     <tr>
                         <td>
                             <div class="users-identity">
@@ -218,6 +319,9 @@
                                     <div class="users-meta-line mt-1">
                                         <span class="users-meta-label">Employee</span>
                                         <span class="small">{{ $user->employee_code ?: '-' }}</span>
+                                        <span class="text-muted small">/</span>
+                                        <span class="users-meta-label">Region</span>
+                                        <span class="small">{{ $regionLabels[$userRegion] ?? 'Unknown' }}</span>
                                         <span class="text-muted small">/</span>
                                         <span class="users-meta-label">Initials</span>
                                         <span class="small">{{ $user->initials ?: '-' }}</span>
@@ -275,13 +379,7 @@
                 @endforeach
                 @if($users->isEmpty())
                     <tr>
-                        <td colspan="4" class="empty-state">
-                            @if(filled($selectedDepartmentId))
-                                No users match the selected department filter.
-                            @else
-                                No users are available for this view.
-                            @endif
-                        </td>
+                        <td colspan="4" class="empty-state">No users match the selected filters.</td>
                     </tr>
                 @endif
             </tbody>
@@ -336,3 +434,118 @@
 
 <div class="mt-3">{{ $users->links() }}</div>
 @endsection
+
+@push('scripts')
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const userSearchSelect = document.getElementById('search');
+
+        if (! userSearchSelect || ! window.TomSelect || userSearchSelect.tomselect) {
+            return;
+        }
+
+        const lookupState = {
+            query: '',
+            page: 0,
+            hasMore: true,
+            loading: false,
+        };
+
+        const fetchUserOptions = async (query, page) => {
+            const url = new URL(userSearchSelect.dataset.userLookupUrl, window.location.origin);
+            url.searchParams.set('user_lookup', '1');
+            url.searchParams.set('page', page);
+
+            if (query) {
+                url.searchParams.set('q', query);
+            }
+
+            const response = await fetch(url, {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+            });
+
+            if (! response.ok) {
+                throw new Error('User lookup failed.');
+            }
+
+            return response.json();
+        };
+
+        const userTomSelect = new TomSelect(userSearchSelect, {
+            allowEmptyOption: true,
+            create: false,
+            dropdownParent: 'body',
+            loadThrottle: 300,
+            maxItems: null,
+            maxOptions: null,
+            plugins: {
+                remove_button: {
+                    title: 'Remove selected user',
+                },
+            },
+            valueField: 'value',
+            labelField: 'text',
+            searchField: ['text'],
+            sortField: [{ field: '$order' }],
+            placeholder: userSearchSelect.getAttribute('placeholder') || 'Search employees by name',
+            shouldLoad: function () {
+                return true;
+            },
+            load: function (query, callback) {
+                lookupState.query = query;
+                lookupState.page = 1;
+                lookupState.loading = true;
+
+                fetchUserOptions(query, 1)
+                    .then((data) => {
+                        lookupState.hasMore = Boolean(data.has_more);
+                        callback(data.results || []);
+                    })
+                    .catch(() => callback())
+                    .finally(() => {
+                        lookupState.loading = false;
+                    });
+            },
+        });
+
+        const loadNextUserPage = async () => {
+            if (lookupState.loading || ! lookupState.hasMore) {
+                return;
+            }
+
+            lookupState.loading = true;
+
+            try {
+                const nextPage = lookupState.page + 1;
+                const data = await fetchUserOptions(lookupState.query, nextPage);
+
+                lookupState.page = data.page || nextPage;
+                lookupState.hasMore = Boolean(data.has_more);
+                (data.results || []).forEach((option) => userTomSelect.addOption(option));
+                userTomSelect.refreshOptions(false);
+            } catch (error) {
+                lookupState.hasMore = false;
+            } finally {
+                lookupState.loading = false;
+            }
+        };
+
+        userTomSelect.on('dropdown_open', function () {
+            if (lookupState.page === 0 && ! lookupState.loading) {
+                userTomSelect.load('');
+            }
+        });
+
+        userTomSelect.dropdown_content.addEventListener('scroll', function () {
+            const distanceFromBottom = this.scrollHeight - this.scrollTop - this.clientHeight;
+
+            if (distanceFromBottom < 80) {
+                loadNextUserPage();
+            }
+        });
+    });
+</script>
+@endpush

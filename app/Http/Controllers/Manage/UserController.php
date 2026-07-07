@@ -17,6 +17,24 @@ class UserController extends Controller
 {
     public function index(Request $request)
     {
+        $request->merge([
+            'search' => is_array($request->input('search'))
+                ? collect($request->input('search'))->map(fn ($value) => is_string($value) ? trim($value) : $value)->all()
+                : (is_string($request->input('search')) ? trim($request->input('search')) : $request->input('search')),
+        ]);
+        $visibleRoles = $request->user()->role === 'admin'
+            ? $this->adminViewableRoles()
+            : array_keys(config('roles.labels'));
+        $regionLabels = [
+            'uae' => 'United Arab Emirates',
+            'ph' => 'Philippines',
+            'unknown' => 'Unknown',
+        ];
+
+        if ($request->boolean('user_lookup')) {
+            return response()->json($this->userLookup($request, $visibleRoles));
+        }
+
         $filters = $request->validate([
             'department_id' => [
                 'nullable',
@@ -34,19 +52,71 @@ class UserController extends Controller
                     }
                 },
             ],
+            'role' => ['nullable', Rule::in($visibleRoles)],
+            'region' => ['nullable', Rule::in(array_keys($regionLabels))],
+            'search' => [
+                'nullable',
+                function (string $attribute, mixed $value, \Closure $fail) {
+                    if ($value === null || $value === '') {
+                        return;
+                    }
+
+                    $values = is_array($value) ? $value : [$value];
+
+                    foreach ($values as $name) {
+                        if (! is_string($name) || mb_strlen($name) > 100) {
+                            $fail('Select a valid user name.');
+
+                            return;
+                        }
+                    }
+                },
+            ],
         ]);
         $departmentFilter = $filters['department_id'] ?? null;
+        $roleFilter = $filters['role'] ?? null;
+        $regionFilter = $filters['region'] ?? null;
+        $searchFilter = $filters['search'] ?? null;
+        $selectedSearchNames = collect(is_array($searchFilter) ? $searchFilter : (filled($searchFilter) ? [$searchFilter] : []))
+            ->filter(fn ($value) => filled($value))
+            ->unique()
+            ->values()
+            ->all();
+        $searchLike = is_string($searchFilter) && filled($searchFilter) ? '%'.addcslashes($searchFilter, '\%_').'%' : null;
 
         return view('manage.users.index', [
             'users' => User::with(['department', 'primaryDepartments', 'managedDepartments'])
                 ->when($request->user()->role === 'admin', fn ($query) => $query->whereIn('role', $this->adminViewableRoles()))
                 ->when($departmentFilter === 'unassigned', fn ($query) => $query->whereNull('department_id'))
                 ->when(filled($departmentFilter) && $departmentFilter !== 'unassigned', fn ($query) => $query->where('department_id', $departmentFilter))
+                ->when(filled($roleFilter), fn ($query) => $query->where('role', $roleFilter))
+                ->when($regionFilter === 'uae', fn ($query) => $query->where(function ($query) {
+                    $query->where('employee_code', 'like', 'MEC-HR-%')
+                        ->orWhere('employee_code', 'like', 'MCE-HR-%');
+                }))
+                ->when($regionFilter === 'ph', fn ($query) => $query->where('employee_code', 'like', 'MEC-PHIL-HR-%'))
+                ->when($regionFilter === 'unknown', fn ($query) => $query->where(function ($query) {
+                    $query->whereNull('employee_code')
+                        ->orWhere('employee_code', '')
+                        ->orWhere(function ($query) {
+                            $query->where('employee_code', 'not like', 'MEC-HR-%')
+                                ->where('employee_code', 'not like', 'MCE-HR-%')
+                                ->where('employee_code', 'not like', 'MEC-PHIL-HR-%');
+                        });
+                }))
+                ->when(is_array($searchFilter) && filled($selectedSearchNames), fn ($query) => $query->whereIn('name', $selectedSearchNames))
+                ->when(! is_array($searchFilter) && filled($searchLike), fn ($query) => $query->where('name', 'like', $searchLike))
                 ->orderBy('name')
                 ->paginate(20)
                 ->withQueryString(),
             'departments' => Department::orderBy('name')->get(),
             'selectedDepartmentId' => $departmentFilter,
+            'selectedRole' => $roleFilter,
+            'selectedRegion' => $regionFilter,
+            'selectedSearch' => $searchFilter,
+            'selectedSearchNames' => $selectedSearchNames,
+            'visibleRoleLabels' => collect(config('roles.labels'))->only($visibleRoles),
+            'regionLabels' => $regionLabels,
             'replacementHods' => User::where('role', 'hod')
                 ->where('is_active', true)
                 ->orderBy('name')
@@ -397,6 +467,32 @@ class UserController extends Controller
         $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;
 
         return $data;
+    }
+
+    private function userLookup(Request $request, array $visibleRoles): array
+    {
+        $search = trim((string) $request->query('q', ''));
+        $page = max(1, (int) $request->query('page', 1));
+        $perPage = 50;
+        $searchLike = $search !== '' ? '%'.addcslashes($search, '\%_').'%' : null;
+
+        $users = User::query()
+            ->whereIn('role', $visibleRoles)
+            ->when($searchLike, fn ($query) => $query->where('name', 'like', $searchLike))
+            ->orderBy('name')
+            ->offset(($page - 1) * $perPage)
+            ->limit($perPage + 1)
+            ->get(['id', 'name'])
+            ->values();
+
+        return [
+            'results' => $users->take($perPage)->map(fn (User $user) => [
+                'value' => $user->name,
+                'text' => $user->name,
+            ])->all(),
+            'has_more' => $users->count() > $perPage,
+            'page' => $page,
+        ];
     }
 
     private function authorizeEditableUser(User $actor, User $target): void
