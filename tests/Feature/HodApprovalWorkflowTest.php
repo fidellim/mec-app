@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Mail\TimesheetWorkflowMail;
 use App\Mail\MissingTimesheetReminderMail;
+use App\Models\Timesheet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
@@ -81,6 +82,80 @@ class HodApprovalWorkflowTest extends TestCase
 
         $this->actingAs($hod)->get(route('hod.timesheets.show', $timesheet))->assertForbidden();
         $this->actingAs($hod)->post(route('hod.timesheets.approve', $timesheet))->assertForbidden();
+    }
+
+    public function test_transferred_employee_rejected_timesheet_resubmits_to_current_department(): void
+    {
+        Mail::fake();
+
+        $oldDepartment = $this->department(['name' => 'Old Timesheet Department']);
+        $newDepartment = $this->department(['name' => 'New Timesheet Department']);
+        $oldHod = $this->userWithRole('hod', ['department_id' => $oldDepartment->id]);
+        $newHod = $this->userWithRole('hod', ['department_id' => $newDepartment->id]);
+        $oldDepartment->update(['hod_id' => $oldHod->id]);
+        $newDepartment->update(['hod_id' => $newHod->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $oldDepartment->id]);
+        $project = $this->project();
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $project);
+
+        $employee->update(['department_id' => $newDepartment->id]);
+
+        $this->actingAs($oldHod)->get(route('hod.timesheets.show', $timesheet))->assertOk();
+        $this->actingAs($newHod)->get(route('hod.timesheets.show', $timesheet))->assertForbidden();
+
+        $this->actingAs($oldHod)
+            ->post(route('hod.timesheets.reject', $timesheet), ['rejection_comment' => 'Please correct department transfer week.'])
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->put(route('employee.timesheets.update', $timesheet), [
+                'timesheet_period_id' => $timesheet->timesheet_period_id,
+                'submit' => '1',
+                'entries' => $this->validEntries($project),
+            ])
+            ->assertRedirect(route('employee.timesheets.show', $timesheet));
+
+        $this->assertSame(Timesheet::STATUS_SUBMITTED, $timesheet->refresh()->status);
+        $this->assertSame($newDepartment->id, $timesheet->department_id);
+        $this->actingAs($oldHod)->post(route('hod.timesheets.approve', $timesheet))->assertForbidden();
+        $this->actingAs($newHod)->post(route('hod.timesheets.approve', $timesheet))->assertRedirect();
+        $this->assertSame(Timesheet::STATUS_APPROVED, $timesheet->refresh()->status);
+    }
+
+    public function test_transferred_employee_recalled_timesheet_resubmits_to_current_department(): void
+    {
+        Mail::fake();
+
+        $oldDepartment = $this->department(['name' => 'Old Recalled Department']);
+        $newDepartment = $this->department(['name' => 'New Recalled Department']);
+        $oldHod = $this->userWithRole('hod', ['department_id' => $oldDepartment->id]);
+        $newHod = $this->userWithRole('hod', ['department_id' => $newDepartment->id]);
+        $oldDepartment->update(['hod_id' => $oldHod->id]);
+        $newDepartment->update(['hod_id' => $newHod->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $oldDepartment->id]);
+        $project = $this->project();
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $project);
+
+        $this->actingAs($oldHod)->post(route('hod.timesheets.approve', $timesheet))->assertRedirect();
+        $employee->update(['department_id' => $newDepartment->id]);
+
+        $this->actingAs($oldHod)
+            ->post(route('hod.timesheets.recall-approved', $timesheet), ['recall_reason' => 'Transfer correction after approval.'])
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->put(route('employee.timesheets.update', $timesheet), [
+                'timesheet_period_id' => $timesheet->timesheet_period_id,
+                'submit' => '1',
+                'entries' => $this->validEntries($project),
+            ])
+            ->assertRedirect(route('employee.timesheets.show', $timesheet));
+
+        $this->assertSame(Timesheet::STATUS_SUBMITTED, $timesheet->refresh()->status);
+        $this->assertSame($newDepartment->id, $timesheet->department_id);
+        $this->actingAs($oldHod)->post(route('hod.timesheets.approve', $timesheet))->assertForbidden();
+        $this->actingAs($newHod)->post(route('hod.timesheets.approve', $timesheet))->assertRedirect();
+        $this->assertSame(Timesheet::STATUS_APPROVED, $timesheet->refresh()->status);
     }
 
     public function test_hod_can_review_and_approve_timesheets_for_managed_departments(): void

@@ -166,6 +166,7 @@ class EmployeeTimesheetController extends Controller
 
         DB::transaction(function () use ($request, $timesheet, $audit, $history, $old, $wasRejected, $wasRecalled) {
             $timesheet->update([
+                'department_id' => $request->user()->department_id,
                 'status' => $request->boolean('submit') ? 'submitted' : 'draft',
                 'submitted_at' => $request->boolean('submit') ? now() : $timesheet->submitted_at,
                 'rejection_comment' => $request->boolean('submit') ? null : $timesheet->rejection_comment,

@@ -10,6 +10,7 @@ use App\Models\LeavePlanApproverSetting;
 use App\Models\LeavePlanStatusHistory;
 use App\Models\LeaveSetting;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -2808,6 +2809,118 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($hod)
             ->get(route('hod.leave-plans.show', $leavePlan))
             ->assertForbidden();
+    }
+
+    public function test_transferred_employee_rejected_leave_plan_resubmits_to_current_department(): void
+    {
+        Mail::fake();
+
+        $oldDepartment = $this->department(['name' => 'Old Leave Department']);
+        $newDepartment = $this->department(['name' => 'New Leave Department']);
+        $oldHod = $this->userWithRole('hod', ['department_id' => $oldDepartment->id]);
+        $newHod = $this->userWithRole('hod', ['department_id' => $newDepartment->id]);
+        $oldDepartment->update(['hod_id' => $oldHod->id]);
+        $newDepartment->update(['hod_id' => $newHod->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $oldDepartment->id]);
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'submitted_at' => now(),
+        ]);
+
+        $employee->update(['department_id' => $newDepartment->id]);
+
+        $this->actingAs($oldHod)->get(route('hod.leave-plans.show', $leavePlan))->assertOk();
+        $this->actingAs($newHod)->get(route('hod.leave-plans.show', $leavePlan))->assertForbidden();
+
+        $this->actingAs($oldHod)
+            ->post(route('hod.leave-plans.reject', $leavePlan), ['rejection_comment' => 'Please correct after transfer.'])
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->put(route('employee.leave-plans.update', $leavePlan), $this->validLeavePlanPayload(['submit' => '1']))
+            ->assertRedirect(route('employee.leave-plans.show', $leavePlan));
+
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->refresh()->status);
+        $this->assertSame($newDepartment->id, $leavePlan->department_id);
+        $this->actingAs($oldHod)->post(route('hod.leave-plans.approve', $leavePlan))->assertForbidden();
+        $this->actingAs($newHod)->post(route('hod.leave-plans.approve', $leavePlan))->assertRedirect();
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->refresh()->approval_stage);
+    }
+
+    public function test_transferred_employee_recalled_leave_plan_resubmits_to_current_department(): void
+    {
+        Mail::fake();
+
+        $oldDepartment = $this->department(['name' => 'Old Recalled Leave Department']);
+        $newDepartment = $this->department(['name' => 'New Recalled Leave Department']);
+        $oldHod = $this->userWithRole('hod', ['department_id' => $oldDepartment->id]);
+        $newHod = $this->userWithRole('hod', ['department_id' => $newDepartment->id]);
+        $oldDepartment->update(['hod_id' => $oldHod->id]);
+        $newDepartment->update(['hod_id' => $newHod->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $oldDepartment->id]);
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approval_stage' => null,
+            'submitted_at' => now()->subDays(3),
+            'approved_at' => now()->subDay(),
+            'approved_by' => $oldHod->id,
+        ]);
+
+        $employee->update(['department_id' => $newDepartment->id]);
+
+        $this->actingAs($oldHod)
+            ->post(route('hod.leave-plans.recall-approved', $leavePlan), ['recall_reason' => 'Transfer correction after approval.'])
+            ->assertRedirect();
+
+        $this->actingAs($employee)
+            ->put(route('employee.leave-plans.update', $leavePlan), $this->validLeavePlanPayload(['submit' => '1']))
+            ->assertRedirect(route('employee.leave-plans.show', $leavePlan));
+
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->refresh()->status);
+        $this->assertSame($newDepartment->id, $leavePlan->department_id);
+        $this->actingAs($oldHod)->post(route('hod.leave-plans.approve', $leavePlan))->assertForbidden();
+        $this->actingAs($newHod)->post(route('hod.leave-plans.approve', $leavePlan))->assertRedirect();
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->refresh()->approval_stage);
+    }
+
+    public function test_transferred_employee_approved_leave_plan_cancellation_stays_with_original_department(): void
+    {
+        Mail::fake();
+
+        $oldDepartment = $this->department(['name' => 'Original Leave Approval Department']);
+        $newDepartment = $this->department(['name' => 'Current Leave Department']);
+        $oldHod = $this->userWithRole('hod', ['department_id' => $oldDepartment->id]);
+        $newHod = $this->userWithRole('hod', ['department_id' => $newDepartment->id]);
+        $oldDepartment->update(['hod_id' => $oldHod->id]);
+        $newDepartment->update(['hod_id' => $newHod->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $oldDepartment->id]);
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $oldDepartment->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approval_stage' => null,
+            'submitted_at' => now()->subDays(3),
+            'approved_at' => now()->subDay(),
+            'approved_by' => $oldHod->id,
+        ]);
+
+        $employee->update(['department_id' => $newDepartment->id]);
+
+        $this->actingAs($employee)
+            ->post(route('employee.leave-plans.cancel-request', $leavePlan), [
+                'cancellation_reason' => 'Plans changed after transfer.',
+            ])
+            ->assertRedirect();
+
+        $this->assertSame(LeavePlan::STATUS_CANCELLATION_REQUESTED, $leavePlan->refresh()->status);
+        $this->assertSame($oldDepartment->id, $leavePlan->department_id);
+        $this->actingAs($oldHod)->get(route('hod.leave-plans.show', $leavePlan))->assertOk();
+        $this->actingAs($newHod)->get(route('hod.leave-plans.show', $leavePlan))->assertForbidden();
     }
 
     public function test_approved_leave_plans_appear_on_timesheet_form_as_warning(): void
