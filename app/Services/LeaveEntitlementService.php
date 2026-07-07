@@ -981,7 +981,7 @@ class LeaveEntitlementService
     private function balanceDescription(User $user, string $attendanceCode): ?string
     {
         if ($this->regionFor($user) === 'uae' && $attendanceCode === self::ANNUAL_LEAVE_CODE) {
-            return 'Available after six months of service. Between six months and one year, entitlement is two working days per completed service month.';
+            return 'Annual leave starts after 6 months of service and accrues monthly until 1 year.';
         }
 
         return null;
