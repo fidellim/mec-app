@@ -363,9 +363,225 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame(2, $spreadsheet->getSheetCount());
         $this->assertSame('Project Weekly Summary', $spreadsheet->getSheet(0)->getTitle());
         $this->assertSame('Attendance Code Summary', $spreadsheet->getSheet(1)->getTitle());
+        $this->assertNull($spreadsheet->getSheetByName('Employee Rates'));
         $this->assertSame('G', $spreadsheet->getSheet(0)->getHighestColumn());
         $this->assertStringContainsString('Week 20, 2026', $spreadsheet->getSheet(0)->getCell('E4')->getValue());
         $this->assertSame('', (string) $spreadsheet->getSheet(0)->getCell('H4')->getValue());
+    }
+
+    public function test_admin_timesheet_index_supports_monthly_reporting_mode(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'filter_mode' => 'monthly',
+                'month' => 5,
+                'year' => 2026,
+            ]))
+            ->assertOk()
+            ->assertSee('Report mode')
+            ->assertSee('Monthly')
+            ->assertSee('Month')
+            ->assertSee('Monthly reports are summary-only and count only dates inside the selected calendar month.')
+            ->assertSee('Mode: Monthly')
+            ->assertSee('Month: May')
+            ->assertSee('May 2026');
+    }
+
+    public function test_hod_cannot_access_admin_monthly_timesheet_reporting(): void
+    {
+        $hod = $this->userWithRole('hod', ['department_id' => $this->department()->id]);
+
+        $this->actingAs($hod)
+            ->get(route('admin.timesheets.index', [
+                'filter_mode' => 'monthly',
+                'month' => 5,
+                'year' => 2026,
+            ]))
+            ->assertForbidden();
+    }
+
+    public function test_monthly_timesheet_export_only_counts_dates_inside_selected_month(): void
+    {
+        $department = $this->department(['name' => 'Monthly Reporting']);
+        $project = $this->project(['project_code' => 'MAY-100', 'project_name' => 'May Project']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Monthly Worker',
+            'employee_code' => 'EMP-MONTH',
+            'initials' => 'MW',
+            'job_title' => 'Planner',
+        ]);
+        $period = $this->openPeriod([
+            'week_number' => 18,
+            'start_date' => '2026-04-27',
+            'end_date' => '2026-05-03',
+        ]);
+        $timesheet = $this->submittedTimesheet($employee, $period, $project, ['status' => 'approved']);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-01',
+            'day_name' => 'Friday',
+            'attendance_code' => 'O100',
+            'project_id' => $project->id,
+            'regular_hours' => 4,
+            'overtime_hours' => 1,
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-02',
+            'day_name' => 'Saturday',
+            'attendance_code' => 'L100',
+            'project_id' => null,
+            'regular_hours' => 2,
+            'overtime_hours' => 0,
+        ]);
+
+        $admin = $this->userWithRole('admin');
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'filter_mode' => 'monthly',
+            'month' => 5,
+            'year' => 2026,
+            'include_employee_sheets' => 1,
+        ]));
+
+        $response->assertOk();
+        $this->assertStringContainsString('monthly_timesheet_report_2026_05_', $response->headers->get('content-disposition'));
+
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $this->assertSame(3, $spreadsheet->getSheetCount());
+
+        $projectSummary = $spreadsheet->getSheet(0);
+        $attendanceSummary = $spreadsheet->getSheet(1);
+        $employeeRates = $spreadsheet->getSheet(2);
+
+        $this->assertSame('Project Monthly Summary', $projectSummary->getTitle());
+        $this->assertSame('Attendance Code Summary', $attendanceSummary->getTitle());
+        $this->assertSame('Employee Rates', $employeeRates->getTitle());
+        $this->assertSame('K', $projectSummary->getHighestColumn());
+        $this->assertSame('N', $attendanceSummary->getHighestColumn());
+        $this->assertSame('Rate/Manhour', $employeeRates->getCell('E1')->getValue());
+        $this->assertSame('EMP-MONTH', $employeeRates->getCell('A2')->getValue());
+        $this->assertSame('MW', $employeeRates->getCell('B2')->getValue());
+        $this->assertSame('Monthly Worker', $employeeRates->getCell('C2')->getValue());
+        $this->assertSame('Planner', $employeeRates->getCell('D2')->getValue());
+        $this->assertSame('', (string) $employeeRates->getCell('E2')->getValue());
+        $this->assertStringContainsString('May 2026', $projectSummary->getCell('E4')->getValue());
+        $this->assertStringContainsString('01-May-26 to 31-May-26', $projectSummary->getCell('E4')->getValue());
+        $this->assertSame('EMP-MONTH', $projectSummary->getCell('A6')->getValue());
+        $this->assertSame('Rate/Manhour', $projectSummary->getCell('H5')->getValue());
+        $this->assertSame('Regular Cost', $projectSummary->getCell('I5')->getValue());
+        $this->assertSame('OT Cost', $projectSummary->getCell('J5')->getValue());
+        $this->assertSame('Total Cost', $projectSummary->getCell('K5')->getValue());
+        $this->assertEquals(4, $projectSummary->getCell('E6')->getCalculatedValue());
+        $this->assertEquals(1, $projectSummary->getCell('F6')->getCalculatedValue());
+        $this->assertEquals(5, $projectSummary->getCell('G6')->getCalculatedValue());
+        $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $projectSummary->getCell('H6')->getValue());
+        $this->assertSame('=IF(H6="","",E6*H6)', $projectSummary->getCell('I6')->getValue());
+        $this->assertSame('=IF(H6="","",F6*H6*1.25)', $projectSummary->getCell('J6')->getValue());
+        $this->assertSame('=IF(H6="","",G6*H6)', $projectSummary->getCell('K6')->getValue());
+        $this->assertEquals(4, $projectSummary->getCell('E7')->getCalculatedValue());
+        $this->assertEquals(1, $projectSummary->getCell('F7')->getCalculatedValue());
+        $this->assertEquals(5, $projectSummary->getCell('G7')->getCalculatedValue());
+        $this->assertSame('=SUM(I6:I6)', $projectSummary->getCell('I7')->getValue());
+        $this->assertSame('=SUM(J6:J6)', $projectSummary->getCell('J7')->getValue());
+        $this->assertSame('=SUM(K6:K6)', $projectSummary->getCell('K7')->getValue());
+
+        $this->assertSame('L100 - Annual Leave', $attendanceSummary->getCell('A3')->getValue());
+        $this->assertStringContainsString('May 2026', $attendanceSummary->getCell('H4')->getValue());
+        $this->assertSame('Rate/Manhour', $attendanceSummary->getCell('K5')->getValue());
+        $this->assertSame('Regular Cost', $attendanceSummary->getCell('L5')->getValue());
+        $this->assertSame('OT Cost', $attendanceSummary->getCell('M5')->getValue());
+        $this->assertSame('Total Cost', $attendanceSummary->getCell('N5')->getValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('H6')->getCalculatedValue());
+        $this->assertEquals(0, $attendanceSummary->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('J6')->getCalculatedValue());
+        $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $attendanceSummary->getCell('K6')->getValue());
+        $this->assertSame('=IF(K6="","",H6*K6)', $attendanceSummary->getCell('L6')->getValue());
+        $this->assertSame('=IF(K6="","",I6*K6*1.25)', $attendanceSummary->getCell('M6')->getValue());
+        $this->assertSame('=IF(K6="","",J6*K6)', $attendanceSummary->getCell('N6')->getValue());
+    }
+
+    public function test_monthly_timesheet_export_respects_project_status_and_employee_filters(): void
+    {
+        $department = $this->department();
+        $selectedProject = $this->project(['project_code' => 'MONTH-A']);
+        $otherProject = $this->project(['project_code' => 'MONTH-B']);
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Filtered Monthly Worker',
+            'employee_code' => 'EMP-FILTER-MONTH',
+        ]);
+        $otherEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'name' => 'Other Monthly Worker',
+        ]);
+        $period = $this->openPeriod([
+            'week_number' => 19,
+            'start_date' => '2026-05-04',
+            'end_date' => '2026-05-10',
+        ]);
+        $selectedTimesheet = $this->submittedTimesheet($employee, $period, $selectedProject, ['status' => 'approved']);
+        $otherProjectTimesheet = $this->submittedTimesheet($employee, $period, $otherProject, ['status' => 'approved']);
+        $this->submittedTimesheet($otherEmployee, $period, $selectedProject, ['status' => 'submitted']);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $selectedTimesheet->id,
+            'work_date' => '2026-05-05',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => $selectedProject->id,
+            'regular_hours' => 3,
+            'overtime_hours' => 0,
+        ]);
+
+        TimesheetEntry::create([
+            'timesheet_id' => $otherProjectTimesheet->id,
+            'work_date' => '2026-05-05',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => $otherProject->id,
+            'regular_hours' => 7,
+            'overtime_hours' => 0,
+        ]);
+
+        $admin = $this->userWithRole('admin');
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'filter_mode' => 'monthly',
+            'month' => 5,
+            'year' => 2026,
+            'project_id' => $selectedProject->id,
+            'employee_id' => $employee->id,
+            'status' => 'approved',
+        ]));
+
+        $response->assertOk();
+
+        $projectSummary = IOFactory::load($response->getFile()->getPathname())->getSheet(0);
+
+        $this->assertStringContainsString('MONTH-A', $projectSummary->getCell('A3')->getValue());
+        $this->assertStringNotContainsString('MONTH-B', $projectSummary->getCell('A3')->getValue());
+        $this->assertSame('Filtered Monthly Worker', $projectSummary->getCell('C6')->getValue());
+        $this->assertEquals(11, $projectSummary->getCell('E6')->getCalculatedValue());
+        $this->assertSame('Grand Total', $projectSummary->getCell('A9')->getValue());
+        $this->assertEquals(11, $projectSummary->getCell('E9')->getCalculatedValue());
+    }
+
+    public function test_monthly_timesheet_mode_rejects_not_submitted_status(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'filter_mode' => 'monthly',
+                'month' => 5,
+                'year' => 2026,
+                'status' => 'not_submitted',
+            ]))
+            ->assertSessionHasErrors(['status']);
     }
 
     public function test_admin_timesheet_export_requires_year_to_limit_summary_export_range(): void

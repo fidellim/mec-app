@@ -13,6 +13,7 @@ use App\Services\TimesheetExportService;
 use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetRecallService;
 use App\Services\TimesheetStatusHistoryService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
@@ -69,6 +70,8 @@ class AdminTimesheetController extends Controller
         }
 
         if (
+            ($filters['filter_mode'] ?? 'weekly') !== 'monthly'
+            &&
             filter_var($filters['include_employee_sheets'] ?? false, FILTER_VALIDATE_BOOL)
             && $export->matchingTimesheetCount($filters) > self::EMPLOYEE_SHEET_EXPORT_MAX_TIMESHEETS
         ) {
@@ -138,26 +141,44 @@ class AdminTimesheetController extends Controller
 
     private function filtered(array $filters)
     {
+        $monthly = ($filters['filter_mode'] ?? 'weekly') === 'monthly';
         $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
         $weekTo = $filters['week_to'] ?? $weekFrom;
+        $monthRange = $monthly ? $this->monthlyDateRange($filters) : null;
 
         return Timesheet::query()
-            ->when($weekFrom, fn ($q) => $q->whereHas('period', fn ($p) => $p->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo])))
-            ->when($filters['year'] ?? null, fn ($q, $v) => $q->whereHas('period', fn ($p) => $p->where('year', $v)))
+            ->when(! $monthly && $weekFrom, fn ($q) => $q->whereHas('period', fn ($p) => $p->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo])))
+            ->when(! $monthly && ($filters['year'] ?? null), fn ($q) => $q->whereHas('period', fn ($p) => $p->where('year', $filters['year'])))
+            ->when($monthly, fn ($q) => $q
+                ->whereHas('period', fn ($p) => $p
+                    ->whereDate('start_date', '<=', $monthRange['end']->toDateString())
+                    ->whereDate('end_date', '>=', $monthRange['start']->toDateString()))
+                ->whereHas('entries', fn ($entry) => $entry
+                    ->whereBetween('work_date', [
+                        $monthRange['start']->toDateString(),
+                        $monthRange['end']->toDateString(),
+                    ])))
             ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
             ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
             ->when($filters['role'] ?? null, fn ($q, $v) => $q->whereHas('user', fn ($user) => $user->where('role', $v)))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
-            ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry->where('project_id', $v)));
+            ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry
+                ->where('project_id', $v)
+                ->when($monthly, fn ($entry) => $entry->whereBetween('work_date', [
+                    $monthRange['start']->toDateString(),
+                    $monthRange['end']->toDateString(),
+                ]))));
     }
 
     private function validatedFilters(): array
     {
         $filters = request()->validate([
+            'filter_mode' => ['nullable', Rule::in(['weekly', 'monthly'])],
             'week_number' => ['nullable', 'integer', 'between:1,53'],
             'week_from' => ['nullable', 'integer', 'between:1,53', 'required_with:week_to'],
             'week_to' => ['nullable', 'integer', 'between:1,53', 'gte:week_from'],
-            'year' => ['nullable', 'integer', 'between:2000,2100', 'required_with:week_number,week_from,week_to'],
+            'month' => ['nullable', 'integer', 'between:1,12', 'required_if:filter_mode,monthly'],
+            'year' => ['nullable', 'integer', 'between:2000,2100', 'required_with:week_number,week_from,week_to', 'required_if:filter_mode,monthly'],
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'employee_id' => ['nullable', 'integer', 'exists:users,id'],
             'role' => ['nullable', Rule::in(array_keys(config('roles.labels')))],
@@ -168,8 +189,11 @@ class AdminTimesheetController extends Controller
             'week_from.required_with' => 'Enter From Week when using To Week.',
             'week_to.gte' => 'To Week must be greater than or equal to From Week.',
             'year.required_with' => 'Year is required when filtering by week.',
+            'month.required_if' => 'Select a month for monthly reporting.',
+            'year.required_if' => 'Year is required for monthly reporting.',
         ]);
 
+        $filters['filter_mode'] = $filters['filter_mode'] ?? 'weekly';
         $this->validateNotSubmittedFilters($filters);
         $this->validateWeekPeriodExists($filters);
 
@@ -182,6 +206,12 @@ class AdminTimesheetController extends Controller
             return;
         }
 
+        if (($filters['filter_mode'] ?? 'weekly') === 'monthly') {
+            throw ValidationException::withMessages([
+                'status' => 'Not Submitted is only available for weekly reporting. Select Weekly mode and a week/year to view missing submissions.',
+            ]);
+        }
+
         if (! ($filters['year'] ?? null) || ! (($filters['week_from'] ?? null) || ($filters['week_number'] ?? null))) {
             throw ValidationException::withMessages([
                 'week_from' => 'Select a week and year to view users who have not submitted.',
@@ -192,6 +222,10 @@ class AdminTimesheetController extends Controller
 
     private function validateWeekPeriodExists(array $filters): void
     {
+        if (($filters['filter_mode'] ?? 'weekly') === 'monthly') {
+            return;
+        }
+
         $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
 
         if (! $weekFrom || ! ($filters['year'] ?? null)) {
@@ -217,6 +251,21 @@ class AdminTimesheetController extends Controller
     {
         if (! ($filters['year'] ?? null)) {
             return null;
+        }
+
+        if (($filters['filter_mode'] ?? 'weekly') === 'monthly') {
+            $range = $this->monthlyDateRange($filters);
+
+            return [
+                'start_date' => $range['start'],
+                'end_date' => $range['end'],
+                'first_week' => null,
+                'last_week' => null,
+                'requested_week_from' => null,
+                'requested_week_to' => null,
+                'has_missing_weeks' => false,
+                'label' => $range['start']->format('F Y'),
+            ];
         }
 
         $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
@@ -246,6 +295,7 @@ class AdminTimesheetController extends Controller
     private function summaryPreviewState(array $filters, bool $showingNotSubmitted): array
     {
         $requested = request('preview') === 'summary';
+        $monthly = ($filters['filter_mode'] ?? 'weekly') === 'monthly';
         $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
         $weekTo = $filters['week_to'] ?? $weekFrom;
         $weekCount = $weekFrom && $weekTo ? ((int) $weekTo - (int) $weekFrom) + 1 : null;
@@ -259,6 +309,18 @@ class AdminTimesheetController extends Controller
 
         if ($showingNotSubmitted) {
             $state['message'] = 'Summary Report Preview is not available for Not Submitted status. Use submitted or approved records for report summaries.';
+
+            return $state;
+        }
+
+        if ($monthly) {
+            if (! ($filters['year'] ?? null) || ! ($filters['month'] ?? null)) {
+                $state['message'] = 'Select a Month and Year to enable Summary Report Preview.';
+
+                return $state;
+            }
+
+            $state['can_preview'] = true;
 
             return $state;
         }
@@ -282,6 +344,10 @@ class AdminTimesheetController extends Controller
 
     private function selectedPeriods(array $filters)
     {
+        if (($filters['filter_mode'] ?? 'weekly') === 'monthly') {
+            return collect();
+        }
+
         if (! ($filters['year'] ?? null)) {
             return collect();
         }
@@ -344,5 +410,15 @@ class AdminTimesheetController extends Controller
                 'query' => request()->query(),
             ]
         );
+    }
+
+    private function monthlyDateRange(array $filters): array
+    {
+        $start = CarbonImmutable::create((int) $filters['year'], (int) $filters['month'], 1)->startOfMonth();
+
+        return [
+            'start' => $start,
+            'end' => $start->endOfMonth(),
+        ];
     }
 }

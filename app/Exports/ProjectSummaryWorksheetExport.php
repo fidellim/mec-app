@@ -16,13 +16,16 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithEvents, WithTitle
 {
-    public function __construct(private readonly Collection $rows)
+    public function __construct(
+        private readonly Collection $rows,
+        private readonly string $reportMode = 'weekly'
+    )
     {
     }
 
     public function title(): string
     {
-        return 'Project Weekly Summary';
+        return $this->reportMode === 'monthly' ? 'Project Monthly Summary' : 'Project Weekly Summary';
     }
 
     public function view(): View
@@ -43,6 +46,9 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
             'totalRegular' => $this->rows->sum('regular_hours'),
             'totalOvertime' => $this->rows->sum('overtime_hours'),
             'totalHours' => $this->rows->sum('total_hours'),
+            'reportTitle' => $this->title(),
+            'showCosting' => $this->showCosting(),
+            'periodColumnSpan' => $this->periodColumnCount(),
         ];
     }
 
@@ -262,7 +268,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                     'key' => $this->weekKey($first),
                     'number' => $first['week_number'],
                     'year' => $first['year'],
-                    'label' => 'Week '.$first['week_number'].', '.$first['year'],
+                    'label' => $first['period_label'] ?? 'Week '.$first['week_number'].', '.$first['year'],
                     'dates' => $first['week_start']->format('d-M-y').' to '.$first['week_end']->format('d-M-y'),
                 ];
             })
@@ -333,7 +339,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
         $maxWeekCount = $weeks->count() ?: 1;
         $rangeTotalColumns = $this->showRangeTotals($weeks) ? 3 : 0;
 
-        return max(7, 4 + ($maxWeekCount * 3) + $rangeTotalColumns);
+        return max(7, 4 + ($maxWeekCount * $this->periodColumnCount()) + $rangeTotalColumns);
     }
 
     private function lastColumn(): string
@@ -438,10 +444,10 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
         $ranges = [];
         $groupCount = $this->weeks($this->rows)->count();
 
-        for ($column = 5; $column < 5 + ($groupCount * 3); $column += 3) {
+        for ($column = 5; $column < 5 + ($groupCount * $this->periodColumnCount()); $column += $this->periodColumnCount()) {
             $ranges[] = [
                 Coordinate::stringFromColumnIndex($column),
-                Coordinate::stringFromColumnIndex($column + 2),
+                Coordinate::stringFromColumnIndex($column + $this->periodColumnCount() - 1),
             ];
         }
 
@@ -463,7 +469,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
             return null;
         }
 
-        $startColumnIndex = 5 + ($weeks->count() * 3);
+        $startColumnIndex = 5 + ($weeks->count() * $this->periodColumnCount());
 
         return [
             Coordinate::stringFromColumnIndex($startColumnIndex),
@@ -476,8 +482,22 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
         return $weeks->count() > 1;
     }
 
+    private function showCosting(): bool
+    {
+        return $this->reportMode === 'monthly';
+    }
+
+    private function periodColumnCount(): int
+    {
+        return $this->showCosting() ? 7 : 3;
+    }
+
     private function weekKey(array $row): string
     {
+        if (isset($row['period_key'])) {
+            return $row['period_key'];
+        }
+
         return $row['year'].'-'.$row['week_number'].'-'.$row['week_start']->toDateString();
     }
 

@@ -2,9 +2,11 @@
 
 @section('content')
 @php
+    $filterMode = request('filter_mode', 'weekly') === 'monthly' ? 'monthly' : 'weekly';
     $weekFrom = request('week_from', request('week_number'));
     $weekTo = request('week_to', $weekFrom);
-    $hasVisibleFilters = $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request()->boolean('include_employee_sheets');
+    $selectedMonth = request('month', now()->month);
+    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request()->boolean('include_employee_sheets');
 @endphp
 <style>
     .summary-preview-info-button {
@@ -32,11 +34,24 @@
         mask: url("{{ asset('images/status/info-icon.svg') }}") center / contain no-repeat;
         -webkit-mask: url("{{ asset('images/status/info-icon.svg') }}") center / contain no-repeat;
     }
+    .report-mode-control {
+        border: 1px solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+        padding: .35rem;
+        background: color-mix(in srgb, var(--bs-body-bg) 88%, var(--bs-tertiary-bg));
+    }
+    .report-mode-control .btn {
+        border: 0;
+    }
+    .report-mode-control .btn:not(.active) {
+        color: var(--bs-secondary-color);
+        background: transparent;
+    }
 </style>
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">All Timesheets</h1>
-        <div class="text-muted">Filter, review, and export submitted weekly records.</div>
+        <div class="text-muted">Filter, review, and export weekly records or monthly management summaries.</div>
     </div>
     @unless($showingNotSubmitted)
         <div class="action-group">
@@ -51,30 +66,52 @@
     @endunless
 </div>
 <form class="filter-card mb-3 row g-2">
-    <div class="col-md-2">
+    <div class="col-12">
+        <label class="form-label small text-muted d-block">Report mode</label>
+        <div class="btn-group report-mode-control" role="group" aria-label="Report mode">
+            <input class="btn-check" type="radio" name="filter_mode" id="filter_mode_weekly" value="weekly" @checked($filterMode === 'weekly')>
+            <label class="btn btn-sm btn-outline-primary @if($filterMode === 'weekly') active @endif" for="filter_mode_weekly">Weekly</label>
+            <input class="btn-check" type="radio" name="filter_mode" id="filter_mode_monthly" value="monthly" @checked($filterMode === 'monthly')>
+            <label class="btn btn-sm btn-outline-primary @if($filterMode === 'monthly') active @endif" for="filter_mode_monthly">Monthly</label>
+        </div>
+        @error('filter_mode')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+    </div>
+    <div class="col-md-2" data-weekly-filter>
         <label class="form-label small text-muted" for="week_from">From Week</label>
         <input id="week_from" class="form-control @error('week_from') is-invalid @enderror" name="week_from" placeholder="e.g. 12" value="{{ old('week_from', request('week_from', request('week_number'))) }}">
         @error('week_from')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
-    <div class="col-md-2">
+    <div class="col-md-2" data-weekly-filter>
         <label class="form-label small text-muted" for="week_to">To Week <span class="fw-normal">(optional)</span></label>
         <input id="week_to" class="form-control @error('week_to') is-invalid @enderror" name="week_to" placeholder="e.g. 15" value="{{ old('week_to', request('week_to')) }}">
         <div class="form-text">Leave blank to view one week.</div>
         @error('week_to')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
-    <div class="col-md-2"><label class="form-label small text-muted" for="year">Year</label><input id="year" class="form-control" name="year" placeholder="Year" value="{{ request('year') }}"></div>
+    <div class="col-md-2" data-monthly-filter>
+        <label class="form-label small text-muted" for="month">Month</label>
+        <select id="month" class="form-select @error('month') is-invalid @enderror" name="month">
+            @foreach(range(1, 12) as $monthNumber)
+                <option value="{{ $monthNumber }}" @selected((int) old('month', $selectedMonth) === $monthNumber)>{{ \Carbon\CarbonImmutable::create(2026, $monthNumber, 1)->format('F') }}</option>
+            @endforeach
+        </select>
+        @error('month')<div class="invalid-feedback">{{ $message }}</div>@enderror
+    </div>
+    <div class="col-md-2"><label class="form-label small text-muted" for="year">Year</label><input id="year" class="form-control @error('year') is-invalid @enderror" name="year" placeholder="Year" value="{{ request('year') }}">@error('year')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
     <div class="col-md-3"><label class="form-label small text-muted" for="project_id">Project</label><select id="project_id" class="form-select" name="project_id"><option value="">All projects</option>@foreach($projects as $project)<option value="{{ $project->id }}" @selected(request('project_id') == $project->id)>{{ $project->project_code }} - {{ $project->project_name }}</option>@endforeach</select></div>
     <div class="col-md-3"><label class="form-label small text-muted" for="department_id">Department</label><select id="department_id" class="form-select" name="department_id"><option value="">All departments</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(request('department_id') == $department->id)>{{ $department->name }}</option>@endforeach</select></div>
     <div class="col-md-3"><label class="form-label small text-muted" for="employee_id">User</label><select id="employee_id" class="form-select" name="employee_id"><option value="">All users</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected(request('employee_id') == $employee->id)>{{ $employee->name }}</option>@endforeach</select></div>
     <div class="col-md-2"><label class="form-label small text-muted" for="role">Role</label><select id="role" class="form-select" name="role"><option value="">All roles</option>@foreach($roleLabels as $role => $label)<option value="{{ $role }}" @selected(request('role') === $role)>{{ $label }}</option>@endforeach</select></div>
     <div class="col-md-2"><label class="form-label small text-muted" for="status">Status</label><select id="status" class="form-select" name="status"><option value="">All statuses</option>@foreach(['draft' => 'Draft','submitted' => 'Submitted','approved' => 'Approved','rejected' => 'Rejected','withdrawn' => 'Withdrawn','recalled' => 'Recalled','voided' => 'Voided','not_submitted' => 'Not Submitted'] as $status => $label)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $label }}</option>@endforeach</select></div>
-    <div class="col-md-4 d-flex align-items-end">
+    <div class="col-md-4 d-flex align-items-end" data-weekly-filter>
         <div class="form-check mb-2">
             <input type="hidden" name="include_employee_sheets" value="0">
             <input class="form-check-input" type="checkbox" id="include_employee_sheets" name="include_employee_sheets" value="1" @checked(request()->boolean('include_employee_sheets'))>
             <label class="form-check-label" for="include_employee_sheets">Include individual employee timesheet sheets</label>
             <div class="form-text">Leave unchecked for a faster summary export. Individual sheets are limited to 250 matching timesheets.</div>
         </div>
+    </div>
+    <div class="col-md-4 d-flex align-items-end" data-monthly-filter>
+        <div class="text-muted small mb-2">Monthly reports are summary-only and count only dates inside the selected calendar month.</div>
     </div>
     <div class="col-12 text-end">
         <div class="d-inline-flex gap-2">
@@ -104,7 +141,13 @@
             </div>
             <div class="text-muted small">
                 @if($selectedPeriodRange)
-                    Showing configured dates from
+                    @if($filterMode === 'monthly')
+                        Showing monthly reporting dates for
+                        <span class="fw-semibold text-body">{{ $selectedPeriodRange['label'] }}</span>,
+                        from
+                    @else
+                        Showing configured dates from
+                    @endif
                     <span class="fw-semibold text-body">{{ $selectedPeriodRange['start_date']->format('M j, Y') }}</span>
                     to
                     <span class="fw-semibold text-body">{{ $selectedPeriodRange['end_date']->format('M j, Y') }}</span>.
@@ -121,10 +164,14 @@
             </div>
         </div>
         <div class="d-flex flex-wrap align-items-start justify-content-lg-end gap-2">
+            <span class="badge filter-summary-badge px-3 py-2">Mode: {{ ucfirst($filterMode) }}</span>
             @if($weekFrom)
                 <span class="badge filter-summary-badge px-3 py-2">
                     Week: {{ $weekTo && $weekTo !== $weekFrom ? $weekFrom.' to '.$weekTo : $weekFrom }}
                 </span>
+            @endif
+            @if($filterMode === 'monthly' && request('month'))
+                <span class="badge filter-summary-badge px-3 py-2">Month: {{ \Carbon\CarbonImmutable::create(2026, (int) request('month'), 1)->format('F') }}</span>
             @endif
             @if(request('year'))
                 <span class="badge filter-summary-badge px-3 py-2">Year: {{ request('year') }}</span>
@@ -185,6 +232,28 @@
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         const exportButton = document.getElementById('timesheetExportButton');
+        const weeklyFilters = document.querySelectorAll('[data-weekly-filter]');
+        const monthlyFilters = document.querySelectorAll('[data-monthly-filter]');
+        const modeInputs = document.querySelectorAll('input[name="filter_mode"]');
+
+        function syncReportMode() {
+            const mode = document.querySelector('input[name="filter_mode"]:checked')?.value || 'weekly';
+            weeklyFilters.forEach((filter) => {
+                filter.classList.toggle('d-none', mode !== 'weekly');
+                filter.querySelectorAll('input, select').forEach((input) => {
+                    input.disabled = mode !== 'weekly';
+                });
+            });
+            monthlyFilters.forEach((filter) => {
+                filter.classList.toggle('d-none', mode !== 'monthly');
+                filter.querySelectorAll('input, select').forEach((input) => {
+                    input.disabled = mode !== 'monthly';
+                });
+            });
+        }
+
+        modeInputs.forEach((input) => input.addEventListener('change', syncReportMode));
+        syncReportMode();
 
         if (! exportButton) {
             return;

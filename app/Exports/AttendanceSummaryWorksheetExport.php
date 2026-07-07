@@ -16,7 +16,10 @@ use PhpOffice\PhpSpreadsheet\Style\Fill;
 
 class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, WithEvents, WithTitle
 {
-    public function __construct(private readonly Collection $rows)
+    public function __construct(
+        private readonly Collection $rows,
+        private readonly string $reportMode = 'weekly'
+    )
     {
     }
 
@@ -43,6 +46,9 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
             'totalRegular' => $this->rows->sum('regular_hours'),
             'totalOvertime' => $this->rows->sum('overtime_hours'),
             'totalHours' => $this->rows->sum('total_hours'),
+            'reportTitle' => $this->title(),
+            'showCosting' => $this->showCosting(),
+            'periodColumnSpan' => $this->periodColumnCount(),
         ];
     }
 
@@ -214,7 +220,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                     'key' => $this->weekKey($first),
                     'number' => $first['week_number'],
                     'year' => $first['year'],
-                    'label' => 'Week '.$first['week_number'].', '.$first['year'],
+                    'label' => $first['period_label'] ?? 'Week '.$first['week_number'].', '.$first['year'],
                     'dates' => $first['week_start']->format('d-M-y').' to '.$first['week_end']->format('d-M-y'),
                 ];
             })
@@ -289,7 +295,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         $weekCount = $weeks->count() ?: 1;
         $rangeTotalColumns = $this->showRangeTotals($weeks) ? 3 : 0;
 
-        return max(10, 7 + ($weekCount * 3) + $rangeTotalColumns);
+        return max(10, 7 + ($weekCount * $this->periodColumnCount()) + $rangeTotalColumns);
     }
 
     private function lastColumn(): string
@@ -392,10 +398,10 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         $ranges = [];
         $weekCount = $this->weeks($this->rows)->count();
 
-        for ($column = 8; $column < 8 + ($weekCount * 3); $column += 3) {
+        for ($column = 8; $column < 8 + ($weekCount * $this->periodColumnCount()); $column += $this->periodColumnCount()) {
             $ranges[] = [
                 Coordinate::stringFromColumnIndex($column),
-                Coordinate::stringFromColumnIndex($column + 2),
+                Coordinate::stringFromColumnIndex($column + $this->periodColumnCount() - 1),
             ];
         }
 
@@ -417,7 +423,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
             return null;
         }
 
-        $startColumnIndex = 8 + ($weeks->count() * 3);
+        $startColumnIndex = 8 + ($weeks->count() * $this->periodColumnCount());
 
         return [
             Coordinate::stringFromColumnIndex($startColumnIndex),
@@ -465,8 +471,22 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         return $weeks->count() > 1;
     }
 
+    private function showCosting(): bool
+    {
+        return $this->reportMode === 'monthly';
+    }
+
+    private function periodColumnCount(): int
+    {
+        return $this->showCosting() ? 7 : 3;
+    }
+
     private function weekKey(array $row): string
     {
+        if (isset($row['period_key'])) {
+            return $row['period_key'];
+        }
+
         return $row['year'].'-'.$row['week_number'].'-'.$row['week_start']->toDateString();
     }
 }

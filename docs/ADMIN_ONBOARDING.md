@@ -56,7 +56,7 @@ The **Admin Dashboard** shows:
 ## All Timesheets
 
 1. Go to **All Timesheets**.
-2. Filter by week range, year, project, department, user, role, or status.
+2. Choose **Weekly** or **Monthly** report mode, then filter by week range or month, year, project, department, user, role, or status.
 3. Select **Apply Filters**.
 4. Select **View** to open a timesheet.
 5. Use **Summary Report Preview** to review summary totals in the portal when the selected week range is 1 to 6 weekly periods.
@@ -64,7 +64,7 @@ The **Admin Dashboard** shows:
 
 Use the **Role** filter to focus on Employees, Heads of Department, Admins, or Super Admins.
 
-Use **Status: Not Submitted** with a week and year to show active department-assigned users who do not have a submitted or approved timesheet for that weekly period. This is useful for checking whether Heads of Department, Admins, or Super Admins assigned to departments still need to submit their own timesheets.
+Use **Status: Not Submitted** with Weekly mode, a week, and a year to show active department-assigned users who do not have a submitted or approved timesheet for that weekly period. This is useful for checking whether Heads of Department, Admins, or Super Admins assigned to departments still need to submit their own timesheets.
 
 ## HOD Timesheets
 
@@ -192,10 +192,11 @@ If you are not assigned to a department, MEC Group Portal disables timesheet cre
 Admins can export from **All Timesheets**.
 
 1. Go to **All Timesheets**.
-2. Apply filters for week range, year, project, department, user, role, or status if needed.
-3. Leave **Include individual employee timesheet sheets** unchecked for a faster summary-only workbook, or check it when detailed employee sheets are needed.
-4. Select **Summary Report Preview** when you want to check the Project Weekly Summary and Attendance Code Summary before downloading.
-5. Select **Export Excel**.
+2. Choose **Weekly** for normal weekly reports or **Monthly** for management summaries.
+3. Apply filters for week range or month, year, project, department, user, role, or status if needed.
+4. Leave **Include individual employee timesheet sheets** unchecked for a faster weekly summary-only workbook, or check it when detailed weekly employee sheets are needed. Monthly reports are always summary-only.
+5. Select **Summary Report Preview** when you want to check the Project Summary and Attendance Code Summary before downloading.
+6. Select **Export Excel**.
 
 Week range rules:
 
@@ -205,11 +206,20 @@ Week range rules:
 - **Year** is required when filtering by week.
 - The selected week or range must exist in the weekly periods for that year.
 
+Monthly report rules:
+
+- Monthly reports are for management reporting only; weekly timesheets remain the submission and approval unit.
+- A monthly report includes only timesheet entry dates inside the selected calendar month.
+- If a weekly period crosses into the previous or next month, dates outside the selected month are excluded from the monthly totals.
+- Monthly workbooks include an **Employee Rates** sheet. Paste each employee's **Rate/Manhour** there to automatically calculate regular, overtime, and total cost columns in the monthly summary sheets.
+- **Status: Not Submitted** is a weekly-period view and is not available in Monthly mode.
+
 The export includes:
 
-- A **Project Weekly Summary** worksheet grouped by project with exported weeks shown as columns.
+- A **Project Weekly Summary** worksheet for Weekly mode, or a **Project Monthly Summary** worksheet for Monthly mode, grouped by project with exported periods shown as columns.
 - An **Attendance Code Summary** worksheet for leave and other non-project hours.
-- Optional individual employee weekly timesheet worksheets.
+- An **Employee Rates** worksheet in Monthly mode for manually entering employee rate/manhour values used by the workbook formulas.
+- Optional individual employee weekly timesheet worksheets in Weekly mode only.
 - Employee ID, initials, employee name, job title, weekly regular hours, weekly overtime hours, weekly total hours, and project totals in the summary.
 - Job title, regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks in the individual timesheet worksheets.
 
