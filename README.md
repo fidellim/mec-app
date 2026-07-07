@@ -60,7 +60,7 @@ password123
 - Admin: view all timesheets, filter records, monitor dashboard summaries, export, approve/reject Employee and Head of Department timesheets, and recall approved Employee and Head of Department timesheets. Admin cannot approve, reject, or recall their own timesheet.
 - Admin: view and review all leave plans, use the all-company leave calendar, approve/reject leave plans and cancellation requests, and receive no self-approval ability.
 - Admin: view company leave entitlements, maintain company holidays, view users, and edit Employee/HOD profile details. Admin cannot create users, delete users, change roles, manage departments, manage projects, manage weekly periods, manage leave settings, manage automations, or delete audit logs.
-- Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, track missing submissions, and view managed-department leave entitlements. Head of Department cannot approve, reject, or recall their own timesheet.
+- Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, and track missing submissions. Head of Department cannot approve, reject, or recall their own timesheet.
 - Head of Department: view leave plans and the leave calendar for managed departments, approve/reject submitted leave plans, and review cancellation requests. Head of Department cannot approve or reject their own leave plan.
 - Director and regional HR leave approvers use **Assigned Leave Plans** for staged leave approvals when they are configured in **Leave Approvers**. This menu can appear for any active user assigned to a Director, UAE HR, or Philippines HR approval slot.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, withdraw submitted timesheets before approval, edit draft/rejected/withdrawn/recalled timesheets, and resubmit corrected records.
@@ -154,7 +154,7 @@ Super Admin users can edit an existing HOD user and configure exceptions for spe
 
 - **Notification exclusion** stops email notifications for the selected HOD/user pair only. The HOD can still view, approve, reject, recall, and review cancellation requests where their normal HOD role allows it.
 - **Approval exclusion** stops approval-request emails and prevents that HOD from approving, rejecting, recalling, approving cancellation, or rejecting cancellation for the selected user.
-- **Visibility exclusion** hides the selected user's records from that HOD's managed-department timesheet, tracker, leave-plan, calendar, and leave-entitlement pages. It also prevents direct HOD action on that user's records.
+- **Visibility exclusion** hides the selected user's records from that HOD's managed-department timesheet, tracker, leave-plan, and calendar pages. It also prevents direct HOD action on that user's records.
 - Approval-excluded HODs can still view records in managed department pages unless a visibility exclusion is also configured.
 - A HOD's own profile department does not qualify for exclusions unless the HOD is also assigned as a primary/additional HOD approver for that department.
 - The system prevents approval exclusions that would leave a submitter with no eligible HOD approver.

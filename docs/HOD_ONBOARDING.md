@@ -24,7 +24,6 @@ Heads of Department can access:
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Leave Plans** | Lets you plan your own leave and open your department leave calendar. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Timesheets** | Lets you review employee timesheets in departments you manage. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Leave Plans** | Lets you review and visualize leave plans in departments you manage. |
-| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Leave Entitlements** | Shows leave balances for visible employees in departments you manage. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Assigned Leave Plans** | Appears when you are configured as the Director, UAE HR, or Philippines HR leave approver. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **Submission Tracker** | Shows who has submitted in your managed departments and lets you send reminder emails. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this onboarding guide whenever you need a refresher. |
@@ -143,15 +142,6 @@ You can approve or reject cancellation requests for approved leave plans in your
 For entitled leave types, submitted, approved, and cancellation-requested plans reserve the employee's allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
 
 Holiday entries are read-only and include region labels where applicable.
-
-## Leave Entitlements
-
-Use **Leave Entitlements** to review leave balances for visible Employees and Heads of Department in departments you manage.
-
-- Filter by managed department and year.
-- Balances use the same profile eligibility rules shown on employee leave forms.
-- Submitted, approved, and cancellation-requested leave reserves allowance. Draft, rejected, cancelled, recalled, and voided leave does not.
-- If a Super Admin configured a visibility exception, that employee is hidden from your entitlement list just like they are hidden from your timesheet, tracker, leave-plan, and calendar views.
 
 ## Email Notifications
 

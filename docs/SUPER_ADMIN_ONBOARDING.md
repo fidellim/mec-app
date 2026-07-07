@@ -149,7 +149,7 @@ When a department has multiple HOD approvers, Super Admins can manage exceptions
 
 - **Do not email this HOD for submissions from** stops email notifications only. The HOD can still approve or reject those users.
 - **Do not allow this HOD to approve/reject submissions from** blocks approval, rejection, recall, and cancellation-review actions for those users. It also stops approval-request emails.
-- **Do not show this employee to this HOD** removes those users from the HOD's managed-department timesheet, tracker, leave-plan, calendar, and leave-entitlement pages. It also prevents direct HOD action on those records.
+- **Do not show this employee to this HOD** removes those users from the HOD's managed-department timesheet, tracker, leave-plan, and calendar pages. It also prevents direct HOD action on those records.
 - Approval-excluded HODs can still view records in managed department pages unless a visibility exception is also configured.
 - The HOD's own profile department does not qualify unless the HOD is also selected as a primary/additional HOD approver for that department.
 - MEC Group Portal prevents approval exceptions that would leave a user without any eligible HOD approver.

@@ -83,40 +83,6 @@ class HodLeavePlanController extends Controller
         return view('hod.leave-plans.calendar', $calendarData);
     }
 
-    public function leaveEntitlements(Request $request, LeaveEntitlementService $entitlements)
-    {
-        $filters = $request->validate([
-            'department_id' => ['nullable', 'integer'],
-            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
-        ]);
-
-        $managedDepartmentIds = $this->managedDepartmentIds();
-        $selectedDepartmentId = $this->selectedDepartmentId($managedDepartmentIds);
-        $year = (int) ($filters['year'] ?? now()->year);
-
-        $employees = User::with('department')
-            ->whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
-            ->whereIn('role', ['employee', 'hod'])
-            ->where('is_active', true)
-            ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey(auth()->id()))
-            ->orderBy('name')
-            ->paginate(10)
-            ->withQueryString();
-
-        $employees->getCollection()->transform(function (User $employee) use ($entitlements, $year) {
-            $employee->leaveBalances = $entitlements->visibleBalancesFor($employee, $year);
-
-            return $employee;
-        });
-
-        return view('hod.leave-entitlements.index', [
-            'employees' => $employees,
-            'departments' => Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get(),
-            'selectedDepartmentId' => $selectedDepartmentId,
-            'year' => $year,
-        ]);
-    }
-
     public function show(LeavePlan $leavePlan, LeavePlanReviewCalendarService $reviewCalendar, LeaveEntitlementService $entitlements)
     {
         $this->authorizeDepartment($leavePlan);

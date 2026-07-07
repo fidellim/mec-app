@@ -154,11 +154,6 @@ class HodExclusionWorkflowTest extends TestCase
             ->assertDontSee($employee->name);
 
         $this->actingAs($hiddenHod)
-            ->get(route('hod.leave-entitlements.index'))
-            ->assertOk()
-            ->assertDontSee($employee->name);
-
-        $this->actingAs($hiddenHod)
             ->get(route('hod.tracker', ['period_id' => $period->id]))
             ->assertOk()
             ->assertDontSee($employee->name);
@@ -198,40 +193,18 @@ class HodExclusionWorkflowTest extends TestCase
         $this->assertSame($visibleHod->id, $timesheet->refresh()->approved_by);
     }
 
-    public function test_hod_can_view_visible_employee_leave_entitlements_with_filters(): void
+    public function test_hod_leave_entitlements_page_is_not_available(): void
     {
-        [$department, $hod, , $employee] = $this->departmentWithTwoHods();
-        $employee->update(['annual_leave_allowance_days' => 12]);
-        $secondDepartment = $this->department(['name' => 'Managed Projects']);
-        $secondDepartment->hods()->attach($hod);
-        $secondEmployee = $this->userWithRole('employee', [
-            'department_id' => $secondDepartment->id,
-            'name' => 'Second Managed Employee',
-        ]);
-        $unmanagedDepartment = $this->department();
+        [, $hod] = $this->departmentWithTwoHods();
 
         $this->actingAs($hod)
-            ->get(route('hod.leave-entitlements.index', ['year' => 2026]))
+            ->get('/department/leave-entitlements')
+            ->assertNotFound();
+
+        $this->actingAs($hod)
+            ->get(route('hod.timesheets.index'))
             ->assertOk()
-            ->assertSee('Department Leave Entitlements')
-            ->assertSee($employee->name)
-            ->assertSee('Annual leave')
-            ->assertSee('12 days')
-            ->assertSee('Current-year override')
-            ->assertSee($secondEmployee->name);
-
-        $this->actingAs($hod)
-            ->get(route('hod.leave-entitlements.index', [
-                'department_id' => $department->id,
-                'year' => 2026,
-            ]))
-            ->assertOk()
-            ->assertSee($employee->name)
-            ->assertDontSee($secondEmployee->name);
-
-        $this->actingAs($hod)
-            ->get(route('hod.leave-entitlements.index', ['department_id' => $unmanagedDepartment->id]))
-            ->assertForbidden();
+            ->assertDontSee('/department/leave-entitlements');
     }
 
     public function test_hod_leave_plan_review_shows_employee_leave_balances(): void

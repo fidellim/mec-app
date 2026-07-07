@@ -22,7 +22,6 @@ Heads of Department can access:
 | ![My Timesheets](/images/sidebar/my-timesheets.svg) **My Leave Plans** | Lets you plan your own leave and open your department leave calendar. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Timesheets** | Lets you review employee timesheets in departments you manage. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Department Leave Plans** | Lets you review and visualize leave plans in departments you manage. |
-| ![Weekly Periods](/images/sidebar/weekly-periods.svg) **Leave Entitlements** | Shows Philippines leave balances for visible employees in departments you manage. |
 | ![Department Timesheets](/images/sidebar/department-timesheets.svg) **Assigned Leave Plans** | Appears when you are configured as the Director or Philippines HR leave approver. |
 | ![Submission Tracker](/images/sidebar/submission-tracker.svg) **Submission Tracker** | Shows who has submitted in your managed departments and lets you send reminder emails. |
 | ![Help Guide](/images/sidebar/guide.svg) **Help Guide** | Opens this Philippines HOD guide whenever you need a refresher. |
@@ -78,15 +77,6 @@ For Philippines employees, employee numbers beginning with `MEC-PHIL-HR-` use Ph
 Most Philippines leave types use working leave days: Saturdays, Sundays, and active applicable company holidays are excluded from leave usage. Submitted, approved, and cancellation-requested leave plans reserve allowance. Rejected, cancelled, recalled, and voided plans do not reserve allowance.
 
 Holiday entries are read-only and include region labels where applicable.
-
-## Leave Entitlements
-
-Use **Leave Entitlements** to review leave balances for visible Employees and Heads of Department in departments you manage.
-
-- Filter by managed department and year.
-- Philippines employees use Philippines leave settings and Philippines HR approval.
-- Submitted, approved, and cancellation-requested leave reserves allowance. Draft, rejected, cancelled, recalled, and voided leave does not.
-- Visibility exceptions configured by a Super Admin also apply to this page.
 
 ## Email Notifications
 

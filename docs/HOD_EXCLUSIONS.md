@@ -40,7 +40,7 @@ Use this when another HOD approver is responsible for that user's timesheets or 
 
 A visibility exclusion means:
 
-- The selected HOD does not see the selected user's records in managed-department timesheet lists, leave-plan lists, calendars, submission trackers, or leave-entitlement pages.
+- The selected HOD does not see the selected user's records in managed-department timesheet lists, leave-plan lists, calendars, or submission trackers.
 - The selected HOD cannot open or action that user's HOD-reviewed timesheets or leave plans by direct URL.
 - Approval-request emails are suppressed because the HOD cannot act on hidden records.
 - At least one other active eligible HOD must remain able to see and approve the selected user's records.
@@ -121,7 +121,7 @@ Covered scenarios include:
 - Approval-excluded HOD does not receive approval-request email.
 - Approval-excluded HOD cannot approve or reject by direct request.
 - Visibility-excluded HOD cannot see or action selected employee records.
-- HOD leave-entitlement pages respect visibility exclusions.
+- HOD leave-plan, calendar, timesheet, and tracker pages respect visibility exclusions.
 - Leave-plan approval and cancellation-review paths respect exclusions.
 - Super Admin cannot save an approval or visibility exclusion that leaves zero eligible HOD approvers.
 - Role changes, department moves, and HOD assignment changes remove invalid exclusions.
