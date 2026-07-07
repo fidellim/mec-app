@@ -60,9 +60,7 @@ class ManagementWorkflowTest extends TestCase
         $department = $this->department();
 
         $uaeAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail();
-        $phAnnual = LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH)->firstOrFail();
         $uaeSick = LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail();
-        $phSick = LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH)->firstOrFail();
 
         foreach ([[$admin, '23.5'], [$superAdmin, '24.5']] as [$actor, $uaeAnnualDays]) {
             $this->actingAs($actor)
@@ -70,13 +68,14 @@ class ManagementWorkflowTest extends TestCase
                 ->assertOk()
                 ->assertSee('Leave Settings')
                 ->assertSee('UAE Annual Leave Default Days')
-                ->assertSee('Philippines Sick Leave Default Days')
+                ->assertDontSee('Philippines Annual Leave Default Days')
+                ->assertDontSee('Philippines Sick Leave Default Days')
+                ->assertDontSee('Philippines Bereavement Leave Default Days')
                 ->assertSee('UAE Sick Leave Maximum Calendar Days')
                 ->assertSee('UAE Maternity Leave Maximum Calendar Days')
                 ->assertSee('UAE Parental Leave Default Days')
                 ->assertSee('UAE Bereavement Leave - Spouse Death Days')
                 ->assertSee('UAE Bereavement Leave - Immediate Family Death Days')
-                ->assertSee('Philippines Bereavement Leave Default Days')
                 ->assertSee('Philippines Service Incentive Leave Default Days')
                 ->assertSee('Philippines Paternity Leave Default Days')
                 ->assertSee('Philippines VAWC Leave Default Days')
@@ -86,9 +85,7 @@ class ManagementWorkflowTest extends TestCase
             $this->actingAs($actor)
                 ->patch(route('manage.leave-settings.update'), [
                     'annual_leave_default_days_uae' => $uaeAnnualDays,
-                    'annual_leave_default_days_ph' => '0',
                     'sick_leave_default_days_uae' => '16',
-                    'sick_leave_default_days_ph' => '0',
                     'maternity_leave_default_days_uae' => '60',
                     'maternity_leave_default_days_ph' => '105',
                     'parental_leave_default_days_uae' => '5',
@@ -98,16 +95,13 @@ class ManagementWorkflowTest extends TestCase
                     'special_women_leave_default_days_ph' => '60',
                     'bereavement_spouse_leave_days_uae' => '5',
                     'bereavement_immediate_family_leave_days_uae' => '3',
-                    'bereavement_compassionate_leave_default_days_ph' => '0',
                     'service_incentive_leave_default_days_ph' => '5',
                 ])
                 ->assertRedirect(route('manage.leave-settings.index'));
         }
 
         $this->assertSame('24.50', $uaeAnnual->fresh()->decimal_value);
-        $this->assertSame('0.00', $phAnnual->fresh()->decimal_value);
         $this->assertSame('16.00', $uaeSick->fresh()->decimal_value);
-        $this->assertSame('0.00', $phSick->fresh()->decimal_value);
         $this->assertDatabaseHas('audit_logs', ['action' => 'leave_setting_updated']);
 
         $this->actingAs($superAdmin)
@@ -154,7 +148,7 @@ class ManagementWorkflowTest extends TestCase
             'year' => now()->year,
             'attendance_code' => 'L100',
             'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
-            'claimable_allowance_days' => '24.50',
+            'claimable_allowance_days' => '0.00',
         ]);
     }
 
@@ -226,9 +220,7 @@ class ManagementWorkflowTest extends TestCase
             $this->actingAs($user)
                 ->patch(route('manage.leave-settings.update'), [
                     'annual_leave_default_days_uae' => 40,
-                    'annual_leave_default_days_ph' => 0,
                     'sick_leave_default_days_uae' => 15,
-                    'sick_leave_default_days_ph' => 0,
                     'maternity_leave_default_days_uae' => 60,
                     'maternity_leave_default_days_ph' => 105,
                     'parental_leave_default_days_uae' => 5,
@@ -238,7 +230,6 @@ class ManagementWorkflowTest extends TestCase
                     'special_women_leave_default_days_ph' => 60,
                     'bereavement_spouse_leave_days_uae' => 5,
                     'bereavement_immediate_family_leave_days_uae' => 3,
-                    'bereavement_compassionate_leave_default_days_ph' => 0,
                     'service_incentive_leave_default_days_ph' => 5,
                 ])
                 ->assertForbidden();

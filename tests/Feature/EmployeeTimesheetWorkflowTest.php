@@ -520,6 +520,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertSee('L190 - Service Incentive Leave')
             ->assertDontSee('L100 - Annual Leave')
             ->assertDontSee('L110 - Sick Leave')
+            ->assertDontSee('L120 - Emergency Leave')
             ->assertDontSee('L180 - Bereavement Leave');
 
         $this->actingAs($phEmployee)->post(route('employee.timesheets.store'), [
@@ -528,7 +529,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             'entries' => $entries,
         ])->assertRedirect();
 
-        foreach (['L100', 'L110', 'L180'] as $attendanceCode) {
+        foreach (['L100', 'L110', 'L120', 'L180'] as $attendanceCode) {
             $blockedEntries = $this->validEntries($project, [
                 '2026-05-11' => [
                     'attendance_code' => $attendanceCode,

@@ -58,20 +58,10 @@ class LeaveSettingController extends Controller
                 'description' => 'Default yearly L100 annual leave allowance for UAE employees. Unused days expire on December 31 and do not carry over.',
                 'decimal_value' => 22,
             ],
-            LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH => [
-                'name' => 'Philippines Annual Leave Default Days',
-                'description' => 'Default yearly L100 annual leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
-                'decimal_value' => 0,
-            ],
             LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Sick Leave Maximum Calendar Days',
                 'description' => 'Maximum yearly L110 sick leave calendar days for UAE employees. Employee-facing balances show the first 15 full-pay days; additional approved days move to 30 half-pay days and 45 unpaid days.',
                 'decimal_value' => 90,
-            ],
-            LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH => [
-                'name' => 'Philippines Sick Leave Default Days',
-                'description' => 'Default yearly L110 sick leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
-                'decimal_value' => 0,
             ],
             LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Maternity Leave Maximum Calendar Days',
@@ -117,11 +107,6 @@ class LeaveSettingController extends Controller
                 'name' => 'UAE Bereavement Leave - Immediate Family Death Days',
                 'description' => 'Calendar-year L180 bereavement leave allowance for UAE immediate-family death.',
                 'decimal_value' => 3,
-            ],
-            LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH => [
-                'name' => 'Philippines Bereavement Leave Default Days',
-                'description' => 'Default L180 bereavement leave policy allowance for Philippines employees. Eligibility is reviewed manually.',
-                'decimal_value' => 0,
             ],
             LeaveSetting::SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Service Incentive Leave Default Days',

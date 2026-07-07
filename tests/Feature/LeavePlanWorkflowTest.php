@@ -1472,7 +1472,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertRedirect();
     }
 
-    public function test_regional_annual_and_sick_leave_defaults_are_enforced(): void
+    public function test_philippines_unavailable_leave_types_are_blocked(): void
     {
         $department = $this->department();
         $uaeEmployee = $this->userWithRole('employee', [
@@ -1518,6 +1518,24 @@ class LeavePlanWorkflowTest extends TestCase
             ]))
             ->assertSessionHasErrors('attendance_code');
 
+        $this->actingAs($uaeEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L120',
+                'start_date' => '2026-02-03',
+                'end_date' => '2026-02-03',
+                'submit' => '1',
+            ]))
+            ->assertRedirect();
+
+        $this->actingAs($phEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L120',
+                'start_date' => '2026-02-03',
+                'end_date' => '2026-02-03',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
         LeavePlan::factory()->create([
             'user_id' => $uaeEmployee->id,
             'department_id' => $department->id,
@@ -1549,6 +1567,15 @@ class LeavePlanWorkflowTest extends TestCase
                 'attendance_code' => 'L110',
                 'start_date' => '2026-03-23',
                 'end_date' => '2026-03-23',
+                'submit' => '1',
+            ]))
+            ->assertSessionHasErrors('attendance_code');
+
+        $this->actingAs($phEmployee)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
+                'attendance_code' => 'L180',
+                'start_date' => '2026-03-24',
+                'end_date' => '2026-03-24',
                 'submit' => '1',
             ]))
             ->assertSessionHasErrors('attendance_code');
@@ -1899,6 +1926,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertDontSee('L100 - Annual Leave')
             ->assertDontSee('L110 - Sick Leave')
+            ->assertDontSee('L120 - Emergency Leave')
             ->assertSee('L160 - Maternity Leave')
             ->assertSee('L170 - Parental Leave')
             ->assertSee('L190 - Service Incentive Leave')
@@ -1914,6 +1942,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertDontSee('L100 - Annual Leave')
             ->assertDontSee('L110 - Sick Leave')
+            ->assertDontSee('L120 - Emergency Leave')
             ->assertSee('L190 - Service Incentive Leave')
             ->assertSee('L210 - Paternity Leave')
             ->assertDontSee('L160 - Maternity Leave')
@@ -1926,6 +1955,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertOk()
             ->assertDontSee('L100 - Annual Leave')
             ->assertDontSee('L110 - Sick Leave')
+            ->assertDontSee('L120 - Emergency Leave')
             ->assertDontSee('L160 - Maternity Leave')
             ->assertDontSee('L170 - Parental Leave')
             ->assertDontSee('L180 - Bereavement Leave')
@@ -1949,12 +1979,13 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.create'))
             ->assertViewHas('leaveBalances', fn (array $leaveBalances) => ! array_key_exists('L100', $leaveBalances)
                 && ! array_key_exists('L110', $leaveBalances)
+                && ! array_key_exists('L120', $leaveBalances)
                 && ! array_key_exists('L180', $leaveBalances)
                 && array_key_exists('L160', $leaveBalances)
                 && array_key_exists('L190', $leaveBalances)
             );
 
-        foreach (['L100', 'L110', 'L180'] as $attendanceCode) {
+        foreach (['L100', 'L110', 'L120', 'L180'] as $attendanceCode) {
             $this->actingAs($eligibleFemale)
                 ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
                     'attendance_code' => $attendanceCode,

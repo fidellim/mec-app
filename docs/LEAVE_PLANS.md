@@ -14,7 +14,7 @@ Employees use **My Leave Plans** to create, save, submit, and track leave plans.
 - Recalled approved leave plans can be edited and resubmitted by the employee.
 - Overlapping active leave plans show a warning but are not blocked.
 - UAE annual, sick, maternity, parental, and bereavement / compassionate leave are checked against the employee's allowance when the employee submits. UAE bereavement / compassionate leave also requires HR eligibility approval for the selected spouse or immediate-family relationship, then checks the matching calendar-year balance.
-- Philippines employees do not see or apply for `L100 - Annual Leave`, `L110 - Sick Leave`, or `L180 - Bereavement Leave` while the Philippines defaults for those leave types are `0`.
+- Philippines employees do not see or apply for `L100 - Annual Leave`, `L110 - Sick Leave`, `L120 - Emergency Leave`, or `L180 - Bereavement Leave`.
 - Philippines statutory leave options are shown only when the employee is eligible: `L190 - Service Incentive Leave`, `L160 - Maternity Leave`, `L170 - Parental Leave`, `L210 - Paternity Leave`, `L220 - Leave for VAWC`, and `L230 - Special Leave for Women`.
 - Drafts can still be saved when they exceed an allowance, but submission enforces eligibility and balance checks.
 
@@ -55,9 +55,9 @@ If the Director, UAE HR, or Philippines HR approver is not configured, the leave
 
 ## Leave Entitlements
 
-Eligible leave entitlements have calendar-year limits. UAE annual, sick, maternity, and parental leave use the employee's regional or profile entitlement. UAE bereavement / compassionate leave uses HR-attested spouse and immediate-family eligibility with separate calendar-year balances. Philippines employees only receive balances for eligible statutory leave options and do not receive Annual, Sick, or Bereavement balances while those Philippines defaults are `0`.
+Eligible leave entitlements have calendar-year limits. UAE annual, sick, maternity, and parental leave use the employee's regional or profile entitlement. UAE bereavement / compassionate leave uses HR-attested spouse and immediate-family eligibility with separate calendar-year balances. Philippines employees only receive balances for eligible statutory leave options and do not receive Annual, Sick, Emergency, or Bereavement balances.
 
-- Admins and Super Admins set UAE and Philippines default allowances in **Leave Settings**. UAE sick and maternity settings are maximum claimable calendar-day limits, not employee-facing full-pay balances. UAE bereavement settings define yearly spouse-death and immediate-family-death allowances.
+- Admins and Super Admins set UAE default allowances and active Philippines statutory leave allowances in **Leave Settings**. UAE sick and maternity settings are maximum claimable calendar-day limits, not employee-facing full-pay balances. UAE bereavement settings define yearly spouse-death and immediate-family-death allowances.
 - Super Admins can set an employee-specific annual leave override in **Manage Users** for employees who are eligible for annual leave. A blank override uses the regional default.
 - Leave allowances refresh automatically by year. Unused allowance expires on December 31 and does not carry over into the next year.
 - No scheduled automation is required for the yearly refresh because remaining allowance is calculated dynamically from leave plans in the requested year.
@@ -108,7 +108,7 @@ By default, calendars show submitted, approved, and cancellation-requested leave
 
 ## Current Limitations
 
-- Leave options and balance cards are region-specific. UAE employees can see UAE Annual, Sick, Maternity, Parental, and Bereavement behavior. Philippines employees see eligible statutory leave options only and do not see Annual, Sick, or Bereavement while those Philippines defaults are `0`.
+- Leave options and balance cards are region-specific. UAE employees can see UAE Annual, Sick, Maternity, Parental, and Bereavement behavior. Philippines employees see eligible statutory leave options only and do not see Annual, Sick, Emergency, or Bereavement leave.
 - Existing historical leave plans remain readable even if the employee is no longer eligible to create a new request for that leave code.
 - Approved leave does not automatically populate weekly timesheets.
 - Overlap detection warns only; it does not block submission.

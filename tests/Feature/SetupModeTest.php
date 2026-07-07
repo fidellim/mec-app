@@ -135,9 +135,7 @@ class SetupModeTest extends TestCase
             $this->actingAs($this->userWithRole($role))
                 ->patch(route('manage.leave-settings.update'), [
                     'annual_leave_default_days_uae' => '24.5',
-                    'annual_leave_default_days_ph' => '0',
                     'sick_leave_default_days_uae' => '16',
-                    'sick_leave_default_days_ph' => '0',
                     'maternity_leave_default_days_uae' => '60',
                     'maternity_leave_default_days_ph' => '105',
                     'parental_leave_default_days_uae' => '5',
@@ -147,7 +145,6 @@ class SetupModeTest extends TestCase
                     'special_women_leave_default_days_ph' => '60',
                     'bereavement_spouse_leave_days_uae' => '5',
                     'bereavement_immediate_family_leave_days_uae' => '3',
-                    'bereavement_compassionate_leave_default_days_ph' => '0',
                     'service_incentive_leave_default_days_ph' => '5',
                 ])
                 ->assertRedirect(route('manage.leave-settings.index'));

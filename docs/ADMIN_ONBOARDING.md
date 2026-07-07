@@ -154,7 +154,7 @@ Use **Leave Entitlements** to review current leave balances for active Employees
 
 ## Leave Settings
 
-Use **Leave Settings** to maintain UAE and Philippines default allowances for annual, sick, maternity, parental, Philippines bereavement / compassionate, and Philippines service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion. UAE bereavement settings control the calendar-year spouse-death and immediate-family-death balances for `L180`; employees must also have HR eligibility approval for the selected bereavement relationship.
+Use **Leave Settings** to maintain UAE leave defaults and active Philippines statutory leave defaults for maternity, parental, paternity, VAWC, special leave for women, and service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion. UAE bereavement settings control the calendar-year spouse-death and immediate-family-death balances for `L180`; employees must also have HR eligibility approval for the selected bereavement relationship.
 
 The annual default applies to every user whose **Annual leave allowance override** is blank. Leave allowances are calendar-year based, unused days expire on December 31, and remaining allowance is calculated dynamically from leave plans and active applicable holidays.
 

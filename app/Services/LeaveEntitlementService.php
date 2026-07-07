@@ -16,6 +16,7 @@ class LeaveEntitlementService
 {
     public const ANNUAL_LEAVE_CODE = 'L100';
     public const SICK_LEAVE_CODE = 'L110';
+    public const EMERGENCY_LEAVE_CODE = 'L120';
     public const MATERNITY_LEAVE_CODE = 'L160';
     public const PARENTAL_LEAVE_CODE = 'L170';
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_CODE = 'L180';
@@ -53,6 +54,13 @@ class LeaveEntitlementService
         LeavePlan::STATUS_SUBMITTED,
         LeavePlan::STATUS_APPROVED,
         LeavePlan::STATUS_CANCELLATION_REQUESTED,
+    ];
+
+    public const PH_UNAVAILABLE_LEAVE_CODES = [
+        self::ANNUAL_LEAVE_CODE,
+        self::SICK_LEAVE_CODE,
+        self::EMERGENCY_LEAVE_CODE,
+        self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
     ];
 
     private const UAE_PAY_BANDS = [
@@ -276,6 +284,10 @@ class LeaveEntitlementService
     public function userIsEligibleFor(User $user, string $attendanceCode, CarbonInterface|string|null $asOf = null): bool
     {
         $region = $this->regionFor($user);
+
+        if ($region === 'ph' && in_array($attendanceCode, self::PH_UNAVAILABLE_LEAVE_CODES, true)) {
+            return false;
+        }
 
         return match ($attendanceCode) {
             self::ANNUAL_LEAVE_CODE,

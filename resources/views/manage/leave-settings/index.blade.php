@@ -20,17 +20,14 @@
         'philippines' => [
             'label' => 'Philippines leave rules',
             'badge' => 'Philippines employees',
-            'description' => 'Policy defaults for Philippines employees, including annual, health, family, and service incentive leave.',
+            'description' => 'Policy defaults for active Philippines statutory leave entitlements.',
             'accent' => 'success',
             'settings' => [
-                \App\Models\LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH,
-                \App\Models\LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_PH,
                 \App\Models\LeaveSetting::MATERNITY_LEAVE_DEFAULT_DAYS_PH,
                 \App\Models\LeaveSetting::PARENTAL_LEAVE_DEFAULT_DAYS_PH,
                 \App\Models\LeaveSetting::PATERNITY_LEAVE_DEFAULT_DAYS_PH,
                 \App\Models\LeaveSetting::VAWC_LEAVE_DEFAULT_DAYS_PH,
                 \App\Models\LeaveSetting::SPECIAL_WOMEN_LEAVE_DEFAULT_DAYS_PH,
-                \App\Models\LeaveSetting::BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH,
                 \App\Models\LeaveSetting::SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH,
             ],
         ],
