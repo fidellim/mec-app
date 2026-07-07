@@ -15,7 +15,7 @@ The UI should be:
 
 ## Frontend Rules
 
-- Do not change existing Laravel routes.
+- Do not change existing Laravel routes unless the requested change requires a route update; when updating routes, keep route changes minimal and preserve existing names/URLs where feasible.
 - Do not change controller logic unless requested.
 - Do not change database migrations unless requested.
 - Do not rename form input names.
