@@ -10,6 +10,7 @@
         'leave_plan_cancellation_rejected' => ['title' => 'Cancellation Rejected', 'icon' => 'x-circle', 'tone' => 'danger'],
         'leave_plan_approved_recalled' => ['title' => 'Approved Leave Plan Recalled', 'icon' => 'rotate-left', 'tone' => 'recall'],
         'leave_plan_voided' => ['title' => 'Leave Plan Voided', 'icon' => 'ban', 'tone' => 'void'],
+        'leave_plan_admin_created_approved' => ['title' => 'Approved Leave Added by Admin', 'icon' => 'check-circle', 'tone' => 'success'],
     ];
     $history = $leavePlan->statusHistories
         ->filter(fn ($log) => isset($historyActions[$log->action]))

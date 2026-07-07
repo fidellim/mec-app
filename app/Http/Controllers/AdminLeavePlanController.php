@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Exports\LeavePlansExport;
 use App\Http\Controllers\Concerns\GuardsExports;
+use App\Http\Requests\AdminApprovedLeaveRequest;
 use App\Models\Department;
 use App\Models\LeavePlan;
 use App\Models\User;
+use App\Services\AdminApprovedLeaveService;
 use App\Services\LeaveEntitlementService;
 use App\Services\LeavePlanCalendarService;
 use App\Services\LeavePlanReviewCalendarService;
@@ -20,6 +22,8 @@ use Maatwebsite\Excel\Excel as ExcelWriter;
 class AdminLeavePlanController extends Controller
 {
     use GuardsExports;
+
+    private const IMPORT_SESSION_KEY = 'admin_approved_leave_import_preview';
 
     public function index(Request $request)
     {
@@ -75,6 +79,137 @@ class AdminLeavePlanController extends Controller
         }
 
         return view('admin.leave-plans.calendar', $calendarData);
+    }
+
+    public function create()
+    {
+        session()->forget(self::IMPORT_SESSION_KEY);
+
+        return view('admin.leave-plans.create', [
+            'employees' => $this->eligibleEmployees(),
+            'attendanceCodes' => $this->leaveAttendanceCodes(),
+            'bereavementRelationships' => LeavePlan::bereavementRelationshipOptions(),
+        ]);
+    }
+
+    public function store(AdminApprovedLeaveRequest $request, AdminApprovedLeaveService $approvedLeaves)
+    {
+        $result = $approvedLeaves->validateSingleEntry($request->validated());
+
+        if (! $result['valid']) {
+            return back()
+                ->withInput()
+                ->withErrors(['admin_approved_leave' => implode(' ', $result['errors'])]);
+        }
+
+        $leavePlan = $approvedLeaves->createApprovedLeave($result['attributes'], $result['employee']);
+
+        return redirect()
+            ->route('admin.leave-plans.show', $leavePlan)
+            ->with('success', 'Approved leave added for '.$leavePlan->user->name.'.');
+    }
+
+    public function import(AdminApprovedLeaveService $approvedLeaves)
+    {
+        return view('admin.leave-plans.import', [
+            'headers' => $approvedLeaves->csvHeaders(),
+            'previewRows' => session(self::IMPORT_SESSION_KEY.'.previewRows', []),
+            'rawRows' => session(self::IMPORT_SESSION_KEY.'.rawRows', []),
+            'uploadErrors' => session(self::IMPORT_SESSION_KEY.'.uploadErrors', []),
+        ]);
+    }
+
+    public function previewImport(Request $request, AdminApprovedLeaveService $approvedLeaves)
+    {
+        session()->forget(self::IMPORT_SESSION_KEY);
+
+        $validated = $request->validate([
+            'csv_file' => ['required', 'file', 'mimes:csv,txt', 'max:2048'],
+        ], [
+            'csv_file.required' => 'Upload a CSV file before previewing.',
+            'csv_file.mimes' => 'Upload a valid CSV file.',
+        ]);
+
+        $uploadedFile = $validated['csv_file'];
+        $path = $uploadedFile->getRealPath();
+
+        try {
+            $parsed = $path ? $approvedLeaves->normalizeCsvRows($path) : [
+                'rows' => [],
+                'errors' => ['Unable to read the uploaded CSV file.'],
+            ];
+        } finally {
+            if ($path && is_file($path)) {
+                @unlink($path);
+            }
+        }
+
+        if ($parsed['errors']) {
+            session()->put(self::IMPORT_SESSION_KEY, [
+                'previewRows' => [],
+                'rawRows' => [],
+                'uploadErrors' => $parsed['errors'],
+            ]);
+
+            return redirect()
+                ->route('admin.leave-plans.import')
+                ->with('warning', 'CSV preview could not be prepared. Please fix the file and upload it again.');
+        }
+
+        $previewRows = $approvedLeaves->previewRows($parsed['rows']);
+        session()->put(self::IMPORT_SESSION_KEY, [
+            'previewRows' => $this->serializablePreviewRows($previewRows),
+            'rawRows' => $parsed['rows'],
+            'uploadErrors' => [],
+        ]);
+
+        $invalidCount = collect($previewRows)->where('valid', false)->count();
+
+        return redirect()
+            ->route('admin.leave-plans.import')
+            ->with($invalidCount > 0 ? 'warning' : 'success', $invalidCount > 0
+                ? "CSV preview found {$invalidCount} row(s) that must be fixed before import."
+                : 'CSV preview is valid. Review the rows and import when ready.');
+    }
+
+    public function storeImport(Request $request, AdminApprovedLeaveService $approvedLeaves)
+    {
+        $rawRows = session(self::IMPORT_SESSION_KEY.'.rawRows', []);
+
+        if (empty($rawRows)) {
+            return redirect()
+                ->route('admin.leave-plans.import')
+                ->with('warning', 'Upload and preview a CSV before importing.');
+        }
+
+        $previewRows = $approvedLeaves->previewRows($rawRows);
+        $invalidCount = collect($previewRows)->where('valid', false)->count();
+
+        if ($invalidCount > 0) {
+            session()->put(self::IMPORT_SESSION_KEY, [
+                'previewRows' => $this->serializablePreviewRows($previewRows),
+                'rawRows' => $rawRows,
+                'uploadErrors' => [],
+            ]);
+
+            return redirect()
+                ->route('admin.leave-plans.import')
+                ->with('warning', "CSV import was blocked because {$invalidCount} row(s) are invalid.");
+        }
+
+        try {
+            $created = $approvedLeaves->importApprovedLeaves($rawRows);
+        } catch (\RuntimeException $exception) {
+            return redirect()
+                ->route('admin.leave-plans.import')
+                ->with('warning', $exception->getMessage());
+        }
+
+        session()->forget(self::IMPORT_SESSION_KEY);
+
+        return redirect()
+            ->route('admin.leave-plans.index')
+            ->with('success', 'Imported '.count($created).' approved leave '.(count($created) === 1 ? 'record' : 'records').'.');
     }
 
     public function leaveEntitlements(Request $request, LeaveEntitlementService $entitlements)
@@ -142,6 +277,16 @@ class AdminLeavePlanController extends Controller
         return collect(config('timesheet.attendance_codes'))
             ->only(config('timesheet.leave_attendance_codes', []))
             ->all();
+    }
+
+    private function eligibleEmployees()
+    {
+        return User::query()
+            ->with('department')
+            ->whereIn('role', ['employee', 'hod'])
+            ->where('is_active', true)
+            ->orderBy('name')
+            ->get(['id', 'name', 'employee_code', 'department_id']);
     }
 
     private function validatedFilters(Request $request): array
@@ -282,5 +427,16 @@ class AdminLeavePlanController extends Controller
             'has_more' => $users->count() > $perPage,
             'page' => $page,
         ];
+    }
+
+    private function serializablePreviewRows(array $previewRows): array
+    {
+        return collect($previewRows)->map(fn (array $previewRow) => [
+            'row_number' => $previewRow['row_number'],
+            'attributes' => $previewRow['attributes'],
+            'employee_name' => $previewRow['employee_name'],
+            'errors' => $previewRow['errors'],
+            'valid' => $previewRow['valid'],
+        ])->all();
     }
 }

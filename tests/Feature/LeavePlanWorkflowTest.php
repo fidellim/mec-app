@@ -10,7 +10,9 @@ use App\Models\LeavePlan;
 use App\Models\LeavePlanApproverSetting;
 use App\Models\LeavePlanStatusHistory;
 use App\Models\LeaveSetting;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -3494,6 +3496,284 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertJsonPath('has_more', false);
     }
 
+    public function test_admin_can_create_historical_approved_leave_for_employee(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'name' => 'Historical Leave Employee',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-901',
+        ]);
+
+        $response = $this->actingAs($admin)
+            ->post(route('admin.leave-plans.store'), $this->validAdminApprovedLeavePayload($employee, [
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-12',
+                'approved_at' => '2026-05-01',
+            ]));
+
+        $leavePlan = LeavePlan::firstOrFail();
+        $response->assertRedirect(route('admin.leave-plans.show', $leavePlan));
+
+        $this->assertSame($employee->id, $leavePlan->user_id);
+        $this->assertSame($department->id, $leavePlan->department_id);
+        $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
+        $this->assertSame($admin->id, $leavePlan->approved_by);
+        $this->assertSame('2026-05-01', $leavePlan->approved_at->toDateString());
+        $this->assertNull($leavePlan->approval_stage);
+        $this->assertNull($leavePlan->hod_approved_at);
+        $this->assertNull($leavePlan->director_approved_at);
+        $this->assertNull($leavePlan->hr_approved_at);
+
+        $this->assertDatabaseHas('audit_logs', [
+            'user_id' => $admin->id,
+            'action' => 'leave_plan_admin_created_approved',
+            'auditable_type' => LeavePlan::class,
+            'auditable_id' => $leavePlan->id,
+        ]);
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $leavePlan->id,
+            'actor_id' => $admin->id,
+            'action' => 'leave_plan_admin_created_approved',
+            'new_status' => LeavePlan::STATUS_APPROVED,
+        ]);
+        Mail::assertNothingQueued();
+    }
+
+    public function test_super_admin_can_create_historical_approved_leave_for_hod(): void
+    {
+        $department = $this->department();
+        $superAdmin = $this->userWithRole('super_admin');
+        $hod = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-902',
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->post(route('admin.leave-plans.store'), $this->validAdminApprovedLeavePayload($hod))
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('leave_plans', [
+            'user_id' => $hod->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approved_by' => $superAdmin->id,
+        ]);
+    }
+
+    public function test_non_admin_cannot_access_admin_approved_leave_entry(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        $this->actingAs($employee)
+            ->get(route('admin.leave-plans.create'))
+            ->assertForbidden();
+
+        $this->actingAs($employee)
+            ->post(route('admin.leave-plans.store'), [])
+            ->assertForbidden();
+
+        $this->actingAs($employee)
+            ->get(route('admin.leave-plans.import'))
+            ->assertForbidden();
+    }
+
+    public function test_admin_approved_leave_entry_uses_strict_validation(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-903',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.create'))
+            ->post(route('admin.leave-plans.store'), $this->validAdminApprovedLeavePayload($employee, [
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-11',
+            ]))
+            ->assertRedirect(route('admin.leave-plans.create'))
+            ->assertSessionHasErrors('admin_approved_leave');
+
+        $this->assertSame(1, LeavePlan::count());
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.create'))
+            ->post(route('admin.leave-plans.store'), $this->validAdminApprovedLeavePayload($employee, [
+                'start_date' => '2026-05-12',
+                'end_date' => '2026-05-13',
+                'duration_type' => 'half_day',
+                'half_day_period' => 'morning',
+            ]))
+            ->assertRedirect(route('admin.leave-plans.create'))
+            ->assertSessionHasErrors('admin_approved_leave');
+
+        $this->assertSame(1, LeavePlan::count());
+    }
+
+    public function test_csv_import_preview_blocks_invalid_rows_and_does_not_create_leave(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-904',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $csv = $this->approvedLeaveCsv([
+            [$employee->employee_code, 'L100', '2026-05-11', '2026-05-11', 'full_day', '', '', '2026-05-01', 'Duplicate historical leave'],
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.preview'), [
+                'csv_file' => UploadedFile::fake()->createWithContent('approved-leave.csv', $csv),
+            ])
+            ->assertRedirect(route('admin.leave-plans.import'))
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.0.valid', false);
+
+        $this->assertSame(1, LeavePlan::count());
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.store'))
+            ->assertRedirect(route('admin.leave-plans.import'));
+
+        $this->assertSame(1, LeavePlan::count());
+    }
+
+    public function test_csv_import_creates_all_valid_rows_and_clears_preview_session(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $firstEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-905',
+        ]);
+        $secondEmployee = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-906',
+        ]);
+
+        $csv = $this->approvedLeaveCsv([
+            [$firstEmployee->employee_code, 'L100', '2026-05-11', '2026-05-11', 'full_day', '', '', '2026-05-01', 'Imported leave one'],
+            [$secondEmployee->employee_code, 'L100', '2026-05-12', '2026-05-12', 'full_day', '', '', '2026-05-02', 'Imported leave two'],
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.preview'), [
+                'csv_file' => UploadedFile::fake()->createWithContent('approved-leave.csv', $csv),
+            ])
+            ->assertRedirect(route('admin.leave-plans.import'))
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.0.valid', true)
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.1.valid', true)
+            ->assertSessionMissing('admin_approved_leave_import_preview.csv_file');
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.store'))
+            ->assertRedirect(route('admin.leave-plans.index'))
+            ->assertSessionMissing('admin_approved_leave_import_preview');
+
+        $this->assertSame(2, LeavePlan::count());
+        $this->assertDatabaseHas('leave_plans', [
+            'user_id' => $firstEmployee->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approved_by' => $admin->id,
+            'reason' => 'Imported leave one',
+        ]);
+        $this->assertDatabaseHas('leave_plans', [
+            'user_id' => $secondEmployee->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approved_by' => $admin->id,
+            'reason' => 'Imported leave two',
+        ]);
+        $this->assertSame(2, AuditLog::where('action', 'leave_plan_admin_created_approved')->count());
+        $this->assertSame(2, LeavePlanStatusHistory::where('action', 'leave_plan_admin_created_approved')->count());
+        Mail::assertNothingQueued();
+    }
+
+    public function test_csv_import_supports_philippines_leave_rows(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $phEmployee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-907',
+            'joining_date' => '2024-01-01',
+        ]);
+
+        $csv = $this->approvedLeaveCsv([
+            [$phEmployee->employee_code, 'L190', '2026-05-11', '2026-05-12', 'full_day', '', '', '2026-05-01', 'Imported PH service incentive leave'],
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.preview'), [
+                'csv_file' => UploadedFile::fake()->createWithContent('approved-leave.csv', $csv),
+            ])
+            ->assertRedirect(route('admin.leave-plans.import'))
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.0.valid', true);
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.store'))
+            ->assertRedirect(route('admin.leave-plans.index'));
+
+        $this->assertDatabaseHas('leave_plans', [
+            'user_id' => $phEmployee->id,
+            'attendance_code' => 'L190',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approved_by' => $admin->id,
+            'reason' => 'Imported PH service incentive leave',
+        ]);
+    }
+
+    public function test_csv_import_rejects_bereavement_relationship_on_non_bereavement_rows(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-908',
+        ]);
+
+        $csv = $this->approvedLeaveCsv([
+            [$employee->employee_code, 'L100', '2026-05-11', '2026-05-11', 'full_day', '', 'spouse', '2026-05-01', 'Invalid relationship value'],
+        ]);
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.preview'), [
+                'csv_file' => UploadedFile::fake()->createWithContent('approved-leave.csv', $csv),
+            ])
+            ->assertRedirect(route('admin.leave-plans.import'))
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.0.valid', false);
+
+        $previewRows = session('admin_approved_leave_import_preview.previewRows');
+        $this->assertStringContainsString(
+            'Leave bereavement_relationship blank unless attendance_code is L180.',
+            implode(' ', $previewRows[0]['errors']),
+        );
+        $this->assertSame(0, LeavePlan::count());
+    }
+
     private function validLeavePlanPayload(array $overrides = []): array
     {
         return array_merge([
@@ -3505,6 +3785,36 @@ class LeavePlanWorkflowTest extends TestCase
             'reason' => 'Family travel.',
             'submit' => '0',
         ], $overrides);
+    }
+
+    private function validAdminApprovedLeavePayload(User $employee, array $overrides = []): array
+    {
+        return array_merge([
+            'employee_id' => $employee->id,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+            'duration_type' => 'full_day',
+            'half_day_period' => null,
+            'bereavement_relationship' => null,
+            'approved_at' => '2026-05-01',
+            'reason' => 'Historical approved leave.',
+        ], $overrides);
+    }
+
+    private function approvedLeaveCsv(array $rows): string
+    {
+        $lines = [
+            'employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason',
+        ];
+
+        foreach ($rows as $row) {
+            $lines[] = implode(',', array_map(fn ($value) => str_contains((string) $value, ',')
+                ? '"'.str_replace('"', '""', (string) $value).'"'
+                : (string) $value, $row));
+        }
+
+        return implode("\n", $lines)."\n";
     }
 
     private function setLeavePlanApprovers($director = null, $uaeHr = null, $phHr = null): void

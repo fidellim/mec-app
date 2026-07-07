@@ -133,6 +133,8 @@ When an Admin recalls an approved timesheet, the recall reason, Admin, timestamp
 Use **All Leave Plans** to review leave plans across all departments.
 
 - Filter leave plans by department, multiple employees, status, or attendance code.
+- Use **Add Approved Leave** to record one leave plan that was already approved outside the portal.
+- Use **Import CSV** to preview and bulk import already-approved historical leave records.
 - Approve or reject submitted leave plans, except your own.
 - Approve or reject cancellation requests, except your own.
 - Use **Calendar** to visualize submitted, approved, cancellation-requested leave, and company holidays by month.
@@ -142,6 +144,33 @@ For entitled leave types, submitted, approved, and cancellation-requested plans 
 Holiday entries are read-only and include region labels where applicable.
 
 Employees receive email notifications when their leave plan or cancellation request is approved or rejected.
+
+### Bulk Import Approved Leave
+
+Use bulk import only for leave that was already approved before it was entered in MEC Group Portal. Use **Add Approved Leave** when you only need to add one record.
+
+The CSV must use this exact header order:
+
+```csv
+employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason
+MEC-HR-2026-101,L100,2026-03-10,2026-03-12,full_day,,,2026-02-20,Historical approved annual leave
+```
+
+Rules:
+
+- Dates must use `YYYY-MM-DD`.
+- `duration_type` must be `full_day` or `half_day`.
+- Leave `half_day_period` blank for full-day leave. Use `morning` or `afternoon` for half-day leave.
+- Leave `bereavement_relationship` blank unless the leave type is UAE `L180`. For UAE bereavement leave, use exactly `spouse` or `immediate_family`.
+- The same CSV template supports Philippines leave rows. Use eligible Philippines leave codes such as `L190`, `L160`, `L170`, `L210`, `L220`, or `L230`; leave `bereavement_relationship` blank.
+- `approved_at` is the original approval date and is required.
+- `reason` is optional.
+
+The import is preview-first. Upload the CSV, review any row errors, fix the CSV if needed, and upload it again. The final import button appears only when every row is valid. Validation checks the employee number, active Employee/HOD role, current department, leave eligibility, leave balance, date rules, and overlapping active leave.
+
+Uploaded CSV files are not retained on the server. The portal parses the file for preview and discards the uploaded file immediately whether preview succeeds or fails. Only normalized preview rows and errors are kept temporarily in your session until import, a new upload, or session expiry.
+
+If a historical approved leave record is imported incorrectly, ask a Super Admin to use the existing void flow so the record remains in audit history but no longer counts as active leave.
 
 ## Leave Entitlements
 

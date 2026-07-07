@@ -106,6 +106,11 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::post('/hod-submission-tracker/reminders', [AdminHodTimesheetController::class, 'remindMissing'])->middleware('throttle:manual-reminders')->name('hod-tracker.reminders');
         Route::get('/leave-entitlements', [AdminLeavePlanController::class, 'leaveEntitlements'])->name('leave-entitlements.index');
         Route::get('/leave-plans', [AdminLeavePlanController::class, 'index'])->name('leave-plans.index');
+        Route::get('/leave-plans/create', [AdminLeavePlanController::class, 'create'])->name('leave-plans.create');
+        Route::post('/leave-plans', [AdminLeavePlanController::class, 'store'])->middleware('throttle:authenticated-writes')->name('leave-plans.store');
+        Route::get('/leave-plans/import', [AdminLeavePlanController::class, 'import'])->name('leave-plans.import');
+        Route::post('/leave-plans/import/preview', [AdminLeavePlanController::class, 'previewImport'])->middleware('throttle:authenticated-writes')->name('leave-plans.import.preview');
+        Route::post('/leave-plans/import', [AdminLeavePlanController::class, 'storeImport'])->middleware('throttle:authenticated-writes')->name('leave-plans.import.store');
         Route::get('/leave-plans/export', [AdminLeavePlanController::class, 'export'])->middleware('throttle:exports')->name('leave-plans.export');
         Route::get('/leave-plans/calendar', [AdminLeavePlanController::class, 'calendar'])->name('leave-plans.calendar');
         Route::get('/leave-plans/{leavePlan}/history', [AdminLeavePlanController::class, 'history'])->name('leave-plans.history');

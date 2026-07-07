@@ -53,6 +53,8 @@
         <div class="text-muted">Review and export leave plans across all departments.</div>
     </div>
     <div class="action-group">
+        <a class="btn btn-primary" href="{{ route('admin.leave-plans.create') }}">Add Approved Leave</a>
+        <a class="btn btn-outline-primary" href="{{ route('admin.leave-plans.import') }}">Import CSV</a>
         <a class="btn btn-outline-secondary" href="{{ route('admin.leave-plans.calendar') }}">Calendar</a>
         <a class="btn btn-outline-success" id="leavePlanExportButton" href="{{ route('admin.leave-plans.export', request()->query()) }}">
             <span class="spinner-border spinner-border-sm me-2 d-none" aria-hidden="true"></span>

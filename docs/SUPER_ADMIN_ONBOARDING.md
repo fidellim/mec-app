@@ -200,6 +200,33 @@ Use **Leave Approvers** to assign the non-HOD reviewers in the leave-plan approv
 
 If a Director or regional HR approver is missing, leave plans remain submitted at that stage and the review page shows a setup warning. Assign the missing approver, then the configured reviewer can continue from **Assigned Leave Plans**.
 
+## Bulk Import Approved Leave
+
+Use **All Leave Plans > Import CSV** to add historical leave that was already approved before it was entered in MEC Group Portal. Use **Add Approved Leave** instead when there is only one record to add.
+
+The CSV must use this exact header order:
+
+```csv
+employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason
+MEC-HR-2026-101,L100,2026-03-10,2026-03-12,full_day,,,2026-02-20,Historical approved annual leave
+```
+
+Rules:
+
+- Dates must use `YYYY-MM-DD`.
+- `duration_type` must be `full_day` or `half_day`.
+- Leave `half_day_period` blank for full-day leave. Use `morning` or `afternoon` for half-day leave.
+- Leave `bereavement_relationship` blank unless the leave type is UAE `L180`. For UAE bereavement leave, use exactly `spouse` or `immediate_family`.
+- The same CSV template supports Philippines leave rows. Use eligible Philippines leave codes such as `L190`, `L160`, `L170`, `L210`, `L220`, or `L230`; leave `bereavement_relationship` blank.
+- `approved_at` is the original approval date and is required.
+- `reason` is optional.
+
+The import is preview-first. Upload the CSV, review any row errors, fix the CSV if needed, and upload it again. The final import button appears only when every row is valid. Validation checks the employee number, active Employee/HOD role, current department, leave eligibility, leave balance, date rules, and overlapping active leave.
+
+Uploaded CSV files are not retained on the server. The portal parses the file for preview and discards the uploaded file immediately whether preview succeeds or fails. Only normalized preview rows and errors are kept temporarily in your session until import, a new upload, or session expiry.
+
+If an imported approved leave record is wrong, use the existing Super Admin void flow from the leave-plan review page. Voiding keeps the audit trail while removing the record from active leave usage.
+
 ## Manage Leave Settings
 
 Admins and Super Admins use **Leave Settings** to set UAE leave defaults and active Philippines statutory leave defaults for maternity, parental, paternity, VAWC, special leave for women, and service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion. UAE bereavement settings control the calendar-year spouse-death and immediate-family-death balances for `L180`; employees must also have HR eligibility approval for the selected bereavement relationship.
