@@ -2166,7 +2166,10 @@ class LeavePlanWorkflowTest extends TestCase
                 && ! array_key_exists('L110', $leaveBalances)
                 && ! array_key_exists('L120', $leaveBalances)
                 && ! array_key_exists('L180', $leaveBalances)
-                && array_key_exists('L160', $leaveBalances)
+                && ! array_key_exists('L160', $leaveBalances)
+                && ! array_key_exists('L170', $leaveBalances)
+                && ! array_key_exists('L220', $leaveBalances)
+                && ! array_key_exists('L230', $leaveBalances)
                 && array_key_exists('L190', $leaveBalances)
             );
 
@@ -2274,7 +2277,7 @@ class LeavePlanWorkflowTest extends TestCase
         }
     }
 
-    public function test_uae_sick_and_maternity_balances_show_full_pay_allowance_but_validate_total_limit(): void
+    public function test_uae_sick_and_maternity_balances_are_hidden_but_validate_total_limit(): void
     {
         $employee = $this->userWithRole('employee', [
             'department_id' => $this->department()->id,
@@ -2285,15 +2288,18 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('Full-pay allowance')
-            ->assertSee('Full-pay remaining')
-            ->assertSee('15 days')
-            ->assertSee('45 days')
+            ->assertSee('Annual leave')
+            ->assertDontSee('Full-pay allowance')
+            ->assertDontSee('Full-pay remaining')
             ->assertDontSee('90 days')
             ->assertDontSee('60 days')
             ->assertDontSee('Additional pay bands reached')
             ->assertDontSee('Half pay')
-            ->assertDontSee('Unpaid: 0 of 45 days used');
+            ->assertDontSee('Unpaid: 0 of 45 days used')
+            ->assertViewHas('leaveBalances', fn (array $leaveBalances) => array_key_exists('L100', $leaveBalances)
+                && ! array_key_exists('L110', $leaveBalances)
+                && ! array_key_exists('L160', $leaveBalances)
+            );
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload([
@@ -2332,7 +2338,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSessionHasErrors('attendance_code');
     }
 
-    public function test_uae_sick_balance_reveals_supplemental_pay_bands_only_after_thresholds(): void
+    public function test_uae_sick_balance_supplemental_pay_bands_are_hidden_from_employees(): void
     {
         $employee = $this->userWithRole('employee', [
             'department_id' => $this->department()->id,
@@ -2352,7 +2358,7 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('Half pay: 0 of 30 days used')
+            ->assertDontSee('Half pay: 0 of 30 days used')
             ->assertDontSee('Unpaid: 0 of 45 days used');
 
         LeavePlan::factory()->create([
@@ -2367,8 +2373,11 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('Half pay: 30 of 30 days used')
-            ->assertSee('Unpaid: 3 of 45 days used');
+            ->assertDontSee('Half pay: 30 of 30 days used')
+            ->assertDontSee('Unpaid: 3 of 45 days used')
+            ->assertViewHas('leaveBalances', fn (array $leaveBalances) => array_key_exists('L100', $leaveBalances)
+                && ! array_key_exists('L110', $leaveBalances)
+            );
     }
 
     public function test_uae_maternity_balance_reveals_half_pay_only_after_threshold(): void
@@ -2398,7 +2407,7 @@ class LeavePlanWorkflowTest extends TestCase
         $this->actingAs($employee)
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
-            ->assertSee('Half pay: 0 of 15 days used')
+            ->assertDontSee('Half pay: 0 of 15 days used')
             ->assertDontSee('Unpaid: 0 of 45 days used');
     }
 
@@ -2486,11 +2495,18 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertSee('Annual leave')
-            ->assertSee('Sick leave')
-            ->assertSee('Maternity leave')
-            ->assertSee('Parental leave')
-            ->assertSee('Bereavement leave - Spouse')
-            ->assertSee('Bereavement leave - Immediate family');
+            ->assertSee('L160 - Maternity Leave')
+            ->assertSee('L170 - Parental Leave')
+            ->assertSee('L180 - Bereavement Leave')
+            ->assertDontSee('Bereavement leave - Spouse')
+            ->assertDontSee('Bereavement leave - Immediate family')
+            ->assertViewHas('leaveBalances', fn (array $leaveBalances) => array_key_exists('L100', $leaveBalances)
+                && ! array_key_exists('L110', $leaveBalances)
+                && ! array_key_exists('L160', $leaveBalances)
+                && ! array_key_exists('L170', $leaveBalances)
+                && ! array_key_exists('L180_spouse', $leaveBalances)
+                && ! array_key_exists('L180_immediate_family', $leaveBalances)
+            );
     }
 
     public function test_uae_bereavement_leave_requires_hr_relationship_eligibility(): void
@@ -2528,7 +2544,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->get(route('employee.leave-plans.create'))
             ->assertOk()
             ->assertSee('L180 - Bereavement Leave')
-            ->assertSee('Bereavement leave - Spouse')
+            ->assertDontSee('Bereavement leave - Spouse')
             ->assertDontSee('Bereavement leave - Immediate family');
 
         $this->actingAs($spouseEligibleEmployee)

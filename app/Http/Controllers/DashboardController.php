@@ -15,7 +15,7 @@ class DashboardController extends Controller
         $user = auth()->user();
         $openPeriod = $this->latestOpenPeriod();
         $reportingPeriod = $this->latestCompletedPeriod() ?? $openPeriod;
-        $leaveBalances = $entitlements->visibleBalancesFor($user);
+        $leaveBalances = $entitlements->visibleBalancesFor($user, viewer: $user);
 
         return match ($user->role) {
             'super_admin' => view('dashboards.super_admin', $dashboard->superAdminTotals() + [

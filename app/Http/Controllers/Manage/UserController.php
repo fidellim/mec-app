@@ -73,7 +73,7 @@ class UserController extends Controller
 
         return view('manage.users.show', [
             'userModel' => $user->load(['department', 'primaryDepartments', 'managedDepartments']),
-            'leaveBalances' => $entitlements->visibleBalancesFor($user),
+            'leaveBalances' => $entitlements->visibleBalancesFor($user, viewer: auth()->user()),
         ]);
     }
 

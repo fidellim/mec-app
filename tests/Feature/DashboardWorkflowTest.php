@@ -29,11 +29,25 @@ class DashboardWorkflowTest extends TestCase
     public function test_dashboard_renders_for_each_role(): void
     {
         $department = $this->department();
-        $roles = ['employee', 'hod', 'admin', 'super_admin'];
-
-        foreach ($roles as $role) {
+        foreach (['employee', 'hod'] as $role) {
             $user = $this->userWithRole($role, [
-                'department_id' => in_array($role, ['employee', 'hod'], true) ? $department->id : null,
+                'department_id' => $department->id,
+                'eligible_for_bereavement_spouse_leave' => true,
+            ]);
+
+            $this->actingAs($user)
+                ->get(route('dashboard'))
+                ->assertOk()
+                ->assertSee('Dashboard')
+                ->assertSee('Leave balances')
+                ->assertSee('Annual leave')
+                ->assertDontSee('Sick leave')
+                ->assertDontSee('Bereavement leave - Spouse')
+                ->assertDontSee('Maternity leave');
+        }
+
+        foreach (['admin', 'super_admin'] as $role) {
+            $user = $this->userWithRole($role, [
                 'eligible_for_bereavement_spouse_leave' => true,
             ]);
 

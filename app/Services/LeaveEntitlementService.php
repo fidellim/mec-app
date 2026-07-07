@@ -184,18 +184,19 @@ class LeaveEntitlementService
         ];
     }
 
-    public function visibleBalancesFor(User $user, ?int $year = null, ?int $excludeLeavePlanId = null, CarbonInterface|string|null $asOf = null): array
+    public function visibleBalancesFor(User $user, ?int $year = null, ?int $excludeLeavePlanId = null, CarbonInterface|string|null $asOf = null, ?User $viewer = null): array
     {
         $year ??= (int) now()->year;
 
         $balances = collect($this->eligibleEntitledLeaveCodesFor($user))
+            ->intersect($this->visibleEntitledLeaveCodesFor($user, $viewer))
             ->mapWithKeys(function (string $attendanceCode) use ($user, $year, $excludeLeavePlanId, $asOf) {
                 $balance = $this->formatBalance($this->balanceFor($user, $year, $excludeLeavePlanId, $attendanceCode, $asOf));
 
                 return [$attendanceCode => $balance];
             });
 
-        if ($this->regionFor($user) === 'uae') {
+        if ($this->viewerCanSeeAllEntitlements($viewer) && $this->regionFor($user) === 'uae') {
             $balances = $balances->merge($this->visibleBereavementBalancesFor($user, $year, $excludeLeavePlanId));
         }
 
@@ -218,6 +219,22 @@ class LeaveEntitlementService
             ->filter(fn (string $attendanceCode) => $this->userIsEligibleFor($user, $attendanceCode))
             ->values()
             ->all();
+    }
+
+    private function visibleEntitledLeaveCodesFor(User $user, ?User $viewer = null): array
+    {
+        if ($this->viewerCanSeeAllEntitlements($viewer)) {
+            return self::ENTITLED_LEAVE_CODES;
+        }
+
+        return $this->regionFor($user) === 'ph'
+            ? [self::SERVICE_INCENTIVE_LEAVE_CODE]
+            : [self::ANNUAL_LEAVE_CODE];
+    }
+
+    private function viewerCanSeeAllEntitlements(?User $viewer = null): bool
+    {
+        return $viewer === null || $viewer->isAdminLike();
     }
 
     public function ensureEntitlementsFor(User $user, int $year): Collection

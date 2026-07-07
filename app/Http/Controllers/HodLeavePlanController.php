@@ -91,7 +91,7 @@ class HodLeavePlanController extends Controller
 
         return view('hod.leave-plans.show', [
             'leavePlan' => $leavePlan,
-            'leaveBalances' => $entitlements->visibleBalancesFor($leavePlan->user, $balanceYear, $leavePlan->id, $leavePlan->start_date),
+            'leaveBalances' => $entitlements->visibleBalancesFor($leavePlan->user, $balanceYear, $leavePlan->id, $leavePlan->start_date, auth()->user()),
             'leaveBalanceYear' => $balanceYear,
             'reviewCalendarMonths' => $reviewCalendar->build(
                 $leavePlan,
@@ -132,7 +132,7 @@ class HodLeavePlanController extends Controller
 
         return view('hod.leave-plans.show', [
             'leavePlan' => $leavePlan,
-            'leaveBalances' => $entitlements->visibleBalancesFor($leavePlan->user, $balanceYear, $leavePlan->id, $leavePlan->start_date),
+            'leaveBalances' => $entitlements->visibleBalancesFor($leavePlan->user, $balanceYear, $leavePlan->id, $leavePlan->start_date, auth()->user()),
             'leaveBalanceYear' => $balanceYear,
             'reviewCalendarMonths' => $reviewCalendar->build(
                 $leavePlan,

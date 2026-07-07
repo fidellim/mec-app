@@ -100,7 +100,7 @@ class AdminLeavePlanController extends Controller
             ->withQueryString();
 
         $employees->getCollection()->transform(function (User $employee) use ($entitlements, $year) {
-            $employee->leaveBalances = $entitlements->visibleBalancesFor($employee, $year);
+            $employee->leaveBalances = $entitlements->visibleBalancesFor($employee, $year, viewer: auth()->user());
 
             return $employee;
         });
