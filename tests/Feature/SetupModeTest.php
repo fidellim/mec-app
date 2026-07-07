@@ -87,7 +87,12 @@ class SetupModeTest extends TestCase
             $this->actingAs($user)
                 ->get(route('setup.in-progress'))
                 ->assertOk()
-                ->assertSee('System setup is currently in progress');
+                ->assertSee('System setup is currently in progress')
+                ->assertSee('Sign Out')
+                ->assertDontSee('My Timesheets')
+                ->assertDontSee('My Leave Plans')
+                ->assertDontSee('Department Timesheets')
+                ->assertDontSee('Help Guide');
         }
     }
 

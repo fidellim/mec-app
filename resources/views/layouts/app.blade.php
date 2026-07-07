@@ -86,6 +86,10 @@
         [data-sidebar="collapsed"] .app-layout {
             grid-template-columns: var(--sidebar-collapsed-width) minmax(0, 1fr);
         }
+        .app-layout.app-layout-no-sidebar,
+        [data-sidebar="collapsed"] .app-layout.app-layout-no-sidebar {
+            grid-template-columns: minmax(0, 1fr);
+        }
         .sidebar {
             min-height: 100vh;
             background: var(--app-sidebar-bg);
@@ -1357,9 +1361,19 @@
     </style>
 </head>
 <body>
+@php
+    $hideAuthenticatedNavigation = auth()->check()
+        && \App\Models\SystemSetting::setupModeEnabled()
+        && in_array(auth()->user()->role, ['employee', 'hod'], true);
+@endphp
 <div class="container-fluid app-shell">
-    <div class="@auth app-layout @else guest-layout @endauth">
+    <div @class([
+        'app-layout' => auth()->check(),
+        'app-layout-no-sidebar' => $hideAuthenticatedNavigation,
+        'guest-layout' => auth()->guest(),
+    ])>
         @auth
+            @unless($hideAuthenticatedNavigation)
             <aside class="sidebar p-3">
                 <div class="sidebar-header mb-4">
                     <div class="brand-logo-wrap mb-0">
@@ -1463,6 +1477,7 @@
                     </div>
                 </nav>
             </aside>
+            @endunless
         @endauth
         <main class="@auth app-main @else col-12 @endauth p-0">
             @auth
