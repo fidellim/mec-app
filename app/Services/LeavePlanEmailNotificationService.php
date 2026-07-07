@@ -21,6 +21,12 @@ class LeavePlanEmailNotificationService
     {
         $leavePlan = $this->loadLeavePlan($leavePlan);
 
+        if ($leavePlan->approval_stage !== LeavePlan::APPROVAL_STAGE_HOD) {
+            $this->stagePending($leavePlan);
+
+            return;
+        }
+
         $this->sendToHods($leavePlan, fn () => new LeavePlanWorkflowMail(
             leavePlan: $leavePlan,
             headline: $resubmitted ? 'Leave plan resubmitted for approval' : 'Leave plan submitted for approval',
@@ -88,12 +94,32 @@ class LeavePlanEmailNotificationService
     {
         $leavePlan = $this->loadLeavePlan($leavePlan);
 
+        if (in_array($leavePlan->approval_stage, [LeavePlan::APPROVAL_STAGE_DIRECTOR, LeavePlan::APPROVAL_STAGE_HR], true)) {
+            $this->cancellationStagePending($leavePlan);
+
+            return;
+        }
+
         $this->sendToHods($leavePlan, fn () => new LeavePlanWorkflowMail(
             leavePlan: $leavePlan,
             headline: 'Leave plan cancellation requested',
             intro: $leavePlan->user->name.' requested cancellation for '.$this->dateRange($leavePlan).'.',
             actionLabel: 'Review Cancellation',
             actionUrl: route('hod.leave-plans.show', $leavePlan),
+            comment: $leavePlan->cancellation_reason,
+        ));
+    }
+
+    public function cancellationStagePending(LeavePlan $leavePlan): void
+    {
+        $leavePlan = $this->loadLeavePlan($leavePlan);
+
+        $this->send($this->approvals->currentStageApprover($leavePlan), new LeavePlanWorkflowMail(
+            leavePlan: $leavePlan,
+            headline: 'Leave plan cancellation pending '.$leavePlan->approvalStageLabel().' approval',
+            intro: $leavePlan->user->name.' requested cancellation for '.$this->dateRange($leavePlan).'.',
+            actionLabel: 'Review Cancellation',
+            actionUrl: route('assigned.leave-plans.show', $leavePlan),
             comment: $leavePlan->cancellation_reason,
         ));
     }

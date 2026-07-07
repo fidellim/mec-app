@@ -8,6 +8,7 @@ use App\Services\AuditLogService;
 use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
 use App\Services\LeaveEntitlementService;
+use App\Services\LeavePlanApprovalService;
 use App\Services\LeavePlanStatusHistoryService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -73,7 +74,7 @@ class EmployeeLeavePlanController extends Controller
         ]);
     }
 
-    public function store(LeavePlanSaveRequest $request, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
+    public function store(LeavePlanSaveRequest $request, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanApprovalService $approvals, LeavePlanStatusHistoryService $history)
     {
         if ($redirect = $this->redirectIfMissingDepartment()) {
             return $redirect;
@@ -82,12 +83,12 @@ class EmployeeLeavePlanController extends Controller
         $user = $request->user();
         $submit = $request->boolean('submit');
 
-        $leavePlan = DB::transaction(function () use ($request, $user, $submit, $audit, $history) {
+        $leavePlan = DB::transaction(function () use ($request, $user, $submit, $audit, $approvals, $history) {
             $leavePlan = LeavePlan::create(array_merge($this->attributes($request), [
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
                 'status' => $submit ? LeavePlan::STATUS_SUBMITTED : LeavePlan::STATUS_DRAFT,
-                'approval_stage' => $submit ? LeavePlan::APPROVAL_STAGE_HOD : null,
+                'approval_stage' => $submit ? $approvals->initialApprovalStageFor($user) : null,
                 'submitted_at' => $submit ? now() : null,
             ]));
 
@@ -146,7 +147,7 @@ class EmployeeLeavePlanController extends Controller
         ]);
     }
 
-    public function update(LeavePlanSaveRequest $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
+    public function update(LeavePlanSaveRequest $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanApprovalService $approvals, LeavePlanStatusHistoryService $history)
     {
         $this->authorizeOwner($leavePlan);
         abort_unless($leavePlan->editableBy($request->user()), 403);
@@ -160,11 +161,11 @@ class EmployeeLeavePlanController extends Controller
         $wasRejected = $leavePlan->status === LeavePlan::STATUS_REJECTED;
         $wasRecalled = $leavePlan->status === LeavePlan::STATUS_RECALLED;
 
-        DB::transaction(function () use ($request, $leavePlan, $submit, $audit, $history, $old, $wasRejected, $wasRecalled) {
+        DB::transaction(function () use ($request, $leavePlan, $submit, $audit, $approvals, $history, $old, $wasRejected, $wasRecalled) {
             $leavePlan->update(array_merge($this->attributes($request), [
                 'department_id' => $request->user()->department_id,
                 'status' => $submit ? LeavePlan::STATUS_SUBMITTED : LeavePlan::STATUS_DRAFT,
-                'approval_stage' => $submit ? LeavePlan::APPROVAL_STAGE_HOD : null,
+                'approval_stage' => $submit ? $approvals->initialApprovalStageFor($request->user()) : null,
                 'submitted_at' => $submit ? now() : $leavePlan->submitted_at,
                 'approved_at' => null,
                 'approved_by' => null,
@@ -203,7 +204,7 @@ class EmployeeLeavePlanController extends Controller
             ->with('success', $submit ? 'Leave plan submitted for approval.' : 'Leave plan updated.');
     }
 
-    public function requestCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
+    public function requestCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanApprovalService $approvals, LeavePlanStatusHistoryService $history)
     {
         $this->authorizeOwner($leavePlan);
         abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 403, 'Only approved leave plans can request cancellation.');
@@ -215,6 +216,7 @@ class EmployeeLeavePlanController extends Controller
         $old = $leavePlan->toArray();
         $leavePlan->update([
             'status' => LeavePlan::STATUS_CANCELLATION_REQUESTED,
+            'approval_stage' => $request->user()->role === 'hod' ? $approvals->initialApprovalStageFor($request->user()) : null,
             'cancellation_requested_at' => now(),
             'cancellation_reason' => $validated['cancellation_reason'],
             'cancellation_rejection_comment' => null,

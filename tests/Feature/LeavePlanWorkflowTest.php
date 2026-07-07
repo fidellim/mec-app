@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Mail\LeavePlanWorkflowMail;
 use App\Models\AuditLog;
 use App\Models\HolidayEvent;
 use App\Models\LeaveEntitlement;
@@ -76,6 +77,91 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertForbidden();
 
         $this->assertModelExists($submitted);
+    }
+
+    public function test_hod_leave_submission_bypasses_hod_stage_and_director_hr_complete_approval(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-620',
+        ]);
+        $departmentHod = $this->userWithRole('hod');
+        $director = $this->userWithRole('employee');
+        $uaeHr = $this->userWithRole('employee');
+        $department->update(['hod_id' => $departmentHod->id]);
+        $department->hods()->attach([$departmentHod->id, $hod->id]);
+        $this->setLeavePlanApprovers($director, $uaeHr, $this->userWithRole('employee'));
+
+        $this->actingAs($hod)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload(['submit' => '1']))
+            ->assertRedirect();
+
+        $leavePlan = LeavePlan::firstOrFail();
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->approval_stage);
+        $this->assertNull($leavePlan->hod_approved_at);
+        $this->assertNull($leavePlan->hod_approved_by);
+        Mail::assertQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($director->email)
+            && $mail->headline === 'Leave plan pending Director approval');
+        Mail::assertNotQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($departmentHod->email));
+
+        $this->actingAs($director)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_HR, $leavePlan->approval_stage);
+        $this->assertSame($director->id, $leavePlan->director_approved_by);
+
+        $this->actingAs($uaeHr)
+            ->post(route('assigned.leave-plans.approve', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
+        $this->assertNull($leavePlan->approval_stage);
+        $this->assertSame($uaeHr->id, $leavePlan->hr_approved_by);
+        $this->assertSame($uaeHr->id, $leavePlan->approved_by);
+    }
+
+    public function test_hod_leave_resubmission_restarts_at_director_stage(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-621',
+        ]);
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $hod->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_REJECTED,
+            'approval_stage' => null,
+            'hod_approved_at' => now(),
+            'hod_approved_by' => $this->userWithRole('hod')->id,
+            'director_approved_at' => now(),
+            'director_approved_by' => $this->userWithRole('employee')->id,
+            'rejected_approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+        ]);
+
+        $this->actingAs($hod)
+            ->put(route('employee.leave-plans.update', $leavePlan), $this->validLeavePlanPayload([
+                'submit' => '1',
+                'start_date' => '2026-05-12',
+                'end_date' => '2026-05-12',
+            ]))
+            ->assertRedirect(route('employee.leave-plans.show', $leavePlan));
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_SUBMITTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->approval_stage);
+        $this->assertNull($leavePlan->hod_approved_at);
+        $this->assertNull($leavePlan->hod_approved_by);
+        $this->assertNull($leavePlan->director_approved_at);
+        $this->assertNull($leavePlan->director_approved_by);
+        $this->assertNull($leavePlan->rejected_approval_stage);
     }
 
     public function test_hod_approval_moves_leave_plan_to_director_review_and_hod_can_reject(): void
@@ -532,6 +618,105 @@ class LeavePlanWorkflowTest extends TestCase
             'action' => 'leave_plan_cancellation_approved',
             'new_status' => LeavePlan::STATUS_CANCELLED,
         ]);
+    }
+
+    public function test_hod_approved_leave_plan_cancellation_routes_through_director_and_hr(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-622',
+        ]);
+        $departmentHod = $this->userWithRole('hod');
+        $director = $this->userWithRole('employee');
+        $uaeHr = $this->userWithRole('employee');
+        $department->hods()->attach([$departmentHod->id, $hod->id]);
+        $this->setLeavePlanApprovers($director, $uaeHr, $this->userWithRole('employee'));
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $hod->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approved_at' => now(),
+            'approved_by' => $uaeHr->id,
+            'director_approved_at' => now(),
+            'director_approved_by' => $director->id,
+            'hr_approved_at' => now(),
+            'hr_approved_by' => $uaeHr->id,
+        ]);
+
+        $this->actingAs($hod)
+            ->post(route('employee.leave-plans.cancel-request', $leavePlan), [
+                'cancellation_reason' => 'Plans changed.',
+            ])
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_CANCELLATION_REQUESTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->approval_stage);
+        Mail::assertQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($director->email)
+            && $mail->headline === 'Leave plan cancellation pending Director of Engineering & Project Management approval');
+        Mail::assertNotQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($departmentHod->email));
+
+        $this->actingAs($director)
+            ->post(route('assigned.leave-plans.approve-cancellation', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_CANCELLATION_REQUESTED, $leavePlan->status);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_HR, $leavePlan->approval_stage);
+        $this->assertNull($leavePlan->cancelled_at);
+        Mail::assertQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($uaeHr->email)
+            && $mail->headline === 'Leave plan cancellation pending HR Department approval');
+
+        $this->actingAs($uaeHr)
+            ->post(route('assigned.leave-plans.approve-cancellation', $leavePlan))
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_CANCELLED, $leavePlan->status);
+        $this->assertNull($leavePlan->approval_stage);
+        $this->assertSame($uaeHr->id, $leavePlan->cancelled_by);
+        $this->assertDatabaseHas('leave_plan_status_histories', [
+            'leave_plan_id' => $leavePlan->id,
+            'action' => 'leave_plan_stage_approved',
+            'old_approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+            'new_approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+        ]);
+    }
+
+    public function test_hod_cancellation_rejection_at_director_stage_restores_approved_status(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-623',
+        ]);
+        $director = $this->userWithRole('employee');
+        $this->setLeavePlanApprovers($director, $this->userWithRole('employee'), $this->userWithRole('employee'));
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $hod->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_CANCELLATION_REQUESTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+            'approved_at' => now(),
+            'approved_by' => $this->userWithRole('employee')->id,
+            'cancellation_requested_at' => now(),
+            'cancellation_reason' => 'Plans changed.',
+        ]);
+
+        $this->actingAs($director)
+            ->post(route('assigned.leave-plans.reject-cancellation', $leavePlan), [
+                'cancellation_rejection_comment' => 'Keep the approved leave active.',
+            ])
+            ->assertRedirect();
+
+        $leavePlan->refresh();
+        $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
+        $this->assertNull($leavePlan->approval_stage);
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->rejected_approval_stage);
+        $this->assertSame('Keep the approved leave active.', $leavePlan->cancellation_rejection_comment);
     }
 
     public function test_approved_leave_plan_can_be_recalled_for_employee_correction(): void

@@ -104,7 +104,7 @@ class HodLeavePlanController extends Controller
     {
         $actor = auth()->user();
         $allAssigned = LeavePlan::with(['user', 'department'])
-            ->where('status', LeavePlan::STATUS_SUBMITTED)
+            ->whereIn('status', [LeavePlan::STATUS_SUBMITTED, LeavePlan::STATUS_CANCELLATION_REQUESTED])
             ->whereIn('approval_stage', [LeavePlan::APPROVAL_STAGE_DIRECTOR, LeavePlan::APPROVAL_STAGE_HR])
             ->latest()
             ->get()
@@ -274,28 +274,48 @@ class HodLeavePlanController extends Controller
 
     public function approveCancellation(LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeApprovalAction($leavePlan, 'approve cancellation for', false);
+        $this->authorizeApprovalAction($leavePlan, 'approve cancellation for', $this->cancellationIsStaged($leavePlan));
         abort_unless($leavePlan->status === LeavePlan::STATUS_CANCELLATION_REQUESTED, 422);
 
         $old = $leavePlan->toArray();
-        $leavePlan->update([
-            'status' => LeavePlan::STATUS_CANCELLED,
-            'cancelled_at' => now(),
-            'cancelled_by' => auth()->id(),
+        $stage = $leavePlan->approval_stage;
+        $updates = [
             'cancellation_rejection_comment' => null,
-        ]);
+            'rejected_approval_stage' => null,
+        ];
+
+        if ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
+            $updates += [
+                'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+            ];
+        } else {
+            $updates += [
+                'status' => LeavePlan::STATUS_CANCELLED,
+                'approval_stage' => null,
+                'cancelled_at' => now(),
+                'cancelled_by' => auth()->id(),
+            ];
+        }
+
+        $leavePlan->update($updates);
 
         $new = $leavePlan->fresh()->toArray();
-        $audit->record('leave_plan_cancellation_approved', $leavePlan, $old, $new);
-        $history->record('leave_plan_cancellation_approved', $leavePlan, $old, $new);
-        $emails->cancellationApproved($leavePlan);
+        $action = ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) ? 'leave_plan_stage_approved' : 'leave_plan_cancellation_approved';
+        $audit->record($action, $leavePlan, $old, $new);
+        $history->record($action, $leavePlan, $old, $new);
 
-        return back()->with('success', 'Leave plan cancellation approved.');
+        if ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
+            $emails->cancellationStagePending($leavePlan);
+        } else {
+            $emails->cancellationApproved($leavePlan);
+        }
+
+        return back()->with('success', $stage === LeavePlan::APPROVAL_STAGE_DIRECTOR ? 'Leave plan cancellation moved to '.$leavePlan->fresh()->approvalStageLabel().' review.' : 'Leave plan cancellation approved.');
     }
 
     public function rejectCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeApprovalAction($leavePlan, 'reject cancellation for', false);
+        $this->authorizeApprovalAction($leavePlan, 'reject cancellation for', $this->cancellationIsStaged($leavePlan));
         abort_unless($leavePlan->status === LeavePlan::STATUS_CANCELLATION_REQUESTED, 422);
 
         $validated = $request->validate([
@@ -303,9 +323,12 @@ class HodLeavePlanController extends Controller
         ]);
 
         $old = $leavePlan->toArray();
+        $stage = $leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD;
         $leavePlan->update([
             'status' => LeavePlan::STATUS_APPROVED,
+            'approval_stage' => null,
             'cancellation_rejection_comment' => $validated['cancellation_rejection_comment'],
+            'rejected_approval_stage' => $stage,
         ]);
 
         $new = $leavePlan->fresh()->toArray();
@@ -481,5 +504,10 @@ class HodLeavePlanController extends Controller
         return collect(config('timesheet.attendance_codes'))
             ->only(config('timesheet.leave_attendance_codes', []))
             ->all();
+    }
+
+    private function cancellationIsStaged(LeavePlan $leavePlan): bool
+    {
+        return in_array($leavePlan->approval_stage, [LeavePlan::APPROVAL_STAGE_DIRECTOR, LeavePlan::APPROVAL_STAGE_HR], true);
     }
 }

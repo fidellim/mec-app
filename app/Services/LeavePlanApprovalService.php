@@ -9,6 +9,13 @@ use Illuminate\Support\Facades\Log;
 
 class LeavePlanApprovalService
 {
+    public function initialApprovalStageFor(User $user): string
+    {
+        return $user->role === 'hod'
+            ? LeavePlan::APPROVAL_STAGE_DIRECTOR
+            : LeavePlan::APPROVAL_STAGE_HOD;
+    }
+
     public function director(): ?User
     {
         return $this->approver(LeavePlanApproverSetting::DIRECTOR);
@@ -46,7 +53,7 @@ class LeavePlanApprovalService
 
     public function currentStageMissingMessage(LeavePlan $leavePlan): ?string
     {
-        if ($leavePlan->status !== LeavePlan::STATUS_SUBMITTED) {
+        if (! in_array($leavePlan->status, [LeavePlan::STATUS_SUBMITTED, LeavePlan::STATUS_CANCELLATION_REQUESTED], true)) {
             return null;
         }
 

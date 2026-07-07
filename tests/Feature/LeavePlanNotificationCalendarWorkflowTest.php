@@ -45,6 +45,35 @@ class LeavePlanNotificationCalendarWorkflowTest extends TestCase
         Mail::assertQueuedCount(2);
     }
 
+    public function test_hod_leave_plan_submission_notifies_director_instead_of_hods(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $submittingHod = $this->userWithRole('hod', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-610',
+        ]);
+        $coveringHod = $this->userWithRole('hod');
+        $director = $this->userWithRole('employee');
+        LeavePlanApproverSetting::create([
+            'key' => LeavePlanApproverSetting::DIRECTOR,
+            'user_id' => $director->id,
+        ]);
+        $department->hods()->attach([$submittingHod->id, $coveringHod->id]);
+
+        $this->actingAs($submittingHod)
+            ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload(['submit' => '1']))
+            ->assertRedirect();
+
+        $leavePlan = LeavePlan::firstOrFail();
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->approval_stage);
+        Mail::assertQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($director->email)
+            && $mail->headline === 'Leave plan pending Director approval');
+        Mail::assertNotQueued(LeavePlanWorkflowMail::class, fn ($mail) => $mail->hasTo($coveringHod->email));
+        Mail::assertQueuedCount(1);
+    }
+
     public function test_leave_plan_review_actions_notify_employee(): void
     {
         Mail::fake();

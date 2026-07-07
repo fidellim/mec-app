@@ -116,6 +116,8 @@
         <div class="content-card-body">
             @if($isOwnLeavePlan)
                 <div class="alert alert-warning mb-0">You cannot action cancellation for your own leave plan.</div>
+            @elseif($missingStageMessage)
+                <div class="alert alert-warning mb-0">{{ $missingStageMessage }}</div>
             @elseif($isApprovalExcluded)
                 <div class="alert alert-warning mb-0">Another HOD approver is assigned to review this cancellation request.</div>
             @else

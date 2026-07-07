@@ -70,6 +70,8 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::get('/{leavePlan}', [HodLeavePlanController::class, 'assignedShow'])->name('show');
         Route::post('/{leavePlan}/approve', [HodLeavePlanController::class, 'approve'])->middleware('throttle:workflow-actions')->name('approve');
         Route::post('/{leavePlan}/reject', [HodLeavePlanController::class, 'reject'])->middleware('throttle:workflow-actions')->name('reject');
+        Route::post('/{leavePlan}/approve-cancellation', [HodLeavePlanController::class, 'approveCancellation'])->middleware('throttle:workflow-actions')->name('approve-cancellation');
+        Route::post('/{leavePlan}/reject-cancellation', [HodLeavePlanController::class, 'rejectCancellation'])->middleware('throttle:workflow-actions')->name('reject-cancellation');
     });
 
     Route::middleware('role:hod')->prefix('department')->name('hod.')->group(function () {

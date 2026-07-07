@@ -61,8 +61,8 @@ password123
 - Admin: view and review all leave plans, use the all-company leave calendar, approve/reject leave plans and cancellation requests, and receive no self-approval ability.
 - Admin: view company leave entitlements, maintain company holidays, view users, and edit Employee/HOD profile details. Admin cannot create users, delete users, change roles, manage departments, manage projects, manage weekly periods, manage leave settings, manage automations, or delete audit logs.
 - Head of Department: view employees and timesheets for every department they are assigned to manage, approve submitted employee timesheets, reject employee timesheets with a required comment, recall approved employee timesheets with a required reason, and track missing submissions. Head of Department cannot approve, reject, or recall their own timesheet.
-- Head of Department: view leave plans and the leave calendar for managed departments, approve/reject submitted leave plans, and review cancellation requests. Head of Department cannot approve or reject their own leave plan.
-- Director and regional HR leave approvers use **Assigned Leave Plans** for staged leave approvals when they are configured in **Leave Approvers**. This menu can appear for any active user assigned to a Director, UAE HR, or Philippines HR approval slot.
+- Head of Department: view leave plans and the leave calendar for managed departments, approve/reject submitted leave plans, and review cancellation requests. Head of Department cannot approve or reject their own leave plan; HOD-owned leave plans bypass HOD review and route directly to the configured Director approver, then regional HR.
+- Director and regional HR leave approvers use **Assigned Leave Plans** for staged leave approvals and HOD-owned cancellation requests when they are configured in **Leave Approvers**. This menu can appear for any active user assigned to a Director, UAE HR, or Philippines HR approval slot.
 - Employee: create weekly timesheets, save drafts, submit for approval, view history, withdraw submitted timesheets before approval, edit draft/rejected/withdrawn/recalled timesheets, and resubmit corrected records.
 - Employee: create leave plans, save drafts, submit them for HOD approval, request cancellation of approved leave, and view their department leave calendar.
 - Admin and Super Admin department assignment is optional for system management, but required if they need to create or submit their own weekly timesheets.
@@ -74,6 +74,7 @@ Leave plans are tracked separately from weekly timesheet entries.
 - Employees create leave plans from **My Leave Plans** and can view submitted, approved, and cancellation-requested leave in their department calendar.
 - HODs review leave plans from **Department Leave Plans** and can visualize managed department leave in **Department Leave Calendar**.
 - Admins and Super Admins review all leave plans from **All Leave Plans** and can visualize all leave in **All Leave Calendar**.
+- HOD-owned leave plans bypass the HOD approval stage and start at Director review. HOD-owned cancellation requests also start at Director review, then move to regional HR before final cancellation.
 - Leave calendars show active company holidays as read-only events. Employee calendars show global holidays plus holidays for the employee's region; reviewer calendars show all company holiday regions with region labels.
 - Submitted, approved, rejected, cancellation-requested, and cancelled leave-plan actions are audit logged.
 - Email notifications are sent for submission/resubmission, approval, rejection, cancellation request, cancellation approval, and cancellation rejection.
