@@ -32,9 +32,9 @@ Employees can access:
 | ![Submitted](/images/status/submitted.svg) | The timesheet has been sent for review. | It is locked unless you recall it before review. |
 | ![Approved](/images/status/approved.svg) | The timesheet has been accepted. | You can view it, but cannot edit it. |
 | ![Rejected](/images/status/rejected.svg) | The timesheet was returned with a comment. | You can edit and resubmit it. |
-| Withdrawn | You withdrew your own submitted timesheet before approval. | You can edit and resubmit it. |
-| Recalled | An authorized reviewer recalled an approved timesheet for correction. | Review the history comment, edit, and resubmit it. |
-| Voided | A Super Admin cancelled an approved timesheet because it needs correction. | Create a corrected timesheet for the same weekly period if the period is open. |
+| ![Withdrawn](/images/status/withdrawn.svg) | You withdrew your own submitted timesheet before approval. | You can edit and resubmit it. |
+| ![Recalled](/images/status/recalled.svg) | An authorized reviewer recalled an approved timesheet for correction. | Review the history comment, edit, and resubmit it. |
+| ![Voided](/images/status/voided.svg) | A Super Admin cancelled an approved timesheet because it needs correction. | Create a corrected timesheet for the same weekly period if the period is open. |
 
 ## Employee Dashboard
 

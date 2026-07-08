@@ -36,8 +36,8 @@ Heads of Department can access:
 | ![Submitted](/images/status/submitted.svg) | The timesheet has been sent for review. | It can be approved or rejected. |
 | ![Approved](/images/status/approved.svg) | The timesheet has been accepted. | No further action is needed. |
 | ![Rejected](/images/status/rejected.svg) | The timesheet was returned with a comment. | The owner can correct and resubmit it. |
-| Withdrawn | The owner withdrew a submitted timesheet before approval. | The owner can edit and resubmit it. |
-| Recalled | An approved timesheet was sent back for correction. | The owner can correct and resubmit it. |
+| ![Withdrawn](/images/status/withdrawn.svg) | The owner withdrew a submitted timesheet before approval. | The owner can edit and resubmit it. |
+| ![Recalled](/images/status/recalled.svg) | An approved timesheet was sent back for correction. | The owner can correct and resubmit it. |
 
 ## Dashboard
 

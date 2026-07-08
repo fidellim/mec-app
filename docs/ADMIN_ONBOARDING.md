@@ -40,8 +40,8 @@ Admins can access:
 | ![Submitted](/images/status/submitted.svg) | Sent for review. |
 | ![Approved](/images/status/approved.svg) | Accepted by an authorized reviewer. |
 | ![Rejected](/images/status/rejected.svg) | Returned to the owner with a comment. |
-| Withdrawn | The owner withdrew a submitted timesheet before approval. |
-| Recalled | An approved timesheet was sent back for correction with a required reason. |
+| ![Withdrawn](/images/status/withdrawn.svg) | The owner withdrew a submitted timesheet before approval. |
+| ![Recalled](/images/status/recalled.svg) | An approved timesheet was sent back for correction with a required reason. |
 
 ## Dashboard
 

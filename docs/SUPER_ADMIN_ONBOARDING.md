@@ -54,9 +54,9 @@ Super Admins can access:
 | ![Submitted](/images/status/submitted.svg) | Sent for review. |
 | ![Approved](/images/status/approved.svg) | Accepted by an authorized reviewer. |
 | ![Rejected](/images/status/rejected.svg) | Returned to the owner with a comment. |
-| Withdrawn | The owner withdrew a submitted timesheet before approval. |
-| Recalled | An approved timesheet was sent back for correction with a required reason. |
-| Voided | Cancelled by a Super Admin because an approved timesheet needs correction. Voided records are kept for audit history and are excluded from corrected submissions and normal exports. |
+| ![Withdrawn](/images/status/withdrawn.svg) | The owner withdrew a submitted timesheet before approval. |
+| ![Recalled](/images/status/recalled.svg) | An approved timesheet was sent back for correction with a required reason. |
+| ![Voided](/images/status/voided.svg) | Cancelled by a Super Admin because an approved timesheet needs correction. Voided records are kept for audit history and are excluded from corrected submissions and normal exports. |
 
 ## Dashboard
 
