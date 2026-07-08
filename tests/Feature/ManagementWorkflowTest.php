@@ -906,7 +906,8 @@ class ManagementWorkflowTest extends TestCase
             ->assertDontSee('Paged Employee 21')
             ->assertSee('Showing 1 to 20 of 25 users')
             ->assertSee('role=employee', false)
-            ->assertSee('page=2', false);
+            ->assertSee('page=2', false)
+            ->assertSee('rel="next"', false);
 
         $this->actingAs($superAdmin)
             ->get(route('manage.users.index', ['role' => 'employee', 'page' => 2]))
@@ -915,7 +916,8 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('Paged Employee 21')
             ->assertSee('Paged Employee 25')
             ->assertSee('Showing 21 to 25 of 25 users')
-            ->assertSee('role=employee', false);
+            ->assertSee('role=employee', false)
+            ->assertSee('rel="prev"', false);
     }
 
     public function test_super_admin_can_filter_users_by_region(): void
