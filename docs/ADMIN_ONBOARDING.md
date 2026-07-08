@@ -192,7 +192,7 @@ The annual default applies to every user whose **Annual leave allowance override
 
 ## Users And Holidays
 
-Admins can use **Users** to view company users and edit Employee/HOD profile details such as name, employee number, initials, job title, gender, joining date, marital status, department, and active status. Admins cannot create users, delete users, change roles, reset passwords, edit Super Admin accounts, or configure HOD exclusions.
+Admins can use **Users** to view company users and edit Employee/HOD profile details such as name, employee number, initials, job title, gender, joining date, marital status, department, active status, and the current-year annual leave override for carry-over or adjusted entitlement cases. Admins cannot create users, delete users, change roles, reset passwords, edit Super Admin accounts, or configure HOD exclusions.
 
 Use **Holidays** to maintain company holidays used by leave calendars and leave entitlement day counting.
 

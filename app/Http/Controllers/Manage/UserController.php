@@ -445,6 +445,7 @@ class UserController extends Controller
             'is_solo_parent' => ['boolean'],
             'department_id' => ['nullable', 'exists:departments,id'],
             'is_active' => ['boolean'],
+            'annual_leave_allowance_days' => ['nullable', 'numeric', 'min:0', 'multiple_of:0.5'],
         ], [
             'employee_code.required' => 'Employee number is required for employees and HODs.',
             'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
@@ -465,6 +466,9 @@ class UserController extends Controller
         $data['gender'] = filled($data['gender'] ?? null) ? $data['gender'] : null;
         $data['joining_date'] = filled($data['joining_date'] ?? null) ? $data['joining_date'] : null;
         $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;
+        if (array_key_exists('annual_leave_allowance_days', $data)) {
+            $data['annual_leave_allowance_days'] = filled($data['annual_leave_allowance_days']) ? $data['annual_leave_allowance_days'] : null;
+        }
 
         return $data;
     }

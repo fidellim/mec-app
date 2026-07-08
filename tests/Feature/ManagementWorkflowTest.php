@@ -273,7 +273,7 @@ class ManagementWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Update employee profile details and account status.')
             ->assertDontSee('data-password-toggle="password"', false)
-            ->assertDontSee('Current-year annual leave override')
+            ->assertSee('Current-year annual leave override')
             ->assertDontSee('HOD notification and approval exceptions');
 
         $this->actingAs($admin)
@@ -333,6 +333,7 @@ class ManagementWorkflowTest extends TestCase
                 'eligible_for_bereavement_immediate_family_leave' => '1',
                 'department_id' => $newDepartment->id,
                 'is_active' => '0',
+                'annual_leave_allowance_days' => '18.5',
             ])
             ->assertRedirect(route('manage.users.index'));
 
@@ -362,10 +363,45 @@ class ManagementWorkflowTest extends TestCase
         $this->assertTrue($employee->eligible_for_bereavement_immediate_family_leave);
         $this->assertSame($newDepartment->id, $employee->department_id);
         $this->assertFalse($employee->is_active);
+        $this->assertSame('18.50', $employee->annual_leave_allowance_days);
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $employee->id,
+            'year' => now()->year,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_USER_OVERRIDE,
+            'claimable_allowance_days' => '18.50',
+        ]);
 
         $this->assertSame('Updated HOD Name', $hod->name);
         $this->assertSame('MEC-HR-2026-602', $hod->employee_code);
         $this->assertSame('hod', $hod->role);
+
+        $this->actingAs($admin)
+            ->put(route('manage.users.update', $employee), [
+                'name' => $employee->name,
+                'employee_code' => $employee->employee_code,
+                'initials' => $employee->initials,
+                'job_title' => $employee->job_title,
+                'gender' => $employee->gender,
+                'joining_date' => $employee->joining_date->toDateString(),
+                'marital_status' => $employee->marital_status,
+                'eligible_for_parental_leave' => '1',
+                'eligible_for_bereavement_spouse_leave' => '1',
+                'eligible_for_bereavement_immediate_family_leave' => '1',
+                'department_id' => $employee->department_id,
+                'is_active' => '0',
+                'annual_leave_allowance_days' => '',
+            ])
+            ->assertRedirect(route('manage.users.index'));
+
+        $this->assertNull($employee->fresh()->annual_leave_allowance_days);
+        $this->assertDatabaseHas('leave_entitlements', [
+            'user_id' => $employee->id,
+            'year' => now()->year,
+            'attendance_code' => 'L100',
+            'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
+            'claimable_allowance_days' => '0.00',
+        ]);
     }
 
     public function test_admin_cannot_update_admin_or_super_admin_users(): void
@@ -425,7 +461,7 @@ class ManagementWorkflowTest extends TestCase
         $this->assertSame('Safe Profile Update', $employee->name);
         $this->assertSame('safe.employee@example.com', $employee->email);
         $this->assertSame('employee', $employee->role);
-        $this->assertSame('12.50', $employee->annual_leave_allowance_days);
+        $this->assertSame('99.00', $employee->annual_leave_allowance_days);
         $this->assertSame($originalPassword, $employee->password);
         $this->assertFalse(Hash::check('new-password-123', $employee->password));
     }

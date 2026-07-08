@@ -11,6 +11,7 @@
     $visibilityExcludableIds = collect($hodVisibilityExcludableIds ?? [])->map(fn ($id) => (int) $id)->all();
     $hasVisibilityBlockedCandidates = $hodExclusionCandidates->contains(fn ($candidate) => ! in_array((int) $candidate->id, $visibilityExcludableIds, true));
     $isSuperAdmin = auth()->user()->role === 'super_admin';
+    $canEditAnnualLeaveOverride = in_array(auth()->user()->role, ['admin', 'super_admin'], true);
     $employeeCodeForRegion = old('employee_code', $userModel->employee_code);
     $workRegion = is_string($employeeCodeForRegion) && str_starts_with($employeeCodeForRegion, 'MEC-PHIL-HR-')
         ? 'ph'
@@ -170,7 +171,7 @@
                 </div>
             </div>
         </div>
-        @if($isSuperAdmin)
+        @if($canEditAnnualLeaveOverride)
             <div class="col-md-4">
                 <label class="form-label" for="annual_leave_allowance_days">Current-year annual leave override</label>
                 <input class="form-control @error('annual_leave_allowance_days') is-invalid @enderror" id="annual_leave_allowance_days" name="annual_leave_allowance_days" type="number" min="0" step="0.5" value="{{ old('annual_leave_allowance_days', $userModel->annual_leave_allowance_days) }}" placeholder="Use regional default">
@@ -179,6 +180,8 @@
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror
             </div>
+        @endif
+        @if($isSuperAdmin)
             <div class="col-md-4 d-flex align-items-end" data-admin-email-option>
                 <div class="form-check">
                     <input type="hidden" name="receives_hod_timesheet_submission_emails" value="0">

@@ -130,7 +130,7 @@ If an imported approved leave record is wrong, a Super Admin should use the exis
 Eligible leave entitlements have calendar-year limits. UAE annual, sick, maternity, and parental leave use the employee's regional or profile entitlement. UAE bereavement / compassionate leave uses HR-attested spouse and immediate-family eligibility with separate calendar-year balances. Philippines employees only receive balances for eligible statutory leave options and do not receive Annual, Sick, Emergency, or Bereavement balances.
 
 - Admins and Super Admins set UAE default allowances and active Philippines statutory leave allowances in **Leave Settings**. UAE sick and maternity settings are maximum claimable calendar-day limits, not employee-facing full-pay balances. UAE bereavement settings define yearly spouse-death and immediate-family-death allowances.
-- Super Admins can set an employee-specific annual leave override in **Manage Users** for employees who are eligible for annual leave. A blank override uses the regional default.
+- Admins and Super Admins can set an employee-specific current-year annual leave override in **Manage Users** for employees who are eligible for annual leave. A blank override uses the regional default.
 - Leave allowances refresh automatically by year. Unused allowance expires on December 31 and does not carry over into the next year.
 - No scheduled automation is required for the yearly refresh because remaining allowance is calculated dynamically from leave plans in the requested year.
 - Submitted, approved, and cancellation-requested entitled leave plans consume allowance.
