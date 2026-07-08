@@ -1945,6 +1945,27 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSessionHasErrors('attendance_code');
     }
 
+    public function test_cross_year_annual_leave_uses_each_years_relevant_counted_leave_date_for_allowance(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 30]);
+
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-909',
+            'joining_date' => '2025-01-15',
+        ]);
+
+        $violations = app(\App\Services\LeaveEntitlementService::class)->submissionViolations($employee, [
+            'attendance_code' => 'L100',
+            'start_date' => '2025-12-29',
+            'end_date' => '2026-02-06',
+            'duration_type' => 'full_day',
+            'half_day_period' => null,
+        ]);
+
+        $this->assertSame([], $violations);
+    }
+
     public function test_sick_leave_limit_blocks_submit_but_allows_draft(): void
     {
         LeaveSetting::where('key', LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 2]);
@@ -3660,6 +3681,77 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame(1, LeavePlan::count());
     }
 
+    public function test_admin_approved_leave_policy_exception_requires_reason_and_is_recorded(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-914',
+            'joining_date' => '2026-01-10',
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.create'))
+            ->post(route('admin.leave-plans.store'), $this->validAdminApprovedLeavePayload($employee, [
+                'start_date' => '2026-07-01',
+                'end_date' => '2026-07-01',
+            ]))
+            ->assertRedirect(route('admin.leave-plans.create'))
+            ->assertSessionHasErrors('admin_approved_leave');
+
+        $this->assertSame(0, LeavePlan::count());
+
+        $exceptionReason = 'Previously approved by HR as a discretionary exception; imported for record completeness.';
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.store'), $this->validAdminApprovedLeavePayload($employee, [
+                'start_date' => '2026-07-01',
+                'end_date' => '2026-07-01',
+                'policy_exception_reason' => $exceptionReason,
+            ]))
+            ->assertRedirect();
+
+        $leavePlan = LeavePlan::firstOrFail();
+        $this->assertSame($exceptionReason, $leavePlan->policy_exception_reason);
+        $this->assertDatabaseHas('audit_logs', [
+            'auditable_type' => LeavePlan::class,
+            'auditable_id' => $leavePlan->id,
+            'action' => 'leave_plan_admin_created_approved',
+        ]);
+    }
+
+    public function test_admin_approved_leave_policy_exception_does_not_bypass_overlap_errors(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-915',
+        ]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.create'))
+            ->post(route('admin.leave-plans.store'), $this->validAdminApprovedLeavePayload($employee, [
+                'start_date' => '2026-05-11',
+                'end_date' => '2026-05-11',
+                'policy_exception_reason' => 'Previously approved by HR as a discretionary exception; imported for record completeness.',
+            ]))
+            ->assertRedirect(route('admin.leave-plans.create'))
+            ->assertSessionHasErrors('admin_approved_leave');
+
+        $this->assertSame(1, LeavePlan::count());
+    }
+
     public function test_csv_import_creates_all_valid_rows_and_clears_preview_session(): void
     {
         Mail::fake();
@@ -3710,6 +3802,47 @@ class LeavePlanWorkflowTest extends TestCase
         $this->assertSame(2, AuditLog::where('action', 'leave_plan_admin_created_approved')->count());
         $this->assertSame(2, LeavePlanStatusHistory::where('action', 'leave_plan_admin_created_approved')->count());
         Mail::assertNothingQueued();
+    }
+
+    public function test_csv_import_policy_exception_requires_reason_and_imports_when_supplied(): void
+    {
+        $department = $this->department();
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-916',
+            'joining_date' => '2026-01-10',
+        ]);
+
+        $row = [$employee->employee_code, 'L100', '2026-07-01', '2026-07-01', 'full_day', '', '', '2026-06-20', 'Already approved before portal entry'];
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.preview'), [
+                'csv_file' => UploadedFile::fake()->createWithContent('approved-leave.csv', $this->approvedLeaveCsv([$row])),
+            ])
+            ->assertRedirect(route('admin.leave-plans.import'))
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.0.valid', false);
+
+        $exceptionReason = 'Previously approved by HR as a discretionary exception; imported for record completeness.';
+        $row[] = $exceptionReason;
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.preview'), [
+                'csv_file' => UploadedFile::fake()->createWithContent('approved-leave.csv', $this->approvedLeaveCsv([$row])),
+            ])
+            ->assertRedirect(route('admin.leave-plans.import'))
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.0.valid', true)
+            ->assertSessionHas('admin_approved_leave_import_preview.previewRows.0.policy_exception_applied', true);
+
+        $this->actingAs($admin)
+            ->post(route('admin.leave-plans.import.store'))
+            ->assertRedirect(route('admin.leave-plans.index'));
+
+        $this->assertDatabaseHas('leave_plans', [
+            'user_id' => $employee->id,
+            'policy_exception_reason' => $exceptionReason,
+            'status' => LeavePlan::STATUS_APPROVED,
+        ]);
     }
 
     public function test_csv_import_supports_philippines_leave_rows(): void
@@ -3799,13 +3932,14 @@ class LeavePlanWorkflowTest extends TestCase
             'bereavement_relationship' => null,
             'approved_at' => '2026-05-01',
             'reason' => 'Historical approved leave.',
+            'policy_exception_reason' => null,
         ], $overrides);
     }
 
     private function approvedLeaveCsv(array $rows): string
     {
         $lines = [
-            'employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason',
+            'employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason,policy_exception_reason',
         ];
 
         foreach ($rows as $row) {

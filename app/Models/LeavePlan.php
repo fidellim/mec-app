@@ -48,6 +48,7 @@ class LeavePlan extends Model
         'half_day_period',
         'bereavement_relationship',
         'reason',
+        'policy_exception_reason',
         'status',
         'approval_stage',
         'submitted_at',

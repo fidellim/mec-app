@@ -385,10 +385,16 @@ class LeaveEntitlementService
         }
 
         $usedByYear = $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId);
+        $asOfByYear = $this->requestedAsOfDatesByYear($user, $attributes, $attendanceCode);
 
         return $requestedByYear
-            ->map(function (float $requested, int $year) use ($user, $usedByYear, $attendanceCode) {
-                $allowance = $this->claimableAllowanceFor($user, $year, $attendanceCode, $attributes['start_date'] ?? null);
+            ->map(function (float $requested, int $year) use ($user, $usedByYear, $asOfByYear, $attendanceCode, $attributes) {
+                $allowance = $this->claimableAllowanceFor(
+                    $user,
+                    $year,
+                    $attendanceCode,
+                    $this->submissionAllowanceAsOf($year, $asOfByYear->get($year, $attributes['start_date'] ?? null)),
+                );
                 $used = (float) $usedByYear->get($year, 0.0);
                 $remaining = $allowance - $used;
 
@@ -409,6 +415,38 @@ class LeaveEntitlementService
             ->filter()
             ->values()
             ->all();
+    }
+
+    private function submissionAllowanceAsOf(int $year, CarbonInterface|string|null $asOf): CarbonInterface|string|null
+    {
+        if ($year !== (int) now()->year || $asOf === null || $asOf === '') {
+            return $asOf;
+        }
+
+        $asOfDate = $asOf instanceof CarbonInterface ? $asOf : Carbon::parse($asOf);
+
+        return now()->startOfDay()->gt($asOfDate->copy()->startOfDay()) ? now() : $asOf;
+    }
+
+    private function requestedAsOfDatesByYear(User $user, array $attributes, string $attendanceCode): Collection
+    {
+        if (($attributes['attendance_code'] ?? null) !== $attendanceCode) {
+            return collect();
+        }
+
+        $leavePlan = new LeavePlan([
+            'user_id' => $user->id,
+            'attendance_code' => $attributes['attendance_code'],
+            'start_date' => $attributes['start_date'],
+            'end_date' => $attributes['end_date'],
+            'duration_type' => $attributes['duration_type'],
+            'half_day_period' => $attributes['half_day_period'] ?? null,
+        ]);
+        $leavePlan->setRelation('user', $user);
+
+        return $this->countedLeaveDatesForPlan($leavePlan)
+            ->groupBy(fn (string $date) => (int) Carbon::parse($date)->year)
+            ->map(fn (Collection $dates) => $dates->sort()->last());
     }
 
     public function bereavementSubmissionViolations(User $user, array $attributes, ?int $excludeLeavePlanId = null): array

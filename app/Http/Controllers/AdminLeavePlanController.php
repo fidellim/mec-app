@@ -436,6 +436,8 @@ class AdminLeavePlanController extends Controller
             'attributes' => $previewRow['attributes'],
             'employee_name' => $previewRow['employee_name'],
             'errors' => $previewRow['errors'],
+            'policy_errors' => $previewRow['policy_errors'],
+            'policy_exception_applied' => $previewRow['policy_exception_applied'],
             'valid' => $previewRow['valid'],
         ])->all();
     }

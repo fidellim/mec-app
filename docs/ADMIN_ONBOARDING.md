@@ -152,8 +152,8 @@ Use bulk import only for leave that was already approved before it was entered i
 The CSV must use this exact header order:
 
 ```csv
-employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason
-MEC-HR-2026-101,L100,2026-03-10,2026-03-12,full_day,,,2026-02-20,Historical approved annual leave
+employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason,policy_exception_reason
+MEC-HR-2026-101,L100,2026-03-10,2026-03-12,full_day,,,2026-02-20,Historical approved annual leave,
 ```
 
 Rules:
@@ -165,8 +165,11 @@ Rules:
 - The same CSV template supports Philippines leave rows. Use eligible Philippines leave codes such as `L190`, `L160`, `L170`, `L210`, `L220`, or `L230`; leave `bereavement_relationship` blank.
 - `approved_at` is the original approval date and is required.
 - `reason` is optional.
+- `policy_exception_reason` is blank for normal rows. Use it only when HR/Admin already approved the leave as a discretionary exception outside normal policy, for example: `Previously approved by HR as a discretionary exception; imported for record completeness.`
 
 The import is preview-first. Upload the CSV, review any row errors, fix the CSV if needed, and upload it again. The final import button appears only when every row is valid. Validation checks the employee number, active Employee/HOD role, current department, leave eligibility, leave balance, date rules, and overlapping active leave.
+
+The same policy exception reason is available on **Add Approved Leave** for one-off records. It can bypass only policy checks such as eligibility or balance limits for leave that was already approved outside the portal. It does not change company policy or future employee eligibility, and it cannot bypass hard record problems such as invalid employees, missing departments, invalid dates, invalid leave codes, or overlapping active leave.
 
 Uploaded CSV files are not retained on the server. The portal parses the file for preview and discards the uploaded file immediately whether preview succeeds or fails. Only normalized preview rows and errors are kept temporarily in your session until import, a new upload, or session expiry.
 

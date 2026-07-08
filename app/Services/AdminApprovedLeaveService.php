@@ -24,6 +24,7 @@ class AdminApprovedLeaveService
         'bereavement_relationship',
         'approved_at',
         'reason',
+        'policy_exception_reason',
     ];
 
     public function __construct(
@@ -135,6 +136,7 @@ class AdminApprovedLeaveService
             'bereavement_relationship' => $data['bereavement_relationship'] ?? null,
             'approved_at' => $data['approved_at'] ?? null,
             'reason' => $data['reason'] ?? null,
+            'policy_exception_reason' => $data['policy_exception_reason'] ?? null,
         ];
 
         $result = $this->validateRow($row);
@@ -165,6 +167,7 @@ class AdminApprovedLeaveService
                 'half_day_period' => $attributes['duration_type'] === 'half_day' ? $attributes['half_day_period'] : null,
                 'bereavement_relationship' => $attributes['bereavement_relationship'] ?: null,
                 'reason' => $attributes['reason'] ?: null,
+                'policy_exception_reason' => $attributes['policy_exception_reason'] ?: null,
                 'status' => LeavePlan::STATUS_APPROVED,
                 'approval_stage' => null,
                 'submitted_at' => $approvedAt,
@@ -203,6 +206,7 @@ class AdminApprovedLeaveService
     {
         $normalized = $this->normalizeRow($row);
         $errors = [];
+        $policyErrors = [];
 
         $validator = Validator::make($normalized, [
             'employee_code' => ['required', 'string'],
@@ -214,6 +218,7 @@ class AdminApprovedLeaveService
             'bereavement_relationship' => ['nullable', Rule::in(LeavePlan::BEREAVEMENT_RELATIONSHIPS)],
             'approved_at' => ['required', 'date_format:Y-m-d'],
             'reason' => ['nullable', 'string', 'max:2000'],
+            'policy_exception_reason' => ['nullable', 'string', 'max:2000'],
         ], [
             'attendance_code.in' => 'Select a valid leave attendance code.',
             'half_day_period.required_if' => 'Select morning or afternoon for half-day leave.',
@@ -252,7 +257,7 @@ class AdminApprovedLeaveService
         $startDate = Carbon::parse($normalized['start_date']);
 
         if (! $this->entitlements->userIsEligibleFor($employee, $normalized['attendance_code'], $startDate)) {
-            $errors[] = $this->entitlements->eligibilityMessage($normalized['attendance_code'], $employee, $startDate)
+            $policyErrors[] = $this->entitlements->eligibilityMessage($normalized['attendance_code'], $employee, $startDate)
                 ?? 'This leave type is not available for the employee profile.';
         }
 
@@ -280,7 +285,7 @@ class AdminApprovedLeaveService
         $submissionAttributes = $this->submissionAttributes($normalized);
 
         foreach ($this->entitlements->submissionViolations($employee, $submissionAttributes) as $violation) {
-            $errors[] = $this->entitlements->violationMessage($violation);
+            $policyErrors[] = $this->entitlements->violationMessage($violation);
         }
 
         foreach ($this->entitlements->bereavementSubmissionViolations($employee, $submissionAttributes) as $violation) {
@@ -295,10 +300,16 @@ class AdminApprovedLeaveService
             $errors[] = 'This leave overlaps another row in the uploaded CSV for the same employee.';
         }
 
-        return $this->rowResult($row, $normalized, $employee, $errors);
+        if ($policyErrors && $normalized['policy_exception_reason'] === '') {
+            $errors = array_merge($errors, $policyErrors, [
+                'Add a policy_exception_reason to confirm this leave was already approved as a discretionary exception outside normal policy.',
+            ]);
+        }
+
+        return $this->rowResult($row, $normalized, $employee, $errors, $policyErrors);
     }
 
-    private function rowResult(array $row, array $normalized, ?User $employee, array $errors): array
+    private function rowResult(array $row, array $normalized, ?User $employee, array $errors, array $policyErrors = []): array
     {
         return [
             'row_number' => $row['row_number'] ?? null,
@@ -307,6 +318,8 @@ class AdminApprovedLeaveService
             'employee' => $employee,
             'employee_name' => $employee?->name,
             'errors' => $errors,
+            'policy_errors' => $policyErrors,
+            'policy_exception_applied' => empty($errors) && $policyErrors !== [] && $normalized['policy_exception_reason'] !== '',
             'valid' => empty($errors),
         ];
     }
@@ -323,6 +336,7 @@ class AdminApprovedLeaveService
             'bereavement_relationship' => trim((string) ($row['bereavement_relationship'] ?? '')),
             'approved_at' => trim((string) ($row['approved_at'] ?? '')),
             'reason' => trim((string) ($row['reason'] ?? '')),
+            'policy_exception_reason' => trim((string) ($row['policy_exception_reason'] ?? '')),
         ];
     }
 
@@ -335,6 +349,7 @@ class AdminApprovedLeaveService
             'duration_type' => $normalized['duration_type'],
             'half_day_period' => $normalized['duration_type'] === 'half_day' ? $normalized['half_day_period'] : null,
             'bereavement_relationship' => $normalized['bereavement_relationship'] ?: null,
+            'policy_exception_reason' => $normalized['policy_exception_reason'] ?: null,
         ];
     }
 

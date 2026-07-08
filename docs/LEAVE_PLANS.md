@@ -72,13 +72,17 @@ Admin-entered approved leave:
 
 Validation is strict. The portal checks the employee number, active Employee/HOD role, current department, leave eligibility, leave balance, date rules, half-day rules, bereavement relationship rules, and overlapping active leave for the same employee. Import preview must show every row as valid before final import is available.
 
+Admins and Super Admins can add a `policy_exception_reason` only when the leave was already approved by HR/Admin as a discretionary exception outside normal policy. This bypasses policy checks such as profile eligibility or leave balance limits for that historical record only. It does not change company policy or the employee's future eligibility. Example: `Previously approved by HR as a discretionary exception; imported for record completeness.`
+
+The policy exception cannot bypass hard record integrity checks such as an unknown or inactive employee, missing department, invalid dates, invalid leave code, invalid duration, invalid bereavement relationship data, or overlapping active leave.
+
 ### CSV Import Template
 
 The CSV must use this exact header order:
 
 ```csv
-employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason
-MEC-HR-2026-101,L100,2026-03-10,2026-03-12,full_day,,,2026-02-20,Historical approved annual leave
+employee_code,attendance_code,start_date,end_date,duration_type,half_day_period,bereavement_relationship,approved_at,reason,policy_exception_reason
+MEC-HR-2026-101,L100,2026-03-10,2026-03-12,full_day,,,2026-02-20,Historical approved annual leave,
 ```
 
 Column rules:
@@ -94,6 +98,7 @@ Column rules:
 | `bereavement_relationship` | Blank unless `attendance_code` is UAE `L180`; accepted UAE values are exactly `spouse` or `immediate_family`. Philippines rows leave this blank. |
 | `approved_at` | Required original approval date, `YYYY-MM-DD`. |
 | `reason` | Optional source note or reference. |
+| `policy_exception_reason` | Blank for normal rows. Required only when bypassing a policy validation error because HR/Admin already approved the leave as a discretionary exception. |
 
 ### CSV Import Workflow
 

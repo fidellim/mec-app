@@ -107,6 +107,15 @@
                     <textarea id="reason" class="form-control @error('reason') is-invalid @enderror" name="reason" rows="4" placeholder="Example: Historical approved leave from HR records.">{{ old('reason') }}</textarea>
                     @error('reason')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
+                <div class="col-12">
+                    <div class="border rounded p-3">
+                        <div class="fw-semibold mb-1">Policy exception</div>
+                        <div class="small text-muted mb-3">Use only when HR/Admin already approved this leave as a discretionary exception outside normal policy. This does not change the employee's future eligibility.</div>
+                        <label class="form-label" for="policy_exception_reason">Exception reason <span class="text-muted fw-normal">(only required when policy validation would block this record)</span></label>
+                        <textarea id="policy_exception_reason" class="form-control @error('policy_exception_reason') is-invalid @enderror" name="policy_exception_reason" rows="3" placeholder="Example: Previously approved by HR as a discretionary exception; imported for record completeness.">{{ old('policy_exception_reason') }}</textarea>
+                        @error('policy_exception_reason')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                </div>
             </div>
         </div>
         <div class="sticky-actions d-flex flex-column flex-sm-row gap-2 justify-content-end p-3">

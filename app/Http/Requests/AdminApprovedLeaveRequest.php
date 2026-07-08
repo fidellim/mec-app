@@ -28,6 +28,7 @@ class AdminApprovedLeaveRequest extends FormRequest
             'bereavement_relationship' => ['nullable', Rule::in(LeavePlan::BEREAVEMENT_RELATIONSHIPS)],
             'approved_at' => ['required', 'date_format:Y-m-d'],
             'reason' => ['nullable', 'string', 'max:2000'],
+            'policy_exception_reason' => ['nullable', 'string', 'max:2000'],
         ];
     }
 

@@ -43,6 +43,7 @@
                         <td></td>
                         <td>2026-02-20</td>
                         <td>Historical approved annual leave</td>
+                        <td></td>
                     </tr>
                 </tbody>
             </table>
@@ -63,6 +64,10 @@
             <div class="col-md-6">
                 <div class="fw-semibold text-body mb-1">Validation</div>
                 <div>Rows must match active employee/HOD records, current departments, eligibility, balances, and non-overlapping active leave.</div>
+            </div>
+            <div class="col-md-6">
+                <div class="fw-semibold text-body mb-1">Policy exceptions</div>
+                <div>Use policy_exception_reason only for leave already approved by HR/Admin as a discretionary exception outside normal policy.</div>
             </div>
         </div>
     </div>
@@ -143,7 +148,12 @@
                             <td>{{ $attributes['approved_at'] }}</td>
                             <td>
                                 @if($previewRow['valid'])
-                                    <span class="badge text-bg-success">Valid</span>
+                                    @if($previewRow['policy_exception_applied'] ?? false)
+                                        <span class="badge text-bg-warning mb-2">Exception approved</span>
+                                        <div class="small text-muted">{{ $attributes['policy_exception_reason'] }}</div>
+                                    @else
+                                        <span class="badge text-bg-success">Valid</span>
+                                    @endif
                                 @else
                                     <span class="badge text-bg-danger mb-2">Fix required</span>
                                     <ul class="small text-danger mb-0 ps-3">

@@ -49,6 +49,14 @@
                 <div class="meta-label">Reason</div>
                 <div>{{ $leavePlan->reason ?: '-' }}</div>
             </div>
+            @if($leavePlan->policy_exception_reason)
+                <div class="col-12">
+                    <div class="border rounded p-3">
+                        <div class="meta-label">Policy exception</div>
+                        <div>{{ $leavePlan->policy_exception_reason }}</div>
+                    </div>
+                </div>
+            @endif
             @if($leavePlan->hod_approved_at || $leavePlan->director_approved_at || $leavePlan->hr_approved_at)
                 <div class="col-12">
                     <div class="meta-label">Approval chain</div>
