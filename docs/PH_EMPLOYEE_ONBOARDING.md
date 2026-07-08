@@ -52,7 +52,7 @@ Use **My Leave Plans** to plan leave before filling the related weekly timesheet
 
 For Philippines employees, the leave form shows Philippines statutory leave allowances only. Employee numbers beginning with `MEC-PHIL-HR-` use Philippines leave settings and Philippines HR approval.
 
-Philippines leave entitlements are calendar-year based. Unused days expire on December 31 and do not carry over. Submitted, approved, and cancellation-requested leave plans reserve allowance. Draft, rejected, cancelled, recalled, and voided plans do not reserve allowance.
+Philippines leave entitlements are calendar-year based. Submitted, approved, and cancellation-requested leave plans reserve allowance. Draft, rejected, cancelled, recalled, and voided plans do not reserve allowance.
 
 Philippines employees do not see or apply for `L100 - Annual Leave`, `L110 - Sick Leave`, `L120 - Emergency Leave`, or `L180 - Bereavement Leave`.
 

@@ -37,6 +37,9 @@
                                     <div class="leave-balance-metric">
                                         <div class="leave-balance-metric-label">{{ $balance['allowance_label'] ?? 'Allowance' }}</div>
                                         <div class="leave-balance-metric-value">{{ $balance['formatted']['allowance'] }} days</div>
+                                        @if(($balance['carry_over'] ?? 0) > 0)
+                                            <div class="leave-balance-note mt-1">Base {{ $balance['formatted']['base_allowance'] }} + carry-over {{ $balance['formatted']['carry_over'] }}</div>
+                                        @endif
                                     </div>
                                     <div class="leave-balance-metric">
                                         <div class="leave-balance-metric-label">Used</div>

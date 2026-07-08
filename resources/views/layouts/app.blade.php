@@ -1401,7 +1401,7 @@
                     $hasAdminNav = in_array(auth()->user()->role, ['admin', 'super_admin'], true) || auth()->user()->isAdminLike();
                     $workspaceOpen = request()->routeIs('dashboard', 'employee.timesheets.*', 'employee.leave-plans.*');
                     $approvalsOpen = request()->routeIs('assigned.leave-plans.*', 'hod.timesheets.*', 'hod.leave-plans.*', 'hod.tracker');
-                    $adminOpen = request()->routeIs('admin.timesheets.*', 'admin.leave-plans.*', 'admin.leave-entitlements.*', 'admin.hod-timesheets.*', 'admin.hod-tracker', 'manage.*');
+                    $adminOpen = request()->routeIs('admin.timesheets.*', 'admin.leave-plans.*', 'admin.leave-entitlements.*', 'admin.annual-leave-carry-overs.*', 'admin.hod-timesheets.*', 'admin.hod-tracker', 'manage.*');
                     $supportOpen = request()->routeIs('guide');
                 @endphp
                 <nav class="d-grid gap-1" aria-label="Primary navigation">
@@ -1442,6 +1442,7 @@
                                     <a href="{{ route('admin.timesheets.index') }}" @class(['active' => request()->routeIs('admin.timesheets.*')]) title="All Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Timesheets</span></a>
                                     <a href="{{ route('admin.leave-plans.index') }}" @class(['active' => request()->routeIs('admin.leave-plans.*')]) title="All Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/all-timesheets.svg') }}" alt=""><span class="sidebar-label">All Leave Plans</span></a>
                                     <a href="{{ route('admin.leave-entitlements.index') }}" @class(['active' => request()->routeIs('admin.leave-entitlements.*')]) title="Leave Entitlements"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Leave Entitlements</span></a>
+                                    <a href="{{ route('admin.annual-leave-carry-overs.index') }}" @class(['active' => request()->routeIs('admin.annual-leave-carry-overs.*')]) title="Annual Carry-Overs"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Annual Carry-Overs</span></a>
                                     <a href="{{ route('admin.hod-timesheets.index') }}" @class(['active' => request()->routeIs('admin.hod-timesheets.*')]) title="HOD Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">HOD Timesheets</span></a>
                                     <a href="{{ route('admin.hod-tracker') }}" @class(['active' => request()->routeIs('admin.hod-tracker')]) title="HOD Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">HOD Tracker</span></a>
                                 @endif

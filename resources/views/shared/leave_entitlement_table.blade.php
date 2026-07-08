@@ -34,6 +34,9 @@
                             <td>
                                 <div>{{ $balance['formatted']['allowance'] }} days</div>
                                 <div class="small text-muted">{{ $balance['allowance_label'] ?? 'Allowance' }}</div>
+                                @if(($balance['carry_over'] ?? 0) > 0)
+                                    <div class="small text-muted">Base {{ $balance['formatted']['base_allowance'] }} + carry-over {{ $balance['formatted']['carry_over'] }}</div>
+                                @endif
                             </td>
                             <td>{{ $balance['formatted']['used'] }} days</td>
                             <td>

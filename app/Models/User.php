@@ -93,6 +93,11 @@ class User extends Authenticatable
         return $this->hasMany(LeaveEntitlement::class);
     }
 
+    public function annualLeaveCarryOvers()
+    {
+        return $this->hasMany(AnnualLeaveCarryOver::class);
+    }
+
     public function hodNotificationExcludedSubmitters()
     {
         return $this->belongsToMany(User::class, 'hod_notification_exclusions', 'hod_user_id', 'employee_user_id')

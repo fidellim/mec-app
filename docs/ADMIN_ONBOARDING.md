@@ -188,11 +188,22 @@ Use **Leave Entitlements** to review current leave balances for active Employees
 
 Use **Leave Settings** to maintain UAE leave defaults and active Philippines statutory leave defaults for maternity, parental, paternity, VAWC, special leave for women, and service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion. UAE bereavement settings control the calendar-year spouse-death and immediate-family-death balances for `L180`; employees must also have HR eligibility approval for the selected bereavement relationship.
 
-The annual default applies to every user whose **Annual leave allowance override** is blank. Leave allowances are calendar-year based, unused days expire on December 31, and remaining allowance is calculated dynamically from leave plans and active applicable holidays.
+The annual default applies to every user whose **Current-year base annual leave override** is blank. Use this override only when an employee's base `L100 - Annual Leave` entitlement for the current calendar year should differ from the normal regional or service-based rule. It is not for unused prior-year leave; use **Annual Carry-Overs** for carry-over days. Clear the override when the employee should return to the normal default.
+
+Use **Annual Carry-Overs** to enter existing approved `L100 - Annual Leave` carry-over balances, import approved carry-over by CSV, or generate pending year-end suggestions for review. **Unused leave from year** records where the remaining days came from; **Apply to year** is the calendar year where the approved days are added to the employee's annual leave balance. Pending, rejected, and voided carry-over records do not affect employee balances; approved carry-over is added to the target year's annual leave allowance. If an approved carry-over is wrong, void it with a clear reason instead of deleting it so the audit trail remains intact.
+
+To generate pending carry-over suggestions:
+
+1. Open **Annual Carry-Overs**.
+2. In **Generate pending suggestions**, enter the year to calculate from. Example: enter `2026` to suggest carry-over into `2027`.
+3. Select **Generate**.
+4. Review the pending rows, adjust the approved days if needed, then approve or reject each row.
+
+Generated suggestions do not affect balances until approved. Running generation again for the same employee/year refreshes the pending suggestion instead of creating duplicates; approved, rejected, and voided records are left unchanged.
 
 ## Users And Holidays
 
-Admins can use **Users** to view company users and edit Employee/HOD profile details such as name, employee number, initials, job title, gender, joining date, marital status, department, active status, and the current-year annual leave override for carry-over or adjusted entitlement cases. Admins cannot create users, delete users, change roles, reset passwords, edit Super Admin accounts, or configure HOD exclusions.
+Admins can use **Users** to view company users and edit Employee/HOD profile details such as name, employee number, initials, job title, gender, joining date, marital status, department, active status, and the current-year base annual leave override for adjusted base entitlement cases. Admins cannot create users, delete users, change roles, reset passwords, edit Super Admin accounts, or configure HOD exclusions.
 
 Use **Holidays** to maintain company holidays used by leave calendars and leave entitlement day counting.
 

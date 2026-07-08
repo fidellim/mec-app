@@ -10,7 +10,10 @@
         <h1 class="h3 page-heading mb-1">Leave Entitlements</h1>
         <div class="text-muted">Review yearly leave balances for active employees and Heads of Department.</div>
     </div>
-    <a class="btn btn-outline-secondary" href="{{ route('admin.leave-plans.index') }}">Leave Plans</a>
+    <div class="d-flex flex-wrap gap-2">
+        <a class="btn btn-outline-secondary" href="{{ route('admin.annual-leave-carry-overs.index') }}">Annual Carry-Overs</a>
+        <a class="btn btn-outline-secondary" href="{{ route('admin.leave-plans.index') }}">Leave Plans</a>
+    </div>
 </div>
 
 <form class="filter-card mb-3" method="get">

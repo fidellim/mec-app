@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\AutomationSetting;
 use App\Models\AuditLog;
+use App\Models\AnnualLeaveCarryOver;
 use App\Models\Department;
 use App\Models\HolidayDate;
 use App\Models\HolidayEvent;
 use App\Models\LeaveEntitlement;
+use App\Models\LeavePlan;
 use App\Models\LeaveSetting;
 use App\Models\Project;
 use App\Models\Timesheet;
@@ -17,7 +19,9 @@ use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use App\Services\LeaveEntitlementService;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -199,6 +203,190 @@ class ManagementWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_admin_and_super_admin_can_manage_annual_leave_carry_overs_and_other_roles_cannot(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $superAdmin = $this->userWithRole('super_admin');
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $hod = $this->userWithRole('hod', ['department_id' => $employee->department_id]);
+
+        foreach ([$admin, $superAdmin] as $actor) {
+            $this->actingAs($actor)
+                ->get(route('admin.annual-leave-carry-overs.index'))
+                ->assertOk()
+                ->assertSee('Annual Leave Carry-Overs');
+        }
+
+        foreach ([$employee, $hod] as $actor) {
+            $this->actingAs($actor)
+                ->get(route('admin.annual-leave-carry-overs.index'))
+                ->assertForbidden();
+        }
+
+        $this->actingAs($admin)
+            ->post(route('admin.annual-leave-carry-overs.store'), [
+                'user_id' => $employee->id,
+                'from_year' => 2026,
+                'to_year' => 2027,
+                'approved_days' => '2.5',
+                'source' => AnnualLeaveCarryOver::SOURCE_MANUAL_OPENING_BALANCE,
+                'notes' => 'Existing HR balance',
+            ])
+            ->assertRedirect(route('admin.annual-leave-carry-overs.index', ['to_year' => 2027]));
+
+        $this->assertDatabaseHas('annual_leave_carry_overs', [
+            'user_id' => $employee->id,
+            'from_year' => 2026,
+            'to_year' => 2027,
+            'attendance_code' => 'L100',
+            'status' => AnnualLeaveCarryOver::STATUS_APPROVED,
+            'source' => AnnualLeaveCarryOver::SOURCE_MANUAL_OPENING_BALANCE,
+            'approved_days' => '2.50',
+        ]);
+    }
+
+    public function test_approved_annual_leave_carry_over_increases_balance_but_pending_and_rejected_do_not(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 5]);
+
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+
+        AnnualLeaveCarryOver::create([
+            'user_id' => $employee->id,
+            'from_year' => 2026,
+            'to_year' => 2027,
+            'attendance_code' => 'L100',
+            'suggested_days' => 2,
+            'approved_days' => 2,
+            'status' => AnnualLeaveCarryOver::STATUS_APPROVED,
+            'source' => AnnualLeaveCarryOver::SOURCE_MANUAL_OPENING_BALANCE,
+            'created_by' => $admin->id,
+            'updated_by' => $admin->id,
+        ]);
+        AnnualLeaveCarryOver::create([
+            'user_id' => $employee->id,
+            'from_year' => 2025,
+            'to_year' => 2027,
+            'attendance_code' => 'L100',
+            'suggested_days' => 4,
+            'status' => AnnualLeaveCarryOver::STATUS_PENDING,
+            'source' => AnnualLeaveCarryOver::SOURCE_YEAR_END_GENERATED,
+        ]);
+
+        $balance = app(LeaveEntitlementService::class)->balanceFor($employee, 2027);
+
+        $this->assertSame(5.0, $balance['base_allowance']);
+        $this->assertSame(2.0, $balance['carry_over']);
+        $this->assertSame(7.0, $balance['allowance']);
+        $this->assertSame(7.0, $balance['remaining']);
+
+        $pending = AnnualLeaveCarryOver::where('status', AnnualLeaveCarryOver::STATUS_PENDING)->firstOrFail();
+        $this->actingAs($admin)
+            ->post(route('admin.annual-leave-carry-overs.reject', $pending))
+            ->assertRedirect();
+
+        $this->assertSame(7.0, app(LeaveEntitlementService::class)->balanceFor($employee, 2027)['allowance']);
+    }
+
+    public function test_approved_annual_leave_carry_over_can_be_voided_with_reason(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 5]);
+
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $carryOver = AnnualLeaveCarryOver::create([
+            'user_id' => $employee->id,
+            'from_year' => 2026,
+            'to_year' => 2027,
+            'attendance_code' => 'L100',
+            'suggested_days' => 2,
+            'approved_days' => 2,
+            'status' => AnnualLeaveCarryOver::STATUS_APPROVED,
+            'source' => AnnualLeaveCarryOver::SOURCE_MANUAL_OPENING_BALANCE,
+            'approved_by' => $admin->id,
+            'approved_at' => now(),
+        ]);
+
+        $this->assertSame(7.0, app(LeaveEntitlementService::class)->balanceFor($employee, 2027)['allowance']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.annual-leave-carry-overs.void', $carryOver), [
+                'void_reason' => 'Duplicate opening balance import.',
+            ])
+            ->assertRedirect();
+
+        $this->assertDatabaseHas('annual_leave_carry_overs', [
+            'id' => $carryOver->id,
+            'status' => AnnualLeaveCarryOver::STATUS_VOIDED,
+            'void_reason' => 'Duplicate opening balance import.',
+            'voided_by' => $admin->id,
+        ]);
+        $this->assertSame(5.0, app(LeaveEntitlementService::class)->balanceFor($employee, 2027)['allowance']);
+        $this->assertDatabaseHas('audit_logs', ['action' => 'annual_leave_carry_over_voided']);
+    }
+
+    public function test_csv_import_creates_approved_annual_leave_carry_overs(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-777',
+        ]);
+        $csv = "employee_code,from_year,to_year,approved_days,notes\n{$employee->employee_code},2026,2027,3.5,Opening balance\n";
+
+        $this->actingAs($admin)
+            ->post(route('admin.annual-leave-carry-overs.import'), [
+                'carry_over_csv' => UploadedFile::fake()->createWithContent('carry-overs.csv', $csv),
+            ])
+            ->assertRedirect(route('admin.annual-leave-carry-overs.index'));
+
+        $this->assertDatabaseHas('annual_leave_carry_overs', [
+            'user_id' => $employee->id,
+            'from_year' => 2026,
+            'to_year' => 2027,
+            'approved_days' => '3.50',
+            'status' => AnnualLeaveCarryOver::STATUS_APPROVED,
+        ]);
+    }
+
+    public function test_generated_annual_leave_carry_over_suggestions_are_pending_and_idempotent(): void
+    {
+        LeaveSetting::where('key', LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE)->firstOrFail()->update(['decimal_value' => 5]);
+
+        $admin = $this->userWithRole('admin');
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $employee->department_id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-12',
+        ]);
+
+        for ($i = 0; $i < 2; $i++) {
+            $this->actingAs($admin)
+                ->post(route('admin.annual-leave-carry-overs.generate'), ['from_year' => 2026])
+                ->assertRedirect(route('admin.annual-leave-carry-overs.index', [
+                    'from_year' => 2026,
+                    'to_year' => 2027,
+                    'status' => AnnualLeaveCarryOver::STATUS_PENDING,
+                ]));
+        }
+
+        $this->assertSame(1, AnnualLeaveCarryOver::where('user_id', $employee->id)->where('from_year', 2026)->where('to_year', 2027)->count());
+        $this->assertDatabaseHas('annual_leave_carry_overs', [
+            'user_id' => $employee->id,
+            'from_year' => 2026,
+            'to_year' => 2027,
+            'suggested_days' => '3.00',
+            'approved_days' => null,
+            'status' => AnnualLeaveCarryOver::STATUS_PENDING,
+            'source' => AnnualLeaveCarryOver::SOURCE_YEAR_END_GENERATED,
+        ]);
+    }
+
     public function test_non_admin_users_cannot_view_company_leave_entitlements(): void
     {
         foreach (['employee', 'hod'] as $role) {
@@ -273,7 +461,7 @@ class ManagementWorkflowTest extends TestCase
             ->assertOk()
             ->assertSee('Update employee profile details and account status.')
             ->assertDontSee('data-password-toggle="password"', false)
-            ->assertSee('Current-year annual leave override')
+            ->assertSee('Current-year base annual leave override')
             ->assertDontSee('HOD notification and approval exceptions');
 
         $this->actingAs($admin)

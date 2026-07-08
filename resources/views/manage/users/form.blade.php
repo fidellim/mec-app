@@ -173,9 +173,9 @@
         </div>
         @if($canEditAnnualLeaveOverride)
             <div class="col-md-4">
-                <label class="form-label" for="annual_leave_allowance_days">Current-year annual leave override</label>
+                <label class="form-label" for="annual_leave_allowance_days">Current-year base annual leave override</label>
                 <input class="form-control @error('annual_leave_allowance_days') is-invalid @enderror" id="annual_leave_allowance_days" name="annual_leave_allowance_days" type="number" min="0" step="0.5" value="{{ old('annual_leave_allowance_days', $userModel->annual_leave_allowance_days) }}" placeholder="Use regional default">
-                <div class="form-text">Optional L100 allowance for the current calendar year. Blank uses the regional default; future years reset to default.</div>
+                <div class="form-text">Optional base L100 allowance for a special current-year entitlement. Use Annual Carry-Overs for unused prior-year days; blank uses the regional default.</div>
                 @error('annual_leave_allowance_days')
                     <div class="invalid-feedback">{{ $message }}</div>
                 @enderror

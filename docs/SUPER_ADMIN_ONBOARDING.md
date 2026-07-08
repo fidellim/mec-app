@@ -116,7 +116,7 @@ Important user rules:
 - Deleting a user permanently deletes that user's timesheets and entries.
 - If a user is assigned as a primary or additional department HOD, a replacement active HOD must be selected before deletion.
 - Deactivate users when history should remain easier to understand.
-- Use **Annual leave allowance override** only when a user should have a different yearly `L100 - Annual Leave` allowance from the regional default. Blank means the user follows **Leave Settings**.
+- Use **Current-year base annual leave override** only when a user should have a different base `L100 - Annual Leave` allowance from the regional or service-based rule for the current calendar year. Blank means the user follows **Leave Settings**. Use **Annual Carry-Overs** for unused prior-year leave days.
 
 ## Manage Departments
 
@@ -234,12 +234,14 @@ If an imported approved leave record is wrong, use the existing Super Admin void
 
 Admins and Super Admins use **Leave Settings** to set UAE leave defaults and active Philippines statutory leave defaults for maternity, parental, paternity, VAWC, special leave for women, and service incentive leave. UAE sick and maternity settings are maximum claimable calendar-day limits; employee and HOD balances show only the full-pay portion. UAE bereavement settings control the calendar-year spouse-death and immediate-family-death balances for `L180`; employees must also have HR eligibility approval for the selected bereavement relationship.
 
-- The annual default applies to every user whose **Annual leave allowance override** is blank.
+- The annual default applies to every user whose **Current-year base annual leave override** is blank.
 - Sick leave uses the regional default only. UAE sick leave counts calendar days excluding applicable holidays; employees and HODs see 15 full-pay days, while validation allows the configured maximum and Admin/Super Admin review shows 15 full-pay days, 30 half-pay days, and 45 unpaid days.
 - UAE maternity leave counts calendar days excluding applicable holidays; employees and HODs see 45 full-pay days, while validation allows the configured maximum and Admin/Super Admin review shows 45 full-pay days and 15 half-pay days.
 - Philippines service incentive leave defaults to 5 days and is hidden/blocked for UAE employees.
 - The allowances are calendar-year based and refresh automatically each January 1.
-- Unused days expire on December 31 and do not carry over.
+- Unused annual leave does not carry over unless Admin or Super Admin records or approves an annual carry-over for the next year.
+- Use **Annual Carry-Overs** to enter existing approved `L100 - Annual Leave` carry-over balances, import approved carry-over by CSV, or generate pending year-end suggestions for Admin/Super Admin approval. **Unused leave from year** records where the days came from; **Apply to year** is the year that receives the approved days. Void incorrect approved carry-overs with a required reason; voided carry-overs stay in history but no longer affect balances.
+- To generate pending suggestions, open **Annual Carry-Overs**, enter the year to calculate from, select **Generate**, then approve, edit, or reject the pending rows. Example: generating from `2026` creates suggestions for carry-over into `2027`. Generated suggestions do not affect balances until approved, and rerunning generation does not duplicate existing carry-over records.
 - No automation is required for refresh because leave usage is calculated dynamically from leave plans in each year.
 - Submitted, approved, and cancellation-requested entitled leave plans consume allowance. Draft, rejected, cancelled, recalled, and voided plans do not consume allowance.
 

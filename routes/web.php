@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\AdminHodTimesheetController;
+use App\Http\Controllers\AdminAnnualLeaveCarryOverController;
 use App\Http\Controllers\AdminLeavePlanController;
 use App\Http\Controllers\AdminTimesheetController;
 use App\Http\Controllers\AuthController;
@@ -105,6 +106,13 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::get('/hod-submission-tracker', [AdminHodTimesheetController::class, 'tracker'])->name('hod-tracker');
         Route::post('/hod-submission-tracker/reminders', [AdminHodTimesheetController::class, 'remindMissing'])->middleware('throttle:manual-reminders')->name('hod-tracker.reminders');
         Route::get('/leave-entitlements', [AdminLeavePlanController::class, 'leaveEntitlements'])->name('leave-entitlements.index');
+        Route::get('/annual-leave-carry-overs', [AdminAnnualLeaveCarryOverController::class, 'index'])->name('annual-leave-carry-overs.index');
+        Route::post('/annual-leave-carry-overs', [AdminAnnualLeaveCarryOverController::class, 'store'])->middleware('throttle:authenticated-writes')->name('annual-leave-carry-overs.store');
+        Route::post('/annual-leave-carry-overs/import', [AdminAnnualLeaveCarryOverController::class, 'import'])->middleware('throttle:authenticated-writes')->name('annual-leave-carry-overs.import');
+        Route::post('/annual-leave-carry-overs/generate', [AdminAnnualLeaveCarryOverController::class, 'generate'])->middleware('throttle:authenticated-writes')->name('annual-leave-carry-overs.generate');
+        Route::post('/annual-leave-carry-overs/{carryOver}/approve', [AdminAnnualLeaveCarryOverController::class, 'approve'])->middleware('throttle:workflow-actions')->name('annual-leave-carry-overs.approve');
+        Route::post('/annual-leave-carry-overs/{carryOver}/reject', [AdminAnnualLeaveCarryOverController::class, 'reject'])->middleware('throttle:workflow-actions')->name('annual-leave-carry-overs.reject');
+        Route::post('/annual-leave-carry-overs/{carryOver}/void', [AdminAnnualLeaveCarryOverController::class, 'void'])->middleware('throttle:workflow-actions')->name('annual-leave-carry-overs.void');
         Route::get('/leave-plans', [AdminLeavePlanController::class, 'index'])->name('leave-plans.index');
         Route::get('/leave-plans/create', [AdminLeavePlanController::class, 'create'])->name('leave-plans.create');
         Route::post('/leave-plans', [AdminLeavePlanController::class, 'store'])->middleware('throttle:authenticated-writes')->name('leave-plans.store');

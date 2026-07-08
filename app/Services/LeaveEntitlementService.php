@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\LeaveEntitlement;
 use App\Models\LeavePlan;
 use App\Models\LeaveSetting;
+use App\Models\AnnualLeaveCarryOver;
 use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -87,27 +88,33 @@ class LeaveEntitlementService
     public function claimableAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): float
     {
         $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
+        $carryOver = $this->approvedCarryOverDaysFor($user, $year, $attendanceCode);
 
         if ($this->usesUaeAnnualServiceAllowance($user, $year, $attendanceCode, $entitlement)) {
-            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
+            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf)) + $carryOver;
         }
 
-        return $entitlement
+        $allowance = $entitlement
             ? (float) $entitlement->claimable_allowance_days
             : $this->defaultClaimableAllowanceFor($user, $attendanceCode, $asOf);
+
+        return $allowance + $carryOver;
     }
 
     public function visibleAllowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): float
     {
         $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
+        $carryOver = $this->approvedCarryOverDaysFor($user, $year, $attendanceCode);
 
         if ($this->usesUaeAnnualServiceAllowance($user, $year, $attendanceCode, $entitlement)) {
-            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
+            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf)) + $carryOver;
         }
 
-        return $entitlement
+        $allowance = $entitlement
             ? (float) $entitlement->allowance_days
             : $this->visibleAllowanceFromClaimable($user, $attendanceCode, $this->defaultClaimableAllowanceFor($user, $attendanceCode, $asOf));
+
+        return $allowance + $carryOver;
     }
 
     public function usedAnnualDaysByYear(User $user, ?int $excludeLeavePlanId = null): Collection
@@ -156,8 +163,11 @@ class LeaveEntitlementService
     public function balanceFor(User $user, int $year, ?int $excludeLeavePlanId = null, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): array
     {
         $entitlement = $this->entitlementFor($user, $year, $attendanceCode);
-        $allowance = (float) $this->visibleAllowanceFor($user, $year, $attendanceCode, $asOf);
-        $claimableAllowance = (float) $this->claimableAllowanceFor($user, $year, $attendanceCode, $asOf);
+        $baseAllowance = (float) $this->baseVisibleAllowanceFor($user, $year, $attendanceCode, $asOf, $entitlement);
+        $baseClaimableAllowance = (float) $this->baseClaimableAllowanceFor($user, $year, $attendanceCode, $asOf, $entitlement);
+        $carryOver = (float) $this->approvedCarryOverDaysFor($user, $year, $attendanceCode);
+        $allowance = $baseAllowance + $carryOver;
+        $claimableAllowance = $baseClaimableAllowance + $carryOver;
         $used = (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
         $isVisibleFullPayAllowance = $claimableAllowance > $allowance;
         $usesOverride = $entitlement?->source === LeaveEntitlement::SOURCE_USER_OVERRIDE;
@@ -169,6 +179,9 @@ class LeaveEntitlementService
             'label' => $this->entitlementLabel($attendanceCode),
             'allowance' => $allowance,
             'claimable_allowance' => $claimableAllowance,
+            'base_allowance' => $baseAllowance,
+            'base_claimable_allowance' => $baseClaimableAllowance,
+            'carry_over' => $carryOver,
             'used' => $used,
             'remaining' => max(0.0, $allowance - $used),
             'claimable_remaining' => max(0.0, $claimableAllowance - $used),
@@ -653,6 +666,46 @@ class LeaveEntitlementService
             ->firstWhere('attendance_code', $attendanceCode);
     }
 
+    public function approvedCarryOverDaysFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE): float
+    {
+        if ($attendanceCode !== self::ANNUAL_LEAVE_CODE) {
+            return 0.0;
+        }
+
+        return (float) AnnualLeaveCarryOver::query()
+            ->where('user_id', $user->id)
+            ->where('to_year', $year)
+            ->where('attendance_code', self::ANNUAL_LEAVE_CODE)
+            ->where('status', AnnualLeaveCarryOver::STATUS_APPROVED)
+            ->sum('approved_days');
+    }
+
+    private function baseClaimableAllowanceFor(User $user, int $year, string $attendanceCode, CarbonInterface|string|null $asOf = null, ?LeaveEntitlement $entitlement = null): float
+    {
+        $entitlement ??= $this->entitlementFor($user, $year, $attendanceCode);
+
+        if ($this->usesUaeAnnualServiceAllowance($user, $year, $attendanceCode, $entitlement)) {
+            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
+        }
+
+        return $entitlement
+            ? (float) $entitlement->claimable_allowance_days
+            : $this->defaultClaimableAllowanceFor($user, $attendanceCode, $asOf);
+    }
+
+    private function baseVisibleAllowanceFor(User $user, int $year, string $attendanceCode, CarbonInterface|string|null $asOf = null, ?LeaveEntitlement $entitlement = null): float
+    {
+        $entitlement ??= $this->entitlementFor($user, $year, $attendanceCode);
+
+        if ($this->usesUaeAnnualServiceAllowance($user, $year, $attendanceCode, $entitlement)) {
+            return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
+        }
+
+        return $entitlement
+            ? (float) $entitlement->allowance_days
+            : $this->visibleAllowanceFromClaimable($user, $attendanceCode, $this->defaultClaimableAllowanceFor($user, $attendanceCode, $asOf));
+    }
+
     private function entitlementAttributesFor(User $user, int $year, string $attendanceCode): array
     {
         $region = $this->regionFor($user);
@@ -846,6 +899,9 @@ class LeaveEntitlementService
         $balance['formatted'] = [
             'allowance' => $this->formatDays((float) $balance['allowance']),
             'claimable_allowance' => $this->formatDays((float) $balance['claimable_allowance']),
+            'base_allowance' => $this->formatDays((float) ($balance['base_allowance'] ?? $balance['allowance'])),
+            'base_claimable_allowance' => $this->formatDays((float) ($balance['base_claimable_allowance'] ?? $balance['claimable_allowance'])),
+            'carry_over' => $this->formatDays((float) ($balance['carry_over'] ?? 0.0)),
             'used' => $this->formatDays((float) $balance['used']),
             'remaining' => $this->formatDays((float) $balance['remaining']),
             'claimable_remaining' => $this->formatDays((float) $balance['claimable_remaining']),

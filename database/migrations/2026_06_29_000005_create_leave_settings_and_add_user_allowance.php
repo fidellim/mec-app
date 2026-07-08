@@ -23,12 +23,12 @@ return new class extends Migration
         foreach ([
             'annual_leave_default_days_uae' => [
                 'name' => 'UAE Annual Leave Default Days',
-                'description' => 'Default yearly L100 annual leave allowance for UAE employees. Unused days expire on December 31 and do not carry over.',
+                'description' => 'Default yearly L100 annual leave allowance for UAE employees. Approved carry-over records can add unused days to a later year.',
                 'decimal_value' => 22,
             ],
             'annual_leave_default_days_ph' => [
                 'name' => 'Philippines Annual Leave Default Days',
-                'description' => 'Default yearly L100 annual leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
+                'description' => 'Legacy yearly L100 annual leave allowance for Philippines employees. Approved carry-over records can add unused days to a later year.',
                 'decimal_value' => 0,
             ],
             'sick_leave_default_days_uae' => [

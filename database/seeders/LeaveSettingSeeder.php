@@ -12,12 +12,12 @@ class LeaveSettingSeeder extends Seeder
         foreach ([
             LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_UAE => [
                 'name' => 'UAE Annual Leave Default Days',
-                'description' => 'Default yearly L100 annual leave allowance for UAE employees. Unused days expire on December 31 and do not carry over.',
+                'description' => 'Default yearly L100 annual leave allowance for UAE employees. Approved carry-over records can add unused days to a later year.',
                 'decimal_value' => 22,
             ],
             LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS_PH => [
                 'name' => 'Philippines Annual Leave Default Days',
-                'description' => 'Default yearly L100 annual leave allowance for Philippines employees. Unused days expire on December 31 and do not carry over.',
+                'description' => 'Legacy yearly L100 annual leave allowance for Philippines employees. Approved carry-over records can add unused days to a later year.',
                 'decimal_value' => 0,
             ],
             LeaveSetting::SICK_LEAVE_DEFAULT_DAYS_UAE => [
