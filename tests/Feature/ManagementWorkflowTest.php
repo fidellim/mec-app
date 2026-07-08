@@ -888,6 +888,36 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('Role: Employee');
     }
 
+    public function test_users_index_paginates_visible_users_and_preserves_filters(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'ZZZ Pagination Actor']);
+
+        foreach (range(1, 25) as $number) {
+            $this->userWithRole('employee', [
+                'name' => sprintf('Paged Employee %02d', $number),
+            ]);
+        }
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['role' => 'employee']))
+            ->assertOk()
+            ->assertSee('Paged Employee 01')
+            ->assertSee('Paged Employee 20')
+            ->assertDontSee('Paged Employee 21')
+            ->assertSee('Showing 1 to 20 of 25 users')
+            ->assertSee('role=employee', false)
+            ->assertSee('page=2', false);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.users.index', ['role' => 'employee', 'page' => 2]))
+            ->assertOk()
+            ->assertDontSee('Paged Employee 20')
+            ->assertSee('Paged Employee 21')
+            ->assertSee('Paged Employee 25')
+            ->assertSee('Showing 21 to 25 of 25 users')
+            ->assertSee('role=employee', false);
+    }
+
     public function test_super_admin_can_filter_users_by_region(): void
     {
         $superAdmin = $this->userWithRole('super_admin');

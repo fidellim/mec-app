@@ -161,6 +161,15 @@
         display: inline-block;
     }
 
+    .users-pagination-footer {
+        background: color-mix(in srgb, var(--app-card-bg) 92%, var(--app-muted-bg));
+        border: 1px solid var(--app-soft-border);
+    }
+
+    .users-pagination-footer .pagination {
+        margin-bottom: 0;
+    }
+
     @media (max-width: 767.98px) {
         .users-current-view {
             padding: 1rem !important;
@@ -432,7 +441,18 @@
     @endif
 @endforeach
 
-<div class="mt-3">{{ $users->links() }}</div>
+<div class="content-card users-pagination-footer mt-3 p-3">
+    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+        <div class="text-muted small">
+            Showing {{ $users->firstItem() ?? 0 }} to {{ $users->lastItem() ?? 0 }} of {{ $users->total() }} {{ \Illuminate\Support\Str::plural('user', $users->total()) }}
+        </div>
+        @if($users->hasPages())
+            <div class="d-flex justify-content-lg-end">
+                {{ $users->links() }}
+            </div>
+        @endif
+    </div>
+</div>
 @endsection
 
 @push('scripts')
