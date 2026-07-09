@@ -80,6 +80,8 @@
 @include('dashboards.partials.regional_submission_chart', [
     'period' => $period,
     'regionalSubmissionSummary' => $regionalSubmissionSummary,
+    'actionUrl' => $period ? route('hod.tracker') : null,
+    'actionLabel' => 'Open department tracker',
 ])
 @include('shared.leave_balance_cards', [
     'leaveBalances' => $leaveBalances,

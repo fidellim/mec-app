@@ -1,86 +1,97 @@
 @php
     $regions = $regionalSubmissionSummary['regions'];
     $total = $regionalSubmissionSummary['total'];
-    $segments = [
-        ['label' => 'UAE submitted', 'class' => 'chart-uae-submitted', 'count' => $regions['uae']['submitted']],
-        ['label' => 'UAE not submitted', 'class' => 'chart-uae-missing', 'count' => $regions['uae']['not_submitted']],
-        ['label' => 'PH submitted', 'class' => 'chart-ph-submitted', 'count' => $regions['ph']['submitted']],
-        ['label' => 'PH not submitted', 'class' => 'chart-ph-missing', 'count' => $regions['ph']['not_submitted']],
-        ['label' => 'Unknown submitted', 'class' => 'chart-unknown-submitted', 'count' => $regions['unknown']['submitted']],
-        ['label' => 'Unknown not submitted', 'class' => 'chart-unknown-missing', 'count' => $regions['unknown']['not_submitted']],
-    ];
-    $cursor = 0;
-    $gradientStops = [];
-
-    foreach ($segments as $segment) {
-        if ($total === 0 || $segment['count'] === 0) {
-            continue;
-        }
-
-        $end = $cursor + (($segment['count'] / $total) * 360);
-        $gradientStops[] = "var(--{$segment['class']}) {$cursor}deg {$end}deg";
-        $cursor = $end;
-    }
-
-    $chartBackground = $gradientStops
-        ? 'conic-gradient('.implode(', ', $gradientStops).')'
-        : 'var(--app-muted-bg)';
-    $submittedPercent = $total > 0 ? round(($regionalSubmissionSummary['submitted'] / $total) * 100) : 0;
+    $submitted = $regionalSubmissionSummary['submitted'];
+    $notSubmitted = $regionalSubmissionSummary['not_submitted'];
+    $submittedPercent = $total > 0 ? round(($submitted / $total) * 100) : 0;
+    $actionUrl = $actionUrl ?? null;
+    $actionLabel = $actionLabel ?? 'Review missing submissions';
 @endphp
 
 <div class="content-card submission-chart-card">
-    <div class="content-card-header">
-        <h2 class="h5 mb-1">Regional submission status</h2>
-        <div class="small text-muted">
-            @if($period)
-                Week {{ $period->week_number }}, {{ $period->year }}: {{ $period->start_date->format('M d, Y') }} - {{ $period->end_date->format('M d, Y') }}. {{ $submittedPercent }}% submitted from {{ $total }} active employees.
-            @else
-                No weekly period available
-            @endif
-        </div>
-    </div>
-    <div class="content-card-body">
-        <div class="regional-chart-layout">
-            <div class="submission-donut-wrap">
-                <div class="submission-donut" style="background: {{ $chartBackground }};" role="img" aria-label="Regional submission status chart">
-                    <div class="submission-donut-center">
-                        <div class="stat-value">{{ $regionalSubmissionSummary['submitted'] }}</div>
-                        <div class="small text-muted">Submitted</div>
-                        <div class="small text-muted">{{ $total }} total</div>
-                    </div>
-                </div>
-            </div>
-            <div class="regional-chart-details">
-                <div class="row g-2">
-                    @foreach(['uae', 'ph', 'unknown'] as $regionKey)
-                        @php($region = $regions[$regionKey])
-                        @continue($regionKey === 'unknown' && ($region['submitted'] + $region['not_submitted']) === 0)
-                        <div class="col-md-4">
-                            <div class="regional-stat">
-                                <div class="meta-label regional-label">
-                                    @if(in_array($regionKey, ['uae', 'ph'], true))
-                                        <img class="country-flag" src="{{ asset('images/flag/'.($regionKey === 'uae' ? 'ae' : 'ph').'.svg') }}" alt="">
-                                    @endif
-                                    <span>{{ $region['label'] }}</span>
-                                </div>
-                                <div class="regional-stat-row">
-                                    <span class="chart-key chart-key-{{ $regionKey }}-submitted"></span>
-                                    <span>Submitted</span>
-                                    <strong>{{ $region['submitted'] }}</strong>
-                                </div>
-                                <div class="regional-stat-row">
-                                    <span class="chart-key chart-key-{{ $regionKey }}-missing"></span>
-                                    <span>Not submitted</span>
-                                    <strong>{{ $region['not_submitted'] }}</strong>
-                                </div>
-                            </div>
-                        </div>
-                    @endforeach
-                </div>
-                @if(($regions['unknown']['submitted'] + $regions['unknown']['not_submitted']) > 0)
-                    <div class="small text-muted mt-3">Unknown includes active employees without a recognized employee number prefix.</div>
+    <div class="content-card-header regional-status-header">
+        <div>
+            <h2 class="h5 mb-1">Regional submission status</h2>
+            <div class="small text-muted">
+                @if($period)
+                    Week {{ $period->week_number }}, {{ $period->year }}: {{ $period->start_date->format('M d, Y') }} - {{ $period->end_date->format('M d, Y') }}
+                @else
+                    No weekly period available
                 @endif
             </div>
         </div>
+        @if($actionUrl && $total > 0)
+            <a class="btn btn-sm btn-outline-primary" href="{{ $actionUrl }}">{{ $actionLabel }}</a>
+        @endif
+    </div>
+    <div class="content-card-body">
+        @if($total > 0)
+            <div class="regional-status-layout">
+                <div class="regional-status-summary">
+                    <div class="dashboard-kicker">Overall completion</div>
+                    <div class="regional-status-percent">{{ $submittedPercent }}%</div>
+                    <div class="regional-status-caption">{{ $submitted }} of {{ $total }} active employees submitted.</div>
+                    <div class="regional-total-progress" role="img" aria-label="{{ $submittedPercent }}% submitted from {{ $total }} active employees">
+                        <span style="width: {{ $submittedPercent }}%;"></span>
+                    </div>
+                    <div class="regional-status-metrics">
+                        <div class="regional-status-metric">
+                            <span class="meta-label">Submitted</span>
+                            <strong>{{ $submitted }}</strong>
+                        </div>
+                        <div class="regional-status-metric is-attention">
+                            <span class="meta-label">Not submitted</span>
+                            <strong>{{ $notSubmitted }}</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="regional-progress-list">
+                    @foreach(['uae', 'ph', 'unknown'] as $regionKey)
+                        @php
+                            $region = $regions[$regionKey];
+                            $regionSubmitted = $region['submitted'];
+                            $regionMissing = $region['not_submitted'];
+                            $regionTotal = $regionSubmitted + $regionMissing;
+                            $regionPercent = $regionTotal > 0 ? round(($regionSubmitted / $regionTotal) * 100) : 0;
+                        @endphp
+                        @continue($regionKey === 'unknown' && $regionTotal === 0)
+                        <div class="regional-progress-row">
+                            <div class="regional-progress-row-header">
+                                <div class="regional-label">
+                                    @if(in_array($regionKey, ['uae', 'ph'], true))
+                                        <img class="country-flag" src="{{ asset('images/flag/'.($regionKey === 'uae' ? 'ae' : 'ph').'.svg') }}" alt="">
+                                    @endif
+                                    <div>
+                                        <div class="regional-progress-title">{{ $region['label'] }}</div>
+                                        <div class="regional-progress-meta">{{ $regionSubmitted }} submitted / {{ $regionMissing }} not submitted</div>
+                                    </div>
+                                </div>
+                                <div class="regional-progress-percent">{{ $regionPercent }}%</div>
+                            </div>
+                            <div class="regional-progress-track" role="img" aria-label="{{ $region['label'] }} is {{ $regionPercent }}% submitted">
+                                <span style="width: {{ $regionPercent }}%;"></span>
+                            </div>
+                            <div class="regional-progress-counts">
+                                <span>{{ $regionTotal }} active employees</span>
+                                @if($regionMissing > 0)
+                                    <strong>{{ $regionMissing }} need follow-up</strong>
+                                @else
+                                    <strong>All submitted</strong>
+                                @endif
+                            </div>
+                        </div>
+                    @endforeach
+                    @if(($regions['unknown']['submitted'] + $regions['unknown']['not_submitted']) > 0)
+                        <div class="small text-muted">Unknown includes active employees without a recognized employee number prefix.</div>
+                    @endif
+                </div>
+            </div>
+        @else
+            <div class="regional-status-empty">
+                <div class="dashboard-kicker">No employees to track</div>
+                <div class="mt-1">There are no active employees in this reporting scope yet.</div>
+            </div>
+        @endif
     </div>
 </div>

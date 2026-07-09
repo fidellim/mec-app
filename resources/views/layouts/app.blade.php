@@ -694,62 +694,137 @@
             font-size: 1rem;
         }
         .submission-chart-card {
-            --chart-uae-submitted: #0f766e;
-            --chart-uae-missing: #f59e0b;
-            --chart-ph-submitted: #2563eb;
-            --chart-ph-missing: #dc2626;
-            --chart-unknown-submitted: #64748b;
-            --chart-unknown-missing: #7c3aed;
+            --regional-track: color-mix(in srgb, var(--bs-secondary-bg) 82%, var(--app-card-bg));
+            --regional-fill: color-mix(in srgb, var(--bs-primary) 78%, var(--bs-info));
+            --regional-attention: color-mix(in srgb, var(--bs-warning) 82%, var(--bs-body-color));
         }
-        .regional-chart-layout {
-            display: grid;
-            grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr);
-            gap: 1.25rem;
-            align-items: center;
-        }
-        .submission-donut-wrap {
+        .regional-status-header {
             display: flex;
-            justify-content: center;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 1rem;
         }
-        .submission-donut {
-            width: 13rem;
-            aspect-ratio: 1;
-            border-radius: 50%;
+        .regional-status-layout {
             display: grid;
-            place-items: center;
-            box-shadow: inset 0 0 0 1px var(--app-soft-border);
+            grid-template-columns: minmax(15rem, .86fr) minmax(0, 1.14fr);
+            gap: 1.25rem;
+            align-items: stretch;
         }
-        .submission-donut-center {
-            width: 7.25rem;
-            aspect-ratio: 1;
-            border-radius: 50%;
-            background: var(--app-card-bg);
-            border: 1px solid var(--app-soft-border);
+        .regional-status-summary {
             display: flex;
             flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            text-align: center;
-            box-shadow: var(--app-shadow-sm);
+            justify-content: space-between;
+            gap: .9rem;
+            min-height: 100%;
+            padding: 1rem;
+            border: 1px solid color-mix(in srgb, var(--bs-primary) 28%, var(--app-soft-border));
+            border-radius: .75rem;
+            background:
+                linear-gradient(135deg, color-mix(in srgb, var(--bs-primary-bg-subtle) 32%, transparent), transparent 56%),
+                color-mix(in srgb, var(--app-card-bg) 86%, var(--app-muted-bg));
         }
-        .regional-stat {
+        .regional-status-percent {
+            color: var(--bs-body-color);
+            font-size: clamp(2.35rem, 5vw, 3.6rem);
+            font-weight: 850;
+            letter-spacing: 0;
+            line-height: .9;
+        }
+        .regional-status-caption {
+            color: var(--bs-secondary-color);
+            font-size: .92rem;
+            line-height: 1.4;
+        }
+        .regional-total-progress,
+        .regional-progress-track {
+            overflow: hidden;
+            border-radius: 999px;
+            background: var(--regional-track);
+            box-shadow: inset 0 0 0 1px var(--app-soft-border);
+        }
+        .regional-total-progress {
+            height: .62rem;
+        }
+        .regional-progress-track {
+            height: .46rem;
+        }
+        .regional-total-progress span,
+        .regional-progress-track span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, var(--bs-primary), var(--regional-fill));
+        }
+        .regional-status-metrics {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: .65rem;
+        }
+        .regional-status-metric {
+            min-width: 0;
+            padding: .72rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .7rem;
+            background: color-mix(in srgb, var(--app-card-bg) 82%, var(--app-muted-bg));
+        }
+        .regional-status-metric strong {
+            display: block;
+            margin-top: .18rem;
+            color: var(--bs-body-color);
+            font-size: 1.3rem;
+            line-height: 1;
+        }
+        .regional-status-metric.is-attention {
+            border-color: color-mix(in srgb, var(--bs-warning) 34%, var(--app-soft-border));
+        }
+        .regional-status-metric.is-attention strong {
+            color: var(--regional-attention);
+        }
+        .regional-progress-list {
+            display: flex;
+            flex-direction: column;
+            gap: .75rem;
+        }
+        .regional-progress-row {
             border: 1px solid var(--app-soft-border);
             border-radius: .75rem;
-            padding: .85rem;
-            min-height: 7.25rem;
+            padding: .85rem .9rem;
             background: color-mix(in srgb, var(--app-muted-bg) 62%, transparent);
         }
-        .regional-stat-row {
-            display: grid;
-            grid-template-columns: auto minmax(0, 1fr) auto;
+        .regional-progress-row-header {
+            display: flex;
             align-items: center;
-            gap: .45rem;
-            margin-top: .55rem;
-            color: var(--bs-secondary-color);
-            font-size: .9rem;
+            justify-content: space-between;
+            gap: .75rem;
+            margin-bottom: .65rem;
         }
-        .regional-stat-row strong {
+        .regional-progress-title {
             color: var(--bs-body-color);
+            font-weight: 800;
+            line-height: 1.2;
+        }
+        .regional-progress-meta,
+        .regional-progress-counts {
+            color: var(--bs-secondary-color);
+            font-size: .82rem;
+            line-height: 1.35;
+        }
+        .regional-progress-percent {
+            color: var(--bs-body-color);
+            font-size: 1.1rem;
+            font-weight: 850;
+            line-height: 1;
+        }
+        .regional-progress-counts {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            margin-top: .48rem;
+        }
+        .regional-progress-counts strong {
+            color: var(--regional-attention);
+            font-weight: 800;
         }
         .regional-label {
             display: flex;
@@ -765,18 +840,13 @@
             flex: 0 0 auto;
             object-fit: cover;
         }
-        .chart-key {
-            width: .7rem;
-            height: .7rem;
-            border-radius: 50%;
-            display: inline-block;
+        .regional-status-empty {
+            padding: 1rem;
+            border: 1px dashed var(--app-soft-border);
+            border-radius: .75rem;
+            background: color-mix(in srgb, var(--app-muted-bg) 58%, transparent);
+            color: var(--bs-secondary-color);
         }
-        .chart-key-uae-submitted { background: var(--chart-uae-submitted); }
-        .chart-key-uae-missing { background: var(--chart-uae-missing); }
-        .chart-key-ph-submitted { background: var(--chart-ph-submitted); }
-        .chart-key-ph-missing { background: var(--chart-ph-missing); }
-        .chart-key-unknown-submitted { background: var(--chart-unknown-submitted); }
-        .chart-key-unknown-missing { background: var(--chart-unknown-missing); }
         .brand-logo { display: block; height: 2.75rem; width: auto; object-fit: contain; }
         .brand-logo-wrap {
             display: inline-flex;
@@ -1636,11 +1706,23 @@
             .dashboard-shortcut {
                 min-height: 0;
             }
-            .regional-chart-layout {
+            .regional-status-header {
+                align-items: stretch;
+                flex-direction: column;
+            }
+            .regional-status-header .btn {
+                width: 100%;
+            }
+            .regional-status-layout {
                 grid-template-columns: 1fr;
             }
-            .submission-donut {
-                width: min(13rem, 72vw);
+            .regional-progress-row-header,
+            .regional-progress-counts {
+                align-items: flex-start;
+                flex-direction: column;
+            }
+            .regional-status-metrics {
+                grid-template-columns: 1fr;
             }
         }
     </style>

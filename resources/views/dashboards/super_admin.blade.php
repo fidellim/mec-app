@@ -8,6 +8,7 @@
     $submissionPeriodLabel = $submissionPeriod
         ? 'Week '.$submissionPeriod->week_number.', '.$submissionPeriod->year.' ('.$submissionPeriod->start_date->format('M d, Y').' - '.$submissionPeriod->end_date->format('M d, Y').')'
         : 'No reporting period available';
+    $submissionPeriodFilters = $submissionPeriod ? ['week_from' => $submissionPeriod->week_number, 'year' => $submissionPeriod->year] : [];
 @endphp
 <div class="section-header">
     <div>
@@ -44,6 +45,8 @@
     @include('dashboards.partials.regional_submission_chart', [
         'period' => $submissionPeriod,
         'regionalSubmissionSummary' => $regionalSubmissionSummary,
+        'actionUrl' => $submissionPeriod ? route('admin.timesheets.index', array_merge($submissionPeriodFilters, ['status' => 'not_submitted'])) : null,
+        'actionLabel' => 'Review missing submissions',
     ])
 </div>
 <div class="content-card">

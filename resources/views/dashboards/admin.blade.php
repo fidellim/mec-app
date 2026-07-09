@@ -52,6 +52,8 @@
     @include('dashboards.partials.regional_submission_chart', [
         'period' => $period,
         'regionalSubmissionSummary' => $regionalSubmissionSummary,
+        'actionUrl' => $period ? route('admin.timesheets.index', array_merge($periodFilters, ['status' => 'not_submitted'])) : null,
+        'actionLabel' => 'Review missing submissions',
     ])
 </div>
 <div class="content-card overflow-hidden">

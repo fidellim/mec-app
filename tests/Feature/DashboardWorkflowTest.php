@@ -418,7 +418,9 @@ class DashboardWorkflowTest extends TestCase
                 'rejected' => 0,
             ])
             ->assertViewHas('missing', 0)
-            ->assertSee('No weekly period available');
+            ->assertSee('No weekly period available')
+            ->assertSee('No employees to track')
+            ->assertSee('There are no active employees in this reporting scope yet.');
     }
 
     public function test_admin_dashboard_groups_regional_submission_status_for_reporting_period(): void
@@ -476,8 +478,15 @@ class DashboardWorkflowTest extends TestCase
                     && $summary['regions']['unknown']['not_submitted'] === 0;
             })
             ->assertSee('Regional submission status')
+            ->assertSee('60%')
+            ->assertSee('3 of 5 active employees submitted.')
+            ->assertSee('1 need follow-up')
+            ->assertSee('status=not_submitted', false)
+            ->assertSee('week_from=20', false)
+            ->assertSee('year=2026', false)
             ->assertSee('United Arab Emirates')
-            ->assertSee('Philippines');
+            ->assertSee('Philippines')
+            ->assertSee('Unknown includes active employees without a recognized employee number prefix.');
     }
 
     public function test_hod_dashboard_regional_submission_status_is_limited_to_department(): void
@@ -516,7 +525,12 @@ class DashboardWorkflowTest extends TestCase
                     && $summary['regions']['uae']['not_submitted'] === 0
                     && $summary['regions']['ph']['submitted'] === 0
                     && $summary['regions']['ph']['not_submitted'] === 1;
-            });
+            })
+            ->assertSee('50%')
+            ->assertSee('1 of 2 active employees submitted.')
+            ->assertSee('Open department tracker')
+            ->assertSee(route('hod.tracker'), false)
+            ->assertDontSee('Unknown includes active employees without a recognized employee number prefix.');
     }
 
     public function test_hod_dashboard_shows_only_managed_departments(): void
@@ -572,7 +586,13 @@ class DashboardWorkflowTest extends TestCase
                     && $summary['not_submitted'] === 1
                     && $summary['regions']['ph']['submitted'] === 1
                     && $summary['regions']['uae']['not_submitted'] === 1;
-            });
+            })
+            ->assertSee('50%')
+            ->assertSee('1 of 2 active employees submitted.')
+            ->assertSee('status=not_submitted', false)
+            ->assertSee('week_from=20', false)
+            ->assertSee('year=2026', false)
+            ->assertDontSee('Unknown includes active employees without a recognized employee number prefix.');
     }
 
     public function test_super_admin_dashboard_shows_management_shortcuts_only_for_super_admin(): void
