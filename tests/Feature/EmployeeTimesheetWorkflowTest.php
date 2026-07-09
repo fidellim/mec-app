@@ -518,6 +518,11 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->get(route('employee.timesheets.create', ['period_id' => $period->id]))
             ->assertOk()
             ->assertSee('L190 - Service Incentive Leave')
+            ->assertSee('L160 - Maternity Leave')
+            ->assertSee('L170 - Parental Leave')
+            ->assertSee('L210 - Paternity Leave')
+            ->assertSee('L220 - Leave for VAWC')
+            ->assertSee('L230 - Special Leave for Women')
             ->assertDontSee('L100 - Annual Leave')
             ->assertDontSee('L110 - Sick Leave')
             ->assertDontSee('L120 - Emergency Leave')
@@ -547,7 +552,7 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         }
     }
 
-    public function test_philippines_statutory_leave_codes_require_eligibility_on_timesheets(): void
+    public function test_philippines_statutory_leave_codes_are_region_available_on_timesheets(): void
     {
         $period = $this->openPeriod();
         $project = $this->project();
@@ -571,7 +576,54 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             'timesheet_period_id' => $period->id,
             'submit' => '1',
             'entries' => $entries,
-        ])->assertSessionHasErrors('entries.0.attendance_code');
+        ])->assertRedirect();
+
+        $timesheet = Timesheet::firstOrFail();
+        $leaveEntry = $timesheet->entries()->where('attendance_code', 'L220')->firstOrFail();
+
+        $this->assertNull($leaveEntry->project_id);
+    }
+
+    public function test_uae_special_leave_codes_are_region_available_on_timesheets(): void
+    {
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $this->department()->id,
+            'employee_code' => 'MEC-HR-2026-904',
+            'gender' => 'male',
+            'eligible_for_parental_leave' => false,
+            'eligible_for_bereavement_spouse_leave' => false,
+            'eligible_for_bereavement_immediate_family_leave' => false,
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.timesheets.create', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertSee('L160 - Maternity Leave')
+            ->assertSee('L170 - Parental Leave')
+            ->assertSee('L180 - Bereavement Leave')
+            ->assertDontSee('L190 - Service Incentive Leave');
+
+        $entries = $this->validEntries($project, [
+            '2026-05-11' => [
+                'attendance_code' => 'L180',
+                'project_id' => '',
+                'regular_hours' => 8,
+                'overtime_hours' => 0,
+            ],
+        ]);
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertRedirect();
+
+        $timesheet = Timesheet::firstOrFail();
+        $leaveEntry = $timesheet->entries()->where('attendance_code', 'L180')->firstOrFail();
+
+        $this->assertNull($leaveEntry->project_id);
     }
 
     public function test_training_code_allows_regular_and_overtime_hours_without_project(): void

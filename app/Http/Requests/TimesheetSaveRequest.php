@@ -56,16 +56,18 @@ class TimesheetSaveRequest extends FormRequest
             function (Validator $validator) {
                 $period = TimesheetPeriod::find($this->input('timesheet_period_id'));
                 $hasHours = false;
+                $entitlements = app(LeaveEntitlementService::class);
+                $timesheetAttendanceCodes = $entitlements->timesheetAttendanceCodesFor($this->user());
 
                 foreach ($this->input('entries', []) as $index => $entry) {
                     $entryLabel = ucfirst($this->entryLabel($index, $entry));
                     $regular = (float) ($entry['regular_hours'] ?? 0);
                     $overtime = (float) ($entry['overtime_hours'] ?? 0);
                     $attendanceCode = $entry['attendance_code'] ?? null;
-                    $isLeaveCode = in_array($attendanceCode, config('timesheet.leave_attendance_codes', []), true);
-                    $isProjectOptionalCode = in_array($attendanceCode, config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), true);
+                    $isAvailableTimesheetCode = is_string($attendanceCode) && in_array($attendanceCode, $timesheetAttendanceCodes, true);
+                    $isLeaveCode = $isAvailableTimesheetCode && in_array($attendanceCode, config('timesheet.leave_attendance_codes', []), true);
+                    $isProjectOptionalCode = $isAvailableTimesheetCode && in_array($attendanceCode, config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), true);
                     $hasHours = $hasHours || $regular > 0 || $overtime > 0;
-                    $entitlements = app(LeaveEntitlementService::class);
 
                     if ($period && isset($entry['work_date']) && ($entry['work_date'] < $period->start_date->toDateString() || $entry['work_date'] > $period->end_date->toDateString())) {
                         $validator->errors()->add("entries.$index.work_date", 'Work date must be within the selected weekly period.');
@@ -79,10 +81,10 @@ class TimesheetSaveRequest extends FormRequest
                         $validator->errors()->add("entries.$index.attendance_code", "$entryLabel needs an attendance code when hours are entered.");
                     }
 
-                    if (($regular > 0 || $overtime > 0) && is_string($attendanceCode) && ! $entitlements->userIsEligibleFor($this->user(), $attendanceCode, $entry['work_date'] ?? null)) {
+                    if (($regular > 0 || $overtime > 0) && is_string($attendanceCode) && $attendanceCode !== '' && ! $isAvailableTimesheetCode) {
                         $validator->errors()->add(
                             "entries.$index.attendance_code",
-                            $entitlements->eligibilityMessage($attendanceCode, $this->user(), $entry['work_date'] ?? null) ?? "$entryLabel has an attendance code that is not available for your profile.",
+                            "$entryLabel has an attendance code that is not available for your region.",
                         );
                     }
 

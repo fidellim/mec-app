@@ -64,6 +64,35 @@ class LeaveEntitlementService
         self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
     ];
 
+    public const TIMESHEET_ATTENDANCE_CODES_BY_REGION = [
+        'uae' => [
+            'O100',
+            self::ANNUAL_LEAVE_CODE,
+            self::SICK_LEAVE_CODE,
+            self::EMERGENCY_LEAVE_CODE,
+            'L130',
+            'L140',
+            'L150',
+            self::MATERNITY_LEAVE_CODE,
+            self::PARENTAL_LEAVE_CODE,
+            self::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE,
+            'L200',
+        ],
+        'ph' => [
+            'O100',
+            'L130',
+            'L140',
+            'L150',
+            self::MATERNITY_LEAVE_CODE,
+            self::PARENTAL_LEAVE_CODE,
+            self::SERVICE_INCENTIVE_LEAVE_CODE,
+            'L200',
+            self::PATERNITY_LEAVE_CODE,
+            self::VAWC_LEAVE_CODE,
+            self::SPECIAL_WOMEN_LEAVE_CODE,
+        ],
+    ];
+
     private const UAE_PAY_BANDS = [
         self::SICK_LEAVE_CODE => [
             ['key' => 'full_pay', 'label' => 'Full pay', 'days' => 15.0],
@@ -232,6 +261,22 @@ class LeaveEntitlementService
             ->filter(fn (string $attendanceCode) => $this->userIsEligibleFor($user, $attendanceCode))
             ->values()
             ->all();
+    }
+
+    public function timesheetAttendanceCodesFor(User $user): array
+    {
+        $regionCodes = self::TIMESHEET_ATTENDANCE_CODES_BY_REGION[$this->regionFor($user)] ?? [];
+        $configuredCodes = array_keys(config('timesheet.attendance_codes', []));
+
+        return collect($regionCodes)
+            ->intersect($configuredCodes)
+            ->values()
+            ->all();
+    }
+
+    public function userCanUseTimesheetAttendanceCode(User $user, string $attendanceCode): bool
+    {
+        return in_array($attendanceCode, $this->timesheetAttendanceCodesFor($user), true);
     }
 
     private function visibleEntitledLeaveCodesFor(User $user, ?User $viewer = null): array

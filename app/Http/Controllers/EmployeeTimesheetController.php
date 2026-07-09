@@ -255,15 +255,19 @@ class EmployeeTimesheetController extends Controller
 
     private function attendanceCodes($user): array
     {
+        $timesheetAttendanceCodes = app(LeaveEntitlementService::class)->timesheetAttendanceCodesFor($user);
+
         return collect(config('timesheet.attendance_codes'))
-            ->filter(fn ($label, string $attendanceCode) => app(LeaveEntitlementService::class)->userIsEligibleFor($user, $attendanceCode))
+            ->only($timesheetAttendanceCodes)
             ->all();
     }
 
     private function eligibleCodes(array $attendanceCodes, $user): array
     {
+        $timesheetAttendanceCodes = app(LeaveEntitlementService::class)->timesheetAttendanceCodesFor($user);
+
         return collect($attendanceCodes)
-            ->filter(fn (string $attendanceCode) => app(LeaveEntitlementService::class)->userIsEligibleFor($user, $attendanceCode))
+            ->intersect($timesheetAttendanceCodes)
             ->values()
             ->all();
     }
