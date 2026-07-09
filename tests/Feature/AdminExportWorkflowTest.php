@@ -360,13 +360,19 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertStringContainsString('.xlsx', $response->headers->get('content-disposition'));
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
-        $this->assertSame(2, $spreadsheet->getSheetCount());
+        $this->assertSame(3, $spreadsheet->getSheetCount());
         $this->assertSame('Project Weekly Summary', $spreadsheet->getSheet(0)->getTitle());
         $this->assertSame('Attendance Code Summary', $spreadsheet->getSheet(1)->getTitle());
-        $this->assertNull($spreadsheet->getSheetByName('Employee Rates'));
-        $this->assertSame('G', $spreadsheet->getSheet(0)->getHighestColumn());
-        $this->assertStringContainsString('Week 20, 2026', $spreadsheet->getSheet(0)->getCell('E4')->getValue());
-        $this->assertSame('', (string) $spreadsheet->getSheet(0)->getCell('H4')->getValue());
+        $this->assertSame('Employee Rates', $spreadsheet->getSheet(2)->getTitle());
+        $this->assertSame('K', $spreadsheet->getSheet(0)->getHighestColumn());
+        $this->assertSame('Rate/Manhour', $spreadsheet->getSheet(0)->getCell('E5')->getValue());
+        $this->assertStringContainsString('Week 20, 2026', $spreadsheet->getSheet(0)->getCell('F4')->getValue());
+        $this->assertSame('Regular Cost', $spreadsheet->getSheet(0)->getCell('I5')->getValue());
+        $this->assertSame('OT Cost', $spreadsheet->getSheet(0)->getCell('J5')->getValue());
+        $this->assertSame('Total Cost', $spreadsheet->getSheet(0)->getCell('K5')->getValue());
+        $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $spreadsheet->getSheet(0)->getCell('E6')->getValue());
+        $this->assertSame('=IF(E6="","",F6*E6)', $spreadsheet->getSheet(0)->getCell('I6')->getValue());
+        $this->assertSame('"AED" #,##0.00', $spreadsheet->getSheet(0)->getStyle('I6')->getNumberFormat()->getFormatCode());
     }
 
     public function test_admin_timesheet_index_supports_monthly_reporting_mode(): void
@@ -469,40 +475,40 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('Monthly Worker', $employeeRates->getCell('C2')->getValue());
         $this->assertSame('Planner', $employeeRates->getCell('D2')->getValue());
         $this->assertSame('', (string) $employeeRates->getCell('E2')->getValue());
-        $this->assertStringContainsString('May 2026', $projectSummary->getCell('E4')->getValue());
-        $this->assertStringContainsString('01-May-26 to 31-May-26', $projectSummary->getCell('E4')->getValue());
+        $this->assertStringContainsString('May 2026', $projectSummary->getCell('F4')->getValue());
+        $this->assertStringContainsString('01-May-26 to 31-May-26', $projectSummary->getCell('F4')->getValue());
         $this->assertSame('EMP-MONTH', $projectSummary->getCell('A6')->getValue());
-        $this->assertSame('Rate/Manhour', $projectSummary->getCell('H5')->getValue());
+        $this->assertSame('Rate/Manhour', $projectSummary->getCell('E5')->getValue());
         $this->assertSame('Regular Cost', $projectSummary->getCell('I5')->getValue());
         $this->assertSame('OT Cost', $projectSummary->getCell('J5')->getValue());
         $this->assertSame('Total Cost', $projectSummary->getCell('K5')->getValue());
-        $this->assertEquals(4, $projectSummary->getCell('E6')->getCalculatedValue());
-        $this->assertEquals(1, $projectSummary->getCell('F6')->getCalculatedValue());
-        $this->assertEquals(5, $projectSummary->getCell('G6')->getCalculatedValue());
-        $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $projectSummary->getCell('H6')->getValue());
-        $this->assertSame('=IF(H6="","",E6*H6)', $projectSummary->getCell('I6')->getValue());
-        $this->assertSame('=IF(H6="","",F6*H6*1.25)', $projectSummary->getCell('J6')->getValue());
-        $this->assertSame('=IF(H6="","",G6*H6)', $projectSummary->getCell('K6')->getValue());
-        $this->assertEquals(4, $projectSummary->getCell('E7')->getCalculatedValue());
-        $this->assertEquals(1, $projectSummary->getCell('F7')->getCalculatedValue());
-        $this->assertEquals(5, $projectSummary->getCell('G7')->getCalculatedValue());
+        $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $projectSummary->getCell('E6')->getValue());
+        $this->assertEquals(4, $projectSummary->getCell('F6')->getCalculatedValue());
+        $this->assertEquals(1, $projectSummary->getCell('G6')->getCalculatedValue());
+        $this->assertEquals(5, $projectSummary->getCell('H6')->getCalculatedValue());
+        $this->assertSame('=IF(E6="","",F6*E6)', $projectSummary->getCell('I6')->getValue());
+        $this->assertSame('=IF(E6="","",G6*E6*1.25)', $projectSummary->getCell('J6')->getValue());
+        $this->assertSame('=IF(E6="","",H6*E6)', $projectSummary->getCell('K6')->getValue());
+        $this->assertEquals(4, $projectSummary->getCell('F7')->getCalculatedValue());
+        $this->assertEquals(1, $projectSummary->getCell('G7')->getCalculatedValue());
+        $this->assertEquals(5, $projectSummary->getCell('H7')->getCalculatedValue());
         $this->assertSame('=SUM(I6:I6)', $projectSummary->getCell('I7')->getValue());
         $this->assertSame('=SUM(J6:J6)', $projectSummary->getCell('J7')->getValue());
         $this->assertSame('=SUM(K6:K6)', $projectSummary->getCell('K7')->getValue());
 
         $this->assertSame('L100 - Annual Leave', $attendanceSummary->getCell('A3')->getValue());
-        $this->assertStringContainsString('May 2026', $attendanceSummary->getCell('H4')->getValue());
-        $this->assertSame('Rate/Manhour', $attendanceSummary->getCell('K5')->getValue());
+        $this->assertStringContainsString('May 2026', $attendanceSummary->getCell('I4')->getValue());
+        $this->assertSame('Rate/Manhour', $attendanceSummary->getCell('F5')->getValue());
         $this->assertSame('Regular Cost', $attendanceSummary->getCell('L5')->getValue());
         $this->assertSame('OT Cost', $attendanceSummary->getCell('M5')->getValue());
         $this->assertSame('Total Cost', $attendanceSummary->getCell('N5')->getValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('H6')->getCalculatedValue());
-        $this->assertEquals(0, $attendanceSummary->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('J6')->getCalculatedValue());
-        $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $attendanceSummary->getCell('K6')->getValue());
-        $this->assertSame('=IF(K6="","",H6*K6)', $attendanceSummary->getCell('L6')->getValue());
-        $this->assertSame('=IF(K6="","",I6*K6*1.25)', $attendanceSummary->getCell('M6')->getValue());
-        $this->assertSame('=IF(K6="","",J6*K6)', $attendanceSummary->getCell('N6')->getValue());
+        $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $attendanceSummary->getCell('F6')->getValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(0, $attendanceSummary->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('K6')->getCalculatedValue());
+        $this->assertSame('=IF(F6="","",I6*F6)', $attendanceSummary->getCell('L6')->getValue());
+        $this->assertSame('=IF(F6="","",J6*F6*1.25)', $attendanceSummary->getCell('M6')->getValue());
+        $this->assertSame('=IF(F6="","",K6*F6)', $attendanceSummary->getCell('N6')->getValue());
     }
 
     public function test_monthly_timesheet_export_respects_project_status_and_employee_filters(): void
@@ -565,9 +571,9 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertStringContainsString('MONTH-A', $projectSummary->getCell('A3')->getValue());
         $this->assertStringNotContainsString('MONTH-B', $projectSummary->getCell('A3')->getValue());
         $this->assertSame('Filtered Monthly Worker', $projectSummary->getCell('C6')->getValue());
-        $this->assertEquals(11, $projectSummary->getCell('E6')->getCalculatedValue());
+        $this->assertEquals(11, $projectSummary->getCell('F6')->getCalculatedValue());
         $this->assertSame('Grand Total', $projectSummary->getCell('A9')->getValue());
-        $this->assertEquals(11, $projectSummary->getCell('E9')->getCalculatedValue());
+        $this->assertEquals(11, $projectSummary->getCell('F9')->getCalculatedValue());
     }
 
     public function test_monthly_timesheet_mode_rejects_not_submitted_status(): void
@@ -687,6 +693,9 @@ class AdminExportWorkflowTest extends TestCase
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
         $this->assertSame(3, $spreadsheet->getSheetCount());
+        $this->assertNull($spreadsheet->getSheetByName('Employee Rates'));
+        $this->assertSame('G', $spreadsheet->getSheet(0)->getHighestColumn());
+        $this->assertSame('', (string) $spreadsheet->getSheet(0)->getCell('H4')->getValue());
         $this->assertSame('ZX', $spreadsheet->getSheet(2)->getCell('B4')->getValue());
         $this->assertSame('Project Engineer', $spreadsheet->getSheet(2)->getCell('K5')->getValue());
     }
@@ -930,7 +939,7 @@ class AdminExportWorkflowTest extends TestCase
         $weekly = $spreadsheet->getSheet(0);
 
         $this->assertSame('Project Weekly Summary', $weekly->getTitle());
-        $this->assertSame(2, $spreadsheet->getSheetCount());
+        $this->assertSame(3, $spreadsheet->getSheetCount());
         $this->assertTrue($weekly->getStyle('A3')->getAlignment()->getWrapText());
         $this->assertGreaterThan(20, $weekly->getRowDimension(3)->getRowHeight());
         $this->assertSame(34.0, $weekly->getColumnDimension('C')->getWidth());
@@ -939,63 +948,68 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertStringContainsString("\n", $weekly->getCell('A3')->getValue());
         $this->assertStringContainsString('Client: ADNOC', $weekly->getCell('A3')->getValue());
         $this->assertStringNotContainsString('Services  for', $weekly->getCell('A3')->getValue());
-        $this->assertStringContainsString('Week 20, 2026', $weekly->getCell('E4')->getValue());
-        $this->assertStringContainsString('11-May-26 to 17-May-26', $weekly->getCell('E4')->getValue());
-        $this->assertStringContainsString('Week 21, 2026', $weekly->getCell('H4')->getValue());
+        $this->assertStringContainsString('Week 20, 2026', $weekly->getCell('F4')->getValue());
+        $this->assertStringContainsString('11-May-26 to 17-May-26', $weekly->getCell('F4')->getValue());
+        $this->assertStringContainsString('Week 21, 2026', $weekly->getCell('L4')->getValue());
         $this->assertGreaterThanOrEqual(36, $weekly->getRowDimension(4)->getRowHeight());
-        $this->assertContains('E4:G4', $weekly->getMergeCells());
-        $this->assertContains('H4:J4', $weekly->getMergeCells());
-        $this->assertContains('K4:M4', $weekly->getMergeCells());
-        $this->assertSame('Selected Period Total', $weekly->getCell('K4')->getValue());
+        $this->assertContains('F4:K4', $weekly->getMergeCells());
+        $this->assertContains('L4:Q4', $weekly->getMergeCells());
+        $this->assertContains('R4:W4', $weekly->getMergeCells());
+        $this->assertSame('Selected Period Total', $weekly->getCell('R4')->getValue());
         $this->assertSame('Employee ID', $weekly->getCell('A5')->getValue());
         $this->assertSame('Job Title', $weekly->getCell('D5')->getValue());
-        $this->assertSame('FFF8CBAD', $weekly->getStyle('K4')->getFill()->getStartColor()->getARGB());
-        $this->assertSame('FFFCE4D6', $weekly->getStyle('K6')->getFill()->getStartColor()->getARGB());
-        $this->assertSame('FFF8DFD0', $weekly->getStyle('K8')->getFill()->getStartColor()->getARGB());
-        $this->assertSame(Border::BORDER_THICK, $weekly->getStyle('K6')->getBorders()->getLeft()->getBorderStyle());
+        $this->assertSame('Rate/Manhour', $weekly->getCell('E5')->getValue());
+        $this->assertSame('FFF8CBAD', $weekly->getStyle('R4')->getFill()->getStartColor()->getARGB());
+        $this->assertSame('FFFCE4D6', $weekly->getStyle('R6')->getFill()->getStartColor()->getARGB());
+        $this->assertSame('FFF8DFD0', $weekly->getStyle('R8')->getFill()->getStartColor()->getARGB());
+        $this->assertSame(Border::BORDER_THICK, $weekly->getStyle('R6')->getBorders()->getLeft()->getBorderStyle());
         $this->assertSame('EMP-001', $weekly->getCell('A6')->getValue());
         $this->assertSame('BC', $weekly->getCell('B6')->getValue());
         $this->assertSame('Ben Carter', $weekly->getCell('C6')->getValue());
         $this->assertSame('Senior Engineer', $weekly->getCell('D6')->getValue());
-        $this->assertEquals(8, $weekly->getCell('E6')->getCalculatedValue());
-        $this->assertEquals(2, $weekly->getCell('F6')->getCalculatedValue());
-        $this->assertEquals(10, $weekly->getCell('G6')->getCalculatedValue());
-        $this->assertEquals(9, $weekly->getCell('H6')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(12, $weekly->getCell('J6')->getCalculatedValue());
-        $this->assertEquals(17, $weekly->getCell('K6')->getCalculatedValue());
-        $this->assertEquals(5, $weekly->getCell('L6')->getCalculatedValue());
-        $this->assertEquals(22, $weekly->getCell('M6')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('F6')->getCalculatedValue());
+        $this->assertEquals(2, $weekly->getCell('G6')->getCalculatedValue());
+        $this->assertEquals(10, $weekly->getCell('H6')->getCalculatedValue());
+        $this->assertEquals(9, $weekly->getCell('L6')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('M6')->getCalculatedValue());
+        $this->assertEquals(12, $weekly->getCell('N6')->getCalculatedValue());
+        $this->assertEquals(17, $weekly->getCell('R6')->getCalculatedValue());
+        $this->assertEquals(5, $weekly->getCell('S6')->getCalculatedValue());
+        $this->assertEquals(22, $weekly->getCell('T6')->getCalculatedValue());
+        $this->assertSame('=IF(E6="","",17*E6)', $weekly->getCell('U6')->getValue());
+        $this->assertSame('=IF(E6="","",5*E6*1.25)', $weekly->getCell('V6')->getValue());
+        $this->assertSame('=IF(E6="","",22*E6)', $weekly->getCell('W6')->getValue());
+        $this->assertSame('"AED" #,##0.00', $weekly->getStyle('U6')->getNumberFormat()->getFormatCode());
         $this->assertSame('Alice Santos', $weekly->getCell('C7')->getValue());
         $this->assertSame('-', $weekly->getCell('D7')->getValue());
         $this->assertSame('AS', $weekly->getCell('B7')->getValue());
-        $this->assertEquals(0, $weekly->getCell('H7')->getCalculatedValue());
-        $this->assertEquals(0, $weekly->getCell('I7')->getCalculatedValue());
-        $this->assertEquals(0, $weekly->getCell('J7')->getCalculatedValue());
-        $this->assertEquals(8, $weekly->getCell('K7')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('F7')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('G7')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('H7')->getCalculatedValue());
         $this->assertEquals(0, $weekly->getCell('L7')->getCalculatedValue());
-        $this->assertEquals(8, $weekly->getCell('M7')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('M7')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('N7')->getCalculatedValue());
         $this->assertSame('Project Total', $weekly->getCell('A8')->getValue());
-        $this->assertEquals(16, $weekly->getCell('E8')->getCalculatedValue());
-        $this->assertEquals(2, $weekly->getCell('F8')->getCalculatedValue());
-        $this->assertEquals(18, $weekly->getCell('G8')->getCalculatedValue());
-        $this->assertEquals(9, $weekly->getCell('H8')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('I8')->getCalculatedValue());
-        $this->assertEquals(12, $weekly->getCell('J8')->getCalculatedValue());
-        $this->assertEquals(25, $weekly->getCell('K8')->getCalculatedValue());
-        $this->assertEquals(5, $weekly->getCell('L8')->getCalculatedValue());
-        $this->assertEquals(30, $weekly->getCell('M8')->getCalculatedValue());
+        $this->assertEquals(16, $weekly->getCell('F8')->getCalculatedValue());
+        $this->assertEquals(2, $weekly->getCell('G8')->getCalculatedValue());
+        $this->assertEquals(18, $weekly->getCell('H8')->getCalculatedValue());
+        $this->assertEquals(9, $weekly->getCell('L8')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('M8')->getCalculatedValue());
+        $this->assertEquals(12, $weekly->getCell('N8')->getCalculatedValue());
+        $this->assertEquals(25, $weekly->getCell('R8')->getCalculatedValue());
+        $this->assertEquals(5, $weekly->getCell('S8')->getCalculatedValue());
+        $this->assertEquals(30, $weekly->getCell('T8')->getCalculatedValue());
         $this->assertStringContainsString('P200 - Control Room Fit Out', $weekly->getCell('A10')->getValue());
         $this->assertSame('Grand Total', $weekly->getCell('A16')->getValue());
-        $this->assertEquals(19, $weekly->getCell('E16')->getCalculatedValue());
-        $this->assertEquals(6, $weekly->getCell('F16')->getCalculatedValue());
-        $this->assertEquals(25, $weekly->getCell('G16')->getCalculatedValue());
-        $this->assertEquals(9, $weekly->getCell('H16')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('I16')->getCalculatedValue());
-        $this->assertEquals(12, $weekly->getCell('J16')->getCalculatedValue());
-        $this->assertEquals(28, $weekly->getCell('K16')->getCalculatedValue());
+        $this->assertEquals(19, $weekly->getCell('F16')->getCalculatedValue());
+        $this->assertEquals(6, $weekly->getCell('G16')->getCalculatedValue());
+        $this->assertEquals(25, $weekly->getCell('H16')->getCalculatedValue());
         $this->assertEquals(9, $weekly->getCell('L16')->getCalculatedValue());
-        $this->assertEquals(37, $weekly->getCell('M16')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('M16')->getCalculatedValue());
+        $this->assertEquals(12, $weekly->getCell('N16')->getCalculatedValue());
+        $this->assertEquals(28, $weekly->getCell('R16')->getCalculatedValue());
+        $this->assertEquals(9, $weekly->getCell('S16')->getCalculatedValue());
+        $this->assertEquals(37, $weekly->getCell('T16')->getCalculatedValue());
     }
 
     public function test_excel_export_includes_attendance_summary_for_leave_and_non_project_hours(): void
@@ -1055,33 +1069,34 @@ class AdminExportWorkflowTest extends TestCase
         $attendanceSummary = $spreadsheet->getSheet(1);
 
         $this->assertSame('Attendance Code Summary', $attendanceSummary->getTitle());
-        $this->assertEquals(8, $projectSummary->getCell('E6')->getCalculatedValue());
-        $this->assertEquals(8, $projectSummary->getCell('G6')->getCalculatedValue());
+        $this->assertEquals(8, $projectSummary->getCell('F6')->getCalculatedValue());
+        $this->assertEquals(8, $projectSummary->getCell('H6')->getCalculatedValue());
 
         $this->assertSame('L100 - Annual Leave', $attendanceSummary->getCell('A3')->getValue());
-        $this->assertStringContainsString('Week 20, 2026', $attendanceSummary->getCell('H4')->getValue());
+        $this->assertStringContainsString('Week 20, 2026', $attendanceSummary->getCell('I4')->getValue());
         $this->assertSame('Employee ID', $attendanceSummary->getCell('A5')->getValue());
         $this->assertSame('EMP-004', $attendanceSummary->getCell('A6')->getValue());
         $this->assertSame('LU', $attendanceSummary->getCell('B6')->getValue());
         $this->assertSame('Leave User', $attendanceSummary->getCell('C6')->getValue());
         $this->assertSame('Engineering', $attendanceSummary->getCell('D6')->getValue());
         $this->assertSame('Designer', $attendanceSummary->getCell('E6')->getValue());
-        $this->assertSame('Non-project', $attendanceSummary->getCell('F6')->getValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('H6')->getCalculatedValue());
-        $this->assertEquals(0, $attendanceSummary->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('J6')->getCalculatedValue());
+        $this->assertSame('Rate/Manhour', $attendanceSummary->getCell('F5')->getValue());
+        $this->assertSame('Non-project', $attendanceSummary->getCell('G6')->getValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(0, $attendanceSummary->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('K6')->getCalculatedValue());
 
         $this->assertSame('Attendance Code Total', $attendanceSummary->getCell('A7')->getValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('H7')->getCalculatedValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('I7')->getCalculatedValue());
         $this->assertSame('L140 - Paid Holiday Leave', $attendanceSummary->getCell('A9')->getValue());
-        $this->assertEquals(4, $attendanceSummary->getCell('H12')->getCalculatedValue());
+        $this->assertEquals(4, $attendanceSummary->getCell('I12')->getCalculatedValue());
         $this->assertSame('O100 - Office', $attendanceSummary->getCell('A15')->getValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('H18')->getCalculatedValue());
-        $this->assertEquals(1, $attendanceSummary->getCell('I18')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('I18')->getCalculatedValue());
+        $this->assertEquals(1, $attendanceSummary->getCell('J18')->getCalculatedValue());
         $this->assertSame('Grand Total', $attendanceSummary->getCell('A21')->getValue());
-        $this->assertEquals(14, $attendanceSummary->getCell('H21')->getCalculatedValue());
-        $this->assertEquals(1, $attendanceSummary->getCell('I21')->getCalculatedValue());
-        $this->assertEquals(15, $attendanceSummary->getCell('J21')->getCalculatedValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('I21')->getCalculatedValue());
+        $this->assertEquals(1, $attendanceSummary->getCell('J21')->getCalculatedValue());
+        $this->assertEquals(15, $attendanceSummary->getCell('K21')->getCalculatedValue());
     }
 
     public function test_attendance_summary_places_multiple_weeks_side_by_side_with_totals(): void
@@ -1136,26 +1151,29 @@ class AdminExportWorkflowTest extends TestCase
         $attendanceSummary = IOFactory::load($response->getFile()->getPathname())->getSheet(1);
 
         $this->assertSame('L100 - Annual Leave', $attendanceSummary->getCell('A3')->getValue());
-        $this->assertStringContainsString('Week 20, 2026', $attendanceSummary->getCell('H4')->getValue());
-        $this->assertStringContainsString('Week 21, 2026', $attendanceSummary->getCell('K4')->getValue());
-        $this->assertSame('Selected Period Total', $attendanceSummary->getCell('N4')->getValue());
-        $this->assertContains('H4:J4', $attendanceSummary->getMergeCells());
-        $this->assertContains('K4:M4', $attendanceSummary->getMergeCells());
-        $this->assertContains('N4:P4', $attendanceSummary->getMergeCells());
+        $this->assertStringContainsString('Week 20, 2026', $attendanceSummary->getCell('I4')->getValue());
+        $this->assertStringContainsString('Week 21, 2026', $attendanceSummary->getCell('O4')->getValue());
+        $this->assertSame('Selected Period Total', $attendanceSummary->getCell('U4')->getValue());
+        $this->assertContains('I4:N4', $attendanceSummary->getMergeCells());
+        $this->assertContains('O4:T4', $attendanceSummary->getMergeCells());
+        $this->assertContains('U4:Z4', $attendanceSummary->getMergeCells());
         $this->assertSame('EMP-005', $attendanceSummary->getCell('A6')->getValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('H6')->getCalculatedValue());
-        $this->assertEquals(0, $attendanceSummary->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('J6')->getCalculatedValue());
-        $this->assertEquals(4, $attendanceSummary->getCell('K6')->getCalculatedValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('L6')->getCalculatedValue());
-        $this->assertEquals(6, $attendanceSummary->getCell('M6')->getCalculatedValue());
-        $this->assertEquals(12, $attendanceSummary->getCell('N6')->getCalculatedValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('O6')->getCalculatedValue());
-        $this->assertEquals(14, $attendanceSummary->getCell('P6')->getCalculatedValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(0, $attendanceSummary->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(8, $attendanceSummary->getCell('K6')->getCalculatedValue());
+        $this->assertEquals(4, $attendanceSummary->getCell('O6')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('P6')->getCalculatedValue());
+        $this->assertEquals(6, $attendanceSummary->getCell('Q6')->getCalculatedValue());
+        $this->assertEquals(12, $attendanceSummary->getCell('U6')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('V6')->getCalculatedValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('W6')->getCalculatedValue());
+        $this->assertSame('=IF(F6="","",12*F6)', $attendanceSummary->getCell('X6')->getValue());
+        $this->assertSame('=IF(F6="","",2*F6*1.25)', $attendanceSummary->getCell('Y6')->getValue());
+        $this->assertSame('=IF(F6="","",14*F6)', $attendanceSummary->getCell('Z6')->getValue());
         $this->assertSame('Grand Total', $attendanceSummary->getCell('A9')->getValue());
-        $this->assertEquals(12, $attendanceSummary->getCell('N9')->getCalculatedValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('O9')->getCalculatedValue());
-        $this->assertEquals(14, $attendanceSummary->getCell('P9')->getCalculatedValue());
+        $this->assertEquals(12, $attendanceSummary->getCell('U9')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('V9')->getCalculatedValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('W9')->getCalculatedValue());
     }
 
     public function test_excel_project_summaries_ignore_entries_without_project_or_hours(): void
@@ -1284,40 +1302,40 @@ class AdminExportWorkflowTest extends TestCase
 
         $spreadsheet = IOFactory::load($response->getFile()->getPathname());
         $weekly = $spreadsheet->getSheet(0);
-        $this->assertSame(2, $spreadsheet->getSheetCount());
+        $this->assertSame(3, $spreadsheet->getSheetCount());
 
         $this->assertStringContainsString('PX-100 - Selected Project', $weekly->getCell('A3')->getValue());
-        $this->assertStringContainsString('Week 12, 2026', $weekly->getCell('E4')->getValue());
-        $this->assertStringContainsString('16-Mar-26 to 22-Mar-26', $weekly->getCell('E4')->getValue());
-        $this->assertStringContainsString('Week 15, 2026', $weekly->getCell('H4')->getValue());
-        $this->assertStringContainsString('06-Apr-26 to 12-Apr-26', $weekly->getCell('H4')->getValue());
-        $this->assertSame('Selected Period Total', $weekly->getCell('K4')->getValue());
-        $this->assertContains('K4:M4', $weekly->getMergeCells());
+        $this->assertStringContainsString('Week 12, 2026', $weekly->getCell('F4')->getValue());
+        $this->assertStringContainsString('16-Mar-26 to 22-Mar-26', $weekly->getCell('F4')->getValue());
+        $this->assertStringContainsString('Week 15, 2026', $weekly->getCell('L4')->getValue());
+        $this->assertStringContainsString('06-Apr-26 to 12-Apr-26', $weekly->getCell('L4')->getValue());
+        $this->assertSame('Selected Period Total', $weekly->getCell('R4')->getValue());
+        $this->assertContains('R4:W4', $weekly->getMergeCells());
         $this->assertSame('EMP-P100', $weekly->getCell('A6')->getValue());
         $this->assertSame('Project Manager', $weekly->getCell('D6')->getValue());
-        $this->assertEquals(8, $weekly->getCell('E6')->getCalculatedValue());
-        $this->assertEquals(0, $weekly->getCell('F6')->getCalculatedValue());
-        $this->assertEquals(8, $weekly->getCell('G6')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('F6')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('G6')->getCalculatedValue());
         $this->assertEquals(8, $weekly->getCell('H6')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(11, $weekly->getCell('J6')->getCalculatedValue());
-        $this->assertEquals(16, $weekly->getCell('K6')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('L6')->getCalculatedValue());
-        $this->assertEquals(19, $weekly->getCell('M6')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('L6')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('M6')->getCalculatedValue());
+        $this->assertEquals(11, $weekly->getCell('N6')->getCalculatedValue());
+        $this->assertEquals(16, $weekly->getCell('R6')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('S6')->getCalculatedValue());
+        $this->assertEquals(19, $weekly->getCell('T6')->getCalculatedValue());
         $this->assertSame('Project Total', $weekly->getCell('A7')->getValue());
-        $this->assertEquals(16, $weekly->getCell('K7')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('L7')->getCalculatedValue());
-        $this->assertEquals(19, $weekly->getCell('M7')->getCalculatedValue());
+        $this->assertEquals(16, $weekly->getCell('R7')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('S7')->getCalculatedValue());
+        $this->assertEquals(19, $weekly->getCell('T7')->getCalculatedValue());
         $this->assertSame('Grand Total', $weekly->getCell('A9')->getValue());
-        $this->assertEquals(8, $weekly->getCell('E9')->getCalculatedValue());
-        $this->assertEquals(0, $weekly->getCell('F9')->getCalculatedValue());
-        $this->assertEquals(8, $weekly->getCell('G9')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('F9')->getCalculatedValue());
+        $this->assertEquals(0, $weekly->getCell('G9')->getCalculatedValue());
         $this->assertEquals(8, $weekly->getCell('H9')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('I9')->getCalculatedValue());
-        $this->assertEquals(11, $weekly->getCell('J9')->getCalculatedValue());
-        $this->assertEquals(16, $weekly->getCell('K9')->getCalculatedValue());
-        $this->assertEquals(3, $weekly->getCell('L9')->getCalculatedValue());
-        $this->assertEquals(19, $weekly->getCell('M9')->getCalculatedValue());
+        $this->assertEquals(8, $weekly->getCell('L9')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('M9')->getCalculatedValue());
+        $this->assertEquals(11, $weekly->getCell('N9')->getCalculatedValue());
+        $this->assertEquals(16, $weekly->getCell('R9')->getCalculatedValue());
+        $this->assertEquals(3, $weekly->getCell('S9')->getCalculatedValue());
+        $this->assertEquals(19, $weekly->getCell('T9')->getCalculatedValue());
 
         foreach (range(1, 9) as $row) {
             $this->assertStringNotContainsString('PX-200', (string) $weekly->getCell("A{$row}")->getValue());

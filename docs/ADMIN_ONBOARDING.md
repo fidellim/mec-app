@@ -237,7 +237,7 @@ Admins can export from **All Timesheets**.
 1. Go to **All Timesheets**.
 2. Choose **Weekly** for normal weekly reports or **Monthly** for management summaries.
 3. Apply filters for week range or month, year, project, department, user, role, or status if needed.
-4. Leave **Include individual employee timesheet sheets** unchecked for a faster weekly summary-only workbook, or check it when detailed weekly employee sheets are needed. Monthly reports are always summary-only.
+4. Leave **Include individual employee timesheet sheets** unchecked for a weekly summary-only workbook with rate and AED cost columns, or check it when detailed weekly employee sheets are needed. Monthly reports are always summary-only.
 5. Select **Summary Report Preview** when you want to check the Project Summary and Attendance Code Summary before downloading.
 6. Select **Export Excel**.
 
@@ -255,13 +255,14 @@ Monthly report rules:
 - A monthly report includes only timesheet entry dates inside the selected calendar month.
 - If a weekly period crosses into the previous or next month, dates outside the selected month are excluded from the monthly totals.
 - Monthly workbooks include an **Employee Rates** sheet. Paste each employee's **Rate/Manhour** there to automatically calculate regular, overtime, and total cost columns in the monthly summary sheets.
+- Weekly summary-only workbooks also include **Employee Rates** and AED cost columns. If **Include individual employee timesheet sheets** is checked, the weekly export keeps the detailed employee worksheets and does not include rate/cost columns.
 - **Status: Not Submitted** is a weekly-period view and is not available in Monthly mode.
 
 The export includes:
 
 - A **Project Weekly Summary** worksheet for Weekly mode, or a **Project Monthly Summary** worksheet for Monthly mode, grouped by project with exported periods shown as columns.
 - An **Attendance Code Summary** worksheet for leave and other non-project hours.
-- An **Employee Rates** worksheet in Monthly mode for manually entering employee rate/manhour values used by the workbook formulas.
+- An **Employee Rates** worksheet in Monthly mode and Weekly summary-only mode for manually entering employee rate/manhour values used by the workbook formulas.
 - Optional individual employee weekly timesheet worksheets in Weekly mode only.
 - Employee ID, initials, employee name, job title, weekly regular hours, weekly overtime hours, weekly total hours, and project totals in the summary.
 - Job title, regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks in the individual timesheet worksheets.

@@ -13,18 +13,19 @@ class TimesheetsExcelExport implements WithMultipleSheets
         private readonly ?Collection $attendanceSummaryRows = null,
         private readonly bool $includeEmployeeSheets = false,
         private readonly string $reportMode = 'weekly',
-        private readonly ?Collection $employeeRateRows = null
+        private readonly ?Collection $employeeRateRows = null,
+        private readonly bool $showCosting = false
     ) {
     }
 
     public function sheets(): array
     {
         $sheets = [
-            new ProjectSummaryWorksheetExport($this->projectWeeklySummaryRows ?? collect(), $this->reportMode),
-            new AttendanceSummaryWorksheetExport($this->attendanceSummaryRows ?? collect(), $this->reportMode),
+            new ProjectSummaryWorksheetExport($this->projectWeeklySummaryRows ?? collect(), $this->reportMode, $this->showCosting),
+            new AttendanceSummaryWorksheetExport($this->attendanceSummaryRows ?? collect(), $this->reportMode, $this->showCosting),
         ];
 
-        if ($this->reportMode === 'monthly') {
+        if ($this->showCosting) {
             $sheets[] = new EmployeeRatesWorksheetExport($this->employeeRateRows ?? collect());
         }
 

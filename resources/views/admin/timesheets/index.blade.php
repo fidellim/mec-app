@@ -107,7 +107,7 @@
             <input type="hidden" name="include_employee_sheets" value="0">
             <input class="form-check-input" type="checkbox" id="include_employee_sheets" name="include_employee_sheets" value="1" @checked(request()->boolean('include_employee_sheets'))>
             <label class="form-check-label" for="include_employee_sheets">Include individual employee timesheet sheets</label>
-            <div class="form-text">Leave unchecked for a faster summary export. Individual sheets are limited to 250 matching timesheets.</div>
+            <div class="form-text">Leave unchecked for a summary export with rate and AED cost columns. Individual sheets are limited to 250 matching timesheets.</div>
         </div>
     </div>
     <div class="col-md-4 d-flex align-items-end" data-monthly-filter>

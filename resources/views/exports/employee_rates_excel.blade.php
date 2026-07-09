@@ -47,7 +47,7 @@
         </tr>
     @empty
         <tr>
-            <td colspan="5" class="center">No employees found for the selected monthly report.</td>
+            <td colspan="5" class="center">No employees found for the selected report.</td>
         </tr>
     @endforelse
 </table>

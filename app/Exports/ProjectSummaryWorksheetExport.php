@@ -18,7 +18,8 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 {
     public function __construct(
         private readonly Collection $rows,
-        private readonly string $reportMode = 'weekly'
+        private readonly string $reportMode = 'weekly',
+        private readonly ?bool $showCosting = null
     )
     {
     }
@@ -159,6 +160,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
                 }
 
                 $this->styleSelectedPeriodTotalColumns($sheet);
+                $this->styleCostColumns($sheet);
 
                 foreach ($this->spacerRows() as $rowNumber) {
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
@@ -337,9 +339,9 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
     {
         $weeks = $this->weeks($this->rows);
         $maxWeekCount = $weeks->count() ?: 1;
-        $rangeTotalColumns = $this->showRangeTotals($weeks) ? 3 : 0;
+        $rangeTotalColumns = $this->showRangeTotals($weeks) ? $this->rangeTotalColumnCount() : 0;
 
-        return max(7, 4 + ($maxWeekCount * $this->periodColumnCount()) + $rangeTotalColumns);
+        return max(7, $this->fixedColumnCount() + ($maxWeekCount * $this->periodColumnCount()) + $rangeTotalColumns);
     }
 
     private function lastColumn(): string
@@ -444,7 +446,7 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
         $ranges = [];
         $groupCount = $this->weeks($this->rows)->count();
 
-        for ($column = 5; $column < 5 + ($groupCount * $this->periodColumnCount()); $column += $this->periodColumnCount()) {
+        for ($column = $this->firstPeriodColumnIndex(); $column < $this->firstPeriodColumnIndex() + ($groupCount * $this->periodColumnCount()); $column += $this->periodColumnCount()) {
             $ranges[] = [
                 Coordinate::stringFromColumnIndex($column),
                 Coordinate::stringFromColumnIndex($column + $this->periodColumnCount() - 1),
@@ -469,11 +471,11 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
             return null;
         }
 
-        $startColumnIndex = 5 + ($weeks->count() * $this->periodColumnCount());
+        $startColumnIndex = $this->firstPeriodColumnIndex() + ($weeks->count() * $this->periodColumnCount());
 
         return [
             Coordinate::stringFromColumnIndex($startColumnIndex),
-            Coordinate::stringFromColumnIndex($startColumnIndex + 2),
+            Coordinate::stringFromColumnIndex($startColumnIndex + $this->rangeTotalColumnCount() - 1),
         ];
     }
 
@@ -484,12 +486,64 @@ class ProjectSummaryWorksheetExport implements FromView, WithColumnWidths, WithE
 
     private function showCosting(): bool
     {
-        return $this->reportMode === 'monthly';
+        return $this->showCosting ?? ($this->reportMode === 'monthly');
     }
 
     private function periodColumnCount(): int
     {
-        return $this->showCosting() ? 7 : 3;
+        return $this->showCosting() ? 6 : 3;
+    }
+
+    private function rangeTotalColumnCount(): int
+    {
+        return $this->showCosting() ? 6 : 3;
+    }
+
+    private function fixedColumnCount(): int
+    {
+        return $this->showCosting() ? 5 : 4;
+    }
+
+    private function firstPeriodColumnIndex(): int
+    {
+        return $this->fixedColumnCount() + 1;
+    }
+
+    private function styleCostColumns($sheet): void
+    {
+        if (! $this->showCosting()) {
+            return;
+        }
+
+        $lastRow = $this->lastRow();
+
+        foreach ($this->costColumnIndexes() as $columnIndex) {
+            $column = Coordinate::stringFromColumnIndex($columnIndex);
+            $sheet->getStyle("{$column}1:{$column}{$lastRow}")
+                ->getNumberFormat()
+                ->setFormatCode('"AED" #,##0.00');
+        }
+    }
+
+    private function costColumnIndexes(): array
+    {
+        $columns = [];
+        $weekCount = $this->weeks($this->rows)->count() ?: 1;
+
+        for ($column = $this->firstPeriodColumnIndex(); $column < $this->firstPeriodColumnIndex() + ($weekCount * $this->periodColumnCount()); $column += $this->periodColumnCount()) {
+            $columns[] = $column + 3;
+            $columns[] = $column + 4;
+            $columns[] = $column + 5;
+        }
+
+        if ($range = $this->selectedPeriodTotalColumnRange()) {
+            $startColumnIndex = Coordinate::columnIndexFromString($range[0]);
+            $columns[] = $startColumnIndex + 3;
+            $columns[] = $startColumnIndex + 4;
+            $columns[] = $startColumnIndex + 5;
+        }
+
+        return $columns;
     }
 
     private function weekKey(array $row): string

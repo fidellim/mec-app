@@ -333,7 +333,8 @@ The export includes:
 
 - A **Project Weekly Summary** worksheet for project-chargeable hours.
 - An **Attendance Code Summary** worksheet for leave and other non-project hours.
-- Optional individual employee weekly timesheet worksheets.
+- An **Employee Rates** worksheet with AED cost columns when exporting weekly summary-only workbooks or monthly reports.
+- Optional individual employee weekly timesheet worksheets. When included, weekly exports do not include rate/cost columns.
 - Employee job title where available, or `-` when blank.
 - Regular hours, overtime hours, total hours, attendance/project codes, weekend columns, totals, and remarks.
 

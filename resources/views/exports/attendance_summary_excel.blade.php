@@ -97,11 +97,14 @@
             <th class="week-header"></th>
             <th class="week-header"></th>
             <th class="week-header"></th>
+            @if($showCosting)
+                <th class="week-header"></th>
+            @endif
             @foreach($group['weeks'] as $week)
                 <th colspan="{{ $periodColumnSpan }}" class="week-header">{{ $week['label'] }}<br>{{ $week['dates'] }}</th>
             @endforeach
             @if($showRangeTotals)
-                <th colspan="3" class="period-total-header">Selected Period Total</th>
+                <th colspan="{{ $showCosting ? 6 : 3 }}" class="period-total-header">Selected Period Total</th>
             @endif
         </tr>
         <tr>
@@ -110,6 +113,9 @@
             <th class="table-header">Employee</th>
             <th class="table-header">Department</th>
             <th class="table-header">Job Title</th>
+            @if($showCosting)
+                <th class="table-header">Rate/Manhour</th>
+            @endif
             <th class="table-header">Project/Job</th>
             <th class="table-header">Status</th>
             @foreach($group['weeks'] as $week)
@@ -117,7 +123,6 @@
                 <th class="period-total-header">Overtime Hours</th>
                 <th class="period-total-header">Total Hours</th>
                 @if($showCosting)
-                    <th class="period-total-header">Rate/Manhour</th>
                     <th class="period-total-header">Regular Cost</th>
                     <th class="period-total-header">OT Cost</th>
                     <th class="period-total-header">Total Cost</th>
@@ -127,6 +132,11 @@
                 <th class="table-header">Regular Hours</th>
                 <th class="table-header">Overtime Hours</th>
                 <th class="table-header">Total Hours</th>
+                @if($showCosting)
+                    <th class="table-header">Regular Cost</th>
+                    <th class="table-header">OT Cost</th>
+                    <th class="table-header">Total Cost</th>
+                @endif
             @endif
         </tr>
         @foreach($group['employees'] as $employee)
@@ -139,16 +149,21 @@
                 <td>{{ $employee['employee_name'] }}</td>
                 <td>{{ $employee['department_name'] }}</td>
                 <td>{{ $employee['job_title'] }}</td>
+                @if($showCosting)
+                    @php
+                        $rateFormula = '=IFERROR(VLOOKUP($A'.$employeeRow.',\'Employee Rates\'!$A:$E,5,FALSE),"")';
+                    @endphp
+                    <td class="right">{!! $rateFormula !!}</td>
+                @endif
                 <td>{{ $group['project_code'] }}</td>
                 <td class="center">{{ ucfirst($employee['status']) }}</td>
                 @foreach($group['weeks'] as $weekIndex => $week)
                     @php
-                        $firstPeriodColumn = 8 + ($weekIndex * $periodColumnSpan);
+                        $firstPeriodColumn = ($showCosting ? 9 : 8) + ($weekIndex * $periodColumnSpan);
                         $regularColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn);
                         $overtimeColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 1);
                         $totalColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 2);
-                        $rateColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 3);
-                        $rateFormula = '=IFERROR(VLOOKUP($A'.$employeeRow.',\'Employee Rates\'!$A:$E,5,FALSE),"")';
+                        $rateColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($showCosting ? 6 : $firstPeriodColumn + 3);
                         $regularCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$regularColumn.$employeeRow.'*'.$rateColumn.$employeeRow.')';
                         $overtimeCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$overtimeColumn.$employeeRow.'*'.$rateColumn.$employeeRow.'*1.25)';
                         $totalCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$totalColumn.$employeeRow.'*'.$rateColumn.$employeeRow.')';
@@ -160,16 +175,28 @@
                     <td class="right">{{ number_format($hours['overtime_hours'], 2) }}</td>
                     <td class="right">{{ number_format($hours['total_hours'], 2) }}</td>
                     @if($showCosting)
-                        <td class="right">{!! $rateFormula !!}</td>
                         <td class="right">{!! $regularCostFormula !!}</td>
                         <td class="right">{!! $overtimeCostFormula !!}</td>
                         <td class="right">{!! $totalCostFormula !!}</td>
                     @endif
                 @endforeach
                 @if($showRangeTotals)
+                    @if($showCosting)
+                        @php
+                            $rateColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(6);
+                            $selectedRegularCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$employee['regular_hours'].'*'.$rateColumn.$employeeRow.')';
+                            $selectedOvertimeCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$employee['overtime_hours'].'*'.$rateColumn.$employeeRow.'*1.25)';
+                            $selectedTotalCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$employee['total_hours'].'*'.$rateColumn.$employeeRow.')';
+                        @endphp
+                    @endif
                     <td class="period-total-cell right">{{ number_format($employee['regular_hours'], 2) }}</td>
                     <td class="period-total-cell right">{{ number_format($employee['overtime_hours'], 2) }}</td>
                     <td class="period-total-cell right">{{ number_format($employee['total_hours'], 2) }}</td>
+                    @if($showCosting)
+                        <td class="period-total-cell right">{!! $selectedRegularCostFormula !!}</td>
+                        <td class="period-total-cell right">{!! $selectedOvertimeCostFormula !!}</td>
+                        <td class="period-total-cell right">{!! $selectedTotalCostFormula !!}</td>
+                    @endif
                 @endif
             </tr>
         @endforeach
@@ -180,13 +207,13 @@
             $attendanceTotalRows[] = $attendanceTotalRow;
         @endphp
         <tr>
-            <td colspan="7" class="summary-total">Attendance Code Total</td>
+            <td colspan="{{ $showCosting ? 8 : 7 }}" class="summary-total">Attendance Code Total</td>
             @foreach($group['weeks'] as $weekIndex => $week)
                 @php
-                    $firstPeriodColumn = 8 + ($weekIndex * $periodColumnSpan);
-                    $regularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 4);
-                    $overtimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 5);
-                    $totalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 6);
+                    $firstPeriodColumn = ($showCosting ? 9 : 8) + ($weekIndex * $periodColumnSpan);
+                    $regularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 3);
+                    $overtimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 4);
+                    $totalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 5);
                 @endphp
                 @php
                     $totals = $group['week_totals'][$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0];
@@ -195,16 +222,27 @@
                 <td class="summary-total right">{{ number_format($totals['overtime_hours'], 2) }}</td>
                 <td class="summary-total right">{{ number_format($totals['total_hours'], 2) }}</td>
                 @if($showCosting)
-                    <td class="summary-total right"></td>
                     <td class="summary-total right">=SUM({{ $regularCostColumn }}{{ $employeeStartRow }}:{{ $regularCostColumn }}{{ $employeeEndRow }})</td>
                     <td class="summary-total right">=SUM({{ $overtimeCostColumn }}{{ $employeeStartRow }}:{{ $overtimeCostColumn }}{{ $employeeEndRow }})</td>
                     <td class="summary-total right">=SUM({{ $totalCostColumn }}{{ $employeeStartRow }}:{{ $totalCostColumn }}{{ $employeeEndRow }})</td>
                 @endif
             @endforeach
             @if($showRangeTotals)
+                @if($showCosting)
+                    @php
+                        $selectedRegularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($group['weeks']->count() * $periodColumnSpan) + 3);
+                        $selectedOvertimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($group['weeks']->count() * $periodColumnSpan) + 4);
+                        $selectedTotalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($group['weeks']->count() * $periodColumnSpan) + 5);
+                    @endphp
+                @endif
                 <td class="period-total-summary right">{{ number_format($group['regular_hours'], 2) }}</td>
                 <td class="period-total-summary right">{{ number_format($group['overtime_hours'], 2) }}</td>
                 <td class="period-total-summary right">{{ number_format($group['total_hours'], 2) }}</td>
+                @if($showCosting)
+                    <td class="period-total-summary right">=SUM({{ $selectedRegularCostColumn }}{{ $employeeStartRow }}:{{ $selectedRegularCostColumn }}{{ $employeeEndRow }})</td>
+                    <td class="period-total-summary right">=SUM({{ $selectedOvertimeCostColumn }}{{ $employeeStartRow }}:{{ $selectedOvertimeCostColumn }}{{ $employeeEndRow }})</td>
+                    <td class="period-total-summary right">=SUM({{ $selectedTotalCostColumn }}{{ $employeeStartRow }}:{{ $selectedTotalCostColumn }}{{ $employeeEndRow }})</td>
+                @endif
             @endif
         </tr>
         <tr>
@@ -219,13 +257,13 @@
         </tr>
     @endforelse
     <tr>
-        <td colspan="7" class="summary-total">Grand Total</td>
+        <td colspan="{{ $showCosting ? 8 : 7 }}" class="summary-total">Grand Total</td>
         @forelse($weeks as $weekIndex => $week)
             @php
-                $firstPeriodColumn = 8 + ($weekIndex * $periodColumnSpan);
-                $regularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 4);
-                $overtimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 5);
-                $totalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 6);
+                $firstPeriodColumn = ($showCosting ? 9 : 8) + ($weekIndex * $periodColumnSpan);
+                $regularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 3);
+                $overtimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 4);
+                $totalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 5);
                 $regularCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $regularCostColumn.$row)->implode(',');
                 $overtimeCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $overtimeCostColumn.$row)->implode(',');
                 $totalCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $totalCostColumn.$row)->implode(',');
@@ -237,7 +275,6 @@
             <td class="summary-total right">{{ number_format($totals['overtime_hours'], 2) }}</td>
             <td class="summary-total right">{{ number_format($totals['total_hours'], 2) }}</td>
             @if($showCosting)
-                <td class="summary-total right"></td>
                 <td class="summary-total right">={{ $regularCostTotalRefs ? 'SUM('.$regularCostTotalRefs.')' : '0' }}</td>
                 <td class="summary-total right">={{ $overtimeCostTotalRefs ? 'SUM('.$overtimeCostTotalRefs.')' : '0' }}</td>
                 <td class="summary-total right">={{ $totalCostTotalRefs ? 'SUM('.$totalCostTotalRefs.')' : '0' }}</td>
@@ -248,9 +285,24 @@
             <td class="period-total-summary right">{{ number_format($totalHours, 2) }}</td>
         @endforelse
         @if($showRangeTotals)
+            @if($showCosting)
+                @php
+                    $selectedRegularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($weeks->count() * $periodColumnSpan) + 3);
+                    $selectedOvertimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($weeks->count() * $periodColumnSpan) + 4);
+                    $selectedTotalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($weeks->count() * $periodColumnSpan) + 5);
+                    $selectedRegularCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $selectedRegularCostColumn.$row)->implode(',');
+                    $selectedOvertimeCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $selectedOvertimeCostColumn.$row)->implode(',');
+                    $selectedTotalCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $selectedTotalCostColumn.$row)->implode(',');
+                @endphp
+            @endif
             <td class="summary-total right">{{ number_format($totalRegular, 2) }}</td>
             <td class="summary-total right">{{ number_format($totalOvertime, 2) }}</td>
             <td class="summary-total right">{{ number_format($totalHours, 2) }}</td>
+            @if($showCosting)
+                <td class="summary-total right">={{ $selectedRegularCostTotalRefs ? 'SUM('.$selectedRegularCostTotalRefs.')' : '0' }}</td>
+                <td class="summary-total right">={{ $selectedOvertimeCostTotalRefs ? 'SUM('.$selectedOvertimeCostTotalRefs.')' : '0' }}</td>
+                <td class="summary-total right">={{ $selectedTotalCostTotalRefs ? 'SUM('.$selectedTotalCostTotalRefs.')' : '0' }}</td>
+            @endif
         @endif
     </tr>
 </table>

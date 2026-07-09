@@ -28,15 +28,16 @@ class TimesheetExportService
         $payload = $includeEmployeeSheets
             ? $timesheets->map(fn (Timesheet $timesheet) => $this->buildWorksheet($timesheet))
             : collect();
+        $showCosting = $monthly || ! $includeEmployeeSheets;
         $summaryTimesheets = $monthly ? $this->timesheetsWithMonthlyEntries($timesheets, $filters) : $timesheets;
         $projectWeeklySummary = $this->buildProjectWeeklySummary($summaryTimesheets, $filters['project_id'] ?? null, $filters);
         $attendanceSummary = $this->buildAttendanceSummary($summaryTimesheets, $filters);
-        $employeeRateRows = $monthly ? $this->buildEmployeeRateRows($summaryTimesheets) : collect();
+        $employeeRateRows = $showCosting ? $this->buildEmployeeRateRows($summaryTimesheets) : collect();
         $fileName = $monthly
             ? 'monthly_timesheet_report_'.$this->monthlyDateRange($filters)['start']->format('Y_m').'_'.now()->format('Ymd_His').'.xlsx'
             : 'employee_weekly_timesheets_'.now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $attendanceSummary, $includeEmployeeSheets, $monthly ? 'monthly' : 'weekly', $employeeRateRows), $fileName, ExcelWriter::XLSX);
+        return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $attendanceSummary, $includeEmployeeSheets, $monthly ? 'monthly' : 'weekly', $employeeRateRows, $showCosting), $fileName, ExcelWriter::XLSX);
     }
 
     public function matchingTimesheetCount(array $filters): int
