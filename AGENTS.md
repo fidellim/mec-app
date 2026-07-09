@@ -24,6 +24,7 @@ The UI should be:
 - Preserve existing functionality.
 - Always make frontend UI changes compatible with both light and dark themes.
 - Prefer existing theme variables, Bootstrap theme tokens, and color-mix patterns over hardcoded colors so contrast remains readable in both themes.
+- For frontend UI/UX work, use the local `frontend-design` skill before planning or implementing visual changes, while still following this project's internal dashboard style and Laravel/Bootstrap constraints.
 
 ## UI Style
 
@@ -63,6 +64,7 @@ For forms:
 
 - Use `composer test` for full Laravel regression runs.
 - Use `php artisan test --parallel --processes=4 ...` for focused Laravel test runs.
+- `php artisan test --parallel --processes=4` accepts only one test path argument in this project; when checking multiple files or directories, run separate parallel commands for each path.
 - Avoid plain `php artisan test` for broad runs because it is serial and can exceed command timeouts.
 - If a full regression still reaches the tool timeout, split it into parallel batches and report it as a runtime limit unless a test failure is shown.
 
