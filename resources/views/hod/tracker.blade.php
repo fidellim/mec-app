@@ -1,18 +1,6 @@
 @extends('layouts.app')
 
 @section('content')
-@php
-    $missingEmployees = $period
-        ? $employees->filter(function ($employee) {
-            $timesheet = $employee->timesheets->first();
-
-            return ! $timesheet || ! in_array($timesheet->status, ['submitted', 'approved'], true);
-        })
-        : collect();
-    $cooldownCount = $missingEmployees->filter(fn ($employee) => $reminderCooldowns->get($employee->id))->count();
-    $remindableCount = $missingEmployees->count() - $cooldownCount;
-@endphp
-
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Department Submission Tracker</h1>
@@ -73,13 +61,13 @@
     <div class="col-md-4">
         <div class="content-card stat-card p-3">
             <div class="stat-label">Department employees</div>
-            <div class="stat-value">{{ $employees->count() }}</div>
+            <div class="stat-value">{{ $employees->total() }}</div>
         </div>
     </div>
     <div class="col-md-4">
         <div class="content-card stat-card p-3">
             <div class="stat-label">Need reminder</div>
-            <div class="stat-value">{{ $missingEmployees->count() }}</div>
+            <div class="stat-value">{{ $missingEmployeesCount }}</div>
         </div>
     </div>
 </div>
@@ -90,7 +78,7 @@
             <h2 class="h5 mb-1">Submission status</h2>
             <div class="text-muted small">Submitted and approved timesheets are treated as complete.</div>
         </div>
-        @if($period && $missingEmployees->isNotEmpty())
+        @if($period && $missingEmployeesCount > 0)
             <form method="post" action="{{ route('hod.tracker.reminders') }}" data-confirm="Send reminder emails to all missing employees for this period?">
                 @csrf
                 <input type="hidden" name="period_id" value="{{ $period->id }}">
@@ -166,4 +154,5 @@
         </table>
     </div>
 </div>
+@include('shared.pagination-footer', ['paginator' => $employees, 'label' => 'employee'])
 @endsection

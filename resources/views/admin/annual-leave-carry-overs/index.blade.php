@@ -49,14 +49,6 @@
         gap: 1rem;
     }
 
-    .carry-over-pagination {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 1rem;
-        flex-wrap: wrap;
-    }
-
     .carry-over-period-help {
         display: grid;
         grid-template-columns: 1fr auto 1fr;
@@ -88,14 +80,6 @@
     }
 
     @media (max-width: 767.98px) {
-        .carry-over-pagination {
-            align-items: stretch;
-        }
-
-        .carry-over-pagination > * {
-            width: 100%;
-        }
-
         .carry-over-help-grid,
         .carry-over-period-help {
             grid-template-columns: 1fr;
@@ -357,13 +341,6 @@
     </div>
 </form>
 
-@if($carryOvers->hasPages())
-    <div class="carry-over-pagination mb-3">
-        <div class="small text-muted">Page {{ $carryOvers->currentPage() }} of {{ $carryOvers->lastPage() }}</div>
-        <div>{{ $carryOvers->onEachSide(1)->links() }}</div>
-    </div>
-@endif
-
 <div class="content-card overflow-hidden">
     <div class="table-responsive">
         <table class="table table-hover align-middle mb-0 annual-carry-over-table">
@@ -435,14 +412,5 @@
     </div>
 </div>
 
-<div class="carry-over-pagination mt-3">
-    <div class="small text-muted">
-        @if($carryOvers->total() > 0)
-            Showing {{ $carryOvers->firstItem() }}-{{ $carryOvers->lastItem() }} of {{ $carryOvers->total() }} records.
-        @else
-            No carry-over records to paginate.
-        @endif
-    </div>
-    <div>{{ $carryOvers->onEachSide(1)->links() }}</div>
-</div>
+@include('shared.pagination-footer', ['paginator' => $carryOvers, 'label' => 'carry-over'])
 @endsection

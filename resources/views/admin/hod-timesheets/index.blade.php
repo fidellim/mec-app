@@ -96,5 +96,5 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $timesheets->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $timesheets, 'label' => 'HOD timesheet'])
 @endsection

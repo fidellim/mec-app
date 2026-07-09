@@ -88,5 +88,5 @@
     </div>
 @endforeach
 
-<div class="mt-3">{{ $projects->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $projects, 'label' => 'project'])
 @endsection

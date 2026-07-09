@@ -14,6 +14,7 @@ use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetRecallService;
 use App\Services\TimesheetStatusHistoryService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 
 class HodTimesheetController extends Controller
@@ -150,7 +151,7 @@ class HodTimesheetController extends Controller
             ? $periods->firstWhere('id', (int) request('period_id'))
             : TimesheetPeriod::where('status', 'open')->latest('start_date')->first();
 
-        $employees = User::with(['timesheets' => fn ($q) => $period ? $q->where('timesheet_period_id', $period->id) : $q])
+        $allEmployees = User::with(['timesheets' => fn ($q) => $period ? $q->where('timesheet_period_id', $period->id) : $q])
             ->whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
             ->where('role', 'employee')
             ->where('is_active', true)
@@ -161,12 +162,41 @@ class HodTimesheetController extends Controller
         $departments = Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get();
 
         $reminderCooldowns = $period
-            ? $employees->mapWithKeys(fn (User $employee) => [
+            ? $allEmployees->mapWithKeys(fn (User $employee) => [
                 $employee->id => $reminders->reminderCooldownLabel($employee, $period),
             ])
             : collect();
 
-        return view('hod.tracker', compact('employees', 'period', 'periods', 'reminderCooldowns', 'departments', 'selectedDepartmentId'));
+        $missingEmployees = $period
+            ? $allEmployees->filter(function (User $employee) {
+                $timesheet = $employee->timesheets->first();
+
+                return ! $timesheet || ! in_array($timesheet->status, ['submitted', 'approved'], true);
+            })
+            : collect();
+        $cooldownCount = $missingEmployees->filter(fn (User $employee) => $reminderCooldowns->get($employee->id))->count();
+        $remindableCount = $missingEmployees->count() - $cooldownCount;
+        $perPage = 20;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $employees = new LengthAwarePaginator(
+            $allEmployees->forPage($page, $perPage)->values(),
+            $allEmployees->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
+
+        return view('hod.tracker', [
+            'employees' => $employees,
+            'period' => $period,
+            'periods' => $periods,
+            'reminderCooldowns' => $reminderCooldowns,
+            'departments' => $departments,
+            'selectedDepartmentId' => $selectedDepartmentId,
+            'missingEmployeesCount' => $missingEmployees->count(),
+            'cooldownCount' => $cooldownCount,
+            'remindableCount' => $remindableCount,
+        ]);
     }
 
     public function remindMissing(Request $request, MissingTimesheetReminderService $reminders)

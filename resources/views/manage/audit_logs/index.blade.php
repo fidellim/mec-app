@@ -158,7 +158,7 @@
     </div>
 </div>
 
-<div class="mt-3">{{ $logs->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $logs, 'label' => 'audit log'])
 
 <script>
 document.addEventListener('DOMContentLoaded', () => {

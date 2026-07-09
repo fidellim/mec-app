@@ -18,5 +18,7 @@
     </div>
 @endunless
 @include('employee.timesheets._table')
-<div class="mt-3">{{ method_exists($timesheets, 'links') ? $timesheets->links() : '' }}</div>
+@if(method_exists($timesheets, 'links'))
+    @include('shared.pagination-footer', ['paginator' => $timesheets, 'label' => 'timesheet'])
+@endif
 @endsection

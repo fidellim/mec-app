@@ -57,5 +57,5 @@
     'emptyMessage' => 'No active employees or Heads of Department match the selected filters.',
 ])
 
-<div class="mt-3">{{ $employees->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $employees, 'label' => 'employee'])
 @endsection

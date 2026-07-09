@@ -1144,6 +1144,87 @@
             border-radius: 0 0 .75rem .75rem;
         }
         .pagination svg { width: 1rem; height: 1rem; }
+        .pagination-footer {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 1rem;
+            padding: .9rem 1rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .75rem;
+            background:
+                linear-gradient(180deg, color-mix(in srgb, var(--app-card-bg) 94%, var(--app-muted-bg)), var(--app-card-bg)),
+                var(--app-card-bg);
+            box-shadow: var(--app-shadow-sm);
+        }
+        .pagination-footer-summary {
+            color: var(--bs-secondary-color);
+            font-size: .875rem;
+        }
+        .pagination-footer-controls {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: .5rem;
+            justify-content: flex-end;
+            min-width: 0;
+        }
+        .pagination-footer-actions,
+        .pagination-footer-pages {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+        }
+        .pagination-footer-button,
+        .pagination-footer-page,
+        .pagination-footer-current {
+            min-height: 2.1rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .55rem;
+            background: color-mix(in srgb, var(--app-card-bg) 90%, var(--app-muted-bg));
+            color: var(--bs-body-color);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: .82rem;
+            font-weight: 700;
+            line-height: 1;
+            text-decoration: none;
+            white-space: nowrap;
+        }
+        .pagination-footer-button {
+            min-width: 5.25rem;
+            padding: .55rem .75rem;
+        }
+        .pagination-footer-page {
+            min-width: 2.1rem;
+            padding: .55rem .65rem;
+        }
+        .pagination-footer-current {
+            padding: .55rem .75rem;
+            color: var(--bs-secondary-color);
+            font-weight: 700;
+        }
+        .pagination-footer-button:hover,
+        .pagination-footer-page:hover,
+        .pagination-footer-button:focus-visible,
+        .pagination-footer-page:focus-visible {
+            border-color: color-mix(in srgb, var(--bs-primary) 42%, var(--app-soft-border));
+            background: color-mix(in srgb, var(--bs-primary-bg-subtle) 42%, var(--app-card-bg));
+            color: var(--bs-primary-text-emphasis);
+        }
+        .pagination-footer-button.is-primary,
+        .pagination-footer-page.is-active {
+            border-color: var(--bs-primary);
+            background: var(--bs-primary);
+            color: var(--bs-white);
+        }
+        .pagination-footer-button.is-disabled {
+            background: color-mix(in srgb, var(--app-muted-bg) 72%, var(--app-card-bg));
+            color: var(--bs-secondary-color);
+            cursor: not-allowed;
+            opacity: .68;
+        }
         .theme-switch {
             --switch-width: 4.75rem;
             --switch-height: 2.35rem;
@@ -1222,6 +1303,18 @@
             }
         }
         @media (max-width: 767.98px) {
+            .pagination-footer {
+                align-items: stretch;
+                flex-direction: column;
+            }
+            .pagination-footer-controls {
+                justify-content: flex-start;
+                overflow-x: auto;
+            }
+            .pagination-footer-actions,
+            .pagination-footer-pages {
+                flex-wrap: nowrap;
+            }
             .app-layout {
                 display: block;
                 min-height: 0;

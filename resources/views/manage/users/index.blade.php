@@ -161,26 +161,6 @@
         display: inline-block;
     }
 
-    .users-pagination-footer {
-        background: color-mix(in srgb, var(--app-card-bg) 92%, var(--app-muted-bg));
-        border: 1px solid var(--app-soft-border);
-    }
-
-    .users-pagination-footer .pagination {
-        margin-bottom: 0;
-    }
-
-    .users-pagination-actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: .5rem;
-        justify-content: flex-start;
-    }
-
-    .users-pagination-actions .btn {
-        min-width: 5.25rem;
-    }
-
     @media (max-width: 767.98px) {
         .users-current-view {
             padding: 1rem !important;
@@ -192,10 +172,6 @@
 
         .users-filter-actions .btn {
             flex: 1 1 auto;
-        }
-
-        .users-pagination-actions .btn {
-            flex: 1 1 calc(50% - .5rem);
         }
     }
 </style>
@@ -456,37 +432,7 @@
     @endif
 @endforeach
 
-<div class="content-card users-pagination-footer mt-3 p-3">
-    <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
-        <div class="text-muted small">
-            Showing {{ $users->firstItem() ?? 0 }} to {{ $users->lastItem() ?? 0 }} of {{ $users->total() }} {{ \Illuminate\Support\Str::plural('user', $users->total()) }}
-        </div>
-        @if($users->hasPages())
-            <div class="d-flex flex-column flex-xl-row align-items-stretch align-items-xl-center justify-content-xl-end gap-3">
-                <div class="users-pagination-actions" aria-label="User pagination shortcuts">
-                    @if($users->onFirstPage())
-                        <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">First</span>
-                        <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Previous</span>
-                    @else
-                        <a class="btn btn-sm btn-outline-secondary" href="{{ $users->url(1) }}" rel="first">First</a>
-                        <a class="btn btn-sm btn-outline-secondary" href="{{ $users->previousPageUrl() }}" rel="prev">Previous</a>
-                    @endif
-
-                    @if($users->hasMorePages())
-                        <a class="btn btn-sm btn-primary" href="{{ $users->nextPageUrl() }}" rel="next">Next</a>
-                        <a class="btn btn-sm btn-outline-secondary" href="{{ $users->url($users->lastPage()) }}" rel="last">Last</a>
-                    @else
-                        <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Next</span>
-                        <span class="btn btn-sm btn-outline-secondary disabled" aria-disabled="true">Last</span>
-                    @endif
-                </div>
-                <div class="d-flex justify-content-xl-end">
-                    {{ $users->links() }}
-                </div>
-            </div>
-        @endif
-    </div>
-</div>
+@include('shared.pagination-footer', ['paginator' => $users, 'label' => 'user'])
 @endsection
 
 @push('scripts')

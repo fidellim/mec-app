@@ -8,6 +8,7 @@ use App\Models\TimesheetPeriod;
 use App\Models\User;
 use App\Services\MissingTimesheetReminderService;
 use Illuminate\Http\Request;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Validation\Rule;
 
 class AdminHodTimesheetController extends Controller
@@ -60,7 +61,7 @@ class AdminHodTimesheetController extends Controller
 
         $selectedDepartmentId = ! empty($filters['department_id']) ? (int) $filters['department_id'] : null;
 
-        $hods = User::with([
+        $allHods = User::with([
             'department',
             'timesheets' => fn ($query) => $period ? $query->where('timesheet_period_id', $period->id) : $query,
         ])
@@ -72,10 +73,29 @@ class AdminHodTimesheetController extends Controller
             ->get();
 
         $reminderCooldowns = $period
-            ? $hods->mapWithKeys(fn (User $hod) => [
+            ? $allHods->mapWithKeys(fn (User $hod) => [
                 $hod->id => $reminders->reminderCooldownLabel($hod, $period),
             ])
             : collect();
+
+        $missingHods = $period
+            ? $allHods->filter(function (User $hod) {
+                $timesheet = $hod->timesheets->first();
+
+                return ! $timesheet || ! in_array($timesheet->status, ['submitted', 'approved'], true);
+            })
+            : collect();
+        $cooldownCount = $missingHods->filter(fn (User $hod) => $reminderCooldowns->get($hod->id))->count();
+        $remindableCount = $missingHods->count() - $cooldownCount;
+        $perPage = 20;
+        $page = LengthAwarePaginator::resolveCurrentPage();
+        $hods = new LengthAwarePaginator(
+            $allHods->forPage($page, $perPage)->values(),
+            $allHods->count(),
+            $perPage,
+            $page,
+            ['path' => request()->url(), 'query' => request()->query()]
+        );
 
         return view('admin.hod-timesheets.tracker', [
             'hods' => $hods,
@@ -84,6 +104,9 @@ class AdminHodTimesheetController extends Controller
             'departments' => Department::orderBy('name')->get(),
             'selectedDepartmentId' => $selectedDepartmentId,
             'reminderCooldowns' => $reminderCooldowns,
+            'missingHodsCount' => $missingHods->count(),
+            'cooldownCount' => $cooldownCount,
+            'remindableCount' => $remindableCount,
         ]);
     }
 

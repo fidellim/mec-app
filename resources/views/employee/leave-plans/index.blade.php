@@ -40,5 +40,5 @@
         </table>
     </div>
 </div>
-<div class="mt-3">{{ $leavePlans->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $leavePlans, 'label' => 'leave plan'])
 @endsection

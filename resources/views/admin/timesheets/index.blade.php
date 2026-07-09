@@ -225,7 +225,7 @@
     @endforelse
 @endif
 </tbody></table></div></div>
-<div class="mt-3">{{ $timesheets->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $timesheets, 'label' => 'timesheet'])
 @endsection
 
 @push('scripts')

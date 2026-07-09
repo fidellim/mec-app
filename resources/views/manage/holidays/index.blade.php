@@ -51,5 +51,5 @@
     </div>
 </div>
 
-<div class="mt-3">{{ $holidays->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $holidays, 'label' => 'holiday'])
 @endsection

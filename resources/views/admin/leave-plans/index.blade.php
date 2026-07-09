@@ -177,7 +177,7 @@
     </div>
 </div>
 @include('shared.leave_plan_table', ['leavePlans' => $leavePlans, 'showEmployee' => true, 'showDepartment' => true, 'showRoute' => 'admin.leave-plans.show'])
-<div class="mt-3">{{ $leavePlans->links() }}</div>
+@include('shared.pagination-footer', ['paginator' => $leavePlans, 'label' => 'leave plan'])
 @endsection
 
 @push('scripts')
