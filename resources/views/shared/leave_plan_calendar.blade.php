@@ -105,13 +105,15 @@
         margin-bottom: .45rem;
     }
     .leave-calendar-event {
+        --leave-calendar-accent: var(--bs-primary);
+        --leave-calendar-accent-bg: var(--bs-primary-bg-subtle);
         display: block;
         border: 1px solid var(--app-soft-border);
-        border-left: .25rem solid var(--bs-primary);
+        border-left: .25rem solid var(--leave-calendar-accent);
         border-radius: .45rem;
         padding: .45rem .5rem;
         margin-bottom: .4rem;
-        background: color-mix(in srgb, var(--app-muted-bg) 72%, var(--app-card-bg));
+        background: color-mix(in srgb, var(--leave-calendar-accent-bg) 18%, var(--app-card-bg));
         color: var(--bs-body-color);
         text-decoration: none;
         font-size: .8rem;
@@ -122,17 +124,71 @@
         color: var(--bs-body-color);
     }
     .leave-calendar-event-readonly:hover {
-        background: color-mix(in srgb, var(--app-muted-bg) 72%, var(--app-card-bg));
+        background: color-mix(in srgb, var(--leave-calendar-accent-bg) 18%, var(--app-card-bg));
     }
-    .leave-calendar-event.approved { border-left-color: var(--bs-success); }
-    .leave-calendar-event.submitted { border-left-color: var(--bs-primary); }
-    .leave-calendar-event.cancellation_requested { border-left-color: var(--bs-warning); }
-    .leave-calendar-event.rejected { border-left-color: var(--bs-danger); }
-    .leave-calendar-event.recalled { border-left-color: var(--bs-warning); }
-    .leave-calendar-event.cancelled { border-left-color: var(--bs-dark); }
-    .leave-calendar-event.voided { border-left-color: var(--bs-dark); }
+    .leave-calendar-event.leave-calendar-code-l100,
+    .leave-calendar-legend-dot.leave-calendar-code-l100 {
+        --leave-calendar-accent: var(--bs-success);
+        --leave-calendar-accent-bg: var(--bs-success-bg-subtle);
+    }
+    .leave-calendar-event.leave-calendar-code-l110,
+    .leave-calendar-legend-dot.leave-calendar-code-l110 {
+        --leave-calendar-accent: var(--bs-danger);
+        --leave-calendar-accent-bg: var(--bs-danger-bg-subtle);
+    }
+    .leave-calendar-event.leave-calendar-code-l120,
+    .leave-calendar-legend-dot.leave-calendar-code-l120 {
+        --leave-calendar-accent: var(--bs-warning);
+        --leave-calendar-accent-bg: var(--bs-warning-bg-subtle);
+    }
+    .leave-calendar-event.leave-calendar-code-l130,
+    .leave-calendar-legend-dot.leave-calendar-code-l130 {
+        --leave-calendar-accent: var(--bs-secondary);
+        --leave-calendar-accent-bg: var(--bs-secondary-bg-subtle);
+    }
+    .leave-calendar-event.leave-calendar-code-l140,
+    .leave-calendar-legend-dot.leave-calendar-code-l140 {
+        --leave-calendar-accent: var(--bs-info);
+        --leave-calendar-accent-bg: var(--bs-info-bg-subtle);
+    }
+    .leave-calendar-event.leave-calendar-code-l160,
+    .leave-calendar-legend-dot.leave-calendar-code-l160 {
+        --leave-calendar-accent: color-mix(in srgb, var(--bs-primary) 58%, var(--bs-danger));
+        --leave-calendar-accent-bg: color-mix(in srgb, var(--bs-primary-bg-subtle) 62%, var(--bs-danger-bg-subtle));
+    }
+    .leave-calendar-event.leave-calendar-code-l170,
+    .leave-calendar-legend-dot.leave-calendar-code-l170 {
+        --leave-calendar-accent: color-mix(in srgb, var(--bs-primary) 70%, var(--bs-info));
+        --leave-calendar-accent-bg: color-mix(in srgb, var(--bs-primary-bg-subtle) 70%, var(--bs-info-bg-subtle));
+    }
+    .leave-calendar-event.leave-calendar-code-l180,
+    .leave-calendar-legend-dot.leave-calendar-code-l180 {
+        --leave-calendar-accent: color-mix(in srgb, var(--bs-warning) 48%, var(--bs-secondary));
+        --leave-calendar-accent-bg: color-mix(in srgb, var(--bs-warning-bg-subtle) 60%, var(--bs-secondary-bg-subtle));
+    }
+    .leave-calendar-event.leave-calendar-code-l190,
+    .leave-calendar-legend-dot.leave-calendar-code-l190 {
+        --leave-calendar-accent: color-mix(in srgb, var(--bs-success) 56%, var(--bs-info));
+        --leave-calendar-accent-bg: color-mix(in srgb, var(--bs-success-bg-subtle) 60%, var(--bs-info-bg-subtle));
+    }
+    .leave-calendar-event.leave-calendar-code-l210,
+    .leave-calendar-legend-dot.leave-calendar-code-l210 {
+        --leave-calendar-accent: color-mix(in srgb, var(--bs-primary) 54%, var(--bs-info));
+        --leave-calendar-accent-bg: color-mix(in srgb, var(--bs-primary-bg-subtle) 54%, var(--bs-info-bg-subtle));
+    }
+    .leave-calendar-event.leave-calendar-code-l220,
+    .leave-calendar-legend-dot.leave-calendar-code-l220 {
+        --leave-calendar-accent: color-mix(in srgb, var(--bs-danger) 62%, var(--bs-warning));
+        --leave-calendar-accent-bg: color-mix(in srgb, var(--bs-danger-bg-subtle) 64%, var(--bs-warning-bg-subtle));
+    }
+    .leave-calendar-event.leave-calendar-code-l230,
+    .leave-calendar-legend-dot.leave-calendar-code-l230 {
+        --leave-calendar-accent: color-mix(in srgb, var(--bs-danger) 54%, var(--bs-primary));
+        --leave-calendar-accent-bg: color-mix(in srgb, var(--bs-danger-bg-subtle) 56%, var(--bs-primary-bg-subtle));
+    }
     .leave-calendar-event.holiday {
-        border-left-color: var(--bs-info);
+        --leave-calendar-accent: var(--bs-info);
+        --leave-calendar-accent-bg: var(--bs-info-bg-subtle);
         background: color-mix(in srgb, var(--bs-info-bg-subtle) 36%, var(--app-card-bg));
     }
     .leave-calendar-event-label {
@@ -235,15 +291,14 @@
         white-space: nowrap;
     }
     .leave-calendar-legend-dot {
+        --leave-calendar-accent: var(--bs-primary);
+        --leave-calendar-accent-bg: var(--bs-primary-bg-subtle);
         width: .72rem;
         height: .72rem;
         border-radius: 999px;
-        background: var(--bs-primary);
-        box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 15%, transparent);
+        background: var(--leave-calendar-accent);
+        box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--bs-body-color) 15%, transparent);
     }
-    .leave-calendar-legend-dot.approved { background: var(--bs-success); }
-    .leave-calendar-legend-dot.submitted { background: var(--bs-primary); }
-    .leave-calendar-legend-dot.cancellation_requested { background: var(--bs-warning); }
     .leave-calendar-legend-dot.holiday { background: var(--bs-info); }
     .leave-calendar-legend-dot.selected {
         border: 2px solid color-mix(in srgb, var(--bs-primary) 62%, var(--app-card-bg));
@@ -350,6 +405,17 @@
     $calendarMonthDays = $calendarDays->filter(fn ($day) => $day['in_month']);
     $calendarMonthLeaveEvents = $calendarMonthDays->flatMap(fn ($day) => $day['events']->filter(fn ($event) => ($event['type'] ?? null) === 'leave'));
     $calendarMonthHolidayEvents = $calendarMonthDays->flatMap(fn ($day) => $day['events']->filter(fn ($event) => ($event['type'] ?? null) === 'holiday'));
+    $attendanceCodeOrder = array_flip(array_keys(config('timesheet.attendance_codes', [])));
+    $calendarLeaveTypeLegend = $calendarMonthLeaveEvents
+        ->filter(fn ($event) => ! empty($event['attendance_code']))
+        ->unique('attendance_code')
+        ->sortBy(fn ($event) => $attendanceCodeOrder[$event['attendance_code']] ?? 999)
+        ->map(fn ($event) => [
+            'code' => $event['attendance_code'],
+            'label' => $event['leave_type_label'] ?? $event['attendance_code'],
+            'class' => 'leave-calendar-code-'.strtolower((string) $event['attendance_code']),
+        ])
+        ->values();
     $availabilityLeaveEntryCount = $calendarMonthLeaveEvents
         ->unique(fn ($event) => $event['leavePlan']?->getKey() ?? $event['label'].'-'.$event['title'])
         ->count();
@@ -438,13 +504,22 @@
                     <div class="leave-calendar-summary-value">{{ $availabilityHolidayCount }}</div>
                 </div>
             </div>
+        @endif
+        @if($calendarLeaveTypeLegend->isNotEmpty() || $calendarMonthHolidayEvents->isNotEmpty() || $isAvailabilityCalendar)
             <div class="leave-calendar-legend" aria-label="Calendar legend">
-                <span class="leave-calendar-legend-label">Legend</span>
-                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot approved" aria-hidden="true"></span>Approved</span>
-                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot submitted" aria-hidden="true"></span>Submitted</span>
-                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot cancellation_requested" aria-hidden="true"></span>Cancellation requested</span>
-                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot holiday" aria-hidden="true"></span>Holiday</span>
-                <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot selected" aria-hidden="true"></span>Your selected dates</span>
+                <span class="leave-calendar-legend-label">Leave types</span>
+                @foreach($calendarLeaveTypeLegend as $legendItem)
+                    <span class="leave-calendar-legend-item">
+                        <span class="leave-calendar-legend-dot {{ $legendItem['class'] }}" aria-hidden="true"></span>
+                        {{ $legendItem['code'] }} - {{ $legendItem['label'] }}
+                    </span>
+                @endforeach
+                @if($calendarMonthHolidayEvents->isNotEmpty())
+                    <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot holiday" aria-hidden="true"></span>Holiday</span>
+                @endif
+                @if($isAvailabilityCalendar)
+                    <span class="leave-calendar-legend-item"><span class="leave-calendar-legend-dot selected" aria-hidden="true"></span>Your selected dates</span>
+                @endif
             </div>
         @endif
         <div class="leave-calendar" @if($calendarInteractiveRange) data-leave-plan-availability-calendar @endif>
@@ -460,7 +535,7 @@
                         <div class="leave-calendar-date">{{ $day['date']->format('j') }}</div>
                         <div class="leave-calendar-mobile-date">{{ $day['date']->format('D, M j') }}</div>
                         @foreach($day['events'] as $event)
-                            @php($eventClasses = 'leave-calendar-event '.$event['status'].($calendarReadonly || empty($event['url']) ? ' leave-calendar-event-readonly' : ''))
+                            @php($eventClasses = 'leave-calendar-event '.$event['status'].(! empty($event['attendance_code']) ? ' leave-calendar-code-'.strtolower((string) $event['attendance_code']) : '').($calendarReadonly || empty($event['url']) ? ' leave-calendar-event-readonly' : ''))
                             @if(! $calendarReadonly && ! empty($event['url']))
                                 <a class="{{ $eventClasses }}" href="{{ $event['url'] }}" title="{{ $event['title'] }}">
                             @else
@@ -470,6 +545,9 @@
                                     <div class="leave-calendar-event-label">{{ $event['label'] }}</div>
                                 @else
                                     <div class="fw-semibold text-truncate">{{ $event['label'] }}</div>
+                                @endif
+                                @if(($event['type'] ?? null) === 'leave' && ! empty($event['leave_type_label']))
+                                    <div class="leave-calendar-event-meta">{{ $event['leave_type_label'] }}</div>
                                 @endif
                                 <div class="leave-calendar-status {{ $event['status'] }}">{{ str_replace('_', ' ', $event['status']) }}</div>
                                 @if(! empty($event['duration']))

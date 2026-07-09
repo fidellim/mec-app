@@ -89,6 +89,8 @@ class LeavePlanReviewCalendarService
                 'department' => $plan->department?->name ?: '-',
                 'label' => ((int) $plan->id === (int) $currentLeavePlan->id ? 'This request - ' : '').($plan->user?->name ?: '-'),
                 'status' => $plan->status,
+                'attendance_code' => $plan->attendance_code,
+                'leave_type_label' => config('timesheet.attendance_codes')[$plan->attendance_code] ?? $plan->attendance_code,
                 'leave_type' => $plan->leaveLabel(),
                 'duration' => $plan->leaveLengthLabel(),
             ])
@@ -105,6 +107,8 @@ class LeavePlanReviewCalendarService
                 'department' => $holiday->event?->regionLabel() ?? '-',
                 'label' => 'Holiday - '.$holiday->event?->name,
                 'status' => 'holiday',
+                'attendance_code' => null,
+                'leave_type_label' => null,
                 'leave_type' => ($holiday->event?->regionLabel() ?? '-').' holiday',
                 'duration' => $holiday->holiday_date->toDateString(),
             ]);

@@ -20,6 +20,30 @@ class LeavePlanCalendarService
         LeavePlan::STATUS_CANCELLATION_REQUESTED,
     ];
 
+    public function scopeEmployeeRegionVisibility(Request $request, Builder $query): Builder
+    {
+        if ($request->user()?->role !== 'employee') {
+            return $query;
+        }
+
+        $isPhilippinesViewer = is_string($request->user()->employee_code)
+            && str_starts_with($request->user()->employee_code, 'MEC-PHIL-HR-');
+
+        return $query->whereHas('user', function (Builder $userQuery) use ($isPhilippinesViewer) {
+            if ($isPhilippinesViewer) {
+                $userQuery->where('employee_code', 'like', 'MEC-PHIL-HR-%');
+
+                return;
+            }
+
+            $userQuery->where(function (Builder $regionQuery) {
+                $regionQuery
+                    ->whereNull('employee_code')
+                    ->orWhere('employee_code', 'not like', 'MEC-PHIL-HR-%');
+            });
+        });
+    }
+
     public function build(
         Request $request,
         Builder $query,
@@ -124,6 +148,8 @@ class LeavePlanCalendarService
                 'type' => 'leave',
                 'leavePlan' => $leavePlan,
                 'label' => trim(($showEmployee ? $leavePlan->user?->name.' - ' : '').$leavePlan->attendance_code),
+                'attendance_code' => $leavePlan->attendance_code,
+                'leave_type_label' => config('timesheet.attendance_codes')[$leavePlan->attendance_code] ?? $leavePlan->attendance_code,
                 'title' => trim(($showEmployee ? $leavePlan->user?->name.' - ' : '').$leavePlan->leaveLabel()),
                 'url' => $includeUrls ? route($showRoute, $leavePlan) : null,
                 'status' => $leavePlan->status,

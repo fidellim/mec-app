@@ -809,6 +809,7 @@ class LeavePlanWorkflowTest extends TestCase
             'department_id' => $department->id,
             'status' => LeavePlan::STATUS_SUBMITTED,
             'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'attendance_code' => 'L100',
             'start_date' => '2026-05-11',
             'end_date' => '2026-05-12',
         ]);
@@ -816,6 +817,7 @@ class LeavePlanWorkflowTest extends TestCase
             'user_id' => $visibleEmployee->id,
             'department_id' => $department->id,
             'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L110',
             'start_date' => '2026-05-20',
             'end_date' => '2026-05-20',
         ]);
@@ -823,6 +825,7 @@ class LeavePlanWorkflowTest extends TestCase
             'user_id' => $visibleEmployee->id,
             'department_id' => $department->id,
             'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L120',
             'start_date' => '2026-05-12',
             'end_date' => '2026-05-12',
         ]);
@@ -853,6 +856,12 @@ class LeavePlanWorkflowTest extends TestCase
         $response
             ->assertOk()
             ->assertSee('Leave calendar view')
+            ->assertSee('Leave types')
+            ->assertSee('L100 - Annual Leave')
+            ->assertSee('L110 - Sick Leave')
+            ->assertSee('L120 - Emergency Leave')
+            ->assertSee('This request')
+            ->assertSee('Holiday')
             ->assertSee('May 2026')
             ->assertSee('This request - Aisha Requester')
             ->assertSee('Ben Visible')
@@ -964,6 +973,11 @@ class LeavePlanWorkflowTest extends TestCase
         $submittedEmployee = $this->userWithRole('employee', ['name' => 'Ben Submitted', 'department_id' => $department->id]);
         $approvedEmployee = $this->userWithRole('employee', ['name' => 'Grace Approved', 'department_id' => $department->id]);
         $cancellingEmployee = $this->userWithRole('employee', ['name' => 'Nora Cancelling', 'department_id' => $department->id]);
+        $regionalHiddenEmployee = $this->userWithRole('employee', [
+            'name' => 'Paolo Regional Hidden',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-664',
+        ]);
         $otherEmployee = $this->userWithRole('employee', ['name' => 'Carla Hidden', 'department_id' => $otherDepartment->id]);
         $draftEmployee = $this->userWithRole('employee', ['name' => 'Daniel Draft', 'department_id' => $department->id]);
         $rejectedEmployee = $this->userWithRole('employee', ['name' => 'Hana Rejected', 'department_id' => $department->id]);
@@ -974,6 +988,7 @@ class LeavePlanWorkflowTest extends TestCase
             [$submittedEmployee, LeavePlan::STATUS_SUBMITTED],
             [$approvedEmployee, LeavePlan::STATUS_APPROVED],
             [$cancellingEmployee, LeavePlan::STATUS_CANCELLATION_REQUESTED],
+            [$regionalHiddenEmployee, LeavePlan::STATUS_APPROVED],
             [$otherEmployee, LeavePlan::STATUS_APPROVED],
             [$draftEmployee, LeavePlan::STATUS_DRAFT],
             [$rejectedEmployee, LeavePlan::STATUS_REJECTED],
@@ -1019,6 +1034,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Grace Approved')
             ->assertSee('Nora Cancelling')
             ->assertSee('cancellation requested')
+            ->assertDontSee('Paolo Regional Hidden')
             ->assertDontSee('Carla Hidden')
             ->assertDontSee('Daniel Draft')
             ->assertDontSee('Hana Rejected')
@@ -1035,9 +1051,22 @@ class LeavePlanWorkflowTest extends TestCase
             'department_id' => $department->id,
             'employee_code' => 'MEC-PHIL-HR-2026-602',
         ]);
-        $submittedEmployee = $this->userWithRole('employee', ['name' => 'Ben Submitted', 'department_id' => $department->id]);
-        $approvedEmployee = $this->userWithRole('employee', ['name' => 'Grace Approved', 'department_id' => $department->id]);
-        $cancellingEmployee = $this->userWithRole('employee', ['name' => 'Nora Cancelling', 'department_id' => $department->id]);
+        $submittedEmployee = $this->userWithRole('employee', [
+            'name' => 'Ben Submitted',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-603',
+        ]);
+        $approvedEmployee = $this->userWithRole('employee', [
+            'name' => 'Grace Approved',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-604',
+        ]);
+        $cancellingEmployee = $this->userWithRole('employee', [
+            'name' => 'Nora Cancelling',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-605',
+        ]);
+        $regionalHiddenEmployee = $this->userWithRole('employee', ['name' => 'Omar UAE Hidden', 'department_id' => $department->id]);
         $otherEmployee = $this->userWithRole('employee', ['name' => 'Carla Hidden', 'department_id' => $otherDepartment->id]);
         $draftEmployee = $this->userWithRole('employee', ['name' => 'Daniel Draft', 'department_id' => $department->id]);
         $rejectedEmployee = $this->userWithRole('employee', ['name' => 'Hana Rejected', 'department_id' => $department->id]);
@@ -1050,6 +1079,7 @@ class LeavePlanWorkflowTest extends TestCase
             [$submittedEmployee, LeavePlan::STATUS_SUBMITTED],
             [$approvedEmployee, LeavePlan::STATUS_APPROVED],
             [$cancellingEmployee, LeavePlan::STATUS_CANCELLATION_REQUESTED],
+            [$regionalHiddenEmployee, LeavePlan::STATUS_APPROVED],
             [$otherEmployee, LeavePlan::STATUS_APPROVED],
             [$draftEmployee, LeavePlan::STATUS_DRAFT],
             [$rejectedEmployee, LeavePlan::STATUS_REJECTED],
@@ -1061,6 +1091,7 @@ class LeavePlanWorkflowTest extends TestCase
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
                 'status' => $status,
+                'attendance_code' => str_starts_with((string) $user->employee_code, 'MEC-PHIL-HR-') ? 'L190' : 'L100',
                 'start_date' => '2026-05-11',
                 'end_date' => '2026-05-11',
             ]);
@@ -1094,6 +1125,9 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('btn-primary leave-calendar-icon-btn', false)
             ->assertDontSee('>Current</span>', false)
             ->assertSee('May 2026')
+            ->assertSee('Leave types')
+            ->assertSee('L190 - Service Incentive Leave')
+            ->assertDontSee('L100 - Annual Leave')
             ->assertSee('Holiday - Global - Global Company Day')
             ->assertSee('Holiday - Philippines - Philippines Holiday')
             ->assertDontSee('UAE Hidden Holiday')
@@ -1102,6 +1136,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('Grace Approved')
             ->assertSee('Nora Cancelling')
             ->assertSee('cancellation requested')
+            ->assertDontSee('Omar UAE Hidden')
             ->assertDontSee('Carla Hidden')
             ->assertDontSee('Daniel Draft')
             ->assertDontSee('Hana Rejected')
@@ -1118,6 +1153,105 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('btn-primary leave-calendar-icon-btn', false)
             ->assertSee('October 2026')
             ->assertSee('<option value="10" selected>October</option>', false);
+    }
+
+    public function test_uae_employee_calendar_hides_same_department_philippines_leave(): void
+    {
+        $department = $this->department(['name' => 'Operations']);
+        $employee = $this->userWithRole('employee', [
+            'name' => 'UAE Viewer',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-662',
+        ]);
+        $uaeEmployee = $this->userWithRole('employee', [
+            'name' => 'UAE Same Team',
+            'department_id' => $department->id,
+            'employee_code' => 'MCE-HR-2026-663',
+        ]);
+        $philippinesEmployee = $this->userWithRole('employee', [
+            'name' => 'PH Same Team Hidden',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-665',
+        ]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $uaeEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $philippinesEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L190',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.calendar', ['month' => '2026-05']))
+            ->assertOk()
+            ->assertSee('UAE Same Team')
+            ->assertSee('L100 - Annual Leave')
+            ->assertDontSee('PH Same Team Hidden')
+            ->assertDontSee('L190 - Service Incentive Leave');
+    }
+
+    public function test_hod_admin_and_super_admin_calendars_show_both_employee_regions(): void
+    {
+        $department = $this->department(['name' => 'Shared Department']);
+        $hod = $this->userWithRole('hod', ['name' => 'Regional HOD']);
+        $department->hods()->attach($hod);
+        $admin = $this->userWithRole('admin', ['name' => 'Regional Admin']);
+        $superAdmin = $this->userWithRole('super_admin', ['name' => 'Regional Super Admin']);
+        $uaeEmployee = $this->userWithRole('employee', [
+            'name' => 'Visible UAE Employee',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-666',
+        ]);
+        $philippinesEmployee = $this->userWithRole('employee', [
+            'name' => 'Visible PH Employee',
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-667',
+        ]);
+
+        LeavePlan::factory()->create([
+            'user_id' => $uaeEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L100',
+            'start_date' => '2026-05-11',
+            'end_date' => '2026-05-11',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $philippinesEmployee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'attendance_code' => 'L190',
+            'start_date' => '2026-05-12',
+            'end_date' => '2026-05-12',
+        ]);
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-plans.calendar', ['month' => '2026-05']))
+            ->assertOk()
+            ->assertSee('Visible UAE Employee')
+            ->assertSee('Visible PH Employee')
+            ->assertSee('L100 - Annual Leave')
+            ->assertSee('L190 - Service Incentive Leave');
+
+        foreach ([$admin, $superAdmin] as $viewer) {
+            $this->actingAs($viewer)
+                ->get(route('admin.leave-plans.calendar', ['month' => '2026-05']))
+                ->assertOk()
+                ->assertSee('Visible UAE Employee')
+                ->assertSee('Visible PH Employee')
+                ->assertSee('L100 - Annual Leave')
+                ->assertSee('L190 - Service Incentive Leave');
+        }
     }
 
     public function test_employee_calendar_ignores_inactive_status_filter_and_does_not_link_coworker_entries(): void

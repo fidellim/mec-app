@@ -32,7 +32,10 @@ class EmployeeLeavePlanController extends Controller
             return $redirect;
         }
 
-        $query = LeavePlan::query()->where('department_id', $request->user()->department_id);
+        $query = $calendar->scopeEmployeeRegionVisibility(
+            $request,
+            LeavePlan::query()->where('department_id', $request->user()->department_id)
+        );
 
         $calendarData = $calendar->build(
             request: $request,
@@ -270,7 +273,10 @@ class EmployeeLeavePlanController extends Controller
 
         return $calendar->build(
             request: $request,
-            query: LeavePlan::query()->where('department_id', $user->department_id),
+            query: $calendar->scopeEmployeeRegionVisibility(
+                $request,
+                LeavePlan::query()->where('department_id', $user->department_id)
+            ),
             showRoute: 'employee.leave-plans.show',
             showEmployee: true,
             excludeLeavePlanId: $leavePlan?->id,
