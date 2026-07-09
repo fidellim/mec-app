@@ -91,6 +91,10 @@
             grid-template-columns: minmax(0, 1fr);
         }
         .sidebar {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            height: 100dvh;
             min-height: 100vh;
             background: var(--app-sidebar-bg);
             position: sticky;
@@ -104,7 +108,10 @@
             align-items: center;
             justify-content: space-between;
             gap: .75rem;
+            flex: 0 0 auto;
             min-width: 0;
+            position: relative;
+            z-index: 1;
         }
         .sidebar-collapse-toggle {
             width: 2.35rem;
@@ -153,6 +160,31 @@
         }
         .sidebar nav {
             align-content: start;
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow-x: hidden;
+            overflow-y: auto;
+            padding-right: .15rem;
+            padding-bottom: .65rem;
+            scrollbar-color: color-mix(in srgb, var(--app-sidebar-link) 36%, transparent) transparent;
+            scrollbar-width: thin;
+            box-shadow:
+                inset 0 .75rem .75rem -.95rem rgba(0, 0, 0, .65),
+                inset 0 -.75rem .75rem -.95rem rgba(0, 0, 0, .65);
+            overscroll-behavior: contain;
+        }
+        .sidebar nav::-webkit-scrollbar {
+            width: .45rem;
+        }
+        .sidebar nav::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        .sidebar nav::-webkit-scrollbar-thumb {
+            background: color-mix(in srgb, var(--app-sidebar-link) 28%, transparent);
+            border-radius: 999px;
+        }
+        .sidebar nav::-webkit-scrollbar-thumb:hover {
+            background: color-mix(in srgb, var(--app-sidebar-link) 44%, transparent);
         }
         .sidebar-nav-group {
             display: grid;
@@ -1198,6 +1230,8 @@
                 grid-template-columns: none;
             }
             .sidebar {
+                display: block;
+                height: auto;
                 min-height: auto;
                 position: static;
                 border-bottom: 1px solid rgba(255, 255, 255, .08);
@@ -1241,14 +1275,17 @@
                 max-height: 0;
                 opacity: 0;
                 overflow: hidden;
+                padding-bottom: 0;
                 padding-top: 0;
                 pointer-events: none;
-                transition: max-height .24s ease, opacity .18s ease, padding-top .24s ease;
+                transition: max-height .24s ease, opacity .18s ease, padding-top .24s ease, padding-bottom .24s ease;
             }
             [data-mobile-sidebar="open"] .sidebar nav {
                 max-height: calc(100vh - 6rem);
+                max-height: calc(100dvh - 6rem);
                 opacity: 1;
                 overflow-y: auto;
+                padding-bottom: .65rem;
                 padding-top: 1rem;
                 pointer-events: auto;
             }
