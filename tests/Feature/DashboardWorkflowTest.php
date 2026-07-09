@@ -39,7 +39,7 @@ class DashboardWorkflowTest extends TestCase
                 ->get(route('dashboard'))
                 ->assertOk()
                 ->assertSee('Dashboard')
-                ->assertSee('Leave balances')
+                ->assertSee($role === 'employee' ? 'Leave balances' : 'My leave balances')
                 ->assertSee('Annual leave')
                 ->assertDontSee('Sick leave')
                 ->assertDontSee('Bereavement leave - Spouse')
@@ -55,11 +55,42 @@ class DashboardWorkflowTest extends TestCase
                 ->get(route('dashboard'))
                 ->assertOk()
                 ->assertSee('Dashboard')
-                ->assertSee('Leave balances')
+                ->assertSee('My leave balances')
                 ->assertSee('Annual leave')
                 ->assertSee('Sick leave')
                 ->assertSee('Bereavement leave - Spouse')
                 ->assertDontSee('Maternity leave');
+        }
+    }
+
+    public function test_employee_dashboard_shows_current_week_actions_by_status(): void
+    {
+        $department = $this->department();
+        $period = $this->openPeriod();
+        $project = $this->project();
+
+        $employeeWithoutTimesheet = $this->userWithRole('employee', ['department_id' => $department->id]);
+
+        $this->actingAs($employeeWithoutTimesheet)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Timesheet not submitted yet')
+            ->assertSee('Create Weekly Timesheet');
+
+        foreach ([
+            'draft' => 'Continue Draft',
+            'rejected' => 'Fix and Resubmit',
+            'submitted' => 'View Timesheet',
+            'approved' => 'View Timesheet',
+        ] as $status => $actionLabel) {
+            $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+            $this->submittedTimesheet($employee, $period, $project, ['status' => $status]);
+
+            $this->actingAs($employee)
+                ->get(route('dashboard'))
+                ->assertOk()
+                ->assertSee('Your timesheet is '.$status)
+                ->assertSee($actionLabel);
         }
     }
 
@@ -164,6 +195,40 @@ class DashboardWorkflowTest extends TestCase
             ->assertViewHas('missing', 0)
             ->assertSee('Reporting period:')
             ->assertSee('Week 20, 2026');
+    }
+
+    public function test_admin_dashboard_shows_department_health_counts(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department(['name' => 'Operations']);
+        $admin = $this->userWithRole('admin');
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $submittedEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $approvedEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $rejectedEmployee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $this->userWithRole('employee', ['department_id' => $department->id]);
+
+        $this->submittedTimesheet($submittedEmployee, $period, $project, ['status' => 'submitted']);
+        $this->submittedTimesheet($approvedEmployee, $period, $project, ['status' => 'approved']);
+        $this->submittedTimesheet($rejectedEmployee, $period, $project, ['status' => 'rejected']);
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Department health')
+            ->assertSee('Operations')
+            ->assertViewHas('departments', function ($departments) use ($department) {
+                $row = $departments->firstWhere('id', $department->id);
+
+                return $row
+                    && $row->timesheets_count === 3
+                    && $row->submitted_count === 1
+                    && $row->approved_count === 1
+                    && $row->rejected_count === 1
+                    && $row->missing_count === 2;
+            });
     }
 
     public function test_admin_dashboard_summary_refreshes_after_cache_expiry(): void
@@ -454,6 +519,24 @@ class DashboardWorkflowTest extends TestCase
             });
     }
 
+    public function test_hod_dashboard_shows_only_managed_departments(): void
+    {
+        Carbon::setTestNow('2026-05-20 12:00:00');
+
+        $department = $this->department(['name' => 'Managed Department']);
+        $otherDepartment = $this->department(['name' => 'Other Department']);
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $department->hods()->attach($hod);
+        $this->openPeriod();
+
+        $this->actingAs($hod)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('Managed departments')
+            ->assertSee('Managed Department')
+            ->assertDontSee('Other Department');
+    }
+
     public function test_super_admin_dashboard_has_regional_submission_status_for_reporting_period(): void
     {
         Carbon::setTestNow('2026-05-20 12:00:00');
@@ -490,5 +573,25 @@ class DashboardWorkflowTest extends TestCase
                     && $summary['regions']['ph']['submitted'] === 1
                     && $summary['regions']['uae']['not_submitted'] === 1;
             });
+    }
+
+    public function test_super_admin_dashboard_shows_management_shortcuts_only_for_super_admin(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($superAdmin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('System management')
+            ->assertSee('Users')
+            ->assertSee('Audit logs')
+            ->assertSee('System settings');
+
+        $this->actingAs($admin)
+            ->get(route('dashboard'))
+            ->assertOk()
+            ->assertDontSee('System management')
+            ->assertDontSee('Audit logs');
     }
 }

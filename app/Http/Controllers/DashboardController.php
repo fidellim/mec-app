@@ -29,7 +29,7 @@ class DashboardController extends Controller
                 'period' => $reportingPeriod,
                 'summary' => $dashboard->summary($reportingPeriod),
                 'missing' => $dashboard->missingCount($reportingPeriod),
-                'departments' => $dashboard->departmentsWithTimesheetCount($reportingPeriod),
+                'departments' => $dashboard->departmentHealth($reportingPeriod),
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod),
                 'leaveBalances' => $leaveBalances,
             ]),

@@ -25,6 +25,7 @@
     $chartBackground = $gradientStops
         ? 'conic-gradient('.implode(', ', $gradientStops).')'
         : 'var(--app-muted-bg)';
+    $submittedPercent = $total > 0 ? round(($regionalSubmissionSummary['submitted'] / $total) * 100) : 0;
 @endphp
 
 <div class="content-card submission-chart-card">
@@ -32,7 +33,7 @@
         <h2 class="h5 mb-1">Regional submission status</h2>
         <div class="small text-muted">
             @if($period)
-                Week {{ $period->week_number }}, {{ $period->year }}: {{ $period->start_date->format('M d, Y') }} - {{ $period->end_date->format('M d, Y') }}
+                Week {{ $period->week_number }}, {{ $period->year }}: {{ $period->start_date->format('M d, Y') }} - {{ $period->end_date->format('M d, Y') }}. {{ $submittedPercent }}% submitted from {{ $total }} active employees.
             @else
                 No weekly period available
             @endif
@@ -53,6 +54,7 @@
                 <div class="row g-2">
                     @foreach(['uae', 'ph', 'unknown'] as $regionKey)
                         @php($region = $regions[$regionKey])
+                        @continue($regionKey === 'unknown' && ($region['submitted'] + $region['not_submitted']) === 0)
                         <div class="col-md-4">
                             <div class="regional-stat">
                                 <div class="meta-label regional-label">

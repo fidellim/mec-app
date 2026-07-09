@@ -343,6 +343,150 @@
             flex-direction: column;
             justify-content: space-between;
         }
+        .dashboard-action-card {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            min-height: 100%;
+            padding: 1rem;
+            border: 1px solid var(--app-border);
+            border-radius: .75rem;
+            background:
+                linear-gradient(135deg, color-mix(in srgb, var(--bs-primary-bg-subtle) 24%, transparent), transparent 46%),
+                var(--app-card-bg);
+            box-shadow: var(--app-shadow-sm);
+        }
+        .dashboard-action-card.is-urgent {
+            border-color: color-mix(in srgb, var(--bs-warning) 42%, var(--app-border));
+            background:
+                linear-gradient(135deg, color-mix(in srgb, var(--bs-warning-bg-subtle) 44%, transparent), transparent 48%),
+                var(--app-card-bg);
+        }
+        .dashboard-action-card.is-success {
+            border-color: color-mix(in srgb, var(--bs-success) 36%, var(--app-border));
+            background:
+                linear-gradient(135deg, color-mix(in srgb, var(--bs-success-bg-subtle) 38%, transparent), transparent 48%),
+                var(--app-card-bg);
+        }
+        .dashboard-action-title {
+            margin: 0;
+            font-size: 1rem;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+        .dashboard-action-meta {
+            color: var(--bs-secondary-color);
+            font-size: .88rem;
+            line-height: 1.45;
+        }
+        .dashboard-kicker {
+            color: var(--bs-secondary-color);
+            font-size: .76rem;
+            font-weight: 800;
+            letter-spacing: .03em;
+            text-transform: uppercase;
+        }
+        .dashboard-period-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            width: fit-content;
+            max-width: 100%;
+            margin-top: .45rem;
+            padding: .35rem .55rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: 999px;
+            background: color-mix(in srgb, var(--app-muted-bg) 68%, transparent);
+            color: var(--bs-secondary-color);
+            font-size: .78rem;
+            font-weight: 700;
+            line-height: 1.25;
+        }
+        .dashboard-worklist {
+            display: grid;
+            gap: .65rem;
+        }
+        .dashboard-work-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            padding: .8rem .9rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .75rem;
+            background: color-mix(in srgb, var(--app-card-bg) 82%, var(--app-muted-bg));
+        }
+        .dashboard-work-row-main {
+            min-width: 0;
+        }
+        .dashboard-work-title {
+            color: var(--bs-body-color);
+            font-weight: 800;
+            line-height: 1.25;
+        }
+        .dashboard-work-meta {
+            color: var(--bs-secondary-color);
+            font-size: .82rem;
+            line-height: 1.35;
+        }
+        .dashboard-empty {
+            padding: 1rem;
+            border: 1px dashed var(--app-soft-border);
+            border-radius: .75rem;
+            background: color-mix(in srgb, var(--app-muted-bg) 58%, transparent);
+            color: var(--bs-secondary-color);
+        }
+        .dashboard-shortcut-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+            gap: .75rem;
+        }
+        .dashboard-shortcut {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: .75rem;
+            min-height: 7.25rem;
+            padding: .95rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .75rem;
+            background: color-mix(in srgb, var(--app-card-bg) 84%, var(--app-muted-bg));
+            color: inherit;
+            text-decoration: none;
+            transition: border-color .18s ease, transform .18s ease, background .18s ease;
+        }
+        .dashboard-shortcut:hover,
+        .dashboard-shortcut:focus {
+            border-color: color-mix(in srgb, var(--bs-primary) 44%, var(--app-border));
+            background: color-mix(in srgb, var(--bs-primary-bg-subtle) 22%, var(--app-card-bg));
+            color: inherit;
+            transform: translateY(-1px);
+        }
+        .dashboard-shortcut-title {
+            font-weight: 800;
+            line-height: 1.25;
+        }
+        .dashboard-shortcut-meta {
+            margin-top: .28rem;
+            color: var(--bs-secondary-color);
+            font-size: .82rem;
+            line-height: 1.35;
+        }
+        .dashboard-shortcut-arrow {
+            color: var(--bs-secondary-color);
+            font-weight: 900;
+        }
+        .dashboard-attention-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+            gap: .75rem;
+        }
+        .dashboard-attention-item {
+            padding: .9rem;
+            border: 1px solid var(--app-soft-border);
+            border-radius: .75rem;
+            background: color-mix(in srgb, var(--app-muted-bg) 58%, transparent);
+        }
         .stat-label {
             color: var(--bs-secondary-color);
             font-size: .82rem;
@@ -1481,6 +1625,17 @@
             .action-group .btn,
             .action-group form { width: 100%; }
             .action-group { display: flex; }
+            .dashboard-work-row {
+                align-items: stretch;
+                flex-direction: column;
+            }
+            .dashboard-work-row .btn,
+            .dashboard-action-card .btn {
+                width: 100%;
+            }
+            .dashboard-shortcut {
+                min-height: 0;
+            }
             .regional-chart-layout {
                 grid-template-columns: 1fr;
             }

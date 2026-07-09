@@ -63,6 +63,35 @@ class DashboardSummaryService
         ])->get());
     }
 
+    public function departmentHealth(?TimesheetPeriod $period)
+    {
+        return Cache::remember($this->departmentHealthKey($period?->id), self::SUMMARY_TTL_SECONDS, fn () => Department::query()
+            ->orderBy('name')
+            ->withCount([
+                'timesheets as timesheets_count' => fn ($query) => $period
+                    ? $query->where('timesheet_period_id', $period->id)
+                    : $query->whereRaw('1 = 0'),
+                'timesheets as submitted_count' => fn ($query) => $period
+                    ? $query->where('timesheet_period_id', $period->id)->where('status', 'submitted')
+                    : $query->whereRaw('1 = 0'),
+                'timesheets as approved_count' => fn ($query) => $period
+                    ? $query->where('timesheet_period_id', $period->id)->where('status', 'approved')
+                    : $query->whereRaw('1 = 0'),
+                'timesheets as rejected_count' => fn ($query) => $period
+                    ? $query->where('timesheet_period_id', $period->id)->where('status', 'rejected')
+                    : $query->whereRaw('1 = 0'),
+                'users as missing_count' => fn ($query) => $period
+                    ? $query
+                        ->where('role', 'employee')
+                        ->where('is_active', true)
+                        ->whereDoesntHave('timesheets', fn ($timesheets) => $timesheets
+                            ->where('timesheet_period_id', $period->id)
+                            ->whereIn('status', ['submitted', 'approved']))
+                    : $query->whereRaw('1 = 0'),
+            ])
+            ->get());
+    }
+
     public function departmentCounts(?TimesheetPeriod $period, ?int $departmentId): array
     {
         return $this->departmentCountsForDepartmentIds($period, $departmentId ? [$departmentId] : []);
@@ -135,6 +164,7 @@ class DashboardSummaryService
             Cache::forget($this->summaryKey($periodId));
             Cache::forget($this->missingKey($periodId));
             Cache::forget($this->departmentsKey($periodId));
+            Cache::forget($this->departmentHealthKey($periodId));
             Cache::forget($this->regionalKey($periodId));
 
             foreach ($departmentIds as $departmentId) {
@@ -234,6 +264,11 @@ class DashboardSummaryService
     private function departmentsKey(?int $periodId): string
     {
         return 'dashboard:departments:period:'.($periodId ?? 'none');
+    }
+
+    private function departmentHealthKey(?int $periodId): string
+    {
+        return 'dashboard:department-health:period:'.($periodId ?? 'none');
     }
 
     private function departmentCountsKey(int $periodId, array $departmentIds): string
