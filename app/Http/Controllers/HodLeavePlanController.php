@@ -14,6 +14,7 @@ use App\Services\LeavePlanCalendarService;
 use App\Services\LeavePlanReviewCalendarService;
 use App\Services\LeavePlanStatusHistoryService;
 use App\Services\LeaveEntitlementService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -207,7 +208,9 @@ class HodLeavePlanController extends Controller
             $emails->stagePending($fresh);
         }
 
-        return back()->with('success', $fresh->status === LeavePlan::STATUS_APPROVED ? 'Leave plan approved.' : 'Leave plan moved to '.$fresh->approvalStageLabel().' review.');
+        return $this->reviewActionRedirect(
+            $fresh->status === LeavePlan::STATUS_APPROVED ? 'Leave plan approved.' : 'Leave plan moved to '.$fresh->approvalStageLabel().' review.'
+        );
     }
 
     private function removeOneShotStatutoryEligibilityAfterApproval(LeavePlan $leavePlan, AuditLogService $audit): void
@@ -269,7 +272,7 @@ class HodLeavePlanController extends Controller
         $history->record('leave_plan_rejected', $leavePlan, $old, $new);
         $emails->rejected($leavePlan);
 
-        return back()->with('success', 'Leave plan rejected.');
+        return $this->reviewActionRedirect('Leave plan rejected.');
     }
 
     public function approveCancellation(LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
@@ -310,7 +313,9 @@ class HodLeavePlanController extends Controller
             $emails->cancellationApproved($leavePlan);
         }
 
-        return back()->with('success', $stage === LeavePlan::APPROVAL_STAGE_DIRECTOR ? 'Leave plan cancellation moved to '.$leavePlan->fresh()->approvalStageLabel().' review.' : 'Leave plan cancellation approved.');
+        return $this->reviewActionRedirect(
+            $stage === LeavePlan::APPROVAL_STAGE_DIRECTOR ? 'Leave plan cancellation moved to '.$leavePlan->fresh()->approvalStageLabel().' review.' : 'Leave plan cancellation approved.'
+        );
     }
 
     public function rejectCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
@@ -336,7 +341,7 @@ class HodLeavePlanController extends Controller
         $history->record('leave_plan_cancellation_rejected', $leavePlan, $old, $new);
         $emails->cancellationRejected($leavePlan);
 
-        return back()->with('success', 'Leave plan cancellation rejected.');
+        return $this->reviewActionRedirect('Leave plan cancellation rejected.');
     }
 
     public function recallApproved(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
@@ -485,6 +490,15 @@ class HodLeavePlanController extends Controller
     private function managedDepartmentIds()
     {
         return auth()->user()->managedDepartmentIds();
+    }
+
+    private function reviewActionRedirect(string $message): RedirectResponse
+    {
+        $response = request()->routeIs('assigned.leave-plans.*')
+            ? redirect()->route('assigned.leave-plans.index')
+            : back();
+
+        return $response->with('success', $message);
     }
 
     private function selectedDepartmentId($managedDepartmentIds): ?int

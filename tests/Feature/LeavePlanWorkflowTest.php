@@ -112,7 +112,7 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->actingAs($director)
             ->post(route('assigned.leave-plans.approve', $leavePlan))
-            ->assertRedirect();
+            ->assertRedirect(route('assigned.leave-plans.index'));
 
         $leavePlan->refresh();
         $this->assertSame(LeavePlan::APPROVAL_STAGE_HR, $leavePlan->approval_stage);
@@ -120,7 +120,7 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->actingAs($uaeHr)
             ->post(route('assigned.leave-plans.approve', $leavePlan))
-            ->assertRedirect();
+            ->assertRedirect(route('assigned.leave-plans.index'));
 
         $leavePlan->refresh();
         $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
@@ -191,8 +191,9 @@ class LeavePlanWorkflowTest extends TestCase
         ]);
 
         $this->actingAs($hod)
+            ->from(route('hod.leave-plans.show', $approvedPlan))
             ->post(route('hod.leave-plans.approve', $approvedPlan))
-            ->assertRedirect();
+            ->assertRedirect(route('hod.leave-plans.show', $approvedPlan));
 
         $approvedPlan->refresh();
         $this->assertSame(LeavePlan::STATUS_SUBMITTED, $approvedPlan->status);
@@ -222,6 +223,29 @@ class LeavePlanWorkflowTest extends TestCase
             'new_status' => LeavePlan::STATUS_REJECTED,
             'comment' => 'Project coverage needed.',
         ]);
+    }
+
+    public function test_admin_leave_plan_approval_returns_to_originating_detail_page(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod');
+        $department->hods()->attach($hod);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $admin = $this->userWithRole('admin');
+        $leavePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_HOD,
+            'submitted_at' => now(),
+        ]);
+
+        $this->actingAs($admin)
+            ->from(route('admin.leave-plans.show', $leavePlan))
+            ->post(route('admin.leave-plans.approve', $leavePlan))
+            ->assertRedirect(route('admin.leave-plans.show', $leavePlan));
+
+        $this->assertSame(LeavePlan::APPROVAL_STAGE_DIRECTOR, $leavePlan->fresh()->approval_stage);
     }
 
     public function test_leave_plan_history_timeline_shows_approval_flow(): void
@@ -545,7 +569,7 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->actingAs($director)
             ->post(route('assigned.leave-plans.reject', $leavePlan), ['rejection_comment' => 'Director review requires different dates.'])
-            ->assertRedirect();
+            ->assertRedirect(route('assigned.leave-plans.index'));
 
         $leavePlan->refresh();
         $this->assertSame(LeavePlan::STATUS_REJECTED, $leavePlan->status);
@@ -663,7 +687,7 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->actingAs($director)
             ->post(route('assigned.leave-plans.approve-cancellation', $leavePlan))
-            ->assertRedirect();
+            ->assertRedirect(route('assigned.leave-plans.index'));
 
         $leavePlan->refresh();
         $this->assertSame(LeavePlan::STATUS_CANCELLATION_REQUESTED, $leavePlan->status);
@@ -674,7 +698,7 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->actingAs($uaeHr)
             ->post(route('assigned.leave-plans.approve-cancellation', $leavePlan))
-            ->assertRedirect();
+            ->assertRedirect(route('assigned.leave-plans.index'));
 
         $leavePlan->refresh();
         $this->assertSame(LeavePlan::STATUS_CANCELLED, $leavePlan->status);
@@ -712,7 +736,7 @@ class LeavePlanWorkflowTest extends TestCase
             ->post(route('assigned.leave-plans.reject-cancellation', $leavePlan), [
                 'cancellation_rejection_comment' => 'Keep the approved leave active.',
             ])
-            ->assertRedirect();
+            ->assertRedirect(route('assigned.leave-plans.index'));
 
         $leavePlan->refresh();
         $this->assertSame(LeavePlan::STATUS_APPROVED, $leavePlan->status);
