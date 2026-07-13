@@ -53,8 +53,7 @@ class LeavePlanCalendarService
         bool $includeUrls = true,
         ?CarbonInterface $defaultMonth = null,
         ?array $allowedStatusFilters = null
-    ): array
-    {
+    ): array {
         $month = $this->month($request->query('month'), $defaultMonth);
         $filters = $this->filters($request, $allowedStatusFilters);
         $monthStart = $month->copy()->startOfMonth();
@@ -71,8 +70,8 @@ class LeavePlanCalendarService
             ->whereDate('end_date', '>=', $monthStart)
             ->orderBy('start_date')
             ->get();
-        $countedLeaveDates = $this->countedLeaveDatesByPlan($leavePlans);
         $holidaysByDate = $this->holidaysByDate($request, $monthStart, $monthEnd);
+        $countedLeaveDates = $this->countedLeaveDatesByPlan($leavePlans, $holidaysByDate->flatten(1));
 
         return [
             'month' => $month,
@@ -153,7 +152,7 @@ class LeavePlanCalendarService
                 'title' => trim(($showEmployee ? $leavePlan->user?->name.' - ' : '').$leavePlan->leaveLabel()),
                 'url' => $includeUrls ? route($showRoute, $leavePlan) : null,
                 'status' => $leavePlan->status,
-                'duration' => $leavePlan->leaveLengthLabel(),
+                'duration' => $leavePlan->leaveLengthLabel($this->countedDays($leavePlan, $countedLeaveDates->get($leavePlan->id, collect()))),
             ]);
 
         return $holidayEvents
@@ -161,13 +160,18 @@ class LeavePlanCalendarService
             ->values();
     }
 
-    private function countedLeaveDatesByPlan(Collection $leavePlans): Collection
+    private function countedLeaveDatesByPlan(Collection $leavePlans, Collection $holidayDates): Collection
     {
-        $entitlements = app(LeaveEntitlementService::class);
+        return app(LeaveEntitlementService::class)->countedLeaveDatesForPlans($leavePlans, $holidayDates);
+    }
 
-        return $leavePlans->mapWithKeys(fn (LeavePlan $leavePlan) => [
-            $leavePlan->id => $entitlements->countedLeaveDatesForPlan($leavePlan),
-        ]);
+    private function countedDays(LeavePlan $leavePlan, Collection $countedDates): float
+    {
+        if ($leavePlan->duration_type === 'half_day') {
+            return $countedDates->contains($leavePlan->start_date->toDateString()) ? 0.5 : 0.0;
+        }
+
+        return (float) $countedDates->count();
     }
 
     private function holidaysByDate(Request $request, Carbon $monthStart, Carbon $monthEnd): Collection

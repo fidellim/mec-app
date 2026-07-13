@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Cache;
 class DashboardSummaryService
 {
     private const SUMMARY_TTL_SECONDS = 60;
+
     private const REGIONAL_TTL_SECONDS = 120;
+
     private const TOTALS_TTL_SECONDS = 300;
 
     public function superAdminTotals(): array
@@ -31,12 +33,17 @@ class DashboardSummaryService
         }
 
         return Cache::remember($this->summaryKey($period->id), self::SUMMARY_TTL_SECONDS, function () use ($period) {
-            $query = Timesheet::query()->where('timesheet_period_id', $period->id);
+            $counts = Timesheet::query()
+                ->where('timesheet_period_id', $period->id)
+                ->selectRaw("SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as submitted")
+                ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved")
+                ->selectRaw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected")
+                ->first();
 
             return [
-                'submitted' => (clone $query)->where('status', 'submitted')->count(),
-                'approved' => (clone $query)->where('status', 'approved')->count(),
-                'rejected' => (clone $query)->where('status', 'rejected')->count(),
+                'submitted' => (int) ($counts?->submitted ?? 0),
+                'approved' => (int) ($counts?->approved ?? 0),
+                'rejected' => (int) ($counts?->rejected ?? 0),
             ];
         });
     }
@@ -110,27 +117,28 @@ class DashboardSummaryService
             ];
         }
 
-        return Cache::remember($this->departmentCountsKey($period->id, $departmentIds), self::SUMMARY_TTL_SECONDS, fn () => [
-            'pending' => Timesheet::whereIn('department_id', $departmentIds)
+        return Cache::remember($this->departmentCountsKey($period->id, $departmentIds), self::SUMMARY_TTL_SECONDS, function () use ($period, $departmentIds) {
+            $counts = Timesheet::whereIn('department_id', $departmentIds)
                 ->where('timesheet_period_id', $period->id)
-                ->where('status', 'submitted')
-                ->count(),
-            'approved' => Timesheet::whereIn('department_id', $departmentIds)
-                ->where('timesheet_period_id', $period->id)
-                ->where('status', 'approved')
-                ->count(),
-            'rejected' => Timesheet::whereIn('department_id', $departmentIds)
-                ->where('timesheet_period_id', $period->id)
-                ->where('status', 'rejected')
-                ->count(),
-            'missing' => User::whereIn('department_id', $departmentIds)
+                ->selectRaw("SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) as pending")
+                ->selectRaw("SUM(CASE WHEN status = 'approved' THEN 1 ELSE 0 END) as approved")
+                ->selectRaw("SUM(CASE WHEN status = 'rejected' THEN 1 ELSE 0 END) as rejected")
+                ->first();
+            $missing = User::whereIn('department_id', $departmentIds)
                 ->where('role', 'employee')
                 ->where('is_active', true)
                 ->whereDoesntHave('timesheets', fn ($t) => $t
                     ->where('timesheet_period_id', $period->id)
                     ->whereIn('status', ['submitted', 'approved']))
-                ->count(),
-        ]);
+                ->count();
+
+            return [
+                'pending' => (int) ($counts?->pending ?? 0),
+                'approved' => (int) ($counts?->approved ?? 0),
+                'rejected' => (int) ($counts?->rejected ?? 0),
+                'missing' => $missing,
+            ];
+        });
     }
 
     public function regionalSubmissionSummary(?TimesheetPeriod $period, ?int $departmentId = null): array
@@ -185,7 +193,7 @@ class DashboardSummaryService
 
         User::with(['timesheets' => fn ($query) => $query
             ->where('timesheet_period_id', $period->id)
-            ->select('id', 'user_id', 'timesheet_period_id', 'status')
+            ->select('id', 'user_id', 'timesheet_period_id', 'status'),
         ])
             ->where('role', 'employee')
             ->where('is_active', true)

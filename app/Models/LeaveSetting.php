@@ -8,21 +8,37 @@ use Illuminate\Support\Facades\Log;
 class LeaveSetting extends Model
 {
     public const ANNUAL_LEAVE_DEFAULT_DAYS = 'annual_leave_default_days';
+
     public const ANNUAL_LEAVE_DEFAULT_DAYS_UAE = 'annual_leave_default_days_uae';
+
     public const ANNUAL_LEAVE_DEFAULT_DAYS_PH = 'annual_leave_default_days_ph';
+
     public const SICK_LEAVE_DEFAULT_DAYS_UAE = 'sick_leave_default_days_uae';
+
     public const SICK_LEAVE_DEFAULT_DAYS_PH = 'sick_leave_default_days_ph';
+
     public const MATERNITY_LEAVE_DEFAULT_DAYS_UAE = 'maternity_leave_default_days_uae';
+
     public const MATERNITY_LEAVE_DEFAULT_DAYS_PH = 'maternity_leave_default_days_ph';
+
     public const PARENTAL_LEAVE_DEFAULT_DAYS_UAE = 'parental_leave_default_days_uae';
+
     public const PARENTAL_LEAVE_DEFAULT_DAYS_PH = 'parental_leave_default_days_ph';
+
     public const PATERNITY_LEAVE_DEFAULT_DAYS_PH = 'paternity_leave_default_days_ph';
+
     public const VAWC_LEAVE_DEFAULT_DAYS_PH = 'vawc_leave_default_days_ph';
+
     public const SPECIAL_WOMEN_LEAVE_DEFAULT_DAYS_PH = 'special_women_leave_default_days_ph';
+
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_UAE = 'bereavement_compassionate_leave_default_days_uae';
+
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_DEFAULT_DAYS_PH = 'bereavement_compassionate_leave_default_days_ph';
+
     public const BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE = 'bereavement_spouse_leave_days_uae';
+
     public const BEREAVEMENT_IMMEDIATE_FAMILY_LEAVE_DAYS_UAE = 'bereavement_immediate_family_leave_days_uae';
+
     public const SERVICE_INCENTIVE_LEAVE_DEFAULT_DAYS_PH = 'service_incentive_leave_default_days_ph';
 
     protected $fillable = [

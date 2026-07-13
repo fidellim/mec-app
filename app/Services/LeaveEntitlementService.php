@@ -2,10 +2,11 @@
 
 namespace App\Services;
 
+use App\Models\AnnualLeaveCarryOver;
+use App\Models\HolidayDate;
 use App\Models\LeaveEntitlement;
 use App\Models\LeavePlan;
 use App\Models\LeaveSetting;
-use App\Models\AnnualLeaveCarryOver;
 use App\Models\User;
 use Carbon\Carbon;
 use Carbon\CarbonInterface;
@@ -15,15 +16,36 @@ use Illuminate\Support\Facades\Auth;
 
 class LeaveEntitlementService
 {
+    /** @var array<string, Collection> */
+    private array $entitlementsByUserYear = [];
+
+    /** @var array<string, float> */
+    private array $carryOversByUserYearCode = [];
+
+    /** @var array<string, Collection> */
+    private array $usedDaysByUserCodeAndExclusion = [];
+
+    /** @var array<string, float> */
+    private array $leaveSettingValues = [];
+
     public const ANNUAL_LEAVE_CODE = 'L100';
+
     public const SICK_LEAVE_CODE = 'L110';
+
     public const EMERGENCY_LEAVE_CODE = 'L120';
+
     public const MATERNITY_LEAVE_CODE = 'L160';
+
     public const PARENTAL_LEAVE_CODE = 'L170';
+
     public const BEREAVEMENT_COMPASSIONATE_LEAVE_CODE = 'L180';
+
     public const SERVICE_INCENTIVE_LEAVE_CODE = 'L190';
+
     public const PATERNITY_LEAVE_CODE = 'L210';
+
     public const VAWC_LEAVE_CODE = 'L220';
+
     public const SPECIAL_WOMEN_LEAVE_CODE = 'L230';
 
     public const ENTITLED_LEAVE_CODES = [
@@ -105,9 +127,7 @@ class LeaveEntitlementService
         ],
     ];
 
-    public function __construct(private readonly HolidayService $holidays)
-    {
-    }
+    public function __construct(private readonly HolidayService $holidays) {}
 
     public function allowanceFor(User $user, int $year, string $attendanceCode = self::ANNUAL_LEAVE_CODE, CarbonInterface|string|null $asOf = null): float
     {
@@ -153,7 +173,9 @@ class LeaveEntitlementService
 
     public function usedDaysByYear(User $user, string $attendanceCode, ?int $excludeLeavePlanId = null): Collection
     {
-        return LeavePlan::query()
+        $cacheKey = implode(':', [$user->id, $attendanceCode, $excludeLeavePlanId ?? 'none']);
+
+        return $this->usedDaysByUserCodeAndExclusion[$cacheKey] ??= LeavePlan::query()
             ->with('user')
             ->where('user_id', $user->id)
             ->where('attendance_code', $attendanceCode)
@@ -245,6 +267,96 @@ class LeaveEntitlementService
         return $balances->all();
     }
 
+    /**
+     * @param  Collection<int, User>  $users
+     * @return array<int, array<string, array<string, mixed>>>
+     */
+    public function visibleBalancesForUsers(Collection $users, int $year, ?User $viewer = null): array
+    {
+        $users = $users->values();
+
+        if ($users->isEmpty()) {
+            return [];
+        }
+
+        $userIds = $users->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $entitlements = LeaveEntitlement::query()
+            ->whereIn('user_id', $userIds)
+            ->where('year', $year)
+            ->get()
+            ->groupBy('user_id');
+        $now = now();
+        $missingEntitlements = $users->flatMap(function (User $user) use ($entitlements, $year, $now) {
+            $existingCodes = collect($entitlements->get($user->id, []))->pluck('attendance_code');
+
+            return collect($this->eligibleEntitledLeaveCodesFor($user))
+                ->reject(fn (string $attendanceCode) => $existingCodes->contains($attendanceCode))
+                ->map(fn (string $attendanceCode) => $this->entitlementAttributesFor($user, $year, $attendanceCode) + [
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ]);
+        })->values();
+
+        if ($missingEntitlements->isNotEmpty()) {
+            LeaveEntitlement::query()->insertOrIgnore($missingEntitlements->all());
+            $entitlements = LeaveEntitlement::query()
+                ->whereIn('user_id', $userIds)
+                ->where('year', $year)
+                ->get()
+                ->groupBy('user_id');
+        }
+        $carryOvers = AnnualLeaveCarryOver::query()
+            ->whereIn('user_id', $userIds)
+            ->where('to_year', $year)
+            ->where('status', AnnualLeaveCarryOver::STATUS_APPROVED)
+            ->selectRaw('user_id, attendance_code, SUM(approved_days) as approved_days')
+            ->groupBy('user_id', 'attendance_code')
+            ->get();
+        $allUsedPlans = LeavePlan::query()
+            ->with('user')
+            ->whereIn('user_id', $userIds)
+            ->whereIn('status', self::COUNTED_STATUSES)
+            ->get();
+        $usedPlans = $allUsedPlans->groupBy(['user_id', 'attendance_code']);
+        $countedDatesByPlan = collect();
+
+        if ($allUsedPlans->isNotEmpty()) {
+            $rangeStart = $allUsedPlans->min(fn (LeavePlan $plan) => $plan->start_date->toDateString());
+            $rangeEnd = $allUsedPlans->max(fn (LeavePlan $plan) => $plan->end_date->toDateString());
+            $holidayDates = HolidayDate::query()
+                ->whereHas('event', fn ($query) => $query->where('is_active', true))
+                ->whereDate('holiday_date', '>=', $rangeStart)
+                ->whereDate('holiday_date', '<=', $rangeEnd)
+                ->get();
+            $countedDatesByPlan = $this->countedLeaveDatesForPlans($allUsedPlans, $holidayDates);
+        }
+
+        foreach ($users as $user) {
+            $this->entitlementsByUserYear[$this->entitlementsCacheKey($user, $year)] = collect($entitlements->get($user->id, []))
+                ->keyBy('attendance_code');
+
+            foreach (self::ENTITLED_LEAVE_CODES as $attendanceCode) {
+                $carryOver = $carryOvers->first(fn ($row) => (int) $row->user_id === (int) $user->id
+                    && $row->attendance_code === $attendanceCode);
+                $this->carryOversByUserYearCode[$this->carryOverCacheKey($user, $year, $attendanceCode)] = (float) ($carryOver?->approved_days ?? 0);
+
+                $plans = collect($usedPlans->get($user->id, collect())->get($attendanceCode, collect()));
+                $this->usedDaysByUserCodeAndExclusion[$this->usedDaysCacheKey($user, $attendanceCode)] = $plans
+                    ->reduce(function (Collection $totals, LeavePlan $leavePlan) use ($countedDatesByPlan) {
+                        return $this->addCountedDatesToYearTotals(
+                            $totals,
+                            $leavePlan,
+                            collect($countedDatesByPlan->get($leavePlan->id, [])),
+                        );
+                    }, collect());
+            }
+        }
+
+        return $users->mapWithKeys(fn (User $user) => [
+            $user->id => $this->visibleBalancesFor($user, $year, viewer: $viewer),
+        ])->all();
+    }
+
     public function eligibleEntitledLeaveCodesFor(User $user): array
     {
         return collect(self::ENTITLED_LEAVE_CODES)
@@ -297,6 +409,12 @@ class LeaveEntitlementService
 
     public function ensureEntitlementsFor(User $user, int $year): Collection
     {
+        $cacheKey = $this->entitlementsCacheKey($user, $year);
+
+        if (isset($this->entitlementsByUserYear[$cacheKey])) {
+            return $this->entitlementsByUserYear[$cacheKey]->values();
+        }
+
         $eligibleCodes = $this->eligibleEntitledLeaveCodesFor($user);
         $existing = LeaveEntitlement::query()
             ->where('user_id', $user->id)
@@ -312,6 +430,8 @@ class LeaveEntitlementService
 
             $existing[$attendanceCode] = LeaveEntitlement::create($this->entitlementAttributesFor($user, $year, $attendanceCode));
         }
+
+        $this->entitlementsByUserYear[$cacheKey] = $existing;
 
         return $existing
             ->filter(fn (LeaveEntitlement $entitlement) => in_array($entitlement->attendance_code, $eligibleCodes, true))
@@ -629,6 +749,32 @@ class LeaveEntitlementService
         return $this->holidays->countedLeaveDates($leavePlan);
     }
 
+    /**
+     * Calculate dates for multiple plans using one prefetched holiday collection.
+     *
+     * @param  Collection<int, LeavePlan>  $leavePlans
+     * @param  Collection<int, HolidayDate>  $holidayDates
+     */
+    public function countedLeaveDatesForPlans(Collection $leavePlans, Collection $holidayDates): Collection
+    {
+        return $leavePlans->mapWithKeys(function (LeavePlan $leavePlan) use ($holidayDates) {
+            $regions = $this->holidays->applicableRegions($leavePlan->user);
+            $excludedDates = $holidayDates
+                ->whereIn('region', $regions)
+                ->map(fn ($holidayDate) => $holidayDate->holiday_date->toDateString())
+                ->unique();
+            $usesCalendarDays = $this->usesCalendarDays($leavePlan);
+
+            $dates = collect(CarbonPeriod::create($leavePlan->start_date, $leavePlan->end_date))
+                ->reject(fn ($date) => ! $usesCalendarDays && $date->isWeekend())
+                ->reject(fn ($date) => $excludedDates->contains($date->toDateString()))
+                ->map(fn ($date) => $date->toDateString())
+                ->values();
+
+            return [$leavePlan->id => $dates];
+        });
+    }
+
     public function countedLeaveDayCountForPlan(LeavePlan $leavePlan): float
     {
         if ($leavePlan->duration_type === 'half_day') {
@@ -701,6 +847,27 @@ class LeaveEntitlementService
         return $totals;
     }
 
+    private function addCountedDatesToYearTotals(Collection $totals, LeavePlan $leavePlan, Collection $countedDates): Collection
+    {
+        if ($leavePlan->duration_type === 'half_day') {
+            if ($countedDates->contains($leavePlan->start_date->toDateString())) {
+                $year = (int) $leavePlan->start_date->year;
+                $totals[$year] = (float) $totals->get($year, 0.0) + 0.5;
+            }
+
+            return $totals;
+        }
+
+        $countedDates
+            ->map(fn (string $date) => (int) Carbon::parse($date)->year)
+            ->countBy()
+            ->each(function (int $days, int $year) use ($totals) {
+                $totals[$year] = (float) $totals->get($year, 0.0) + $days;
+            });
+
+        return $totals;
+    }
+
     private function entitlementFor(User $user, int $year, string $attendanceCode): ?LeaveEntitlement
     {
         if (! $this->userIsEligibleFor($user, $attendanceCode)) {
@@ -717,12 +884,29 @@ class LeaveEntitlementService
             return 0.0;
         }
 
-        return (float) AnnualLeaveCarryOver::query()
+        $cacheKey = $this->carryOverCacheKey($user, $year, $attendanceCode);
+
+        return $this->carryOversByUserYearCode[$cacheKey] ??= (float) AnnualLeaveCarryOver::query()
             ->where('user_id', $user->id)
             ->where('to_year', $year)
             ->where('attendance_code', self::ANNUAL_LEAVE_CODE)
             ->where('status', AnnualLeaveCarryOver::STATUS_APPROVED)
             ->sum('approved_days');
+    }
+
+    private function entitlementsCacheKey(User $user, int $year): string
+    {
+        return $user->id.':'.$year;
+    }
+
+    private function carryOverCacheKey(User $user, int $year, string $attendanceCode): string
+    {
+        return implode(':', [$user->id, $year, $attendanceCode]);
+    }
+
+    private function usedDaysCacheKey(User $user, string $attendanceCode, ?int $excludeLeavePlanId = null): string
+    {
+        return implode(':', [$user->id, $attendanceCode, $excludeLeavePlanId ?? 'none']);
     }
 
     private function baseClaimableAllowanceFor(User $user, int $year, string $attendanceCode, CarbonInterface|string|null $asOf = null, ?LeaveEntitlement $entitlement = null): float
@@ -818,7 +1002,7 @@ class LeaveEntitlementService
             return (float) ($serviceMonths * 2);
         }
 
-        return LeaveSetting::decimalValue(
+        return $this->leaveSettingDecimalValue(
             $this->settingKeyFor($user, self::ANNUAL_LEAVE_CODE),
             $this->fallbackAllowanceFor($user, self::ANNUAL_LEAVE_CODE),
         );
@@ -836,7 +1020,7 @@ class LeaveEntitlementService
             return $this->uaeAnnualAllowanceForService($user, $this->asOfDate($asOf));
         }
 
-        return LeaveSetting::decimalValue(
+        return $this->leaveSettingDecimalValue(
             $this->settingKeyFor($user, $attendanceCode),
             $this->fallbackAllowanceFor($user, $attendanceCode),
         );
@@ -1029,17 +1213,17 @@ class LeaveEntitlementService
             return 0.0;
         }
 
-        return LeaveSetting::decimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 22.0);
+        return $this->leaveSettingDecimalValue(LeaveSetting::ANNUAL_LEAVE_DEFAULT_DAYS, 22.0);
     }
 
     private function bereavementRelationshipAllowance(string $relationship): ?float
     {
         return match ($relationship) {
-            LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE => LeaveSetting::decimalValue(
+            LeavePlan::BEREAVEMENT_RELATIONSHIP_SPOUSE => $this->leaveSettingDecimalValue(
                 LeaveSetting::BEREAVEMENT_SPOUSE_LEAVE_DAYS_UAE,
                 5.0,
             ),
-            LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY => LeaveSetting::decimalValue(
+            LeavePlan::BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY => $this->leaveSettingDecimalValue(
                 LeaveSetting::BEREAVEMENT_IMMEDIATE_FAMILY_LEAVE_DAYS_UAE,
                 3.0,
             ),
@@ -1181,5 +1365,10 @@ class LeaveEntitlementService
             'formatted_requested' => $this->formatDays($requested),
             'bands' => $bands,
         ];
+    }
+
+    private function leaveSettingDecimalValue(string $key, float $default = 0.0): float
+    {
+        return $this->leaveSettingValues[$key] ??= LeaveSetting::decimalValue($key, $default);
     }
 }

@@ -16,8 +16,8 @@ use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
-use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelWriter;
+use Maatwebsite\Excel\Facades\Excel;
 
 class AdminLeavePlanController extends Controller
 {
@@ -234,8 +234,10 @@ class AdminLeavePlanController extends Controller
             ->paginate(10)
             ->withQueryString();
 
-        $employees->getCollection()->transform(function (User $employee) use ($entitlements, $year) {
-            $employee->leaveBalances = $entitlements->visibleBalancesFor($employee, $year, viewer: auth()->user());
+        $balancesByUser = $entitlements->visibleBalancesForUsers($employees->getCollection(), $year, auth()->user());
+
+        $employees->getCollection()->transform(function (User $employee) use ($balancesByUser) {
+            $employee->leaveBalances = $balancesByUser[$employee->id] ?? [];
 
             return $employee;
         });

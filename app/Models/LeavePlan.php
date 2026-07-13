@@ -2,28 +2,38 @@
 
 namespace App\Models;
 
+use App\Services\LeaveEntitlementService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use App\Services\LeaveEntitlementService;
 
 class LeavePlan extends Model
 {
     use HasFactory;
 
     public const STATUS_DRAFT = 'draft';
+
     public const STATUS_SUBMITTED = 'submitted';
+
     public const STATUS_APPROVED = 'approved';
+
     public const STATUS_REJECTED = 'rejected';
+
     public const STATUS_CANCELLATION_REQUESTED = 'cancellation_requested';
+
     public const STATUS_CANCELLED = 'cancelled';
+
     public const STATUS_RECALLED = 'recalled';
+
     public const STATUS_VOIDED = 'voided';
 
     public const APPROVAL_STAGE_HOD = 'hod';
+
     public const APPROVAL_STAGE_DIRECTOR = 'director';
+
     public const APPROVAL_STAGE_HR = 'hr';
 
     public const BEREAVEMENT_RELATIONSHIP_SPOUSE = 'spouse';
+
     public const BEREAVEMENT_RELATIONSHIP_IMMEDIATE_FAMILY = 'immediate_family';
 
     public const BEREAVEMENT_RELATIONSHIPS = [
@@ -187,15 +197,15 @@ class LeavePlan extends Model
         return app(LeaveEntitlementService::class)->countedLeaveDayCountForPlan($this);
     }
 
-    public function durationLabel(): string
+    public function durationLabel(?float $countedDays = null): string
     {
         return $this->formatDayCount(
-            $this->countedLeaveDayCount(),
+            $countedDays ?? $this->countedLeaveDayCount(),
             app(LeaveEntitlementService::class)->countBasisLabelForPlan($this),
         );
     }
 
-    public function leaveLengthLabel(): string
+    public function leaveLengthLabel(?float $countedDays = null): string
     {
         $label = str_replace('_', ' ', $this->duration_type);
 
@@ -203,7 +213,7 @@ class LeavePlan extends Model
             $label .= ' - '.$this->half_day_period;
         }
 
-        return ucfirst($label).' ('.$this->durationLabel().')';
+        return ucfirst($label).' ('.$this->durationLabel($countedDays).')';
     }
 
     public function bereavementRelationshipLabel(): ?string

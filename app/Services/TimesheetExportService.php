@@ -9,8 +9,8 @@ use App\Models\Timesheet;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
-use Maatwebsite\Excel\Facades\Excel;
 use Maatwebsite\Excel\Excel as ExcelWriter;
+use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -20,7 +20,7 @@ class TimesheetExportService
     {
         $monthly = $this->isMonthly($filters);
         $timesheets = $this->query($filters)
-            ->with(['user', 'department', 'period', 'entries.project', 'approver'])
+            ->with($this->exportRelations($filters, includeApprover: true))
             ->orderByDesc('id')
             ->get();
 
@@ -29,7 +29,7 @@ class TimesheetExportService
             ? $timesheets->map(fn (Timesheet $timesheet) => $this->buildWorksheet($timesheet))
             : collect();
         $showCosting = $monthly || ! $includeEmployeeSheets;
-        $summaryTimesheets = $monthly ? $this->timesheetsWithMonthlyEntries($timesheets, $filters) : $timesheets;
+        $summaryTimesheets = $monthly ? $this->timesheetsWithMonthlyEntries($timesheets) : $timesheets;
         $projectWeeklySummary = $this->buildProjectWeeklySummary($summaryTimesheets, $filters['project_id'] ?? null, $filters);
         $attendanceSummary = $this->buildAttendanceSummary($summaryTimesheets, $filters);
         $employeeRateRows = $showCosting ? $this->buildEmployeeRateRows($summaryTimesheets) : collect();
@@ -48,7 +48,7 @@ class TimesheetExportService
     public function summaryPreview(array $filters): array
     {
         $timesheets = $this->summaryTimesheets($filters);
-        $summaryTimesheets = $this->isMonthly($filters) ? $this->timesheetsWithMonthlyEntries($timesheets, $filters) : $timesheets;
+        $summaryTimesheets = $this->isMonthly($filters) ? $this->timesheetsWithMonthlyEntries($timesheets) : $timesheets;
         $projectSummaryRows = $this->buildProjectWeeklySummary($summaryTimesheets, $filters['project_id'] ?? null, $filters);
         $attendanceSummaryRows = $this->buildAttendanceSummary($summaryTimesheets, $filters);
 
@@ -74,7 +74,7 @@ class TimesheetExportService
             ]);
 
             Timesheet::query()
-                ->with(['user', 'department', 'period', 'entries.project', 'approver'])
+                ->with($this->exportRelations($filters, includeApprover: true))
                 ->tap(fn ($query) => $this->applyFilters($query, $filters))
                 ->orderByDesc('id')
                 ->chunk(100, function ($timesheets) use ($handle) {
@@ -213,7 +213,7 @@ class TimesheetExportService
     private function summaryTimesheets(array $filters): Collection
     {
         return $this->query($filters)
-            ->with(['user', 'department', 'period', 'entries.project'])
+            ->with($this->exportRelations($filters))
             ->orderByDesc('id')
             ->get();
     }
@@ -222,6 +222,37 @@ class TimesheetExportService
     {
         return Timesheet::query()
             ->tap(fn ($query) => $this->applyFilters($query, $filters));
+    }
+
+    private function exportRelations(array $filters, bool $includeApprover = false): array
+    {
+        $monthly = $this->isMonthly($filters);
+        $monthRange = $monthly ? $this->monthlyDateRange($filters) : null;
+        $projectId = $filters['project_id'] ?? null;
+        $relations = [
+            'user:id,name,employee_code,initials,job_title',
+            'department:id,name',
+            'period:id,week_number,year,start_date,end_date',
+            'entries' => function ($query) use ($monthly, $monthRange, $projectId) {
+                $query
+                    ->select([
+                        'id', 'timesheet_id', 'work_date', 'day_name', 'attendance_code',
+                        'project_id', 'regular_hours', 'overtime_hours', 'remarks',
+                    ])
+                    ->when($monthly, fn ($entry) => $entry->whereBetween('work_date', [
+                        $monthRange['start']->toDateString(),
+                        $monthRange['end']->toDateString(),
+                    ]))
+                    ->when($projectId, fn ($entry) => $entry->where('project_id', $projectId));
+            },
+            'entries.project:id,project_code,project_name,client_name',
+        ];
+
+        if ($includeApprover) {
+            $relations[] = 'approver:id,name';
+        }
+
+        return $relations;
     }
 
     private function applyFilters($query, array $filters): void
@@ -386,21 +417,9 @@ class TimesheetExportService
             ->values();
     }
 
-    private function timesheetsWithMonthlyEntries(Collection $timesheets, array $filters): Collection
+    private function timesheetsWithMonthlyEntries(Collection $timesheets): Collection
     {
-        $range = $this->monthlyDateRange($filters);
-
         return $timesheets
-            ->map(function (Timesheet $timesheet) use ($range) {
-                $clone = clone $timesheet;
-                $clone->setRelation('entries', $timesheet->entries
-                    ->filter(fn ($entry) => $entry->work_date->betweenIncluded($range['start'], $range['end']))
-                    ->when($filters['project_id'] ?? null, fn ($entries, $projectId) => $entries
-                        ->filter(fn ($entry) => (int) $entry->project_id === (int) $projectId))
-                    ->values());
-
-                return $clone;
-            })
             ->filter(fn (Timesheet $timesheet) => $timesheet->entries->isNotEmpty())
             ->values();
     }

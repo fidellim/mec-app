@@ -16,6 +16,7 @@ class DashboardController extends Controller
         $openPeriod = $this->latestOpenPeriod();
         $reportingPeriod = $this->latestCompletedPeriod() ?? $openPeriod;
         $leaveBalances = $entitlements->visibleBalancesFor($user, viewer: $user);
+        $managedDepartmentIds = $user->role === 'hod' ? $user->managedDepartmentIds() : collect();
 
         return match ($user->role) {
             'super_admin' => view('dashboards.super_admin', $dashboard->superAdminTotals() + [
@@ -33,10 +34,10 @@ class DashboardController extends Controller
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod),
                 'leaveBalances' => $leaveBalances,
             ]),
-            'hod' => view('dashboards.hod', $dashboard->departmentCountsForDepartmentIds($reportingPeriod, $user->managedDepartmentIds()->all()) + [
+            'hod' => view('dashboards.hod', $dashboard->departmentCountsForDepartmentIds($reportingPeriod, $managedDepartmentIds->all()) + [
                 'period' => $reportingPeriod,
-                'departments' => Department::whereIn('id', $user->managedDepartmentIds())->orderBy('name')->get(),
-                'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummaryForDepartmentIds($reportingPeriod, $user->managedDepartmentIds()->all()),
+                'departments' => Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get(),
+                'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummaryForDepartmentIds($reportingPeriod, $managedDepartmentIds->all()),
                 'leaveBalances' => $leaveBalances,
             ]),
             default => view('dashboards.employee', [

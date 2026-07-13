@@ -37,14 +37,16 @@ class LeavePlanReviewCalendarService
             ->orderBy('start_date')
             ->get();
 
-        $holidays = HolidayDate::query()
+        $countingHolidays = HolidayDate::query()
             ->with('event')
             ->whereHas('event', fn ($query) => $query->where('is_active', true))
-            ->whereIn('region', app(HolidayService::class)->applicableRegions($leavePlan->user))
             ->whereDate('holiday_date', '>=', $calendarStart)
             ->whereDate('holiday_date', '<=', $calendarEnd)
             ->orderBy('holiday_date')
             ->get();
+        $holidays = $countingHolidays
+            ->whereIn('region', app(HolidayService::class)->applicableRegions($leavePlan->user))
+            ->values();
 
         $calendarPlans = $visiblePlans
             ->push($leavePlan->loadMissing(['user', 'department']))
@@ -53,7 +55,7 @@ class LeavePlanReviewCalendarService
                 fn (LeavePlan $first, LeavePlan $second) => $first->id <=> $second->id,
             ])
             ->values();
-        $countedLeaveDates = $this->countedLeaveDatesByPlan($calendarPlans);
+        $countedLeaveDates = $this->countedLeaveDatesByPlan($calendarPlans, $countingHolidays);
 
         return $months->map(fn (Carbon $month) => [
             'month' => $month,
@@ -92,7 +94,7 @@ class LeavePlanReviewCalendarService
                 'attendance_code' => $plan->attendance_code,
                 'leave_type_label' => config('timesheet.attendance_codes')[$plan->attendance_code] ?? $plan->attendance_code,
                 'leave_type' => $plan->leaveLabel(),
-                'duration' => $plan->leaveLengthLabel(),
+                'duration' => $plan->leaveLengthLabel($this->countedDays($plan, $countedLeaveDates->get($plan->id, collect()))),
             ])
             ->values();
 
@@ -122,12 +124,17 @@ class LeavePlanReviewCalendarService
             ->values();
     }
 
-    private function countedLeaveDatesByPlan(Collection $leavePlans): Collection
+    private function countedLeaveDatesByPlan(Collection $leavePlans, Collection $holidayDates): Collection
     {
-        $entitlements = app(LeaveEntitlementService::class);
+        return app(LeaveEntitlementService::class)->countedLeaveDatesForPlans($leavePlans, $holidayDates);
+    }
 
-        return $leavePlans->mapWithKeys(fn (LeavePlan $leavePlan) => [
-            $leavePlan->id => $entitlements->countedLeaveDatesForPlan($leavePlan),
-        ]);
+    private function countedDays(LeavePlan $leavePlan, Collection $countedDates): float
+    {
+        if ($leavePlan->duration_type === 'half_day') {
+            return $countedDates->contains($leavePlan->start_date->toDateString()) ? 0.5 : 0.0;
+        }
+
+        return (float) $countedDates->count();
     }
 }
