@@ -1178,7 +1178,11 @@
             color: var(--bs-primary);
             fill: var(--bs-primary);
         }
-        .flatpickr-weekday {
+        .flatpickr-weekdays {
+            background: var(--app-card-bg);
+        }
+        span.flatpickr-weekday {
+            background: transparent;
             color: var(--bs-secondary-color);
             font-size: .72rem;
             font-weight: 800;
