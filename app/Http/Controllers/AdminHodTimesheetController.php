@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
+use App\Services\AdminExclusionService;
 use App\Services\MissingTimesheetReminderService;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -13,6 +14,8 @@ use Illuminate\Validation\Rule;
 
 class AdminHodTimesheetController extends Controller
 {
+    public function __construct(private readonly AdminExclusionService $adminExclusions) {}
+
     public function index()
     {
         $filters = request()->validate([
@@ -25,8 +28,11 @@ class AdminHodTimesheetController extends Controller
             'year.required_with' => 'Year is required when filtering by week.',
         ]);
 
+        $excludedHodIds = $this->adminExclusions->approvalExcludedHodIds(request()->user());
+
         $timesheets = Timesheet::with(['user', 'department', 'period'])
             ->whereHas('user', fn ($query) => $query->where('role', 'hod'))
+            ->whereNotIn('user_id', $excludedHodIds)
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['hod_id'] ?? null, fn ($query, $hodId) => $query->where('user_id', $hodId))
             ->when($filters['department_id'] ?? null, fn ($query, $departmentId) => $query->where('department_id', $departmentId))
@@ -38,7 +44,7 @@ class AdminHodTimesheetController extends Controller
 
         return view('admin.hod-timesheets.index', [
             'timesheets' => $timesheets,
-            'hods' => $this->hods(),
+            'hods' => $this->hods($excludedHodIds),
             'departments' => Department::orderBy('name')->get(),
             'periods' => TimesheetPeriod::orderByDesc('year')->orderByDesc('week_number')->get(['week_number', 'year']),
         ]);
@@ -60,6 +66,7 @@ class AdminHodTimesheetController extends Controller
             : TimesheetPeriod::where('status', 'open')->latest('start_date')->first();
 
         $selectedDepartmentId = ! empty($filters['department_id']) ? (int) $filters['department_id'] : null;
+        $excludedHodIds = $this->adminExclusions->approvalExcludedHodIds(request()->user());
 
         $allHods = User::with([
             'department',
@@ -68,6 +75,7 @@ class AdminHodTimesheetController extends Controller
             ->where('role', 'hod')
             ->where('is_active', true)
             ->whereNotNull('department_id')
+            ->whereNotIn('id', $excludedHodIds)
             ->when($selectedDepartmentId, fn ($query) => $query->where('department_id', $selectedDepartmentId))
             ->orderBy('name')
             ->get();
@@ -120,14 +128,18 @@ class AdminHodTimesheetController extends Controller
 
         $period = TimesheetPeriod::findOrFail($validated['period_id']);
         $departmentId = isset($validated['department_id']) ? (int) $validated['department_id'] : null;
-        $hodIds = null;
+        $excludedHodIds = $this->adminExclusions->approvalExcludedHodIds($request->user());
+        $visibleHods = User::where('role', 'hod')
+            ->where('is_active', true)
+            ->whereNotNull('department_id')
+            ->whereNotIn('id', $excludedHodIds)
+            ->when($departmentId, fn ($query) => $query->where('department_id', $departmentId));
 
         if (! empty($validated['hod_id'])) {
-            $hod = User::where('role', 'hod')
-                ->where('is_active', true)
-                ->when($departmentId, fn ($query) => $query->where('department_id', $departmentId))
-                ->findOrFail($validated['hod_id']);
+            $hod = (clone $visibleHods)->findOrFail($validated['hod_id']);
             $hodIds = [$hod->id];
+        } else {
+            $hodIds = $visibleHods->pluck('id')->map(fn ($id) => (int) $id)->all();
         }
 
         $result = $reminders->sendForPeriodDetailed(
@@ -153,12 +165,12 @@ class AdminHodTimesheetController extends Controller
         );
     }
 
-    private function hods()
+    private function hods($excludedHodIds)
     {
         return User::where('role', 'hod')
             ->where('is_active', true)
+            ->whereNotIn('id', $excludedHodIds)
             ->orderBy('name')
             ->get();
     }
-
 }

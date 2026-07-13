@@ -41,6 +41,18 @@ class AdminExclusionService
             && ! $this->approvalExcluded($recipient, $hod);
     }
 
+    public function approvalExcludedHodIds(User $admin): Collection
+    {
+        if ($admin->role !== 'admin' || ! $admin->is_active) {
+            return collect();
+        }
+
+        return $admin->adminApprovalExcludedHods()
+            ->pluck('users.id')
+            ->map(fn ($id) => (int) $id)
+            ->values();
+    }
+
     public function validHods(): Collection
     {
         return User::where('role', 'hod')

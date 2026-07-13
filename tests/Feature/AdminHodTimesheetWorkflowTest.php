@@ -187,4 +187,72 @@ class AdminHodTimesheetWorkflowTest extends TestCase
             ->get(route('admin.hod-tracker', ['period_id' => 999]))
             ->assertSessionHasErrors('period_id');
     }
+
+    public function test_approval_excluded_hods_are_hidden_from_admin_hod_pages_and_reminders(): void
+    {
+        Mail::fake();
+
+        $department = $this->department();
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $excludedSubmittedHod = $this->userWithRole('hod', [
+            'name' => 'Excluded Submitted HOD',
+            'department_id' => $department->id,
+        ]);
+        $visibleSubmittedHod = $this->userWithRole('hod', [
+            'name' => 'Visible Submitted HOD',
+            'department_id' => $department->id,
+        ]);
+        $excludedMissingHod = $this->userWithRole('hod', [
+            'name' => 'Excluded Missing HOD',
+            'department_id' => $department->id,
+        ]);
+        $visibleMissingHod = $this->userWithRole('hod', [
+            'name' => 'Visible Missing HOD',
+            'department_id' => $department->id,
+        ]);
+        $this->submittedTimesheet($excludedSubmittedHod, $period, $project);
+        $this->submittedTimesheet($visibleSubmittedHod, $period, $project);
+        $admin = $this->userWithRole('admin');
+        $superAdmin = $this->userWithRole('super_admin');
+        $admin->adminApprovalExcludedHods()->attach([$excludedSubmittedHod->id, $excludedMissingHod->id]);
+
+        $this->actingAs($admin)
+            ->get(route('admin.hod-timesheets.index'))
+            ->assertOk()
+            ->assertDontSee('Excluded Submitted HOD')
+            ->assertSee('Visible Submitted HOD');
+
+        $this->actingAs($admin)
+            ->get(route('admin.hod-tracker', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertDontSee('Excluded Submitted HOD')
+            ->assertDontSee('Excluded Missing HOD')
+            ->assertSee('Visible Submitted HOD')
+            ->assertSee('Visible Missing HOD');
+
+        $this->actingAs($admin)
+            ->post(route('admin.hod-tracker.reminders'), ['period_id' => $period->id])
+            ->assertRedirect()
+            ->assertSessionHas('success', 'Sent 1 missing HOD timesheet reminder(s).');
+
+        Mail::assertQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($visibleMissingHod->email));
+        Mail::assertNotQueued(MissingTimesheetReminderMail::class, fn ($mail) => $mail->hasTo($excludedMissingHod->email));
+
+        $this->actingAs($admin)
+            ->post(route('admin.hod-tracker.reminders'), [
+                'period_id' => $period->id,
+                'hod_id' => $excludedMissingHod->id,
+            ])
+            ->assertNotFound();
+
+        $this->actingAs($superAdmin)
+            ->get(route('admin.hod-timesheets.index'))
+            ->assertOk()
+            ->assertSee('Excluded Submitted HOD');
+        $this->actingAs($superAdmin)
+            ->get(route('admin.hod-tracker', ['period_id' => $period->id]))
+            ->assertOk()
+            ->assertSee('Excluded Missing HOD');
+    }
 }
