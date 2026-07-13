@@ -10,6 +10,8 @@
     $selectedVisibilityExclusions = collect(old('hod_visibility_exclusion_ids', $hodVisibilityExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
     $visibilityExcludableIds = collect($hodVisibilityExcludableIds ?? [])->map(fn ($id) => (int) $id)->all();
     $hasVisibilityBlockedCandidates = $hodExclusionCandidates->contains(fn ($candidate) => ! in_array((int) $candidate->id, $visibilityExcludableIds, true));
+    $selectedAdminNotificationExclusions = collect(old('admin_notification_exclusion_ids', $adminNotificationExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
+    $selectedAdminApprovalExclusions = collect(old('admin_approval_exclusion_ids', $adminApprovalExclusionIds ?? []))->map(fn ($id) => (int) $id)->all();
     $isSuperAdmin = auth()->user()->role === 'super_admin';
     $canEditAnnualLeaveOverride = in_array(auth()->user()->role, ['admin', 'super_admin'], true);
     $employeeCodeForRegion = old('employee_code', $userModel->employee_code);
@@ -255,6 +257,44 @@
                             <div class="form-text">Visibility restriction. This also prevents approve, reject, recall, tracker, reminder, and direct detail access. At least one other eligible HOD must remain.</div>
                             @error('hod_visibility_exclusion_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                             @error('hod_visibility_exclusion_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </div>
+                    </div>
+                @endif
+            </div>
+        </div>
+    @endif
+    @if($isSuperAdmin && $userModel->exists && $userModel->role === 'admin')
+        <div class="content-card mt-4">
+            <div class="content-card-header">
+                <h2 class="h5 mb-1">Admin notification and approval exceptions</h2>
+                <div class="small text-muted">Choose the HOD timesheets this Admin should not be notified about or allowed to action.</div>
+            </div>
+            <div class="content-card-body">
+                @if($adminExclusionCandidates->isEmpty())
+                    <div class="alert alert-warning mb-0">No active HODs are available for exceptions.</div>
+                @else
+                    <div class="row g-3">
+                        <div class="col-lg-6">
+                            <label class="form-label" for="adminNotificationExclusionIds">Do not email this Admin for timesheet submissions from</label>
+                            <select class="form-select @error('admin_notification_exclusion_ids') is-invalid @enderror @error('admin_notification_exclusion_ids.*') is-invalid @enderror" id="adminNotificationExclusionIds" name="admin_notification_exclusion_ids[]" multiple>
+                                @foreach($adminExclusionCandidates as $candidate)
+                                    <option value="{{ $candidate->id }}" @selected(in_array((int) $candidate->id, $selectedAdminNotificationExclusions, true))>{{ $candidate->name }} - {{ $roleLabels[$candidate->role] ?? $candidate->role }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Email-only. This Admin can still approve, reject, or recall these HOD timesheets.</div>
+                            @error('admin_notification_exclusion_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error('admin_notification_exclusion_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                        </div>
+                        <div class="col-lg-6">
+                            <label class="form-label" for="adminApprovalExclusionIds">Do not allow this Admin to action timesheets from</label>
+                            <select class="form-select @error('admin_approval_exclusion_ids') is-invalid @enderror @error('admin_approval_exclusion_ids.*') is-invalid @enderror" id="adminApprovalExclusionIds" name="admin_approval_exclusion_ids[]" multiple>
+                                @foreach($adminExclusionCandidates as $candidate)
+                                    <option value="{{ $candidate->id }}" @selected(in_array((int) $candidate->id, $selectedAdminApprovalExclusions, true))>{{ $candidate->name }} - {{ $roleLabels[$candidate->role] ?? $candidate->role }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Prevents email, approval, rejection, and recall. At least one other active Admin or Super Admin reviewer must remain.</div>
+                            @error('admin_approval_exclusion_ids')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error('admin_approval_exclusion_ids.*')<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                         </div>
                     </div>
                 @endif

@@ -134,6 +134,30 @@ class User extends Authenticatable
             ->withTimestamps();
     }
 
+    public function adminNotificationExcludedHods()
+    {
+        return $this->belongsToMany(User::class, 'admin_notification_exclusions', 'admin_user_id', 'hod_user_id')
+            ->withTimestamps();
+    }
+
+    public function adminApprovalExcludedHods()
+    {
+        return $this->belongsToMany(User::class, 'admin_approval_exclusions', 'admin_user_id', 'hod_user_id')
+            ->withTimestamps();
+    }
+
+    public function notificationExcludedByAdmins()
+    {
+        return $this->belongsToMany(User::class, 'admin_notification_exclusions', 'hod_user_id', 'admin_user_id')
+            ->withTimestamps();
+    }
+
+    public function approvalExcludedByAdmins()
+    {
+        return $this->belongsToMany(User::class, 'admin_approval_exclusions', 'hod_user_id', 'admin_user_id')
+            ->withTimestamps();
+    }
+
     public function isSuperAdmin(): bool
     {
         return $this->role === 'super_admin';

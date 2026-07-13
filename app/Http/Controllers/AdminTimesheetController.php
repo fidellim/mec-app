@@ -8,9 +8,10 @@ use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
+use App\Services\AdminExclusionService;
 use App\Services\AuditLogService;
-use App\Services\TimesheetExportService;
 use App\Services\TimesheetEmailNotificationService;
+use App\Services\TimesheetExportService;
 use App\Services\TimesheetRecallService;
 use App\Services\TimesheetStatusHistoryService;
 use Carbon\CarbonImmutable;
@@ -24,6 +25,7 @@ class AdminTimesheetController extends Controller
     use GuardsExports;
 
     private const SUMMARY_PREVIEW_MAX_WEEKS = 6;
+
     private const EMPLOYEE_SHEET_EXPORT_MAX_TIMESHEETS = 250;
 
     public function index(TimesheetExportService $export)
@@ -116,7 +118,7 @@ class AdminTimesheetController extends Controller
             ->with('success', 'Timesheet voided. The employee can now create a corrected timesheet for this weekly period.');
     }
 
-    public function recallApproved(Request $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetRecallService $recalls, TimesheetStatusHistoryService $history)
+    public function recallApproved(Request $request, Timesheet $timesheet, AdminExclusionService $adminExclusions, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetRecallService $recalls, TimesheetStatusHistoryService $history)
     {
         if ((int) $timesheet->user_id === (int) $request->user()->id) {
             return back()->with('warning', 'You cannot recall your own approved timesheet. Another authorized reviewer must complete this correction.');
@@ -125,6 +127,13 @@ class AdminTimesheetController extends Controller
         $timesheet->loadMissing('user');
 
         abort_unless($request->user()->role === 'admin' || $request->user()->role === 'super_admin', 403);
+
+        abort_if(
+            $timesheet->user?->role === 'hod'
+                && $adminExclusions->approvalExcluded($request->user(), $timesheet->user),
+            403,
+            'This Admin is not assigned to recall this HOD timesheet.'
+        );
 
         abort_unless($timesheet->status === Timesheet::STATUS_APPROVED, 422, 'Only approved timesheets can be recalled.');
 

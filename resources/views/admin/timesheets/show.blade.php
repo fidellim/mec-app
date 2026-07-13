@@ -1,6 +1,10 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $isAdminApprovalExcluded = $timesheet->user?->role === 'hod'
+        && app(\App\Services\AdminExclusionService::class)->approvalExcluded(auth()->user(), $timesheet->user);
+@endphp
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Timesheet Details</h1>
@@ -41,12 +45,17 @@
         $actor = auth()->user();
         $isOwnTimesheet = (int) $timesheet->user_id === (int) $actor->id;
         $canTakeApprovalAction = ! $isOwnTimesheet
+            && ! $isAdminApprovalExcluded
             && ($actor->role === 'super_admin' || $actor->role === 'admin');
     @endphp
 
     @if($isOwnTimesheet)
         <div class="alert alert-warning mt-3">
             You cannot approve or reject your own timesheet. Another Admin or Super Admin must review this submission.
+        </div>
+    @elseif($isAdminApprovalExcluded)
+        <div class="alert alert-warning mt-3">
+            You can view this timesheet, but another Admin or Super Admin reviewer is assigned to approve or reject it.
         </div>
     @elseif($canTakeApprovalAction)
     <div class="content-card mt-3">
@@ -71,6 +80,7 @@
         $actor = auth()->user();
         $isOwnTimesheet = (int) $timesheet->user_id === (int) $actor->id;
         $canRecallApproved = ! $isOwnTimesheet
+            && ! $isAdminApprovalExcluded
             && ($actor->role === 'super_admin' || $actor->role === 'admin');
     @endphp
 
@@ -93,6 +103,8 @@
         </div>
     @elseif($isOwnTimesheet)
         <div class="alert alert-warning mt-3">You cannot recall your own approved timesheet. Another authorized reviewer must complete this correction.</div>
+    @elseif($isAdminApprovalExcluded)
+        <div class="alert alert-warning mt-3">Another Admin or Super Admin reviewer is assigned to recall this approved HOD timesheet.</div>
     @endif
 
     @if($actor->role === 'super_admin')

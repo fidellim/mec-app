@@ -10,16 +10,17 @@ use Illuminate\Support\Facades\Mail;
 
 class TimesheetEmailNotificationService
 {
-    public function __construct(private readonly HodExclusionService $hodExclusions)
-    {
-    }
+    public function __construct(
+        private readonly HodExclusionService $hodExclusions,
+        private readonly AdminExclusionService $adminExclusions,
+    ) {}
 
     public function submitted(Timesheet $timesheet, bool $resubmitted = false): void
     {
         $timesheet = $this->loadTimesheet($timesheet);
 
         if ($timesheet->user?->role === 'hod') {
-            $this->sendToAdmins(fn () => new TimesheetWorkflowMail(
+            $this->sendToAdmins($timesheet->user, fn () => new TimesheetWorkflowMail(
                 timesheet: $timesheet,
                 headline: $resubmitted ? 'HOD timesheet resubmitted for approval' : 'HOD timesheet submitted for approval',
                 intro: $timesheet->user->name.' submitted a timesheet for Week '.$timesheet->period->week_number.', '.$timesheet->period->year.'.',
@@ -125,13 +126,14 @@ class TimesheetEmailNotificationService
             ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
     }
 
-    private function sendToAdmins(\Closure $mailFactory): void
+    private function sendToAdmins(User $hod, \Closure $mailFactory): void
     {
         User::whereIn('role', ['admin', 'super_admin'])
             ->where('receives_hod_timesheet_submission_emails', true)
             ->where('is_active', true)
             ->orderBy('id')
             ->get()
+            ->filter(fn (User $recipient) => $this->adminExclusions->shouldReceiveHodSubmissionEmail($recipient, $hod))
             ->each(fn (User $recipient) => $this->send($recipient, $mailFactory()));
     }
 

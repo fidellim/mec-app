@@ -3,13 +3,14 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\RejectTimesheetRequest;
+use App\Models\Department;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
-use App\Models\Department;
+use App\Services\AdminExclusionService;
 use App\Services\AuditLogService;
-use App\Services\MissingTimesheetReminderService;
 use App\Services\HodExclusionService;
+use App\Services\MissingTimesheetReminderService;
 use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetRecallService;
 use App\Services\TimesheetStatusHistoryService;
@@ -19,9 +20,10 @@ use Illuminate\Validation\Rule;
 
 class HodTimesheetController extends Controller
 {
-    public function __construct(private readonly HodExclusionService $hodExclusions)
-    {
-    }
+    public function __construct(
+        private readonly HodExclusionService $hodExclusions,
+        private readonly AdminExclusionService $adminExclusions,
+    ) {}
 
     public function index()
     {
@@ -56,6 +58,7 @@ class HodTimesheetController extends Controller
     public function show(Timesheet $timesheet)
     {
         $this->authorizeDepartment($timesheet);
+
         return view('hod.timesheets.show', ['timesheet' => $timesheet->load(['user', 'entries.project', 'period', 'department'])]);
     }
 
@@ -296,6 +299,13 @@ class HodTimesheetController extends Controller
         }
 
         if ($actor->role === 'admin') {
+            abort_if(
+                $timesheet->user?->role === 'hod'
+                    && $this->adminExclusions->approvalExcluded($actor, $timesheet->user),
+                403,
+                'This Admin is not assigned to '.$action.' this HOD timesheet.'
+            );
+
             return;
         }
 

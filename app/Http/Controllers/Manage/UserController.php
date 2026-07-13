@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Manage;
 use App\Http\Controllers\Controller;
 use App\Models\Department;
 use App\Models\User;
+use App\Services\AdminExclusionService;
 use App\Services\AuditLogService;
 use App\Services\DashboardSummaryService;
 use App\Services\HodExclusionService;
@@ -127,13 +128,16 @@ class UserController extends Controller
     public function create(HodExclusionService $hodExclusions)
     {
         return view('manage.users.form', [
-            'userModel' => new User(),
+            'userModel' => new User,
             'departments' => Department::where('is_active', true)->orderBy('name')->get(),
             'hodExclusionCandidates' => collect(),
             'hodNotificationExclusionIds' => [],
             'hodApprovalExclusionIds' => [],
             'hodVisibilityExclusionIds' => [],
             'hodVisibilityExcludableIds' => [],
+            'adminExclusionCandidates' => collect(),
+            'adminNotificationExclusionIds' => [],
+            'adminApprovalExclusionIds' => [],
         ]);
     }
 
@@ -147,7 +151,7 @@ class UserController extends Controller
         ]);
     }
 
-    public function store(Request $request, AuditLogService $audit, HodExclusionService $hodExclusions, LeaveEntitlementService $entitlements)
+    public function store(Request $request, AuditLogService $audit, HodExclusionService $hodExclusions, AdminExclusionService $adminExclusions, LeaveEntitlementService $entitlements)
     {
         $data = $this->validated($request);
         $data['password'] = $request->validate(
@@ -163,6 +167,11 @@ class UserController extends Controller
             $request->input('hod_approval_exclusion_ids', []),
             $request->input('hod_visibility_exclusion_ids', [])
         );
+        $adminExclusions->syncForAdmin(
+            $user,
+            $request->input('admin_notification_exclusion_ids', []),
+            $request->input('admin_approval_exclusion_ids', [])
+        );
         $audit->record('user_created', $user, null, $user->toArray());
         if ($annualEntitlement) {
             $audit->record('leave_entitlement_synced', $annualEntitlement, null, $annualEntitlement->toArray());
@@ -171,7 +180,7 @@ class UserController extends Controller
         return redirect()->route('manage.users.index')->with('success', 'User created.');
     }
 
-    public function edit(User $user, HodExclusionService $hodExclusions)
+    public function edit(User $user, HodExclusionService $hodExclusions, AdminExclusionService $adminExclusions)
     {
         $this->authorizeEditableUser(request()->user(), $user);
 
@@ -186,10 +195,13 @@ class UserController extends Controller
             'hodApprovalExclusionIds' => $user->hodApprovalExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
             'hodVisibilityExclusionIds' => $user->hodVisibilityExcludedSubmitters()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
             'hodVisibilityExcludableIds' => $hodExclusions->visibilityExcludableSubmitterIdsForHod($user)->all(),
+            'adminExclusionCandidates' => $user->role === 'admin' ? $adminExclusions->validHods() : collect(),
+            'adminNotificationExclusionIds' => $user->adminNotificationExcludedHods()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
+            'adminApprovalExclusionIds' => $user->adminApprovalExcludedHods()->pluck('users.id')->map(fn ($id) => (int) $id)->all(),
         ]);
     }
 
-    public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard, HodExclusionService $hodExclusions, LeaveEntitlementService $entitlements)
+    public function update(Request $request, User $user, AuditLogService $audit, DashboardSummaryService $dashboard, HodExclusionService $hodExclusions, AdminExclusionService $adminExclusions, LeaveEntitlementService $entitlements)
     {
         $this->authorizeEditableUser($request->user(), $user);
 
@@ -207,6 +219,7 @@ class UserController extends Controller
         $oldDepartmentId = $user->department_id;
         $oldRole = $user->role;
         $oldHodExclusions = $isSuperAdminUpdate ? $hodExclusions->snapshotFor($user) : null;
+        $oldAdminExclusions = $isSuperAdminUpdate ? $adminExclusions->snapshotFor($user) : null;
         $assignedHodDepartmentIds = $isSuperAdminUpdate && $oldRole === 'hod'
             ? $user->primaryDepartments()->pluck('id')
                 ->merge($user->managedDepartments()->pluck('departments.id'))
@@ -214,7 +227,7 @@ class UserController extends Controller
                 ->values()
             : collect();
 
-        DB::transaction(function () use ($request, $user, $data, $old, $oldDepartmentId, $oldRole, $oldHodExclusions, $assignedHodDepartmentIds, $isSuperAdminUpdate, $audit, $dashboard, $hodExclusions, $entitlements) {
+        DB::transaction(function () use ($request, $user, $data, $old, $oldDepartmentId, $oldRole, $oldHodExclusions, $oldAdminExclusions, $assignedHodDepartmentIds, $isSuperAdminUpdate, $audit, $dashboard, $hodExclusions, $adminExclusions, $entitlements) {
             $user->update($data);
             $audit->record('user_updated', $user, $old, $user->fresh()->toArray());
 
@@ -248,6 +261,7 @@ class UserController extends Controller
 
             if ($isSuperAdminUpdate) {
                 $hodExclusions->pruneInvalidForUser($user->fresh());
+                $adminExclusions->pruneInvalidForUser($user->fresh());
                 [, $newExclusions] = $hodExclusions->syncForHod(
                     $user->fresh(),
                     $request->input('hod_notification_exclusion_ids', []),
@@ -257,6 +271,16 @@ class UserController extends Controller
 
                 if ($oldHodExclusions !== $newExclusions) {
                     $audit->record('user_hod_exclusions_updated', $user, $oldHodExclusions, $newExclusions);
+                }
+
+                [, $newAdminExclusions] = $adminExclusions->syncForAdmin(
+                    $user->fresh(),
+                    $request->input('admin_notification_exclusion_ids', []),
+                    $request->input('admin_approval_exclusion_ids', [])
+                );
+
+                if ($oldAdminExclusions !== $newAdminExclusions) {
+                    $audit->record('user_admin_exclusions_updated', $user, $oldAdminExclusions, $newAdminExclusions);
                 }
             }
 
@@ -391,6 +415,10 @@ class UserController extends Controller
             'hod_approval_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
             'hod_visibility_exclusion_ids' => ['nullable', 'array'],
             'hod_visibility_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
+            'admin_notification_exclusion_ids' => ['nullable', 'array'],
+            'admin_notification_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
+            'admin_approval_exclusion_ids' => ['nullable', 'array'],
+            'admin_approval_exclusion_ids.*' => ['integer', Rule::exists('users', 'id')],
         ], [
             'employee_code.required' => 'Employee number is required for employees and HODs.',
             'employee_code.regex' => 'Employee number must use the format MEC-HR-YYYY-NNN, MCE-HR-YYYY-NNN, or MEC-PHIL-HR-YYYY-NNN. The final number must be at least 3 digits.',
@@ -413,7 +441,13 @@ class UserController extends Controller
         $data['joining_date'] = filled($data['joining_date'] ?? null) ? $data['joining_date'] : null;
         $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;
         $data['annual_leave_allowance_days'] = filled($data['annual_leave_allowance_days'] ?? null) ? $data['annual_leave_allowance_days'] : null;
-        unset($data['hod_notification_exclusion_ids'], $data['hod_approval_exclusion_ids'], $data['hod_visibility_exclusion_ids']);
+        unset(
+            $data['hod_notification_exclusion_ids'],
+            $data['hod_approval_exclusion_ids'],
+            $data['hod_visibility_exclusion_ids'],
+            $data['admin_notification_exclusion_ids'],
+            $data['admin_approval_exclusion_ids']
+        );
 
         return $data;
     }
