@@ -31,7 +31,7 @@
                     <div class="meta-value">{{ $leavePlan->bereavementRelationshipLabel() ?: 'Unspecified' }}</div>
                 </div>
             @endif
-            @php($leavePayBreakdowns = in_array(auth()->user()?->role, ['admin', 'super_admin'], true) ? app(\App\Services\LeaveEntitlementService::class)->payBreakdownForPlan($leavePlan) : [])
+            <?php $leavePayBreakdowns = in_array(auth()->user()?->role, ['admin', 'super_admin'], true) ? app(\App\Services\LeaveEntitlementService::class)->payBreakdownForPlan($leavePlan) : []; ?>
             @if(! empty($leavePayBreakdowns))
                 <div class="col-12">
                     @include('shared.leave_pay_breakdown', ['leavePayBreakdowns' => $leavePayBreakdowns])
@@ -58,30 +58,64 @@
                 </div>
             @endif
             @if($leavePlan->hod_approved_at || $leavePlan->director_approved_at || $leavePlan->hr_approved_at)
+                <?php
+                    $approvalStages = [
+                        [
+                            'key' => \App\Models\LeavePlan::APPROVAL_STAGE_HOD,
+                            'label' => 'Head of Department',
+                            'approvedAt' => $leavePlan->hod_approved_at,
+                            'approver' => $leavePlan->hodApprover,
+                            'notRequired' => $leavePlan->user?->role === 'hod',
+                        ],
+                        [
+                            'key' => \App\Models\LeavePlan::APPROVAL_STAGE_DIRECTOR,
+                            'label' => 'Director',
+                            'approvedAt' => $leavePlan->director_approved_at,
+                            'approver' => $leavePlan->directorApprover,
+                            'notRequired' => false,
+                        ],
+                        [
+                            'key' => \App\Models\LeavePlan::APPROVAL_STAGE_HR,
+                            'label' => 'HR Department',
+                            'approvedAt' => $leavePlan->hr_approved_at,
+                            'approver' => $leavePlan->hrApprover,
+                            'notRequired' => false,
+                        ],
+                    ];
+                    $stageOrder = array_column($approvalStages, 'key');
+                    $currentStageIndex = array_search($leavePlan->approval_stage, $stageOrder, true);
+                ?>
                 <div class="col-12">
                     <div class="meta-label">Approval chain</div>
                     <div class="row g-2 mt-1">
-                        <div class="col-md-4">
-                            <div class="border rounded p-2 h-100">
-                                <div class="fw-semibold">Head of Department</div>
-                                <div class="small text-muted">{{ $leavePlan->hodApprover?->name ?: 'Pending' }}</div>
-                                <div class="small text-muted">{{ $leavePlan->hod_approved_at?->format('M j, Y g:i A') ?: '-' }}</div>
+                        @foreach($approvalStages as $stageIndex => $stage)
+                            <?php
+                                $isPending = $leavePlan->approval_stage === $stage['key'];
+                                $isAwaiting = $currentStageIndex !== false && $stageIndex > $currentStageIndex;
+                            ?>
+                            <div class="col-md-4">
+                                <div class="border rounded p-2 h-100">
+                                    <div class="fw-semibold">{{ $stage['label'] }}</div>
+                                    @if($stage['approvedAt'])
+                                        <div class="small fw-semibold text-success">Approved</div>
+                                        <div class="small text-muted">{{ $stage['approver']?->name ?: 'Approver unavailable' }}</div>
+                                        <div class="small text-muted">{{ $stage['approvedAt']->format('M j, Y g:i A') }}</div>
+                                    @elseif($stage['notRequired'])
+                                        <div class="small fw-semibold text-muted">Not required</div>
+                                        <div class="small text-muted">Employee is Head of Department</div>
+                                    @elseif($isPending)
+                                        <div class="small fw-semibold text-warning-emphasis">Pending approval</div>
+                                        <div class="small text-muted">This is the current approval stage</div>
+                                    @elseif($isAwaiting)
+                                        <div class="small fw-semibold text-muted">Awaiting previous approval</div>
+                                        <div class="small text-muted">This stage has not started</div>
+                                    @else
+                                        <div class="small fw-semibold text-muted">Not completed</div>
+                                        <div class="small text-muted">No approval was recorded</div>
+                                    @endif
+                                </div>
                             </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="border rounded p-2 h-100">
-                                <div class="fw-semibold">Director</div>
-                                <div class="small text-muted">{{ $leavePlan->directorApprover?->name ?: 'Pending' }}</div>
-                                <div class="small text-muted">{{ $leavePlan->director_approved_at?->format('M j, Y g:i A') ?: '-' }}</div>
-                            </div>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="border rounded p-2 h-100">
-                                <div class="fw-semibold">HR Department</div>
-                                <div class="small text-muted">{{ $leavePlan->hrApprover?->name ?: 'Pending' }}</div>
-                                <div class="small text-muted">{{ $leavePlan->hr_approved_at?->format('M j, Y g:i A') ?: '-' }}</div>
-                            </div>
-                        </div>
+                        @endforeach
                     </div>
                 </div>
             @endif

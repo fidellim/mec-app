@@ -225,6 +225,88 @@ class LeavePlanWorkflowTest extends TestCase
         ]);
     }
 
+    public function test_approval_chain_distinguishes_skipped_pending_and_future_stages(): void
+    {
+        $department = $this->department();
+        $hod = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $departmentApprover = $this->userWithRole('hod');
+        $director = $this->userWithRole('employee');
+        $hr = $this->userWithRole('employee');
+
+        $hodPlan = LeavePlan::factory()->create([
+            'user_id' => $hod->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approval_stage' => null,
+            'director_approved_at' => '2026-07-16 09:06:00',
+            'director_approved_by' => $director->id,
+            'hr_approved_at' => '2026-07-16 10:45:00',
+            'hr_approved_by' => $hr->id,
+            'approved_at' => '2026-07-16 10:45:00',
+            'approved_by' => $hr->id,
+        ]);
+
+        $this->actingAs($hod)
+            ->get(route('employee.leave-plans.show', $hodPlan))
+            ->assertOk()
+            ->assertSee('Not required')
+            ->assertSee('Employee is Head of Department')
+            ->assertDontSee('Pending approval');
+
+        $directorStagePlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_SUBMITTED,
+            'approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+            'hod_approved_at' => '2026-07-16 08:30:00',
+            'hod_approved_by' => $departmentApprover->id,
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.show', $directorStagePlan))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Head of Department',
+                'Approved',
+                $departmentApprover->name,
+                'Director',
+                'Pending approval',
+                'HR Department',
+                'Awaiting previous approval',
+            ]);
+
+        $approvedPlan = LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'status' => LeavePlan::STATUS_APPROVED,
+            'approval_stage' => null,
+            'hod_approved_at' => '2026-07-16 08:30:00',
+            'hod_approved_by' => $departmentApprover->id,
+            'director_approved_at' => '2026-07-16 09:06:00',
+            'director_approved_by' => $director->id,
+            'hr_approved_at' => '2026-07-16 10:45:00',
+            'hr_approved_by' => $hr->id,
+            'approved_at' => '2026-07-16 10:45:00',
+            'approved_by' => $hr->id,
+        ]);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.show', $approvedPlan))
+            ->assertOk()
+            ->assertSeeInOrder([
+                'Head of Department',
+                $departmentApprover->name,
+                'Director',
+                $director->name,
+                'HR Department',
+                $hr->name,
+            ])
+            ->assertDontSee('Pending approval')
+            ->assertDontSee('Awaiting previous approval')
+            ->assertDontSee('Not completed');
+    }
+
     public function test_admin_leave_plan_approval_returns_to_originating_detail_page(): void
     {
         $department = $this->department();
