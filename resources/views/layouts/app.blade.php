@@ -1771,7 +1771,7 @@
                     $hasApprovalNav = $isLeavePlanStageApprover || auth()->user()->role === 'hod';
                     $hasAdminNav = in_array(auth()->user()->role, ['admin', 'super_admin'], true) || auth()->user()->isAdminLike();
                     $workspaceOpen = request()->routeIs('dashboard', 'employee.timesheets.*', 'employee.leave-plans.*');
-                    $approvalsOpen = request()->routeIs('assigned.leave-plans.*', 'hod.timesheets.*', 'hod.leave-plans.*', 'hod.tracker');
+                    $approvalsOpen = request()->routeIs('assigned.leave-plans.*', 'hod.timesheets.*', 'hod.leave-plans.*', 'hod.leave-entitlements.*', 'hod.tracker');
                     $adminOpen = request()->routeIs('admin.timesheets.*', 'admin.leave-plans.*', 'admin.leave-entitlements.*', 'admin.annual-leave-carry-overs.*', 'admin.hod-timesheets.*', 'admin.hod-tracker', 'manage.*');
                     $supportOpen = request()->routeIs('guide');
                 @endphp
@@ -1798,6 +1798,7 @@
                                 @if(auth()->user()->role === 'hod')
                                     <a href="{{ route('hod.timesheets.index') }}" @class(['active' => request()->routeIs('hod.timesheets.*')]) title="Department Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Timesheets</span></a>
                                     <a href="{{ route('hod.leave-plans.index') }}" @class(['active' => request()->routeIs('hod.leave-plans.*')]) title="Department Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/department-timesheets.svg') }}" alt=""><span class="sidebar-label">Department Leave Plans</span></a>
+                                    <a href="{{ route('hod.leave-entitlements.index') }}" @class(['active' => request()->routeIs('hod.leave-entitlements.*')]) title="Annual Leave Entitlements"><img class="sidebar-icon" src="{{ asset('images/sidebar/weekly-periods.svg') }}" alt=""><span class="sidebar-label">Annual Leave Entitlements</span></a>
                                     <a href="{{ route('hod.tracker') }}" @class(['active' => request()->routeIs('hod.tracker')]) title="Submission Tracker"><img class="sidebar-icon" src="{{ asset('images/sidebar/submission-tracker.svg') }}" alt=""><span class="sidebar-label">Submission Tracker</span></a>
                                 @endif
                             </div>

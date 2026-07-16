@@ -357,6 +357,95 @@ class LeaveEntitlementService
         ])->all();
     }
 
+    /**
+     * Load annual balances for a page of users without per-user database queries.
+     *
+     * @param  Collection<int, User>  $users
+     * @return array<int, array<string, mixed>>
+     */
+    public function annualBalancesForUsers(Collection $users, int $year): array
+    {
+        $users = $users
+            ->filter(fn (User $user) => $this->userIsEligibleFor($user, self::ANNUAL_LEAVE_CODE))
+            ->values();
+
+        if ($users->isEmpty()) {
+            return [];
+        }
+
+        $userIds = $users->pluck('id')->map(fn ($id) => (int) $id)->all();
+        $entitlements = LeaveEntitlement::query()
+            ->whereIn('user_id', $userIds)
+            ->where('year', $year)
+            ->where('attendance_code', self::ANNUAL_LEAVE_CODE)
+            ->get()
+            ->keyBy('user_id');
+        $now = now();
+        $missing = $users
+            ->reject(fn (User $user) => $entitlements->has($user->id))
+            ->map(fn (User $user) => $this->entitlementAttributesFor($user, $year, self::ANNUAL_LEAVE_CODE) + [
+                'created_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+        if ($missing->isNotEmpty()) {
+            LeaveEntitlement::query()->insertOrIgnore($missing->all());
+            $entitlements = LeaveEntitlement::query()
+                ->whereIn('user_id', $userIds)
+                ->where('year', $year)
+                ->where('attendance_code', self::ANNUAL_LEAVE_CODE)
+                ->get()
+                ->keyBy('user_id');
+        }
+
+        $carryOvers = AnnualLeaveCarryOver::query()
+            ->whereIn('user_id', $userIds)
+            ->where('to_year', $year)
+            ->where('attendance_code', self::ANNUAL_LEAVE_CODE)
+            ->where('status', AnnualLeaveCarryOver::STATUS_APPROVED)
+            ->selectRaw('user_id, SUM(approved_days) as approved_days')
+            ->groupBy('user_id')
+            ->get()
+            ->keyBy('user_id');
+        $yearStart = Carbon::create($year, 1, 1)->startOfDay();
+        $yearEnd = Carbon::create($year, 12, 31)->endOfDay();
+        $plans = LeavePlan::query()
+            ->with('user')
+            ->whereIn('user_id', $userIds)
+            ->where('attendance_code', self::ANNUAL_LEAVE_CODE)
+            ->whereIn('status', self::COUNTED_STATUSES)
+            ->whereDate('start_date', '<=', $yearEnd->toDateString())
+            ->whereDate('end_date', '>=', $yearStart->toDateString())
+            ->get();
+        $holidayDates = $plans->isEmpty()
+            ? collect()
+            : HolidayDate::query()
+                ->whereHas('event', fn ($query) => $query->where('is_active', true))
+                ->whereDate('holiday_date', '>=', $plans->min(fn (LeavePlan $plan) => $plan->start_date->toDateString()))
+                ->whereDate('holiday_date', '<=', $plans->max(fn (LeavePlan $plan) => $plan->end_date->toDateString()))
+                ->get();
+        $countedDatesByPlan = $plans->isEmpty()
+            ? collect()
+            : $this->countedLeaveDatesForPlans($plans, $holidayDates);
+        $plansByUser = $plans->groupBy('user_id');
+
+        foreach ($users as $user) {
+            $this->entitlementsByUserYear[$this->entitlementsCacheKey($user, $year)] = collect([
+                self::ANNUAL_LEAVE_CODE => $entitlements->get($user->id),
+            ])->filter();
+            $carryOver = (float) ($carryOvers->get($user->id)?->approved_days ?? 0);
+            $this->carryOversByUserYearCode[$this->carryOverCacheKey($user, $year, self::ANNUAL_LEAVE_CODE)] = $carryOver;
+            $this->usedDaysByUserCodeAndExclusion[$this->usedDaysCacheKey($user, self::ANNUAL_LEAVE_CODE)] = collect($plansByUser->get($user->id, []))
+                ->reduce(function (Collection $totals, LeavePlan $plan) use ($countedDatesByPlan) {
+                    return $this->addCountedDatesToYearTotals($totals, $plan, collect($countedDatesByPlan->get($plan->id, [])));
+                }, collect());
+        }
+
+        return $users->mapWithKeys(fn (User $user) => [
+            $user->id => $this->formatBalance($this->balanceFor($user, $year, attendanceCode: self::ANNUAL_LEAVE_CODE)),
+        ])->all();
+    }
+
     public function eligibleEntitledLeaveCodesFor(User $user): array
     {
         return collect(self::ENTITLED_LEAVE_CODES)

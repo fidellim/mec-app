@@ -193,18 +193,85 @@ class HodExclusionWorkflowTest extends TestCase
         $this->assertSame($visibleHod->id, $timesheet->refresh()->approved_by);
     }
 
-    public function test_hod_leave_entitlements_page_is_not_available(): void
+    public function test_hod_annual_leave_entitlements_page_obeys_management_and_visibility_scope(): void
     {
-        [, $hod] = $this->departmentWithTwoHods();
+        [$department, $hod, $otherHod, $employee] = $this->departmentWithTwoHods();
+        $employee->update(['name' => 'Visible Balance Employee', 'annual_leave_allowance_days' => 12]);
+        $otherHod->update(['name' => 'Managed HOD']);
+        $hiddenEmployee = $this->userWithRole('employee', [
+            'name' => 'Hidden Balance Employee',
+            'department_id' => $department->id,
+        ]);
+        $inactiveEmployee = $this->userWithRole('employee', [
+            'name' => 'Inactive Balance Employee',
+            'department_id' => $department->id,
+            'is_active' => false,
+        ]);
+        $otherDepartment = $this->department();
+        $unmanagedEmployee = $this->userWithRole('employee', [
+            'name' => 'Unmanaged Balance Employee',
+            'department_id' => $otherDepartment->id,
+        ]);
+        $hod->hodVisibilityExcludedSubmitters()->attach($hiddenEmployee->id);
+
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L100',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2025-12-31',
+            'end_date' => '2026-01-02',
+        ]);
+        LeavePlan::factory()->create([
+            'user_id' => $employee->id,
+            'department_id' => $department->id,
+            'attendance_code' => 'L110',
+            'status' => LeavePlan::STATUS_APPROVED,
+            'start_date' => '2026-01-05',
+            'end_date' => '2026-01-09',
+        ]);
 
         $this->actingAs($hod)
-            ->get('/department/leave-entitlements')
-            ->assertNotFound();
-
-        $this->actingAs($hod)
-            ->get(route('hod.timesheets.index'))
+            ->get(route('hod.leave-entitlements.index', ['year' => 2026]))
             ->assertOk()
-            ->assertDontSee('/department/leave-entitlements');
+            ->assertSee('Annual Leave Entitlements')
+            ->assertSee('Visible Balance Employee')
+            ->assertSee('Managed HOD')
+            ->assertSee('12 days')
+            ->assertSee('2 days')
+            ->assertSee('10 days')
+            ->assertDontSee('Hidden Balance Employee')
+            ->assertDontSee('Inactive Balance Employee')
+            ->assertDontSee('Unmanaged Balance Employee')
+            ->assertDontSee('<td><div class="fw-semibold">'.$hod->name, false)
+            ->assertDontSee('Sick Leave');
+
+        $this->actingAs($hod)->get(route('hod.timesheets.index'))
+            ->assertOk()
+            ->assertSee(route('hod.leave-entitlements.index'));
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-entitlements.index', ['employee' => 'Visible Balance']))
+            ->assertOk()
+            ->assertSee('Visible Balance Employee')
+            ->assertDontSee('Managed HOD');
+
+        $this->actingAs($hod)
+            ->get(route('hod.leave-entitlements.index', ['department_id' => $otherDepartment->id]))
+            ->assertForbidden();
+
+        $this->actingAs($inactiveEmployee)
+            ->get(route('hod.leave-entitlements.index'))
+            ->assertForbidden();
+
+        $admin = $this->userWithRole('admin');
+        $this->actingAs($admin)
+            ->get(route('hod.leave-entitlements.index'))
+            ->assertForbidden();
+
+        auth()->logout();
+        $this->get(route('hod.leave-entitlements.index'))
+            ->assertRedirect(route('login'));
     }
 
     public function test_hod_leave_plan_review_shows_employee_leave_balances(): void

@@ -49,6 +49,49 @@ class HodLeavePlanController extends Controller
         return view('hod.leave-plans.index', compact('leavePlans', 'employees', 'departments', 'selectedDepartmentId'));
     }
 
+    public function leaveEntitlements(Request $request, LeaveEntitlementService $entitlements)
+    {
+        $filters = $request->validate([
+            'department_id' => ['nullable', 'integer'],
+            'employee' => ['nullable', 'string', 'max:100'],
+            'year' => ['nullable', 'integer', 'min:2000', 'max:2100'],
+        ]);
+        $managedDepartmentIds = $this->managedDepartmentIds();
+        $selectedDepartmentId = $this->selectedDepartmentId($managedDepartmentIds);
+        $year = (int) ($filters['year'] ?? now()->year);
+        $employeeSearch = trim((string) ($filters['employee'] ?? ''));
+
+        $employees = User::with('department')
+            ->whereIn('department_id', $selectedDepartmentId ? [$selectedDepartmentId] : $managedDepartmentIds)
+            ->whereIn('role', ['employee', 'hod'])
+            ->where('is_active', true)
+            ->whereKeyNot($request->user()->id)
+            ->whereDoesntHave('visibilityExcludedByHods', fn ($query) => $query->whereKey($request->user()->id))
+            ->when($employeeSearch !== '', function ($query) use ($employeeSearch) {
+                $escaped = addcslashes($employeeSearch, '%_\\');
+                $query->where(function ($employeeQuery) use ($escaped) {
+                    $employeeQuery->where('name', 'like', "%{$escaped}%")
+                        ->orWhere('employee_code', 'like', "%{$escaped}%");
+                });
+            })
+            ->orderBy('name')
+            ->paginate(15)
+            ->withQueryString();
+
+        $balancesByUser = $entitlements->annualBalancesForUsers($employees->getCollection(), $year);
+        $employees->getCollection()->each(function (User $employee) use ($balancesByUser) {
+            $employee->annualLeaveBalance = $balancesByUser[$employee->id] ?? null;
+        });
+
+        return view('hod.leave-entitlements.index', [
+            'employees' => $employees,
+            'departments' => Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get(),
+            'selectedDepartmentId' => $selectedDepartmentId,
+            'employeeSearch' => $employeeSearch,
+            'year' => $year,
+        ]);
+    }
+
     public function calendar(Request $request, LeavePlanCalendarService $calendar)
     {
         $managedDepartmentIds = $this->managedDepartmentIds();
