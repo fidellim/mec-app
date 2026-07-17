@@ -68,6 +68,11 @@ For forms:
 - Avoid plain `php artisan test` for broad runs because it is serial and can exceed command timeouts.
 - If a full regression still reaches the tool timeout, split it into parallel batches and report it as a runtime limit unless a test failure is shown.
 
+## Git Commit Rules
+
+- Use Conventional Commits for all commit messages.
+- Keep each commit focused on one logical change; split unrelated changes into separate commits.
+
 ## Development Priority
 
 Improve one page at a time.
