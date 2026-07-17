@@ -1713,6 +1713,62 @@ class ManagementWorkflowTest extends TestCase
             ->assertSessionHas('error');
     }
 
+    public function test_super_admin_can_filter_projects_by_search_and_status(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+        Project::factory()->create([
+            'project_code' => 'ALPHA-100',
+            'project_name' => 'Harbour Upgrade',
+            'client_name' => 'Northstar Client',
+            'is_active' => true,
+        ]);
+        Project::factory()->create([
+            'project_code' => 'BETA-200',
+            'project_name' => 'Desert Survey',
+            'client_name' => 'Sandstone Client',
+            'is_active' => false,
+        ]);
+
+        foreach (['alpha', 'Harbour', 'Northstar'] as $search) {
+            $this->actingAs($superAdmin)
+                ->get(route('manage.projects.index', ['search' => $search]))
+                ->assertOk()
+                ->assertSee('ALPHA-100')
+                ->assertDontSee('BETA-200');
+        }
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.projects.index', ['status' => 'inactive']))
+            ->assertOk()
+            ->assertSee('BETA-200')
+            ->assertDontSee('ALPHA-100');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.projects.index', ['search' => 'Desert', 'status' => 'active']))
+            ->assertOk()
+            ->assertSee('No projects match the selected filters.')
+            ->assertDontSee('BETA-200');
+    }
+
+    public function test_project_filters_validate_status_and_persist_in_pagination_links(): void
+    {
+        $superAdmin = $this->userWithRole('super_admin');
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.projects.index', ['status' => 'archived']))
+            ->assertSessionHasErrors('status');
+
+        Project::factory()->count(21)->create([
+            'project_name' => 'Pagination Match',
+            'is_active' => true,
+        ]);
+
+        $this->actingAs($superAdmin)
+            ->get(route('manage.projects.index', ['search' => 'Pagination', 'status' => 'active']))
+            ->assertOk()
+            ->assertSee('search=Pagination&amp;status=active&amp;page=2', false);
+    }
+
     public function test_unused_project_can_be_deleted(): void
     {
         $superAdmin = $this->userWithRole('super_admin');

@@ -10,9 +10,32 @@ use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        return view('manage.projects.index', ['projects' => Project::withCount('entries')->orderBy('project_code')->paginate(20)]);
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', Rule::in(['active', 'inactive'])],
+        ]);
+
+        $search = $filters['search'] ?? null;
+        $status = $filters['status'] ?? null;
+
+        $projects = Project::query()
+            ->select(['id', 'project_code', 'project_name', 'client_name', 'is_active'])
+            ->withCount('entries')
+            ->when($search, function ($query, $search) {
+                $query->where(function ($query) use ($search) {
+                    $query->where('project_code', 'like', "%{$search}%")
+                        ->orWhere('project_name', 'like', "%{$search}%")
+                        ->orWhere('client_name', 'like', "%{$search}%");
+                });
+            })
+            ->when($status, fn ($query, $status) => $query->where('is_active', $status === 'active'))
+            ->orderBy('project_code')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('manage.projects.index', compact('projects', 'search', 'status'));
     }
 
     public function create()

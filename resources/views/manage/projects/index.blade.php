@@ -9,6 +9,64 @@
     <a class="btn btn-primary" href="{{ route('manage.projects.create') }}">New Project</a>
 </div>
 
+@php($hasProjectFilters = filled($search) || filled($status))
+<form class="filter-card mb-3" method="get" action="{{ route('manage.projects.index') }}">
+    <div class="row g-3 align-items-end">
+        <div class="col-12 col-lg-6">
+            <label class="form-label small text-muted" for="search">Search projects</label>
+            <input
+                class="form-control @error('search') is-invalid @enderror"
+                id="search"
+                name="search"
+                type="search"
+                value="{{ $search }}"
+                maxlength="100"
+                placeholder="Project code, name, or client"
+            >
+            @error('search')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <label class="form-label small text-muted" for="status">Status</label>
+            <select class="form-select @error('status') is-invalid @enderror" id="status" name="status">
+                <option value="">All statuses</option>
+                <option value="active" @selected($status === 'active')>Active</option>
+                <option value="inactive" @selected($status === 'inactive')>Inactive</option>
+            </select>
+            @error('status')
+                <div class="invalid-feedback">{{ $message }}</div>
+            @enderror
+        </div>
+        <div class="col-12 col-md-6 col-lg-3">
+            <div class="d-flex flex-wrap gap-2">
+                <button class="btn btn-primary" type="submit">Apply Filters</button>
+                @if($hasProjectFilters)
+                    <a class="btn btn-outline-secondary" href="{{ route('manage.projects.index') }}">Clear</a>
+                @endif
+            </div>
+        </div>
+    </div>
+</form>
+
+<div class="content-card p-3 mb-3">
+    <div class="d-flex flex-column flex-md-row align-items-md-center justify-content-between gap-2">
+        <div>
+            <div class="fw-semibold">Current view</div>
+            <div class="small text-muted">{{ $hasProjectFilters ? 'Showing projects matching the selected filters.' : 'Showing all projects.' }}</div>
+        </div>
+        <div class="d-flex flex-wrap gap-2">
+            @if(filled($search))
+                <span class="badge filter-summary-badge px-3 py-2">Search: {{ $search }}</span>
+            @endif
+            @if(filled($status))
+                <span class="badge filter-summary-badge px-3 py-2">Status: {{ ucfirst($status) }}</span>
+            @endif
+            <span class="badge filter-summary-badge px-3 py-2">{{ $projects->total() }} {{ \Illuminate\Support\Str::plural('project', $projects->total()) }}</span>
+        </div>
+    </div>
+</div>
+
 <div class="content-card overflow-hidden">
     <div class="table-responsive">
         <table class="table table-fixed align-middle mb-0">
@@ -23,7 +81,7 @@
                 </tr>
             </thead>
             <tbody>
-                @foreach($projects as $project)
+                @forelse($projects as $project)
                     @php($canDelete = $project->entries_count === 0)
                     <tr>
                         <td>{{ $project->project_code }}</td>
@@ -49,8 +107,11 @@
                             </div>
                         </td>
                     </tr>
-
-                @endforeach
+                @empty
+                    <tr>
+                        <td colspan="6" class="empty-state text-center">No projects match the selected filters.</td>
+                    </tr>
+                @endforelse
             </tbody>
         </table>
     </div>
