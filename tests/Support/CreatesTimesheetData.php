@@ -22,7 +22,9 @@ trait CreatesTimesheetData
 
     protected function project(array $attributes = []): Project
     {
-        return Project::factory()->create($attributes);
+        return Project::factory()->create(array_merge([
+            'timesheet_assignment_mode' => Project::ASSIGNMENT_ALL_USERS,
+        ], $attributes));
     }
 
     protected function userWithRole(string $role = 'employee', array $attributes = []): User

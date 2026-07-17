@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Project;
 use App\Models\TimesheetPeriod;
 use App\Services\LeaveEntitlementService;
 use Illuminate\Foundation\Http\FormRequest;
@@ -58,6 +59,16 @@ class TimesheetSaveRequest extends FormRequest
                 $hasHours = false;
                 $entitlements = app(LeaveEntitlementService::class);
                 $timesheetAttendanceCodes = $entitlements->timesheetAttendanceCodesFor($this->user());
+                $projectIds = collect($this->input('entries', []))
+                    ->pluck('project_id')
+                    ->filter()
+                    ->map(fn ($id) => (int) $id)
+                    ->unique();
+                $availableProjectIds = Project::query()
+                    ->availableForTimesheetsBy($this->user())
+                    ->whereKey($projectIds)
+                    ->pluck('id')
+                    ->map(fn ($id) => (int) $id);
 
                 foreach ($this->input('entries', []) as $index => $entry) {
                     $entryLabel = ucfirst($this->entryLabel($index, $entry));
@@ -68,6 +79,13 @@ class TimesheetSaveRequest extends FormRequest
                     $isLeaveCode = $isAvailableTimesheetCode && in_array($attendanceCode, config('timesheet.leave_attendance_codes', []), true);
                     $isProjectOptionalCode = $isAvailableTimesheetCode && in_array($attendanceCode, config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), true);
                     $hasHours = $hasHours || $regular > 0 || $overtime > 0;
+
+                    if (! empty($entry['project_id']) && ! $availableProjectIds->contains((int) $entry['project_id'])) {
+                        $validator->errors()->add(
+                            "entries.$index.project_id",
+                            'You are no longer assigned to this project, or the project is inactive. Remove or replace it before saving.',
+                        );
+                    }
 
                     if ($period && isset($entry['work_date']) && ($entry['work_date'] < $period->start_date->toDateString() || $entry['work_date'] > $period->end_date->toDateString())) {
                         $validator->errors()->add("entries.$index.work_date", 'Work date must be within the selected weekly period.');

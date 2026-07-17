@@ -145,7 +145,7 @@
                             <select class="form-select project-select @error("entries.$i.project_id") is-invalid @enderror" name="entries[{{ $i }}][project_id]" data-field="project_id">
                                 <option value="">Select</option>
                                 @foreach($projects as $project)
-                                    <option value="{{ $project->id }}" title="{{ $project->project_name }}" @selected(old("entries.$i.project_id", $row->project_id) == $project->id)>{{ $project->project_code }}</option>
+                                    <option value="{{ $project->id }}" title="{{ $project->project_name }}" @selected(old("entries.$i.project_id", $row->project_id) == $project->id)>{{ $project->project_code }}{{ $project->is_timesheet_accessible ? '' : ' — unavailable' }}</option>
                                 @endforeach
                             </select>
                             @error("entries.$i.project_id")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror

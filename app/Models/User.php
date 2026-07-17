@@ -83,6 +83,11 @@ class User extends Authenticatable
         return $this->hasMany(Timesheet::class);
     }
 
+    public function assignedProjects()
+    {
+        return $this->belongsToMany(Project::class)->withTimestamps();
+    }
+
     public function leavePlans()
     {
         return $this->hasMany(LeavePlan::class);

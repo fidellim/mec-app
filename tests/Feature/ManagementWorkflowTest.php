@@ -1781,6 +1781,24 @@ class ManagementWorkflowTest extends TestCase
         $this->assertDatabaseMissing('projects', ['id' => $project->id]);
     }
 
+    public function test_admin_can_manage_projects_but_cannot_delete_them(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $project = $this->project(['project_code' => 'ADMIN-NO-DELETE']);
+
+        $this->actingAs($admin)
+            ->get(route('manage.projects.index'))
+            ->assertOk()
+            ->assertSee('ADMIN-NO-DELETE')
+            ->assertDontSee('deleteProjectModal'.$project->id, false);
+
+        $this->actingAs($admin)
+            ->delete(route('manage.projects.destroy', $project))
+            ->assertForbidden();
+
+        $this->assertDatabaseHas('projects', ['id' => $project->id]);
+    }
+
     public function test_period_validation_requires_monday_to_sunday_week(): void
     {
         $superAdmin = $this->userWithRole('super_admin');

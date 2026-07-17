@@ -148,6 +148,13 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::match(['put', 'patch'], 'holidays/{holiday}', [HolidayController::class, 'update'])->middleware('throttle:authenticated-writes')->name('holidays.update');
         Route::get('leave-settings', [LeaveSettingController::class, 'index'])->name('leave-settings.index');
         Route::patch('leave-settings', [LeaveSettingController::class, 'update'])->middleware('throttle:authenticated-writes')->name('leave-settings.update');
+        Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->middleware('throttle:authenticated-writes')->name('projects.status');
+        Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
+        Route::get('projects/create', [ProjectController::class, 'create'])->name('projects.create');
+        Route::post('projects', [ProjectController::class, 'store'])->middleware('throttle:authenticated-writes')->name('projects.store');
+        Route::get('projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
+        Route::match(['put', 'patch'], 'projects/{project}', [ProjectController::class, 'update'])->middleware('throttle:authenticated-writes')->name('projects.update');
+        Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->middleware('role:super_admin', 'throttle:authenticated-writes')->name('projects.destroy');
     });
 
     Route::middleware('role:super_admin')->prefix('manage')->name('manage.')->group(function () {
@@ -161,13 +168,6 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::get('departments/{department}/edit', [DepartmentController::class, 'edit'])->name('departments.edit');
         Route::match(['put', 'patch'], 'departments/{department}', [DepartmentController::class, 'update'])->middleware('throttle:authenticated-writes')->name('departments.update');
         Route::delete('departments/{department}', [DepartmentController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('departments.destroy');
-        Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->middleware('throttle:authenticated-writes')->name('projects.status');
-        Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
-        Route::get('projects/create', [ProjectController::class, 'create'])->name('projects.create');
-        Route::post('projects', [ProjectController::class, 'store'])->middleware('throttle:authenticated-writes')->name('projects.store');
-        Route::get('projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
-        Route::match(['put', 'patch'], 'projects/{project}', [ProjectController::class, 'update'])->middleware('throttle:authenticated-writes')->name('projects.update');
-        Route::delete('projects/{project}', [ProjectController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('projects.destroy');
         Route::get('periods', [TimesheetPeriodController::class, 'index'])->name('periods.index');
         Route::get('periods/create', [TimesheetPeriodController::class, 'create'])->name('periods.create');
         Route::post('periods', [TimesheetPeriodController::class, 'store'])->middleware('throttle:authenticated-writes')->name('periods.store');

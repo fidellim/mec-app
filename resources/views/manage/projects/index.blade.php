@@ -101,9 +101,11 @@
                                     @method('patch')
                                     <button class="btn btn-sm btn-outline-secondary">{{ $project->is_active ? 'Deactivate' : 'Reactivate' }}</button>
                                 </form>
-                                <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal{{ $project->id }}">
-                                    Delete
-                                </button>
+                                @if(auth()->user()->isSuperAdmin())
+                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal{{ $project->id }}">
+                                        Delete
+                                    </button>
+                                @endif
                             </div>
                         </td>
                     </tr>
@@ -117,9 +119,10 @@
     </div>
 </div>
 
-@foreach($projects as $project)
-    @php($canDelete = $project->entries_count === 0)
-    <div class="modal fade" id="deleteProjectModal{{ $project->id }}" tabindex="-1" aria-hidden="true">
+@if(auth()->user()->isSuperAdmin())
+    @foreach($projects as $project)
+        @php($canDelete = $project->entries_count === 0)
+        <div class="modal fade" id="deleteProjectModal{{ $project->id }}" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <form method="post" action="{{ route('manage.projects.destroy', $project) }}">
@@ -146,8 +149,9 @@
                 </form>
             </div>
         </div>
-    </div>
-@endforeach
+        </div>
+    @endforeach
+@endif
 
 @include('shared.pagination-footer', ['paginator' => $projects, 'label' => 'project'])
 @endsection

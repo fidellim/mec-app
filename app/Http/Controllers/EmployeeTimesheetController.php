@@ -58,7 +58,7 @@ class EmployeeTimesheetController extends Controller
         return view('employee.timesheets.form', [
             'timesheet' => null,
             'periods' => collect([$period]),
-            'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
+            'projects' => $this->formProjects(auth()->user()),
             'attendanceCodes' => $this->attendanceCodes(auth()->user()),
             'leaveAttendanceCodes' => $this->eligibleCodes(config('timesheet.leave_attendance_codes', []), auth()->user()),
             'projectOptionalAttendanceCodes' => $this->eligibleCodes(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), auth()->user()),
@@ -140,7 +140,7 @@ class EmployeeTimesheetController extends Controller
         return view('employee.timesheets.form', [
             'timesheet' => $timesheet->load('entries'),
             'periods' => TimesheetPeriod::where('id', $timesheet->timesheet_period_id)->get(),
-            'projects' => Project::where('is_active', true)->orderBy('project_code')->get(),
+            'projects' => $this->formProjects(auth()->user(), $timesheet->entries->pluck('project_id')),
             'attendanceCodes' => $this->attendanceCodes(auth()->user()),
             'leaveAttendanceCodes' => $this->eligibleCodes(config('timesheet.leave_attendance_codes', []), auth()->user()),
             'projectOptionalAttendanceCodes' => $this->eligibleCodes(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), auth()->user()),
@@ -227,6 +227,29 @@ class EmployeeTimesheetController extends Controller
         $timesheet->delete();
 
         return redirect()->route('employee.timesheets.index')->with('success', 'Draft deleted.');
+    }
+
+    private function formProjects($user, $includedProjectIds = []): \Illuminate\Support\Collection
+    {
+        $includedProjectIds = collect($includedProjectIds)
+            ->merge(collect(old('entries', []))->pluck('project_id'))
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique();
+
+        $availableIds = Project::query()
+            ->availableForTimesheetsBy($user)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id);
+
+        return Project::query()
+            ->whereIn('id', $availableIds->merge($includedProjectIds)->unique())
+            ->orderBy('project_code')
+            ->get()
+            ->each(fn (Project $project) => $project->setAttribute(
+                'is_timesheet_accessible',
+                $availableIds->contains($project->id),
+            ));
     }
 
     private function defaultEntries(TimesheetPeriod $period)

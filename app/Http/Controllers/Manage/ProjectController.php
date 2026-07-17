@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
 use App\Models\Project;
+use App\Models\User;
 use App\Services\AuditLogService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class ProjectController extends Controller
@@ -40,26 +42,52 @@ class ProjectController extends Controller
 
     public function create()
     {
-        return view('manage.projects.form', ['project' => new Project()]);
+        return view('manage.projects.form', [
+            'project' => new Project(['timesheet_assignment_mode' => Project::ASSIGNMENT_SELECTED_USERS]),
+            'timesheetUsers' => $this->timesheetUsers(),
+            'assignedUserIds' => collect(),
+        ]);
     }
 
     public function store(Request $request, AuditLogService $audit)
     {
-        $project = Project::create($this->validated($request));
-        $audit->record('project_created', $project, null, $project->toArray());
+        $validated = $this->validated($request);
+        $assignedUserIds = $validated['assigned_user_ids'] ?? [];
+        unset($validated['assigned_user_ids']);
+
+        $project = DB::transaction(function () use ($validated, $assignedUserIds, $audit) {
+            $project = Project::create($validated);
+            $project->assignedUsers()->sync($assignedUserIds);
+            $audit->record('project_created', $project, null, $this->auditValues($project));
+
+            return $project;
+        });
+
         return redirect()->route('manage.projects.index')->with('success', 'Project created.');
     }
 
     public function edit(Project $project)
     {
-        return view('manage.projects.form', compact('project'));
+        return view('manage.projects.form', [
+            'project' => $project,
+            'timesheetUsers' => $this->timesheetUsers(),
+            'assignedUserIds' => $project->assignedUsers()->pluck('users.id'),
+        ]);
     }
 
     public function update(Request $request, Project $project, AuditLogService $audit)
     {
-        $old = $project->toArray();
-        $project->update($this->validated($request, $project));
-        $audit->record('project_updated', $project, $old, $project->fresh()->toArray());
+        $validated = $this->validated($request, $project);
+        $assignedUserIds = $validated['assigned_user_ids'] ?? [];
+        unset($validated['assigned_user_ids']);
+        $old = $this->auditValues($project);
+
+        DB::transaction(function () use ($project, $validated, $assignedUserIds, $audit, $old) {
+            $project->update($validated);
+            $project->assignedUsers()->sync($assignedUserIds);
+            $audit->record('project_updated', $project, $old, $this->auditValues($project));
+        });
+
         return redirect()->route('manage.projects.index')->with('success', 'Project updated.');
     }
 
@@ -98,6 +126,36 @@ class ProjectController extends Controller
             'project_name' => ['required', 'string', 'max:255'],
             'client_name' => ['nullable', 'string', 'max:255'],
             'is_active' => ['boolean'],
+            'timesheet_assignment_mode' => ['required', Rule::in([
+                Project::ASSIGNMENT_ALL_USERS,
+                Project::ASSIGNMENT_SELECTED_USERS,
+            ])],
+            'assigned_user_ids' => ['nullable', 'array'],
+            'assigned_user_ids.*' => [
+                'integer',
+                'distinct',
+                Rule::exists('users', 'id')->where(fn ($query) => $query->where('is_active', true)
+                    ->whereIn('role', ['employee', 'hod'])),
+            ],
         ]) + ['is_active' => false];
+    }
+
+    private function timesheetUsers()
+    {
+        return User::query()
+            ->with('department:id,name')
+            ->where('is_active', true)
+            ->whereIn('role', ['employee', 'hod'])
+            ->orderBy('name')
+            ->get(['id', 'name', 'email', 'role', 'department_id'])
+            ->sortBy(fn (User $user) => strtolower(($user->department?->name ?? 'ZZZZ No department').'|'.$user->name))
+            ->groupBy(fn (User $user) => (string) ($user->department_id ?? 'unassigned'));
+    }
+
+    private function auditValues(Project $project): array
+    {
+        return $project->fresh()->toArray() + [
+            'assigned_user_ids' => $project->assignedUsers()->orderBy('users.id')->pluck('users.id')->all(),
+        ];
     }
 }
