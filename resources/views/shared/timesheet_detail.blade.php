@@ -28,11 +28,11 @@
                 ->groupBy(fn ($entry) => $entry->work_date->toDateString());
         @endphp
         <table class="table table-hover mb-0">
-            <thead><tr><th>Attendance Code</th><th>Project / Job</th><th class="text-end">Regular</th><th class="text-end">Overtime</th><th>Remarks</th></tr></thead>
+            <thead><tr><th>Attendance Code</th><th>Project / Job</th><th>Discipline</th><th class="text-end">Regular</th><th class="text-end">Overtime</th><th>Remarks</th></tr></thead>
             <tbody>
             @foreach($entriesByDate as $workDate => $dayEntries)
                 <tr class="timesheet-day-row">
-                    <td colspan="5">
+                    <td colspan="6">
                         <div>
                             <span class="fw-semibold">{{ $dayEntries->first()->day_name }}</span>
                             <span class="text-muted ms-2">{{ $workDate }}</span>
@@ -53,6 +53,7 @@
                                 <span class="badge filter-summary-badge px-3 py-2">Non-project</span>
                             @endif
                         </td>
+                        <td>{{ $entry->department?->name ?? $timesheet->department->name }}</td>
                         <td class="text-end fw-semibold">{{ $entry->regular_hours }}</td>
                         <td class="text-end fw-semibold">{{ $entry->overtime_hours }}</td>
                         <td>{{ $entry->remarks }}</td>

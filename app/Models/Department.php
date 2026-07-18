@@ -40,6 +40,8 @@ class Department extends Model
         return $this->hasMany(Timesheet::class);
     }
 
+    public function projectAllocations() { return $this->hasMany(ProjectDepartmentAllocation::class); }
+
     public function leavePlans()
     {
         return $this->hasMany(LeavePlan::class);

@@ -8,7 +8,25 @@
         <div class="col-md-4"><label class="form-label">Project code</label><input class="form-control" name="project_code" value="{{ old('project_code', $project->project_code) }}" required></div>
         <div class="col-md-4"><label class="form-label">Project name</label><input class="form-control" name="project_name" value="{{ old('project_name', $project->project_name) }}" required></div>
         <div class="col-md-4"><label class="form-label">Client name</label><input class="form-control" name="client_name" value="{{ old('client_name', $project->client_name) }}"></div>
+        <div class="col-md-4"><label class="form-label" for="start_date">Starting date</label><input class="form-control @error('start_date') is-invalid @enderror" id="start_date" type="date" name="start_date" value="{{ old('start_date', $project->start_date?->toDateString()) }}" required>@error('start_date')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+        <div class="col-md-8"><label class="form-label" for="project_manager_id">Project manager</label><select class="form-select @error('project_manager_id') is-invalid @enderror" id="project_manager_id" name="project_manager_id" required><option value="">Select an employee or HOD</option>@foreach($projectManagers as $manager)<option value="{{ $manager->id }}" @selected(old('project_manager_id', $project->project_manager_id) == $manager->id)>{{ $manager->name }} · {{ ucfirst($manager->role) }}{{ $manager->is_active ? '' : ' · inactive' }}</option>@endforeach</select>@error('project_manager_id')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
         <div class="col-12"><input type="hidden" name="is_active" value="0"><div class="form-check"><input class="form-check-input" type="checkbox" name="is_active" value="1" id="active" @checked(old('is_active', $project->is_active ?? true))><label class="form-check-label" for="active">Active</label></div></div>
+        <div class="col-12">
+            <fieldset class="border rounded-3 p-3">
+                <legend class="h6 px-2">Department manhour allocations</legend>
+                <p class="small text-muted">Set each participating discipline's lifetime budget. Leave a department blank when it does not participate in this project. Allocations may be reduced, but not below approved usage.</p>
+                <div class="row g-3">
+                    @foreach($departments as $department)
+                        @php
+                            $allocationKey = 'department_allocations.'.$department->id;
+                            $hours = old($allocationKey, $allocationHours->get($department->id));
+                        @endphp
+                        <div class="col-md-6 col-xl-4"><label class="form-label" for="allocation_{{ $department->id }}">{{ $department->name }}{{ ($department->is_active ?? true) ? '' : ' (inactive)' }}</label><div class="input-group"><input class="form-control {{ $errors->has($allocationKey) ? 'is-invalid' : '' }}" id="allocation_{{ $department->id }}" name="department_allocations[{{ $department->id }}]" type="number" min="0.25" step="0.25" value="{{ $hours }}" placeholder="No allocation"><span class="input-group-text">hrs</span>@if($errors->has($allocationKey))<div class="invalid-feedback">{{ $errors->first($allocationKey) }}</div>@endif</div></div>
+                    @endforeach
+                </div>
+                @error('department_allocations')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
+            </fieldset>
+        </div>
         @php
             $assignmentMode = old('timesheet_assignment_mode', $project->timesheet_assignment_mode ?? \App\Models\Project::ASSIGNMENT_SELECTED_USERS);
             $selectedUserIds = collect(old('assigned_user_ids', $assignedUserIds))->map(fn ($id) => (int) $id);
@@ -74,7 +92,7 @@
             </div>
         </div>
     </div>
-    <div class="text-end mt-3"><button class="btn btn-primary">Save Project</button></div>
+    <div class="d-flex justify-content-between mt-3">@if($project->exists)<a class="btn btn-outline-secondary" href="{{ route('projects.utilization', $project) }}">View utilization</a>@else<span></span>@endif<button class="btn btn-primary">Save Project</button></div>
 </form>
 @endsection
 

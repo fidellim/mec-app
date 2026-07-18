@@ -884,7 +884,8 @@
         .table-fixed { table-layout: fixed; }
         .text-truncate-cell { max-width: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .project-name-cell { white-space: normal; overflow-wrap: anywhere; word-break: normal; line-height: 1.45; }
-        .project-select { width: 18rem; max-width: 100%; }
+        .project-select { width: 12rem; max-width: 100%; }
+        .discipline-select { width: 20rem; max-width: 100%; }
         .attendance-select { width: 13rem; max-width: 100%; }
         .timesheet-entry-table th, .timesheet-entry-table td { white-space: nowrap; }
         .timesheet-entry-table .remarks-cell { min-width: 22rem; }
@@ -943,6 +944,7 @@
         }
         .timesheet-entry-table [data-entry-row] > td {
             padding: .8rem 1rem;
+            vertical-align: top;
         }
         .timesheet-row-actions {
             display: flex;
@@ -1497,7 +1499,7 @@
             filter: invert(1);
         }
         @media (min-width: 992px) {
-            .timesheet-entry-table { min-width: 980px; }
+            .timesheet-entry-table { min-width: 1120px; }
         }
         @media (max-width: 575.98px) {
             .leave-balance-card-header {
@@ -1667,15 +1669,17 @@
             }
             .timesheet-entry-table [data-entry-row] > td:nth-child(1)::before { content: "Attendance Code"; }
             .timesheet-entry-table [data-entry-row] > td:nth-child(2)::before { content: "Project/Job"; }
-            .timesheet-entry-table [data-entry-row] > td:nth-child(3)::before { content: "Regular"; }
-            .timesheet-entry-table [data-entry-row] > td:nth-child(4)::before { content: "Overtime"; }
-            .timesheet-entry-table [data-entry-row] > td:nth-child(5)::before { content: "Remarks"; }
-            .timesheet-entry-table [data-entry-row] > td:nth-child(6)::before { content: "Actions"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(3)::before { content: "Discipline"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(4)::before { content: "Regular"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(5)::before { content: "Overtime"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(6)::before { content: "Remarks"; }
+            .timesheet-entry-table [data-entry-row] > td:nth-child(7)::before { content: "Actions"; }
             .timesheet-entry-table .remarks-cell {
                 min-width: 0;
             }
             .attendance-select,
-            .project-select {
+            .project-select,
+            .discipline-select {
                 width: 100%;
             }
             .timesheet-row-actions {
@@ -1770,7 +1774,9 @@
                         ->contains((int) auth()->id());
                     $hasApprovalNav = $isLeavePlanStageApprover || auth()->user()->role === 'hod';
                     $hasAdminNav = in_array(auth()->user()->role, ['admin', 'super_admin'], true) || auth()->user()->isAdminLike();
-                    $workspaceOpen = request()->routeIs('dashboard', 'employee.timesheets.*', 'employee.leave-plans.*');
+                    $hasManagedProjects = in_array(auth()->user()->role, ['employee', 'hod'], true)
+                        && auth()->user()->managedProjects()->exists();
+                    $workspaceOpen = request()->routeIs('dashboard', 'employee.timesheets.*', 'employee.leave-plans.*', 'managed-projects.*', 'projects.utilization');
                     $approvalsOpen = request()->routeIs('assigned.leave-plans.*', 'hod.timesheets.*', 'hod.leave-plans.*', 'hod.leave-entitlements.*', 'hod.tracker');
                     $adminOpen = request()->routeIs('admin.timesheets.*', 'admin.leave-plans.*', 'admin.leave-entitlements.*', 'admin.annual-leave-carry-overs.*', 'admin.hod-timesheets.*', 'admin.hod-tracker', 'manage.*');
                     $supportOpen = request()->routeIs('guide');
@@ -1783,6 +1789,9 @@
                         <div id="sidebarWorkspaceNav" @class(['sidebar-nav-items', 'collapse', 'show' => $workspaceOpen])>
                             <a href="{{ route('dashboard') }}" @class(['active' => request()->routeIs('dashboard')]) title="Dashboard"><img class="sidebar-icon" src="{{ asset('images/sidebar/dashboard.svg') }}" alt=""><span class="sidebar-label">Dashboard</span></a>
                             <a href="{{ route('employee.timesheets.index') }}" @class(['active' => request()->routeIs('employee.timesheets.*')]) title="My Timesheets"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Timesheets</span></a>
+                            @if($hasManagedProjects)
+                                <a href="{{ route('managed-projects.index') }}" @class(['active' => request()->routeIs('managed-projects.*', 'projects.utilization')]) title="My Managed Projects"><img class="sidebar-icon" src="{{ asset('images/sidebar/projects.svg') }}" alt=""><span class="sidebar-label">My Managed Projects</span></a>
+                            @endif
                             <a href="{{ route('employee.leave-plans.index') }}" @class(['active' => request()->routeIs('employee.leave-plans.*')]) title="My Leave Plans"><img class="sidebar-icon" src="{{ asset('images/sidebar/my-timesheets.svg') }}" alt=""><span class="sidebar-label">My Leave Plans</span></a>
                         </div>
                     </div>

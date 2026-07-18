@@ -14,13 +14,15 @@ class Project extends Model
 
     public const ASSIGNMENT_SELECTED_USERS = 'selected_users';
 
-    protected $fillable = ['project_code', 'project_name', 'client_name', 'is_active', 'timesheet_assignment_mode'];
+    protected $fillable = ['project_code', 'project_name', 'client_name', 'start_date', 'project_manager_id', 'is_active', 'timesheet_assignment_mode'];
 
     protected function casts(): array
     {
         return [
             'id' => 'integer',
             'is_active' => 'boolean',
+            'start_date' => 'date',
+            'project_manager_id' => 'integer',
         ];
     }
 
@@ -33,6 +35,9 @@ class Project extends Model
     {
         return $this->belongsToMany(User::class)->withTimestamps();
     }
+
+    public function projectManager() { return $this->belongsTo(User::class, 'project_manager_id'); }
+    public function departmentAllocations() { return $this->hasMany(ProjectDepartmentAllocation::class); }
 
     public function scopeAvailableForTimesheetsBy(Builder $query, User $user): Builder
     {

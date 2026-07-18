@@ -59,7 +59,7 @@ class HodTimesheetController extends Controller
     {
         $this->authorizeDepartment($timesheet);
 
-        return view('hod.timesheets.show', ['timesheet' => $timesheet->load(['user', 'entries.project', 'period', 'department'])]);
+        return view('hod.timesheets.show', ['timesheet' => $timesheet->load(['user', 'entries.project', 'entries.department', 'period', 'department'])]);
     }
 
     public function history(Timesheet $timesheet)

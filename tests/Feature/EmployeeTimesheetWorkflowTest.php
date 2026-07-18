@@ -657,7 +657,8 @@ class EmployeeTimesheetWorkflowTest extends TestCase
 
     public function test_timesheet_show_groups_entries_by_day_with_non_project_rows(): void
     {
-        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $discipline = $this->department(['name' => 'Entry Discipline']);
+        $employee = $this->userWithRole('employee', ['department_id' => $discipline->id]);
         $period = $this->openPeriod();
         $project = $this->project([
             'project_code' => 'P-GROUP',
@@ -696,6 +697,13 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             ->assertSee('Monday')
             ->assertSee('P-GROUP')
             ->assertSee('Grouped Project Display')
+            ->assertSeeInOrder([
+                'Project / Job',
+                'Discipline',
+                'P-GROUP',
+                'Grouped Project Display',
+                'Entry Discipline',
+            ])
             ->assertSee('L200')
             ->assertSee('Training Seminar')
             ->assertSee('Non-project')

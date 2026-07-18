@@ -18,6 +18,7 @@ use App\Http\Controllers\Manage\HolidayController;
 use App\Http\Controllers\Manage\LeavePlanApproverController;
 use App\Http\Controllers\Manage\LeaveSettingController;
 use App\Http\Controllers\Manage\ProjectController;
+use App\Http\Controllers\ProjectUtilizationController;
 use App\Http\Controllers\Manage\SystemSettingController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
@@ -51,6 +52,9 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::post('/{timesheet}/recall', [EmployeeTimesheetController::class, 'recall'])->middleware('throttle:workflow-actions')->name('recall');
         Route::delete('/{timesheet}', [EmployeeTimesheetController::class, 'destroy'])->middleware('throttle:authenticated-writes')->name('destroy');
     });
+
+    Route::middleware('role:employee,hod')->get('/my-managed-projects', [ProjectUtilizationController::class, 'index'])->name('managed-projects.index');
+    Route::middleware('role:employee,hod,admin,super_admin')->get('/projects/{project}/utilization', [ProjectUtilizationController::class, 'show'])->name('projects.utilization');
 
     Route::middleware('role:employee,hod,admin,super_admin')->prefix('my-leave-plans')->name('employee.leave-plans.')->group(function () {
         Route::get('/', [EmployeeLeavePlanController::class, 'index'])->name('index');

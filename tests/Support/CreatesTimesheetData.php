@@ -76,6 +76,7 @@ trait CreatesTimesheetData
             'day_name' => Carbon::parse($period->start_date)->format('l'),
             'attendance_code' => 'O100',
             'project_id' => $project->id,
+            'department_id' => $user->department_id,
             'regular_hours' => 8,
             'overtime_hours' => 0,
             'description' => null,

@@ -88,6 +88,8 @@ class User extends Authenticatable
         return $this->belongsToMany(Project::class)->withTimestamps();
     }
 
+    public function managedProjects() { return $this->hasMany(Project::class, 'project_manager_id'); }
+
     public function leavePlans()
     {
         return $this->hasMany(LeavePlan::class);

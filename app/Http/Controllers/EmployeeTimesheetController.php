@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\TimesheetSaveRequest;
 use App\Models\LeavePlan;
+use App\Models\Department;
 use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
@@ -59,6 +60,7 @@ class EmployeeTimesheetController extends Controller
             'timesheet' => null,
             'periods' => collect([$period]),
             'projects' => $this->formProjects(auth()->user()),
+            'departments' => Department::where('is_active', true)->orderBy('name')->get(['id', 'name', 'code']),
             'attendanceCodes' => $this->attendanceCodes(auth()->user()),
             'leaveAttendanceCodes' => $this->eligibleCodes(config('timesheet.leave_attendance_codes', []), auth()->user()),
             'projectOptionalAttendanceCodes' => $this->eligibleCodes(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), auth()->user()),
@@ -120,7 +122,7 @@ class EmployeeTimesheetController extends Controller
     public function show(Timesheet $timesheet)
     {
         $this->authorizeOwner($timesheet);
-        return view('employee.timesheets.show', ['timesheet' => $timesheet->load(['entries.project', 'period', 'department'])]);
+        return view('employee.timesheets.show', ['timesheet' => $timesheet->load(['entries.project', 'entries.department', 'period', 'department'])]);
     }
 
     public function history(Timesheet $timesheet)
@@ -141,6 +143,7 @@ class EmployeeTimesheetController extends Controller
             'timesheet' => $timesheet->load('entries'),
             'periods' => TimesheetPeriod::where('id', $timesheet->timesheet_period_id)->get(),
             'projects' => $this->formProjects(auth()->user(), $timesheet->entries->pluck('project_id')),
+            'departments' => Department::query()->where('is_active', true)->orWhereIn('id', $timesheet->entries->pluck('department_id')->filter())->orderBy('name')->get(['id', 'name', 'code', 'is_active']),
             'attendanceCodes' => $this->attendanceCodes(auth()->user()),
             'leaveAttendanceCodes' => $this->eligibleCodes(config('timesheet.leave_attendance_codes', []), auth()->user()),
             'projectOptionalAttendanceCodes' => $this->eligibleCodes(config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])), auth()->user()),
@@ -243,6 +246,7 @@ class EmployeeTimesheetController extends Controller
             ->map(fn ($id) => (int) $id);
 
         return Project::query()
+            ->with('departmentAllocations:project_id,department_id')
             ->whereIn('id', $availableIds->merge($includedProjectIds)->unique())
             ->orderBy('project_code')
             ->get()
@@ -259,6 +263,7 @@ class EmployeeTimesheetController extends Controller
             'day_name' => $date->format('l'),
             'attendance_code' => $date->isWeekend() ? null : 'O100',
             'project_id' => null,
+            'department_id' => auth()->user()->department_id,
             'regular_hours' => 0,
             'overtime_hours' => 0,
             'remarks' => null,
@@ -329,6 +334,7 @@ class EmployeeTimesheetController extends Controller
                 'day_name' => $workDate->format('l'),
                 'attendance_code' => $entry['attendance_code'] ?: null,
                 'project_id' => $entry['project_id'] ?: null,
+                'department_id' => ($entry['department_id'] ?? null) ?: $timesheet->department_id,
                 'regular_hours' => $entry['regular_hours'] ?? 0,
                 'overtime_hours' => $entry['overtime_hours'] ?? 0,
                 'description' => null,

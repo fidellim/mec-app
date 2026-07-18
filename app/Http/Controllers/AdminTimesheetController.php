@@ -53,7 +53,7 @@ class AdminTimesheetController extends Controller
 
     public function show(Timesheet $timesheet)
     {
-        return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'approver', 'voider'])]);
+        return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'entries.department', 'approver', 'voider'])]);
     }
 
     public function history(Timesheet $timesheet)

@@ -24,6 +24,7 @@ class TimesheetSaveRequest extends FormRequest
             'entries.*.work_date' => ['required', 'date'],
             'entries.*.attendance_code' => ['nullable', Rule::in(array_keys(config('timesheet.attendance_codes')))],
             'entries.*.project_id' => ['nullable', 'exists:projects,id'],
+            'entries.*.department_id' => ['nullable', Rule::exists('departments', 'id')->where(fn ($query) => $query->where('is_active', true))],
             'entries.*.regular_hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
             'entries.*.overtime_hours' => ['nullable', 'numeric', 'min:0', 'max:24'],
             'entries.*.remarks' => ['nullable', 'string', 'max:2000'],
@@ -43,6 +44,7 @@ class TimesheetSaveRequest extends FormRequest
             $attributes["entries.$index.work_date"] = "$label work date";
             $attributes["entries.$index.attendance_code"] = "$label attendance code";
             $attributes["entries.$index.project_id"] = "$label project/job number";
+            $attributes["entries.$index.department_id"] = "$label discipline/department";
             $attributes["entries.$index.regular_hours"] = "$label regular hours";
             $attributes["entries.$index.overtime_hours"] = "$label overtime hours";
             $attributes["entries.$index.remarks"] = "$label remarks";
@@ -64,11 +66,13 @@ class TimesheetSaveRequest extends FormRequest
                     ->filter()
                     ->map(fn ($id) => (int) $id)
                     ->unique();
-                $availableProjectIds = Project::query()
+                $availableProjects = Project::query()
                     ->availableForTimesheetsBy($this->user())
                     ->whereKey($projectIds)
-                    ->pluck('id')
-                    ->map(fn ($id) => (int) $id);
+                    ->with('departmentAllocations:project_id,department_id')
+                    ->get(['id'])
+                    ->keyBy(fn (Project $project) => (int) $project->id);
+                $availableProjectIds = $availableProjects->keys();
 
                 foreach ($this->input('entries', []) as $index => $entry) {
                     $entryLabel = ucfirst($this->entryLabel($index, $entry));
@@ -85,6 +89,20 @@ class TimesheetSaveRequest extends FormRequest
                             "entries.$index.project_id",
                             'You are no longer assigned to this project, or the project is inactive. Remove or replace it before saving.',
                         );
+                    }
+
+                    if (! empty($entry['project_id']) && $availableProjects->has((int) $entry['project_id'])) {
+                        $project = $availableProjects->get((int) $entry['project_id']);
+                        $participatingDepartmentIds = $project->departmentAllocations
+                            ->pluck('department_id')->map(fn ($id) => (int) $id);
+                        $departmentId = (int) (($entry['department_id'] ?? null) ?: $this->user()->department_id);
+
+                        if ($participatingDepartmentIds->isNotEmpty() && ! $participatingDepartmentIds->contains($departmentId)) {
+                            $validator->errors()->add(
+                                "entries.$index.department_id",
+                                'Select a discipline that participates in this project.',
+                            );
+                        }
                     }
 
                     if ($period && isset($entry['work_date']) && ($entry['work_date'] < $period->start_date->toDateString() || $entry['work_date'] > $period->end_date->toDateString())) {

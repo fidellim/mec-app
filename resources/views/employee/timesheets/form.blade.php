@@ -90,7 +90,7 @@
         </div>
         <div class="table-responsive content-card-body p-0">
             <table class="table timesheet-entry-table" id="timesheet-entry-table">
-                <thead class="visually-hidden"><tr><th>Attendance Code</th><th>Project/Job</th><th>Regular</th><th>Overtime</th><th>Remarks</th><th>Actions</th></tr></thead>
+                <thead class="visually-hidden"><tr><th>Attendance Code</th><th>Project/Job</th><th>Discipline</th><th>Regular</th><th>Overtime</th><th>Remarks</th><th>Actions</th></tr></thead>
                 <tbody>
                 @php($renderedDates = [])
                 @foreach($entries as $i => $entry)
@@ -102,7 +102,7 @@
                     @if(! in_array($workDate, $renderedDates, true))
                         @php($renderedDates[] = $workDate)
                         <tr class="timesheet-day-summary-row" data-day-summary-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
-                            <td colspan="6">
+                            <td colspan="7">
                                 <div class="timesheet-day-summary">
                                     <div>
                                         <span class="fw-semibold" data-date-label>{{ \Carbon\Carbon::parse($workDate)->format('F j, Y') }}</span>
@@ -123,6 +123,7 @@
                         <tr class="timesheet-day-column-row" data-day-column-row data-work-date="{{ $workDate }}">
                             <th scope="col">Attendance Code</th>
                             <th scope="col">Project/Job</th>
+                            <th scope="col">Discipline</th>
                             <th scope="col">Regular</th>
                             <th scope="col">Overtime</th>
                             <th scope="col">Remarks</th>
@@ -150,6 +151,14 @@
                             </select>
                             @error("entries.$i.project_id")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
                             <div class="invalid-feedback d-block d-none" data-client-error-for="project_id"></div>
+                        </td>
+                        <td>
+                            <select class="form-select discipline-select @error("entries.$i.department_id") is-invalid @enderror" name="entries[{{ $i }}][department_id]" data-field="department_id" aria-label="Discipline or department">
+                                <option value="">Select discipline</option>
+                                @foreach($departments as $department)<option value="{{ $department->id }}" @selected(old("entries.$i.department_id", $row->department_id ?? auth()->user()->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ?? true ? '' : ' — inactive' }}</option>@endforeach
+                            </select>
+                            @error("entries.$i.department_id")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            <div class="small text-muted mt-1" data-discipline-help></div>
                         </td>
                         <td style="width: 110px;">
                             <input class="form-control @error("entries.$i.regular_hours") is-invalid @enderror" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][regular_hours]" data-field="regular_hours" value="{{ old("entries.$i.regular_hours", $row->regular_hours ?? 0) }}">
@@ -226,6 +235,9 @@
     let copiedDay = null;
     const leaveAttendanceCodes = @json($leaveAttendanceCodes ?? config('timesheet.leave_attendance_codes', []));
     const projectOptionalAttendanceCodes = @json($projectOptionalAttendanceCodes ?? config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
+    const homeDepartmentId = '{{ auth()->user()->department_id }}';
+    const departmentOptions = @json($departments->map(fn ($department) => ['value' => (string) $department->id, 'text' => $department->name.(($department->is_active ?? true) ? '' : ' — inactive')])->values());
+    const projectDepartmentIds = @json($projects->mapWithKeys(fn ($project) => [(string) $project->id => $project->departmentAllocations->pluck('department_id')->map(fn ($id) => (string) $id)->values()])->all());
     const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
     const isProjectOptionalAttendanceCode = (value) => projectOptionalAttendanceCodes.includes(value);
 
@@ -299,10 +311,55 @@
         field.value = value;
     };
 
+    const initializeDisciplineSelect = (select) => {
+        if (!select.tomselect && window.TomSelect) {
+            new TomSelect(select, {
+                allowEmptyOption: true,
+                create: false,
+                dropdownParent: 'body',
+                maxOptions: null,
+                searchField: ['text'],
+                sortField: [{ field: '$order' }],
+            });
+        }
+    };
+
+    const refreshParticipatingDepartments = (row, preferredValue = null) => {
+        const projectId = getSearchableSelectValue(row, 'project_id');
+        const departmentSelect = row.querySelector('[data-field="department_id"]');
+        const allowedIds = projectDepartmentIds[projectId] ?? [];
+        const unrestricted = !projectId || allowedIds.length === 0;
+        const currentValue = preferredValue ?? getSearchableSelectValue(row, 'department_id');
+        const visibleOptions = unrestricted
+            ? departmentOptions
+            : departmentOptions.filter((option) => allowedIds.includes(option.value));
+        const targetValue = visibleOptions.some((option) => option.value === String(currentValue))
+            ? String(currentValue)
+            : (visibleOptions.some((option) => option.value === homeDepartmentId) ? homeDepartmentId : '');
+
+        departmentSelect.tomselect?.destroy();
+        departmentSelect.disabled = false;
+        departmentSelect.replaceChildren(new Option('Select discipline', ''));
+        visibleOptions.forEach((option) => departmentSelect.add(new Option(option.text, option.value)));
+        departmentSelect.value = targetValue;
+        initializeDisciplineSelect(departmentSelect);
+
+        if (!projectId) {
+            if (departmentSelect.tomselect) departmentSelect.tomselect.disable();
+            else departmentSelect.disabled = true;
+        }
+
+        const help = row.querySelector('[data-discipline-help]');
+        if (help) help.textContent = !projectId
+            ? 'Select a project to choose a discipline.'
+            : (!unrestricted ? `${visibleOptions.length} participating ${visibleOptions.length === 1 ? 'discipline' : 'disciplines'}` : '');
+    };
+
     const cloneEntryRow = (currentRow) => {
         const currentValues = {
             attendance_code: getSearchableSelectValue(currentRow, 'attendance_code'),
             project_id: getSearchableSelectValue(currentRow, 'project_id'),
+            department_id: getSearchableSelectValue(currentRow, 'department_id'),
         };
 
         destroySearchableSelects(currentRow);
@@ -310,6 +367,7 @@
         initializeSearchableSelects(currentRow);
         setSearchableSelectValue(currentRow.querySelector('[data-field="attendance_code"]'), currentValues.attendance_code);
         setSearchableSelectValue(currentRow.querySelector('[data-field="project_id"]'), currentValues.project_id);
+        setSearchableSelectValue(currentRow.querySelector('[data-field="department_id"]'), currentValues.department_id);
 
         return newRow;
     };
@@ -337,6 +395,7 @@
     const getRowValues = (row) => ({
         attendance_code: getSearchableSelectValue(row, 'attendance_code'),
         project_id: getSearchableSelectValue(row, 'project_id'),
+        department_id: getSearchableSelectValue(row, 'department_id'),
         regular_hours: row.querySelector('[data-field="regular_hours"]').value || '0',
         overtime_hours: row.querySelector('[data-field="overtime_hours"]').value || '0',
         remarks: row.querySelector('[data-field="remarks"]').value || '',
@@ -392,6 +451,7 @@
             const hasHours = regular > 0 || overtime > 0;
             const attendanceCode = getSearchableSelectValue(row, 'attendance_code');
             const projectId = getSearchableSelectValue(row, 'project_id');
+            const departmentId = getSearchableSelectValue(row, 'department_id');
             const label = getRowLabel(row);
 
             if (!hasHours) {
@@ -408,6 +468,12 @@
                 const message = `${label} needs a project/job number when hours are entered.`;
                 messages.push(message);
                 setClientFieldError(row, 'project_id', 'Select a project/job number.');
+            }
+
+            if (projectId && !departmentId) {
+                const message = `${label} needs a participating discipline when project hours are entered.`;
+                messages.push(message);
+                setClientFieldError(row, 'department_id', 'Select a participating discipline.');
             }
         });
 
@@ -437,6 +503,7 @@
         setRowFieldValue(row, 'work_date', workDate);
         setRowFieldValue(row, 'attendance_code', values.attendance_code);
         setRowFieldValue(row, 'project_id', values.project_id);
+        refreshParticipatingDepartments(row, values.department_id);
         setRowFieldValue(row, 'regular_hours', values.regular_hours);
         setRowFieldValue(row, 'overtime_hours', values.overtime_hours);
         setRowFieldValue(row, 'remarks', values.remarks);
@@ -532,6 +599,7 @@
             setEntryRowValues(firstTargetRow, workDate, copiedDay.rows[0] ?? {
                 attendance_code: '',
                 project_id: '',
+                department_id: '{{ auth()->user()->department_id }}',
                 regular_hours: '0',
                 overtime_hours: '0',
                 remarks: '',
@@ -549,6 +617,7 @@
                 insertAfter = newRow;
                 initializeTooltips(newRow);
                 initializeSearchableSelects(newRow);
+                refreshParticipatingDepartments(newRow, values.department_id);
                 updateRowRequirements(newRow);
             });
         });
@@ -682,6 +751,7 @@
                 work_date: currentRow.dataset.workDate,
                 attendance_code: '',
                 project_id: '',
+                department_id: getSearchableSelectValue(currentRow, 'department_id'),
                 regular_hours: '0',
                 overtime_hours: '0',
                 remarks: '',
@@ -694,6 +764,7 @@
             insertAfter.after(newRow);
             initializeTooltips(newRow);
             initializeSearchableSelects(newRow);
+            refreshParticipatingDepartments(newRow);
             resequenceRows();
         }
 
@@ -704,6 +775,7 @@
                 work_date: currentRow.dataset.workDate,
                 attendance_code: getSearchableSelectValue(currentRow, 'attendance_code'),
                 project_id: getSearchableSelectValue(currentRow, 'project_id'),
+                department_id: getSearchableSelectValue(currentRow, 'department_id'),
                 regular_hours: currentRow.querySelector('[data-field="regular_hours"]').value || '0',
                 overtime_hours: currentRow.querySelector('[data-field="overtime_hours"]').value || '0',
                 remarks: currentRow.querySelector('[data-field="remarks"]').value || '',
@@ -712,6 +784,7 @@
             currentRow.after(newRow);
             initializeTooltips(newRow);
             initializeSearchableSelects(newRow);
+            refreshParticipatingDepartments(newRow);
             updateRowRequirements(newRow);
             resequenceRows();
         }
@@ -757,14 +830,17 @@
     });
 
     table.addEventListener('change', (event) => {
-        if (event.target.matches('[data-field="attendance_code"], [data-field="project_id"]')) {
+        if (event.target.matches('[data-field="attendance_code"], [data-field="project_id"], [data-field="department_id"]')) {
             const row = event.target.closest('[data-entry-row]');
+            if (event.target.matches('[data-field="project_id"]')) refreshParticipatingDepartments(row);
             clearRowClientValidation(row);
             updateRowRequirements(row);
             calculateDayTotals(row.dataset.workDate);
             calculateWeekTotals();
         }
     });
+
+    table.querySelectorAll('[data-entry-row]').forEach((row) => refreshParticipatingDepartments(row));
 
     resequenceRows();
 })();
