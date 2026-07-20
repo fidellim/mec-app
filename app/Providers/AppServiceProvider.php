@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Auth\Passwords\AtomicPasswordBrokerManager;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\Paginator;
@@ -13,7 +14,9 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->extend('auth.password', function ($manager, $app) {
+            return new AtomicPasswordBrokerManager($app);
+        });
     }
 
     public function boot(): void

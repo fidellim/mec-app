@@ -5,11 +5,11 @@ namespace Tests\Feature;
 use App\Notifications\QueuedResetPassword;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Password;
-use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Route;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
@@ -85,6 +85,19 @@ class AuthAndAccessTest extends TestCase
 
         Notification::assertSentTo($user, QueuedResetPassword::class, fn ($notification) => $notification instanceof ShouldQueue);
         $this->assertDatabaseHas('password_reset_tokens', ['email' => $user->email]);
+    }
+
+    public function test_creating_a_new_password_reset_token_atomically_replaces_the_existing_token(): void
+    {
+        $user = $this->userWithRole('employee', ['email' => 'replace-reset@example.com']);
+        $broker = Password::broker();
+
+        $firstToken = $broker->createToken($user);
+        $secondToken = $broker->createToken($user);
+
+        $this->assertDatabaseCount('password_reset_tokens', 1);
+        $this->assertFalse($broker->tokenExists($user, $firstToken));
+        $this->assertTrue($broker->tokenExists($user, $secondToken));
     }
 
     public function test_missing_or_inactive_password_reset_requests_use_generic_response_without_sending_links(): void
