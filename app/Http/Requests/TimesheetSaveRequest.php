@@ -21,6 +21,7 @@ class TimesheetSaveRequest extends FormRequest
         return [
             'timesheet_period_id' => ['required', 'exists:timesheet_periods,id'],
             'entries' => ['required', 'array', 'min:1'],
+            'entries.*.id' => ['nullable', 'integer'],
             'entries.*.work_date' => ['required', 'date'],
             'entries.*.attendance_code' => ['nullable', Rule::in(array_keys(config('timesheet.attendance_codes')))],
             'entries.*.project_id' => ['nullable', 'exists:projects,id'],

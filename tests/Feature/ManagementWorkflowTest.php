@@ -2,9 +2,9 @@
 
 namespace Tests\Feature;
 
-use App\Models\AutomationSetting;
-use App\Models\AuditLog;
 use App\Models\AnnualLeaveCarryOver;
+use App\Models\AuditLog;
+use App\Models\AutomationSetting;
 use App\Models\Department;
 use App\Models\HolidayDate;
 use App\Models\HolidayEvent;
@@ -15,13 +15,13 @@ use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
+use App\Services\LeaveEntitlementService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use App\Services\LeaveEntitlementService;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -42,6 +42,7 @@ class ManagementWorkflowTest extends TestCase
             'employee_code' => 'MEC-HR-2026-095',
             'initials' => 'NE',
             'job_title' => 'Project Engineer',
+            'job_level' => 'intermediate',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -114,6 +115,7 @@ class ManagementWorkflowTest extends TestCase
                 'email' => 'executive.employee@example.com',
                 'password' => 'password123',
                 'employee_code' => 'MEC-HR-2026-195',
+                'job_level' => 'management',
                 'department_id' => $department->id,
                 'role' => 'employee',
                 'is_active' => '1',
@@ -433,6 +435,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $this->department()->id,
             'name' => 'Profile Employee',
             'job_title' => 'Project Engineer',
+            'job_level' => 'intermediate',
         ]);
 
         $this->actingAs($admin)
@@ -670,6 +673,7 @@ class ManagementWorkflowTest extends TestCase
             'email' => 'policy.employee@example.com',
             'employee_code' => 'MEC-HR-2026-195',
             'initials' => 'PE',
+            'job_level' => 'intermediate',
             'job_title' => 'Project Engineer',
             'department_id' => $department->id,
             'role' => 'employee',
@@ -784,6 +788,7 @@ class ManagementWorkflowTest extends TestCase
             'password' => 'password123',
             'employee_code' => 'MEC-PHIL-HR-2026-095',
             'initials' => 'PE',
+            'job_level' => 'intermediate',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -806,6 +811,7 @@ class ManagementWorkflowTest extends TestCase
             'password' => 'password123',
             'employee_code' => 'MEC-HR-2026-096',
             'initials' => '',
+            'job_level' => 'entry',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -822,6 +828,7 @@ class ManagementWorkflowTest extends TestCase
             'password' => 'password123',
             'employee_code' => 'MEC-HR-2026-097',
             'initials' => str_repeat('A', 21),
+            'job_level' => 'entry',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -839,6 +846,7 @@ class ManagementWorkflowTest extends TestCase
             'password' => 'password123',
             'employee_code' => 'MEC-HR-2026-098',
             'job_title' => '  Senior Project Engineer  ',
+            'job_level' => 'senior',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -877,6 +885,7 @@ class ManagementWorkflowTest extends TestCase
             'password' => 'password123',
             'employee_code' => 'MEC-HR-2026-099',
             'job_title' => str_repeat('A', 101),
+            'job_level' => 'senior',
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
@@ -896,6 +905,7 @@ class ManagementWorkflowTest extends TestCase
             'gender' => 'female',
             'joining_date' => '2026-06-15',
             'marital_status' => 'married',
+            'job_level' => 'intermediate',
             'eligible_for_parental_leave' => '1',
             'eligible_for_maternity_leave' => '1',
             'eligible_for_paternity_leave' => '1',

@@ -183,6 +183,7 @@ class ProjectTimesheetAssignmentWorkflowTest extends TestCase
             'start_date' => '2026-07-17',
             'project_manager_id' => $manager->id,
             'department_allocations' => [$department->id => 100],
+            'allocation_change_reason' => 'Add the initial participating department budget.',
             'is_active' => '1',
             'timesheet_assignment_mode' => Project::ASSIGNMENT_ALL_USERS,
             'assigned_user_ids' => [$employee->id],

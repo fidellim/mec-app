@@ -393,6 +393,11 @@ class UserController extends Controller
             ],
             'initials' => ['nullable', 'string', 'max:20'],
             'job_title' => ['nullable', 'string', 'max:100'],
+            'job_level' => [
+                Rule::requiredIf(fn () => ! $user && $request->boolean('is_active') && in_array($request->role, ['employee', 'hod'], true)),
+                'nullable',
+                Rule::in(array_keys(config('job_levels.labels'))),
+            ],
             'gender' => ['nullable', Rule::in(['male', 'female'])],
             'joining_date' => ['nullable', 'date'],
             'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
@@ -437,6 +442,7 @@ class UserController extends Controller
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
         $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
+        $data['job_level'] = filled($data['job_level'] ?? null) ? $data['job_level'] : null;
         $data['gender'] = filled($data['gender'] ?? null) ? $data['gender'] : null;
         $data['joining_date'] = filled($data['joining_date'] ?? null) ? $data['joining_date'] : null;
         $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;
@@ -466,6 +472,7 @@ class UserController extends Controller
             ],
             'initials' => ['nullable', 'string', 'max:20'],
             'job_title' => ['nullable', 'string', 'max:100'],
+            'job_level' => ['nullable', Rule::in(array_keys(config('job_levels.labels')))],
             'gender' => ['nullable', Rule::in(['male', 'female'])],
             'joining_date' => ['nullable', 'date'],
             'marital_status' => ['nullable', Rule::in(['single', 'married', 'widowed', 'separated'])],
@@ -497,6 +504,7 @@ class UserController extends Controller
 
         $data['initials'] = filled($data['initials'] ?? null) ? trim($data['initials']) : null;
         $data['job_title'] = filled($data['job_title'] ?? null) ? trim($data['job_title']) : null;
+        $data['job_level'] = filled($data['job_level'] ?? null) ? $data['job_level'] : null;
         $data['gender'] = filled($data['gender'] ?? null) ? $data['gender'] : null;
         $data['joining_date'] = filled($data['joining_date'] ?? null) ? $data['joining_date'] : null;
         $data['marital_status'] = filled($data['marital_status'] ?? null) ? $data['marital_status'] : null;

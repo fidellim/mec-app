@@ -18,6 +18,7 @@
         : 'Regional default';
     $employmentDetails = [
         'Job Title' => $userModel->job_title ?: '-',
+        'Job Level' => config('job_levels.labels.'.$userModel->job_level, 'Not classified'),
         'Department' => $userModel->department?->name ?: '-',
         'Joining Date' => $userModel->joining_date?->format('M d, Y') ?: '-',
         'Gender' => $genderLabels[$userModel->gender] ?? '-',

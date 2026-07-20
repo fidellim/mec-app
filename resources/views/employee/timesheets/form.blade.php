@@ -132,6 +132,7 @@
                     @endif
                     <tr @class(['timesheet-entry-row-invalid' => $rowHasErrors]) data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
                         <td>
+                            @if(! empty($row->id))<input type="hidden" name="entries[{{ $i }}][id]" value="{{ $row->id }}" data-field="id">@endif
                             <input type="hidden" name="entries[{{ $i }}][work_date]" value="{{ old("entries.$i.work_date", $workDate) }}" data-field="work_date">
                             <select class="form-select attendance-select @error("entries.$i.attendance_code") is-invalid @enderror" name="entries[{{ $i }}][attendance_code]" data-field="attendance_code">
                                 <option value="">Select</option>

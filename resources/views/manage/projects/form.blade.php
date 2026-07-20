@@ -14,17 +14,74 @@
         <div class="col-12">
             <fieldset class="border rounded-3 p-3">
                 <legend class="h6 px-2">Department manhour allocations</legend>
-                <p class="small text-muted">Set each participating discipline's lifetime budget. Leave a department blank when it does not participate in this project. Allocations may be reduced, but not below approved usage.</p>
+                <p class="small text-muted">Set each discipline's lifetime budget. Optional Job Level controls divide it into protected reservations and a shared remainder. Submitted and approved hours both consume allocation.</p>
                 <div class="row g-3">
                     @foreach($departments as $department)
                         @php
                             $allocationKey = 'department_allocations.'.$department->id;
                             $hours = old($allocationKey, $allocationHours->get($department->id));
+                            $controlKey = 'job_level_controls.'.$department->id;
+                            $controlsEnabled = (bool) old($controlKey, $controlledDepartmentIds->contains($department->id));
+                            $storedLevels = $jobLevelSettings->get($department->id, collect());
                         @endphp
-                        <div class="col-md-6 col-xl-4"><label class="form-label" for="allocation_{{ $department->id }}">{{ $department->name }}{{ ($department->is_active ?? true) ? '' : ' (inactive)' }}</label><div class="input-group"><input class="form-control {{ $errors->has($allocationKey) ? 'is-invalid' : '' }}" id="allocation_{{ $department->id }}" name="department_allocations[{{ $department->id }}]" type="number" min="0.25" step="0.25" value="{{ $hours }}" placeholder="No allocation"><span class="input-group-text">hrs</span>@if($errors->has($allocationKey))<div class="invalid-feedback">{{ $errors->first($allocationKey) }}</div>@endif</div></div>
+                        <div class="col-12" data-department-allocation>
+                            <section class="border rounded-3 overflow-hidden">
+                                <div class="p-3 bg-body-tertiary d-flex flex-column flex-lg-row gap-3 align-items-lg-end justify-content-between">
+                                    <div class="flex-grow-1">
+                                        <label class="form-label fw-semibold" for="allocation_{{ $department->id }}">{{ $department->name }}{{ ($department->is_active ?? true) ? '' : ' (inactive)' }}</label>
+                                        <div class="input-group" style="max-width: 280px;"><input class="form-control {{ $errors->has($allocationKey) ? 'is-invalid' : '' }}" id="allocation_{{ $department->id }}" name="department_allocations[{{ $department->id }}]" type="number" min="0.25" step="0.25" value="{{ $hours }}" placeholder="No allocation" data-department-hours><span class="input-group-text">hrs</span>@if($errors->has($allocationKey))<div class="invalid-feedback">{{ $errors->first($allocationKey) }}</div>@endif</div>
+                                    </div>
+                                    <div class="form-check form-switch mb-1">
+                                        <input type="hidden" name="job_level_controls[{{ $department->id }}]" value="0">
+                                        <input class="form-check-input" type="checkbox" role="switch" id="job_levels_{{ $department->id }}" name="job_level_controls[{{ $department->id }}]" value="1" @checked($controlsEnabled) data-job-level-toggle>
+                                        <label class="form-check-label fw-semibold" for="job_levels_{{ $department->id }}">Control by Job Level</label>
+                                    </div>
+                                </div>
+                                <div class="p-3 border-top {{ $controlsEnabled ? '' : 'd-none' }}" data-job-level-panel>
+                                    <div class="small text-muted mb-3">Shared levels use the remainder together. Reserved hours are protected for one level. Not allowed levels cannot charge.</div>
+                                    <div class="row g-2">
+                                        @foreach(config('job_levels.labels') as $jobLevel => $jobLevelLabel)
+                                            @php
+                                                $modeKey = "job_level_allocations.{$department->id}.{$jobLevel}.mode";
+                                                $hoursKey = "job_level_allocations.{$department->id}.{$jobLevel}.hours";
+                                                $storedHasLevel = $storedLevels instanceof \Illuminate\Support\Collection ? $storedLevels->has($jobLevel) : array_key_exists($jobLevel, (array) $storedLevels);
+                                                $storedValue = $storedHasLevel ? ($storedLevels instanceof \Illuminate\Support\Collection ? $storedLevels->get($jobLevel) : $storedLevels[$jobLevel]) : null;
+                                                $defaultMode = ! $storedHasLevel || $storedValue === null ? 'shared' : ((float) $storedValue === 0.0 ? 'not_allowed' : 'reserved');
+                                                $mode = old($modeKey, $defaultMode);
+                                                $levelHours = old($hoursKey, $defaultMode === 'reserved' ? $storedValue : null);
+                                            @endphp
+                                            <div class="col-md-6 col-xl-4">
+                                                <div class="border rounded-2 p-2 h-100" data-job-level-row>
+                                                    <label class="form-label small fw-semibold" for="mode_{{ $department->id }}_{{ $jobLevel }}">{{ $jobLevelLabel }}</label>
+                                                    <div class="input-group input-group-sm">
+                                                        <select class="form-select" id="mode_{{ $department->id }}_{{ $jobLevel }}" name="job_level_allocations[{{ $department->id }}][{{ $jobLevel }}][mode]" data-job-level-mode>
+                                                            <option value="shared" @selected($mode === 'shared')>Shared</option>
+                                                            <option value="reserved" @selected($mode === 'reserved')>Reserved</option>
+                                                            <option value="not_allowed" @selected($mode === 'not_allowed')>Not allowed</option>
+                                                        </select>
+                                                        <input class="form-control {{ $errors->has($hoursKey) ? 'is-invalid' : '' }}" name="job_level_allocations[{{ $department->id }}][{{ $jobLevel }}][hours]" type="number" min="0.25" step="0.25" value="{{ $levelHours }}" placeholder="Hours" data-job-level-hours>
+                                                        <span class="input-group-text">hrs</span>
+                                                    </div>
+                                                    @if($errors->has($hoursKey))<div class="text-danger small mt-1">{{ $errors->first($hoursKey) }}</div>@endif
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                    @if($errors->has('job_level_allocations.'.$department->id))<div class="text-danger small mt-2">{{ $errors->first('job_level_allocations.'.$department->id) }}</div>@endif
+                                </div>
+                            </section>
+                        </div>
                     @endforeach
                 </div>
                 @error('department_allocations')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
+                @if($project->exists)
+                    <div class="mt-3">
+                        <label class="form-label" for="allocation_change_reason">Allocation change reason</label>
+                        <textarea class="form-control @error('allocation_change_reason') is-invalid @enderror" id="allocation_change_reason" name="allocation_change_reason" rows="2" maxlength="2000" placeholder="Required when department totals or Job Level controls change">{{ old('allocation_change_reason') }}</textarea>
+                        <div class="form-text">Stored in the audit log whenever an allocation changes.</div>
+                        @error('allocation_change_reason')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    </div>
+                @endif
             </fieldset>
         </div>
         @php
@@ -99,6 +156,26 @@
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('[data-department-allocation]').forEach(allocation => {
+        const toggle = allocation.querySelector('[data-job-level-toggle]');
+        const panel = allocation.querySelector('[data-job-level-panel]');
+        const departmentHours = allocation.querySelector('[data-department-hours]');
+        const refresh = () => {
+            const enabled = toggle.checked && departmentHours.value !== '';
+            panel.classList.toggle('d-none', ! enabled);
+            panel.querySelectorAll('[data-job-level-row]').forEach(row => {
+                const mode = row.querySelector('[data-job-level-mode]');
+                const hours = row.querySelector('[data-job-level-hours]');
+                mode.disabled = ! enabled;
+                hours.disabled = ! enabled || mode.value !== 'reserved';
+            });
+        };
+        toggle.addEventListener('change', refresh);
+        departmentHours.addEventListener('input', refresh);
+        panel.querySelectorAll('[data-job-level-mode]').forEach(mode => mode.addEventListener('change', refresh));
+        refresh();
+    });
+
     const picker = document.querySelector('[data-assignment-picker]');
     if (! picker) return;
 

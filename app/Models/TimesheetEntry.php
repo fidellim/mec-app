@@ -11,7 +11,7 @@ class TimesheetEntry extends Model
 
     protected $fillable = [
         'timesheet_id', 'work_date', 'day_name', 'attendance_code', 'project_id', 'department_id', 'regular_hours',
-        'overtime_hours', 'description', 'remarks',
+        'overtime_hours', 'description', 'remarks', 'job_level_snapshot', 'allocation_bucket_snapshot',
     ];
 
     protected function casts(): array
@@ -37,7 +37,13 @@ class TimesheetEntry extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function department() { return $this->belongsTo(Department::class); }
+    public function department()
+    {
+        return $this->belongsTo(Department::class);
+    }
 
-    public function correctionRequestEntries() { return $this->hasMany(TimesheetCorrectionRequestEntry::class); }
+    public function correctionRequestEntries()
+    {
+        return $this->hasMany(TimesheetCorrectionRequestEntry::class);
+    }
 }

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Project;
 use App\Models\Timesheet;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -32,7 +33,7 @@ class ProjectUtilizationTest extends TestCase
             ->assertSee('Engineering')
             ->assertSee('12.00')
             ->assertSee('5.00')
-            ->assertSee('88.00')
+            ->assertSee('83.00')
             ->assertSee('data-confirm="Send this correction request for the selected entries?"', false);
     }
 
@@ -73,7 +74,7 @@ class ProjectUtilizationTest extends TestCase
         $project->departmentAllocations()->create(['department_id' => $department->id, 'allocated_hours' => 100]);
 
         foreach ([['2026-05-11', 4, 20], ['2026-06-01', 9, 23]] as [$date, $hours, $week]) {
-            $period = $this->openPeriod(['week_number' => $week, 'start_date' => $date, 'end_date' => \Illuminate\Support\Carbon::parse($date)->addDays(6)->toDateString()]);
+            $period = $this->openPeriod(['week_number' => $week, 'start_date' => $date, 'end_date' => Carbon::parse($date)->addDays(6)->toDateString()]);
             $timesheet = $this->submittedTimesheet($worker, $period, $project, ['status' => Timesheet::STATUS_APPROVED]);
             $timesheet->entries()->first()->update(['department_id' => $department->id, 'work_date' => $date, 'regular_hours' => $hours, 'overtime_hours' => 0]);
         }
@@ -133,7 +134,7 @@ class ProjectUtilizationTest extends TestCase
             ->assertDontSee('My Managed Projects');
     }
 
-    public function test_allocation_can_decrease_but_not_below_approved_hours(): void
+    public function test_allocation_can_decrease_but_not_below_submitted_and_approved_hours(): void
     {
         $department = $this->department(['name' => 'Design']);
         $admin = $this->userWithRole('admin');
@@ -154,19 +155,20 @@ class ProjectUtilizationTest extends TestCase
             'client_name' => $project->client_name,
             'start_date' => '2026-01-01',
             'project_manager_id' => $manager->id,
-            'department_allocations' => [$department->id => 70],
+            'department_allocations' => [$department->id => 80],
+            'allocation_change_reason' => 'Align the budget with the current forecast.',
             'is_active' => '1',
             'timesheet_assignment_mode' => Project::ASSIGNMENT_ALL_USERS,
         ];
 
         $this->actingAs($admin)->put(route('manage.projects.update', $project), $payload)
             ->assertRedirect(route('manage.projects.index'))
-            ->assertSessionHas('warning');
-        $this->assertDatabaseHas('project_department_allocations', ['project_id' => $project->id, 'department_id' => $department->id, 'allocated_hours' => 70]);
+            ->assertSessionHasNoErrors();
+        $this->assertDatabaseHas('project_department_allocations', ['project_id' => $project->id, 'department_id' => $department->id, 'allocated_hours' => 80]);
 
-        $payload['department_allocations'][$department->id] = 50;
+        $payload['department_allocations'][$department->id] = 79;
         $this->actingAs($admin)->put(route('manage.projects.update', $project), $payload)
             ->assertSessionHasErrors("department_allocations.$department->id");
-        $this->assertDatabaseHas('project_department_allocations', ['project_id' => $project->id, 'department_id' => $department->id, 'allocated_hours' => 70]);
+        $this->assertDatabaseHas('project_department_allocations', ['project_id' => $project->id, 'department_id' => $department->id, 'allocated_hours' => 80]);
     }
 }

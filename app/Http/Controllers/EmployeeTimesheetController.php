@@ -3,17 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Http\Requests\TimesheetSaveRequest;
-use App\Models\LeavePlan;
 use App\Models\Department;
+use App\Models\LeavePlan;
 use App\Models\Project;
 use App\Models\Timesheet;
+use App\Models\TimesheetEntry;
 use App\Models\TimesheetPeriod;
 use App\Services\AuditLogService;
 use App\Services\LeaveEntitlementService;
+use App\Services\TimesheetAllocationService;
 use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetStatusHistoryService;
+use Carbon\Carbon;
 use Carbon\CarbonPeriod;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class EmployeeTimesheetController extends Controller
@@ -21,6 +25,7 @@ class EmployeeTimesheetController extends Controller
     public function index()
     {
         $timesheets = Timesheet::with('period')->where('user_id', auth()->id())->latest()->paginate(15);
+
         return view('employee.timesheets.index', compact('timesheets'));
     }
 
@@ -69,7 +74,7 @@ class EmployeeTimesheetController extends Controller
         ]);
     }
 
-    public function store(TimesheetSaveRequest $request, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history)
+    public function store(TimesheetSaveRequest $request, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history, TimesheetAllocationService $allocations)
     {
         $user = $request->user();
         if (! $user->department_id) {
@@ -92,7 +97,10 @@ class EmployeeTimesheetController extends Controller
                 ->with('warning', 'You already have a timesheet for this week. You cannot create another one.');
         }
 
-        $timesheet = DB::transaction(function () use ($request, $user, $period, $audit, $history) {
+        $timesheet = DB::transaction(function () use ($request, $user, $period, $audit, $history, $allocations) {
+            $snapshots = $request->boolean('submit')
+                ? $allocations->validateSubmission($user, $request->entries)
+                : [];
             $timesheet = Timesheet::create([
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
@@ -101,7 +109,7 @@ class EmployeeTimesheetController extends Controller
                 'submitted_at' => $request->boolean('submit') ? now() : null,
             ]);
 
-            $this->syncEntries($timesheet, $request->entries);
+            $this->syncEntries($timesheet, $request->entries, $snapshots);
             $this->recalculate($timesheet);
             if ($request->boolean('submit')) {
                 $new = $timesheet->fresh()->toArray();
@@ -122,6 +130,7 @@ class EmployeeTimesheetController extends Controller
     public function show(Timesheet $timesheet)
     {
         $this->authorizeOwner($timesheet);
+
         return view('employee.timesheets.show', ['timesheet' => $timesheet->load(['entries.project', 'entries.department', 'period', 'department'])]);
     }
 
@@ -152,7 +161,7 @@ class EmployeeTimesheetController extends Controller
         ]);
     }
 
-    public function update(TimesheetSaveRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history)
+    public function update(TimesheetSaveRequest $request, Timesheet $timesheet, AuditLogService $audit, TimesheetEmailNotificationService $emails, TimesheetStatusHistoryService $history, TimesheetAllocationService $allocations)
     {
         $this->authorizeOwner($timesheet);
         abort_unless($timesheet->editableBy($request->user()), 403);
@@ -166,8 +175,21 @@ class EmployeeTimesheetController extends Controller
         $old = $timesheet->load('entries')->toArray();
         $wasRejected = $timesheet->status === 'rejected';
         $wasRecalled = $timesheet->status === Timesheet::STATUS_RECALLED;
+        $originalJobLevels = $timesheet->entries->keyBy('id')->map->job_level_snapshot;
 
-        DB::transaction(function () use ($request, $timesheet, $audit, $history, $old, $wasRejected, $wasRecalled) {
+        DB::transaction(function () use ($request, $timesheet, $audit, $history, $old, $wasRejected, $wasRecalled, $allocations, $originalJobLevels) {
+            $timesheetJobLevel = $originalJobLevels->filter()->first();
+            $jobLevelOverrides = collect($request->entries)->mapWithKeys(function ($entry, $index) use ($originalJobLevels, $timesheetJobLevel) {
+                $entryId = (int) ($entry['id'] ?? 0);
+                $jobLevel = $entryId && $originalJobLevels->has($entryId)
+                    ? $originalJobLevels->get($entryId)
+                    : $timesheetJobLevel;
+
+                return $jobLevel ? [$index => $jobLevel] : [];
+            })->all();
+            $snapshots = $request->boolean('submit')
+                ? $allocations->validateSubmission($request->user(), $request->entries, $timesheet, $jobLevelOverrides)
+                : [];
             $timesheet->update([
                 'department_id' => $request->user()->department_id,
                 'status' => $request->boolean('submit') ? 'submitted' : 'draft',
@@ -176,7 +198,7 @@ class EmployeeTimesheetController extends Controller
                 'approved_at' => ($request->boolean('submit') || $wasRecalled) ? null : $timesheet->approved_at,
                 'approved_by' => ($request->boolean('submit') || $wasRecalled) ? null : $timesheet->approved_by,
             ]);
-            $this->syncEntries($timesheet, $request->entries);
+            $this->syncEntries($timesheet, $request->entries, $snapshots);
             $this->recalculate($timesheet);
             $action = match (true) {
                 $request->boolean('submit') && ($wasRejected || $wasRecalled) => 'timesheet_resubmitted',
@@ -232,7 +254,7 @@ class EmployeeTimesheetController extends Controller
         return redirect()->route('employee.timesheets.index')->with('success', 'Draft deleted.');
     }
 
-    private function formProjects($user, $includedProjectIds = []): \Illuminate\Support\Collection
+    private function formProjects($user, $includedProjectIds = []): Collection
     {
         $includedProjectIds = collect($includedProjectIds)
             ->merge(collect(old('entries', []))->pluck('project_id'))
@@ -317,24 +339,26 @@ class EmployeeTimesheetController extends Controller
 
         return $existingEntries
             ->concat($missingEntries)
-            ->sortBy(fn ($entry) => $entry instanceof \App\Models\TimesheetEntry
+            ->sortBy(fn ($entry) => $entry instanceof TimesheetEntry
                 ? $entry->work_date->toDateString().'_'.$entry->id
                 : $entry['work_date'].'_0')
             ->values();
     }
 
-    private function syncEntries(Timesheet $timesheet, array $entries): void
+    private function syncEntries(Timesheet $timesheet, array $entries, array $snapshots = []): void
     {
         $timesheet->entries()->delete();
 
-        foreach ($entries as $entry) {
-            $workDate = \Carbon\Carbon::parse($entry['work_date']);
+        foreach ($entries as $index => $entry) {
+            $workDate = Carbon::parse($entry['work_date']);
             $timesheet->entries()->create([
                 'work_date' => $workDate->toDateString(),
                 'day_name' => $workDate->format('l'),
                 'attendance_code' => $entry['attendance_code'] ?: null,
                 'project_id' => $entry['project_id'] ?: null,
                 'department_id' => ($entry['department_id'] ?? null) ?: $timesheet->department_id,
+                'job_level_snapshot' => $snapshots[$index]['job_level_snapshot'] ?? null,
+                'allocation_bucket_snapshot' => $snapshots[$index]['allocation_bucket_snapshot'] ?? null,
                 'regular_hours' => $entry['regular_hours'] ?? 0,
                 'overtime_hours' => $entry['overtime_hours'] ?? 0,
                 'description' => null,

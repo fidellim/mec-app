@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Project;
 use App\Models\Department;
+use App\Models\Project;
 use App\Models\ProjectDepartmentAllocation;
 use App\Models\Timesheet;
-use App\Models\TimesheetEntry;
 use App\Models\TimesheetCorrectionRequest;
 use Illuminate\Support\Facades\DB;
 
@@ -70,12 +69,48 @@ class ProjectUtilizationController extends Controller
             'pending_hours' => $people->sum('pending_hours'),
         ]);
 
-        $allocations = $project->departmentAllocations()->with('department:id,name,code,is_active')
-            ->orderBy('department_id')->get()->map(function ($allocation) use ($usage, $peopleUsage) {
+        $levelUsage = DB::table('timesheet_entries as entries')
+            ->join('timesheets', 'timesheets.id', '=', 'entries.timesheet_id')
+            ->where('entries.project_id', $project->id)
+            ->whereNotNull('entries.department_id')
+            ->whereIn('timesheets.status', [Timesheet::STATUS_SUBMITTED, Timesheet::STATUS_APPROVED])
+            ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->where('entries.work_date', '>=', $date))
+            ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('entries.work_date', '<=', $date))
+            ->groupBy('entries.department_id', 'entries.job_level_snapshot', 'entries.allocation_bucket_snapshot')
+            ->selectRaw('entries.department_id, entries.job_level_snapshot, entries.allocation_bucket_snapshot,
+                SUM(CASE WHEN timesheets.status = ? THEN entries.regular_hours + entries.overtime_hours ELSE 0 END) as approved_hours,
+                SUM(CASE WHEN timesheets.status = ? THEN entries.regular_hours + entries.overtime_hours ELSE 0 END) as pending_hours',
+                [Timesheet::STATUS_APPROVED, Timesheet::STATUS_SUBMITTED])
+            ->get()->groupBy('department_id');
+
+        $allocations = $project->departmentAllocations()->with(['department:id,name,code,is_active', 'jobLevelAllocations'])
+            ->orderBy('department_id')->get()->map(function ($allocation) use ($usage, $peopleUsage, $levelUsage) {
                 $row = $usage->get($allocation->department_id);
                 $allocation->approved_hours = (float) ($row->approved_hours ?? 0);
                 $allocation->pending_hours = (float) ($row->pending_hours ?? 0);
                 $allocation->charging_people = $peopleUsage->get($allocation->department_id, collect());
+                $rows = $levelUsage->get($allocation->department_id, collect());
+                $reservedTotal = (float) $allocation->jobLevelAllocations->sum(fn ($item) => $item->allocated_hours === null ? 0 : (float) $item->allocated_hours);
+                $allocation->job_level_usage = $allocation->jobLevelAllocations->isEmpty() ? collect() : collect([
+                    (object) [
+                        'label' => 'Shared remainder',
+                        'state' => 'shared',
+                        'allocated_hours' => (float) $allocation->allocated_hours - $reservedTotal,
+                        'approved_hours' => (float) $rows->filter(fn ($item) => $item->allocation_bucket_snapshot === 'shared' || $item->allocation_bucket_snapshot === null)->sum('approved_hours'),
+                        'pending_hours' => (float) $rows->filter(fn ($item) => $item->allocation_bucket_snapshot === 'shared' || $item->allocation_bucket_snapshot === null)->sum('pending_hours'),
+                    ],
+                ])->concat($allocation->jobLevelAllocations->sortBy(fn ($item) => array_search($item->job_level, array_keys(config('job_levels.labels')), true))->map(function ($item) use ($rows) {
+                    $reservedRows = $rows->where('allocation_bucket_snapshot', 'reserved')->where('job_level_snapshot', $item->job_level);
+
+                    return (object) [
+                        'label' => config('job_levels.labels.'.$item->job_level, $item->job_level),
+                        'state' => $item->allocated_hours === null ? 'shared' : ((float) $item->allocated_hours === 0.0 ? 'not_allowed' : 'reserved'),
+                        'allocated_hours' => $item->allocated_hours === null ? null : (float) $item->allocated_hours,
+                        'approved_hours' => (float) $reservedRows->sum('approved_hours'),
+                        'pending_hours' => (float) $reservedRows->sum('pending_hours'),
+                    ];
+                }))->values();
+
                 return $allocation;
             });
 
@@ -84,7 +119,9 @@ class ProjectUtilizationController extends Controller
             ->whereIn('id', $usage->keys()->diff($allocatedDepartmentIds))
             ->get(['id', 'name', 'code', 'is_active'])->keyBy('id');
         foreach ($usage as $departmentId => $row) {
-            if ($allocatedDepartmentIds->contains((int) $departmentId) || ! $unallocatedDepartments->has($departmentId)) continue;
+            if ($allocatedDepartmentIds->contains((int) $departmentId) || ! $unallocatedDepartments->has($departmentId)) {
+                continue;
+            }
             $allocation = new ProjectDepartmentAllocation(['department_id' => $departmentId, 'allocated_hours' => 0]);
             $allocation->setRelation('department', $unallocatedDepartments->get($departmentId));
             $allocation->approved_hours = (float) $row->approved_hours;

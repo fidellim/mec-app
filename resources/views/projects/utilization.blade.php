@@ -52,8 +52,8 @@
             <thead><tr><th>Discipline / department</th><th class="text-end">Allocated</th><th class="text-end">Approved</th><th class="text-end">Pending</th><th class="text-end">Remaining</th><th style="min-width: 12rem;">Utilization</th></tr></thead>
             <tbody>
             @forelse($allocations as $allocation)
-                @php($remaining = (float) $allocation->allocated_hours - $allocation->approved_hours)
-                @php($percent = (float) $allocation->allocated_hours > 0 ? ($allocation->approved_hours / (float) $allocation->allocated_hours) * 100 : 0)
+                @php($remaining = (float) $allocation->allocated_hours - $allocation->approved_hours - $allocation->pending_hours)
+                @php($percent = (float) $allocation->allocated_hours > 0 ? (($allocation->approved_hours + $allocation->pending_hours) / (float) $allocation->allocated_hours) * 100 : 0)
                 @php($peopleId = 'department-people-'.$allocation->department_id)
                 <tr>
                     <td><div class="fw-semibold">{{ $allocation->department->name }}</div><div class="small text-muted">{{ $allocation->department->code }}</div>@if((float) $allocation->allocated_hours <= 0)<span class="badge text-bg-warning mt-1">No allocation</span>@elseif($remaining < 0)<span class="badge text-bg-danger mt-1">Over allocation</span>@endif @if($allocation->charging_people->isNotEmpty())<button class="btn btn-sm btn-link px-0 ms-2 text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $peopleId }}" aria-expanded="false" aria-controls="{{ $peopleId }}">People charging <span class="badge rounded-pill text-bg-secondary">{{ $allocation->charging_people->count() }}</span></button>@endif</td>
@@ -67,6 +67,21 @@
                     <tr class="collapse" id="{{ $peopleId }}">
                         <td class="p-0" colspan="6">
                             <div class="p-3 border-top bg-body-tertiary">
+                                @if(($allocation->job_level_usage ?? collect())->isNotEmpty())
+                                    <div class="small fw-semibold text-uppercase text-muted mb-2">Job Level allocation</div>
+                                    <div class="table-responsive mb-3">
+                                        <table class="table table-sm align-middle mb-0">
+                                            <thead><tr><th>Level / pool</th><th>State</th><th class="text-end">Allocated</th><th class="text-end">Consumed</th><th class="text-end">Remaining</th></tr></thead>
+                                            <tbody>
+                                            @foreach($allocation->job_level_usage as $level)
+                                                @php($consumed = $level->approved_hours + $level->pending_hours)
+                                                @php($levelRemaining = $level->allocated_hours === null ? null : $level->allocated_hours - $consumed)
+                                                <tr><td class="fw-semibold">{{ $level->label }}</td><td><span class="badge {{ $level->state === 'reserved' ? 'text-bg-primary' : ($level->state === 'shared' ? 'text-bg-secondary' : 'text-bg-light border text-dark') }}">{{ str_replace('_', ' ', ucfirst($level->state)) }}</span></td><td class="text-end">{{ $level->allocated_hours === null ? 'Shared' : number_format($level->allocated_hours, 2) }}</td><td class="text-end">{{ number_format($consumed, 2) }}</td><td class="text-end">{{ $levelRemaining === null ? '—' : number_format($levelRemaining, 2) }}</td></tr>
+                                            @endforeach
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                @endif
                                 <div class="small fw-semibold text-uppercase text-muted mb-2">People charging to {{ $allocation->department->name }}</div>
                                 <div class="table-responsive">
                                     <table class="table table-sm align-middle mb-0">
