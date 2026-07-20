@@ -31,6 +31,9 @@
             </div>
             <div class="content-card-body">
                 <div class="dashboard-shortcut-grid">
+                    <a class="dashboard-shortcut" href="{{ route('hod.timesheets.index', ['corrections' => 'open']) }}">
+                        <span><span class="dashboard-shortcut-title">Review correction requests</span><span class="dashboard-shortcut-meta d-block">{{ $openCorrectionRequestCount }} project concerns need a decision</span></span><span class="badge text-bg-{{ $openCorrectionRequestCount ? 'warning' : 'secondary' }}">{{ $openCorrectionRequestCount }}</span>
+                    </a>
                     <a class="dashboard-shortcut" href="{{ route('hod.timesheets.index', ['status' => 'submitted']) }}">
                         <span>
                             <span class="dashboard-shortcut-title">Review pending approvals</span>

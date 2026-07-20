@@ -40,6 +40,7 @@
     </div>
 @endif
 @include('shared.timesheet_detail', ['timesheet' => $timesheet])
+@include('shared.timesheet_correction_requests', ['timesheet' => $timesheet])
 @if($timesheet->status === 'submitted')
     @php
         $actor = auth()->user();

@@ -31,6 +31,8 @@ class HodTimesheetController extends Controller
         $selectedDepartmentId = $this->selectedDepartmentId($managedDepartmentIds);
 
         $timesheets = $this->scope(Timesheet::with(['user', 'period', 'department']), $selectedDepartmentId)
+            ->withCount(['correctionRequests as open_correction_requests_count' => fn ($q) => $q->where('status', 'open')])
+            ->when(request('corrections') === 'open', fn ($q) => $q->whereHas('user', fn ($user) => $user->where('role', 'employee'))->whereHas('correctionRequests', fn ($requests) => $requests->where('status', 'open')))
             ->when(request('status'), fn ($q, $status) => $q->where('status', $status))
             ->when(request('employee_id'), fn ($q, $employeeId) => $q->where('user_id', $employeeId))
             ->when(request('week_number'), fn ($q, $weekNumber) => $q->whereHas('period', fn ($period) => $period->where('week_number', $weekNumber)))
@@ -59,7 +61,14 @@ class HodTimesheetController extends Controller
     {
         $this->authorizeDepartment($timesheet);
 
-        return view('hod.timesheets.show', ['timesheet' => $timesheet->load(['user', 'entries.project', 'entries.department', 'period', 'department'])]);
+        $timesheet->load(['user', 'entries.project', 'entries.department', 'period', 'department']);
+        if ($timesheet->user?->role === 'employee') {
+            $timesheet->load(['correctionRequests' => fn ($q) => $q->where('status', 'open')->with(['requester:id,name', 'entries'])]);
+        } else {
+            $timesheet->setRelation('correctionRequests', collect());
+        }
+
+        return view('hod.timesheets.show', compact('timesheet'));
     }
 
     public function history(Timesheet $timesheet)
@@ -79,6 +88,7 @@ class HodTimesheetController extends Controller
 
         $this->authorizeApprovalAction($timesheet, 'approve');
         abort_unless($timesheet->status === 'submitted', 422);
+        abort_if($timesheet->correctionRequests()->where('status', 'open')->exists(), 422, 'Resolve every open correction request before approving this timesheet.');
 
         $old = $timesheet->toArray();
         $timesheet->update([

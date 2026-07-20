@@ -37,6 +37,7 @@
             <a class="dashboard-shortcut" href="{{ route('manage.periods.index') }}"><span><span class="dashboard-shortcut-title">Periods</span><span class="dashboard-shortcut-meta d-block">Open and maintain weekly periods</span></span><span class="dashboard-shortcut-arrow">-></span></a>
             <a class="dashboard-shortcut" href="{{ route('manage.audit-logs.index') }}"><span><span class="dashboard-shortcut-title">Audit logs</span><span class="dashboard-shortcut-meta d-block">Review system activity and exports</span></span><span class="dashboard-shortcut-arrow">-></span></a>
             <a class="dashboard-shortcut" href="{{ route('manage.system-settings.index') }}"><span><span class="dashboard-shortcut-title">System settings</span><span class="dashboard-shortcut-meta d-block">Manage setup mode and portal controls</span></span><span class="dashboard-shortcut-arrow">-></span></a>
+            <a class="dashboard-shortcut" href="{{ route('admin.timesheets.index', ['corrections' => 'open']) }}"><span><span class="dashboard-shortcut-title">Review correction requests</span><span class="dashboard-shortcut-meta d-block">Open HOD timesheet concerns awaiting an authorized decision</span></span><span class="badge text-bg-{{ $openHodCorrectionRequestCount ? 'warning' : 'secondary' }}">{{ $openHodCorrectionRequestCount }}</span></a>
         </div>
     </div>
 </div>

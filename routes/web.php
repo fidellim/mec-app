@@ -19,6 +19,7 @@ use App\Http\Controllers\Manage\LeavePlanApproverController;
 use App\Http\Controllers\Manage\LeaveSettingController;
 use App\Http\Controllers\Manage\ProjectController;
 use App\Http\Controllers\ProjectUtilizationController;
+use App\Http\Controllers\TimesheetCorrectionRequestController;
 use App\Http\Controllers\Manage\SystemSettingController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
@@ -55,6 +56,9 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
 
     Route::middleware('role:employee,hod')->get('/my-managed-projects', [ProjectUtilizationController::class, 'index'])->name('managed-projects.index');
     Route::middleware('role:employee,hod,admin,super_admin')->get('/projects/{project}/utilization', [ProjectUtilizationController::class, 'show'])->name('projects.utilization');
+    Route::middleware('role:employee,hod')->post('/timesheet-correction-requests', [TimesheetCorrectionRequestController::class, 'store'])->middleware('throttle:workflow-actions')->name('timesheet-corrections.store');
+    Route::middleware('role:employee,hod')->post('/timesheet-correction-requests/{correctionRequest}/withdraw', [TimesheetCorrectionRequestController::class, 'withdraw'])->middleware('throttle:workflow-actions')->name('timesheet-corrections.withdraw');
+    Route::middleware('role:hod,admin,super_admin')->post('/timesheets/{timesheet}/correction-requests/resolve', [TimesheetCorrectionRequestController::class, 'resolve'])->middleware('throttle:workflow-actions')->name('timesheet-corrections.resolve');
 
     Route::middleware('role:employee,hod,admin,super_admin')->prefix('my-leave-plans')->name('employee.leave-plans.')->group(function () {
         Route::get('/', [EmployeeLeavePlanController::class, 'index'])->name('index');

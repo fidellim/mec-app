@@ -6,7 +6,7 @@
     $weekFrom = request('week_from', request('week_number'));
     $weekTo = request('week_to', $weekFrom);
     $selectedMonth = request('month', now()->month);
-    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request()->boolean('include_employee_sheets');
+    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request('corrections') || request()->boolean('include_employee_sheets');
 @endphp
 <style>
     .summary-preview-info-button {
@@ -53,7 +53,7 @@
         <h1 class="h3 page-heading mb-1">All Timesheets</h1>
         <div class="text-muted">Filter, review, and export weekly records or monthly management summaries.</div>
     </div>
-    @unless($showingNotSubmitted)
+    @unless($showingNotSubmitted || request('corrections') === 'open')
         <div class="action-group">
             @if($summaryPreviewState['can_preview'])
                 <a class="btn btn-outline-primary" href="{{ route('admin.timesheets.index', array_merge(request()->query(), ['preview' => 'summary'])) }}#summary-report-preview">Summary Report Preview</a>
@@ -102,6 +102,7 @@
     <div class="col-md-3"><label class="form-label small text-muted" for="employee_id">User</label><select id="employee_id" class="form-select" name="employee_id"><option value="">All users</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected(request('employee_id') == $employee->id)>{{ $employee->name }}</option>@endforeach</select></div>
     <div class="col-md-2"><label class="form-label small text-muted" for="role">Role</label><select id="role" class="form-select" name="role"><option value="">All roles</option>@foreach($roleLabels as $role => $label)<option value="{{ $role }}" @selected(request('role') === $role)>{{ $label }}</option>@endforeach</select></div>
     <div class="col-md-2"><label class="form-label small text-muted" for="status">Status</label><select id="status" class="form-select" name="status"><option value="">All statuses</option>@foreach(['draft' => 'Draft','submitted' => 'Submitted','approved' => 'Approved','rejected' => 'Rejected','withdrawn' => 'Withdrawn','recalled' => 'Recalled','voided' => 'Voided','not_submitted' => 'Not Submitted'] as $status => $label)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $label }}</option>@endforeach</select></div>
+    <div class="col-md-3"><label class="form-label small text-muted" for="corrections">Correction review</label><select id="corrections" class="form-select" name="corrections" data-searchable="false"><option value="">All timesheets</option><option value="open" @selected(request('corrections') === 'open')>Open HOD correction requests</option></select></div>
     <div class="col-md-4 d-flex align-items-end" data-weekly-filter>
         <div class="form-check mb-2">
             <input type="hidden" name="include_employee_sheets" value="0">
@@ -196,6 +197,9 @@
             @if(request('status'))
                 <span class="badge filter-summary-badge px-3 py-2">Status: {{ str_replace('_', ' ', ucfirst(request('status'))) }}</span>
             @endif
+            @if(request('corrections') === 'open')
+                <span class="badge filter-summary-badge px-3 py-2">Correction review: Open HOD requests</span>
+            @endif
             @unless($hasVisibleFilters)
                 <span class="badge filter-summary-badge px-3 py-2">No filters applied</span>
             @endunless
@@ -219,7 +223,7 @@
     @endforelse
 @else
     @forelse($timesheets as $timesheet)
-        <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $roleLabels[$timesheet->user->role] ?? $timesheet->user->role }}</td><td>{{ $timesheet->department->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.timesheets.show', $timesheet) }}">View</a></td></tr>
+        <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $roleLabels[$timesheet->user->role] ?? $timesheet->user->role }}</td><td>{{ $timesheet->department->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status]) @if($timesheet->eligible_open_correction_requests_count)<span class="badge text-bg-warning ms-1">Needs review · {{ $timesheet->eligible_open_correction_requests_count }}</span>@endif</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.timesheets.show', $timesheet) }}">View</a></td></tr>
     @empty
         <tr><td colspan="7" class="empty-state">No records found.</td></tr>
     @endforelse

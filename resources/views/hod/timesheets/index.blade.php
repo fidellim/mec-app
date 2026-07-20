@@ -2,7 +2,7 @@
 
 @section('content')
 @php
-    $hasTimesheetFilters = collect(request()->only(['status', 'employee_id', 'week_number', 'year', 'department_id']))
+    $hasTimesheetFilters = collect(request()->only(['status', 'employee_id', 'week_number', 'year', 'department_id', 'corrections']))
         ->contains(fn ($value) => filled($value));
 @endphp
 <div class="section-header">
@@ -68,7 +68,7 @@
 </form>
 <div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>Employee</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
 @forelse($timesheets as $timesheet)
-    <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->department?->name ?: '-' }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status])</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('hod.timesheets.show', $timesheet) }}">Review</a></td></tr>
+    <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->department?->name ?: '-' }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status]) @if($timesheet->user->role === 'employee' && $timesheet->open_correction_requests_count)<span class="badge text-bg-warning ms-1">Needs review · {{ $timesheet->open_correction_requests_count }}</span>@endif</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('hod.timesheets.show', $timesheet) }}">Review</a></td></tr>
 @empty
     <tr><td colspan="6" class="empty-state">No records found.</td></tr>
 @endforelse

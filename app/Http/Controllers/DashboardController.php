@@ -5,18 +5,23 @@ namespace App\Http\Controllers;
 use App\Models\Department;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
+use App\Models\TimesheetCorrectionRequest;
 use App\Services\DashboardSummaryService;
 use App\Services\LeaveEntitlementService;
+use App\Services\AdminHodCorrectionRequestQuery;
 
 class DashboardController extends Controller
 {
-    public function __invoke(DashboardSummaryService $dashboard, LeaveEntitlementService $entitlements)
+    public function __invoke(DashboardSummaryService $dashboard, LeaveEntitlementService $entitlements, AdminHodCorrectionRequestQuery $hodCorrections)
     {
         $user = auth()->user();
         $openPeriod = $this->latestOpenPeriod();
         $reportingPeriod = $this->latestCompletedPeriod() ?? $openPeriod;
         $leaveBalances = $entitlements->visibleBalancesFor($user, viewer: $user);
         $managedDepartmentIds = $user->role === 'hod' ? $user->managedDepartmentIds() : collect();
+        $openHodCorrectionRequestCount = in_array($user->role, ['admin', 'super_admin'], true)
+            ? $hodCorrections->countFor($user)
+            : 0;
 
         return match ($user->role) {
             'super_admin' => view('dashboards.super_admin', $dashboard->superAdminTotals() + [
@@ -25,6 +30,7 @@ class DashboardController extends Controller
                 'submissionPeriod' => $reportingPeriod,
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod),
                 'leaveBalances' => $leaveBalances,
+                'openHodCorrectionRequestCount' => $openHodCorrectionRequestCount,
             ]),
             'admin' => view('dashboards.admin', [
                 'period' => $reportingPeriod,
@@ -33,12 +39,17 @@ class DashboardController extends Controller
                 'departments' => $dashboard->departmentHealth($reportingPeriod),
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummary($reportingPeriod),
                 'leaveBalances' => $leaveBalances,
+                'openHodCorrectionRequestCount' => $openHodCorrectionRequestCount,
             ]),
             'hod' => view('dashboards.hod', $dashboard->departmentCountsForDepartmentIds($reportingPeriod, $managedDepartmentIds->all()) + [
                 'period' => $reportingPeriod,
                 'departments' => Department::whereIn('id', $managedDepartmentIds)->orderBy('name')->get(),
                 'regionalSubmissionSummary' => $dashboard->regionalSubmissionSummaryForDepartmentIds($reportingPeriod, $managedDepartmentIds->all()),
                 'leaveBalances' => $leaveBalances,
+                'openCorrectionRequestCount' => TimesheetCorrectionRequest::where('status', TimesheetCorrectionRequest::STATUS_OPEN)
+                    ->whereIn('department_id', $managedDepartmentIds)
+                    ->whereHas('timesheet.user', fn ($query) => $query->where('role', 'employee'))
+                    ->count(),
             ]),
             default => view('dashboards.employee', [
                 'period' => $openPeriod,

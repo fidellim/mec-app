@@ -12,6 +12,7 @@
     @include('partials.status', ['status' => $timesheet->status])
 </div>
 @include('shared.timesheet_detail', ['timesheet' => $timesheet])
+@include('shared.timesheet_correction_requests', ['timesheet' => $timesheet])
 @if($timesheet->status === 'submitted')
     @if((int) $timesheet->user_id === (int) auth()->id())
         <div class="alert alert-warning mt-3">
@@ -21,6 +22,8 @@
         <div class="alert alert-warning mt-3">
             You can view this timesheet, but another HOD approver is assigned to approve or reject it.
         </div>
+    @elseif($timesheet->correctionRequests->isNotEmpty())
+        <div class="alert alert-warning mt-3">Resolve all open correction requests above before approving or rejecting this timesheet.</div>
     @else
     <div class="content-card mt-3">
         <div class="content-card-header">

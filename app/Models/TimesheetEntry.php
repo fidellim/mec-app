@@ -38,4 +38,6 @@ class TimesheetEntry extends Model
     }
 
     public function department() { return $this->belongsTo(Department::class); }
+
+    public function correctionRequestEntries() { return $this->hasMany(TimesheetCorrectionRequestEntry::class); }
 }

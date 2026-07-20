@@ -28,7 +28,12 @@ class ProjectUtilizationTest extends TestCase
         }
 
         $this->actingAs($manager)->get(route('projects.utilization', $project))
-            ->assertOk()->assertSee('Engineering')->assertSee('12.00')->assertSee('5.00')->assertSee('88.00');
+            ->assertOk()
+            ->assertSee('Engineering')
+            ->assertSee('12.00')
+            ->assertSee('5.00')
+            ->assertSee('88.00')
+            ->assertSee('data-confirm="Send this correction request for the selected entries?"', false);
     }
 
     public function test_unrelated_employee_cannot_view_project_utilization(): void

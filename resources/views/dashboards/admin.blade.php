@@ -5,7 +5,7 @@
     $periodLabel = $period
         ? 'Week '.$period->week_number.', '.$period->year.' ('.$period->start_date->format('M d, Y').' - '.$period->end_date->format('M d, Y').')'
         : 'No weekly period available';
-    $hasAttention = $missing > 0 || $summary['rejected'] > 0;
+    $hasAttention = $missing > 0 || $summary['rejected'] > 0 || $openHodCorrectionRequestCount > 0;
     $periodFilters = $period ? ['week_from' => $period->week_number, 'year' => $period->year] : [];
 @endphp
 <div class="section-header">
@@ -41,9 +41,15 @@
                 <div class="small text-muted mt-2">Timesheets that need employee revision before approval.</div>
                 <a class="btn btn-sm btn-outline-primary mt-3" href="{{ route('admin.timesheets.index', array_merge($periodFilters, ['status' => 'rejected'])) }}">Review rejected</a>
             </div>
+            <div class="dashboard-attention-item">
+                <div class="meta-label">HOD correction requests</div>
+                <div class="stat-value fs-3 mt-2">{{ $openHodCorrectionRequestCount }}</div>
+                <div class="small text-muted mt-2">Open project-manager concerns on HOD timesheets that you are authorized to resolve.</div>
+                <a class="btn btn-sm btn-outline-primary mt-3" href="{{ route('admin.timesheets.index', ['corrections' => 'open']) }}">Review correction requests</a>
+            </div>
         </div>
         @unless($hasAttention)
-            <div class="dashboard-empty mt-3">No missing or rejected submissions need follow-up for this reporting period.</div>
+            <div class="dashboard-empty mt-3">No missing, rejected, or correction-request items need follow-up.</div>
         @endunless
     </div>
 </div>

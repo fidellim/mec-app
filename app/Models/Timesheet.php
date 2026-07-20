@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Services\DashboardSummaryService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use App\Services\TimesheetCorrectionLifecycleService;
 
 class Timesheet extends Model
 {
@@ -62,6 +63,8 @@ class Timesheet extends Model
                 $timesheet->getOriginal('department_id'),
                 $timesheet->getOriginal('timesheet_period_id')
             );
+
+            if ($timesheet->wasChanged('status')) app(TimesheetCorrectionLifecycleService::class)->supersedeOpen($timesheet);
         });
 
         static::deleted(function (Timesheet $timesheet) {
@@ -91,6 +94,11 @@ class Timesheet extends Model
     public function entries()
     {
         return $this->hasMany(TimesheetEntry::class);
+    }
+
+    public function correctionRequests()
+    {
+        return $this->hasMany(TimesheetCorrectionRequest::class);
     }
 
     public function auditLogs()

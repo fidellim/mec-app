@@ -14,6 +14,7 @@ use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetExportService;
 use App\Services\TimesheetRecallService;
 use App\Services\TimesheetStatusHistoryService;
+use App\Services\AdminHodCorrectionRequestQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -28,7 +29,7 @@ class AdminTimesheetController extends Controller
 
     private const EMPLOYEE_SHEET_EXPORT_MAX_TIMESHEETS = 250;
 
-    public function index(TimesheetExportService $export)
+    public function index(TimesheetExportService $export, AdminHodCorrectionRequestQuery $hodCorrections)
     {
         $filters = $this->validatedFilters();
         $showingNotSubmitted = ($filters['status'] ?? null) === 'not_submitted';
@@ -37,7 +38,10 @@ class AdminTimesheetController extends Controller
         return view('admin.timesheets.index', [
             'timesheets' => $showingNotSubmitted
                 ? $this->missingSubmissionRows($filters)
-                : $this->filtered($filters)->with(['user', 'department', 'period'])->latest()->paginate(20)->withQueryString(),
+                : $this->filtered($filters, $hodCorrections)
+                    ->with(['user', 'department', 'period'])
+                    ->withCount(['correctionRequests as eligible_open_correction_requests_count' => fn ($query) => $hodCorrections->scopeRequests($query, request()->user())])
+                    ->latest()->paginate(20)->withQueryString(),
             'departments' => Department::orderBy('name')->get(),
             'employees' => User::orderBy('name')->get(),
             'projects' => Project::orderBy('project_code')->orderBy('project_name')->get(),
@@ -53,7 +57,7 @@ class AdminTimesheetController extends Controller
 
     public function show(Timesheet $timesheet)
     {
-        return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'entries.department', 'approver', 'voider'])]);
+        return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'entries.department', 'approver', 'voider', 'correctionRequests' => fn ($q) => $q->where('status', 'open')->with(['requester:id,name', 'entries'])])]);
     }
 
     public function history(Timesheet $timesheet)
@@ -148,14 +152,14 @@ class AdminTimesheetController extends Controller
             ->with('success', 'Approved timesheet recalled. The employee has been notified to correct and resubmit it.');
     }
 
-    private function filtered(array $filters)
+    private function filtered(array $filters, AdminHodCorrectionRequestQuery $hodCorrections)
     {
         $monthly = ($filters['filter_mode'] ?? 'weekly') === 'monthly';
         $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
         $weekTo = $filters['week_to'] ?? $weekFrom;
         $monthRange = $monthly ? $this->monthlyDateRange($filters) : null;
 
-        return Timesheet::query()
+        $query = Timesheet::query()
             ->when(! $monthly && $weekFrom, fn ($q) => $q->whereHas('period', fn ($p) => $p->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo])))
             ->when(! $monthly && ($filters['year'] ?? null), fn ($q) => $q->whereHas('period', fn ($p) => $p->where('year', $filters['year'])))
             ->when($monthly, fn ($q) => $q
@@ -177,6 +181,10 @@ class AdminTimesheetController extends Controller
                     $monthRange['start']->toDateString(),
                     $monthRange['end']->toDateString(),
                 ]))));
+
+        return ($filters['corrections'] ?? null) === 'open'
+            ? $hodCorrections->scopeTimesheets($query, request()->user())
+            : $query;
     }
 
     private function validatedFilters(): array
@@ -194,6 +202,7 @@ class AdminTimesheetController extends Controller
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'status' => ['nullable', 'in:draft,submitted,approved,rejected,withdrawn,recalled,voided,not_submitted'],
             'include_employee_sheets' => ['nullable', 'boolean'],
+            'corrections' => ['nullable', 'in:open'],
         ], [
             'week_from.required_with' => 'Enter From Week when using To Week.',
             'week_to.gte' => 'To Week must be greater than or equal to From Week.',
@@ -203,6 +212,11 @@ class AdminTimesheetController extends Controller
         ]);
 
         $filters['filter_mode'] = $filters['filter_mode'] ?? 'weekly';
+        if (($filters['corrections'] ?? null) === 'open' && ($filters['status'] ?? null) === 'not_submitted') {
+            throw ValidationException::withMessages([
+                'corrections' => 'Open correction requests cannot be combined with Not Submitted status.',
+            ]);
+        }
         $this->validateNotSubmittedFilters($filters);
         $this->validateWeekPeriodExists($filters);
 
