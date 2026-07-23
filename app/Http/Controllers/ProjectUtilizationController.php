@@ -50,13 +50,29 @@ class ProjectUtilizationController extends Controller
         $peopleUsage = DB::table('timesheet_entries as entries')
             ->join('timesheets', 'timesheets.id', '=', 'entries.timesheet_id')
             ->join('users', 'users.id', '=', 'timesheets.user_id')
+            ->leftJoin('departments as home_departments', 'home_departments.id', '=', 'users.department_id')
+            ->leftJoin('project_user as assignment', function ($join) use ($project) {
+                $join->on('assignment.user_id', '=', 'timesheets.user_id')
+                    ->where('assignment.project_id', $project->id);
+            })
             ->where('entries.project_id', $project->id)
             ->whereNotNull('entries.department_id')
             ->whereIn('timesheets.status', [Timesheet::STATUS_SUBMITTED, Timesheet::STATUS_APPROVED])
             ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->where('entries.work_date', '>=', $date))
             ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('entries.work_date', '<=', $date))
-            ->groupBy('entries.department_id', 'timesheets.user_id', 'users.name')
-            ->selectRaw('entries.department_id, timesheets.user_id, users.name,
+            ->groupBy(
+                'entries.department_id',
+                'timesheets.user_id',
+                'users.name',
+                'users.role',
+                'users.department_id',
+                'home_departments.name',
+                'assignment.user_id',
+                'assignment.manpower_category',
+            )
+            ->selectRaw('entries.department_id, timesheets.user_id, users.name, users.role,
+                users.department_id as home_department_id, home_departments.name as home_department_name,
+                assignment.user_id as assignment_user_id, assignment.manpower_category,
                 SUM(CASE WHEN timesheets.status = ? THEN entries.regular_hours + entries.overtime_hours ELSE 0 END) as approved_hours,
                 SUM(CASE WHEN timesheets.status = ? THEN entries.regular_hours + entries.overtime_hours ELSE 0 END) as pending_hours',
                 [Timesheet::STATUS_APPROVED, Timesheet::STATUS_SUBMITTED])
@@ -68,18 +84,6 @@ class ProjectUtilizationController extends Controller
             'approved_hours' => $people->sum('approved_hours'),
             'pending_hours' => $people->sum('pending_hours'),
         ]);
-
-        $memberUsage = $peopleUsage->flatten(1)->groupBy('user_id');
-        $projectMembers = $project->assignedUsers()
-            ->with('department:id,name')
-            ->orderBy('users.name')
-            ->get(['users.id', 'users.name', 'users.email', 'users.role', 'users.department_id'])
-            ->each(function ($member) use ($memberUsage) {
-                $rows = $memberUsage->get($member->id, collect());
-                $member->approved_hours = (float) $rows->sum('approved_hours');
-                $member->pending_hours = (float) $rows->sum('pending_hours');
-                $member->assigned_manpower_category = $member->pivot->manpower_category;
-            });
 
         $categoryUsage = DB::table('timesheet_entries as entries')
             ->join('timesheets', 'timesheets.id', '=', 'entries.timesheet_id')
@@ -217,7 +221,6 @@ class ProjectUtilizationController extends Controller
         return view('projects.utilization', [
             'project' => $project->load('projectManager:id,name,email'),
             'allocations' => $allocations,
-            'projectMembers' => $projectMembers,
             'filters' => $filters,
             'reviewTimesheets' => $reviewTimesheets,
             'openEntryRequestIds' => $openEntryRequestIds,

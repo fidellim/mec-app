@@ -45,37 +45,6 @@
         </div>
     </form>
 </div>
-<div class="content-card overflow-hidden mb-3">
-    <div class="content-card-header">
-        <h2 class="h5 mb-1">Project team categories</h2>
-        <div class="small text-muted">Current project assignments. Users without a category can charge uncontrolled departments only.</div>
-    </div>
-    <div class="table-responsive">
-        <table class="table align-middle mb-0">
-            <thead><tr><th>Employee / HOD</th><th>Home department</th><th>Role</th><th>Manpower Category</th><th class="text-end">Approved</th><th class="text-end">Pending</th></tr></thead>
-            <tbody>
-            @forelse($projectMembers as $member)
-                <tr>
-                    <td><div class="fw-semibold">{{ $member->name }}</div><div class="small text-muted">{{ $member->email }}</div></td>
-                    <td>{{ $member->department?->name ?? '—' }}</td>
-                    <td><span class="badge text-bg-light border text-dark">{{ strtoupper($member->role) }}</span></td>
-                    <td>
-                        @if($member->assigned_manpower_category)
-                            <span class="fw-semibold">{{ config('manpower_categories.labels.'.$member->assigned_manpower_category, 'Needs administrator review') }}</span>
-                        @else
-                            <span class="badge text-bg-secondary">Uncontrolled departments only</span>
-                        @endif
-                    </td>
-                    <td class="text-end fw-semibold">{{ number_format($member->approved_hours, 2) }}</td>
-                    <td class="text-end">{{ number_format($member->pending_hours, 2) }}</td>
-                </tr>
-            @empty
-                <tr><td colspan="6" class="empty-state text-center">No selected-user assignments are configured for this project.</td></tr>
-            @endforelse
-            </tbody>
-        </table>
-    </div>
-</div>
 <div class="content-card overflow-hidden">
     <div class="content-card-header"><h2 class="h5 mb-1">Department budget ledger</h2><div class="small text-muted">Approved hours are official usage. Submitted hours remain pending until approval. Expand a department to see who charged the hours.</div></div>
     <div class="table-responsive">
@@ -117,10 +86,36 @@
                                 <div class="small fw-semibold text-uppercase text-muted mb-2">People charging to {{ $allocation->department->name }}</div>
                                 <div class="table-responsive">
                                     <table class="table table-sm align-middle mb-0">
-                                        <thead><tr><th>Employee</th><th class="text-end">Approved</th><th class="text-end">Pending</th></tr></thead>
+                                        <thead><tr><th>Employee</th><th>Home department</th><th>Role</th><th>Manpower Category</th><th class="text-end">Approved</th><th class="text-end">Pending</th></tr></thead>
                                         <tbody>
                                         @foreach($allocation->charging_people as $person)
-                                            <tr><td class="fw-semibold">{{ $person->name }}</td><td class="text-end">{{ number_format((float) $person->approved_hours, 2) }}</td><td class="text-end">{{ number_format((float) $person->pending_hours, 2) }}</td></tr>
+                                            @php($categoryLabel = $person->manpower_category ? config('manpower_categories.labels.'.$person->manpower_category) : null)
+                                            @php($roleLabel = match ($person->role) {
+                                                'hod' => 'Head of Department',
+                                                'admin' => 'Admin',
+                                                'super_admin' => 'Super Admin',
+                                                default => 'Employee',
+                                            })
+                                            <tr>
+                                                <td class="fw-semibold">{{ $person->name }}</td>
+                                                <td>{{ $person->home_department_name ?: '—' }}</td>
+                                                <td><span class="badge bg-body border text-body">{{ $roleLabel }}</span></td>
+                                                <td>
+                                                    @if($person->assignment_user_id && $categoryLabel)
+                                                        <span class="fw-semibold">{{ $categoryLabel }}</span>
+                                                    @elseif($person->assignment_user_id && $person->manpower_category)
+                                                        <span class="badge text-bg-warning">Needs administrator review</span>
+                                                    @elseif($person->assignment_user_id)
+                                                        <span class="badge text-bg-secondary">Uncontrolled departments only</span>
+                                                    @elseif($project->timesheet_assignment_mode === \App\Models\Project::ASSIGNMENT_ALL_USERS)
+                                                        <span class="badge bg-body border text-body">Not required — All users access</span>
+                                                    @else
+                                                        <span class="badge text-bg-warning">Not currently assigned</span>
+                                                    @endif
+                                                </td>
+                                                <td class="text-end">{{ number_format((float) $person->approved_hours, 2) }}</td>
+                                                <td class="text-end">{{ number_format((float) $person->pending_hours, 2) }}</td>
+                                            </tr>
                                         @endforeach
                                         </tbody>
                                     </table>

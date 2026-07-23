@@ -61,16 +61,26 @@ class ProjectUtilizationTest extends TestCase
                 ->assertOk()
                 ->assertSee('People charging')
                 ->assertSee('Jamie Engineer')
+                ->assertSee('Home department')
+                ->assertSee('Home Department')
+                ->assertSee('Role')
+                ->assertSee('Employee')
+                ->assertSee('Manpower Category')
+                ->assertSee('Not required — All users access')
                 ->assertSee('8.00');
         }
     }
 
-    public function test_utilization_lists_every_selected_user_with_their_project_category(): void
+    public function test_people_charging_show_current_assignment_details_and_omit_non_chargers(): void
     {
-        $department = $this->department(['name' => 'Engineering']);
-        $manager = $this->userWithRole('employee', ['department_id' => $department->id]);
-        $engineer = $this->userWithRole('employee', ['name' => 'Assigned Engineer', 'department_id' => $department->id]);
-        $uncontrolledOnly = $this->userWithRole('hod', ['name' => 'Uncontrolled User', 'department_id' => $department->id]);
+        $homeDepartment = $this->department(['name' => 'Home Engineering']);
+        $chargingDepartment = $this->department(['name' => 'Project Mechanical']);
+        $manager = $this->userWithRole('employee', ['department_id' => $homeDepartment->id]);
+        $engineer = $this->userWithRole('employee', ['name' => 'Assigned Engineer', 'department_id' => $homeDepartment->id]);
+        $uncontrolledOnly = $this->userWithRole('hod', ['name' => 'Uncontrolled User', 'department_id' => $homeDepartment->id]);
+        $removed = $this->userWithRole('employee', ['name' => 'Removed User', 'department_id' => $homeDepartment->id]);
+        $legacy = $this->userWithRole('employee', ['name' => 'Legacy Category User', 'department_id' => $homeDepartment->id]);
+        $nonCharger = $this->userWithRole('employee', ['name' => 'Assigned Without Hours', 'department_id' => $homeDepartment->id]);
         $project = $this->project([
             'project_manager_id' => $manager->id,
             'timesheet_assignment_mode' => Project::ASSIGNMENT_SELECTED_USERS,
@@ -78,23 +88,47 @@ class ProjectUtilizationTest extends TestCase
         $project->assignedUsers()->sync([
             $engineer->id => ['manpower_category' => 'engineer'],
             $uncontrolledOnly->id => ['manpower_category' => null],
+            $legacy->id => ['manpower_category' => 'legacy_category'],
+            $nonCharger->id => ['manpower_category' => 'designer'],
         ]);
-        $allocation = $project->departmentAllocations()->create(['department_id' => $department->id, 'allocated_hours' => 100]);
+        $allocation = $project->departmentAllocations()->create(['department_id' => $chargingDepartment->id, 'allocated_hours' => 100]);
         foreach (array_keys(config('manpower_categories.labels')) as $category) {
             $allocation->manpowerCategoryAllocations()->create([
                 'manpower_category' => $category,
                 'allocated_hours' => $category === 'engineer' ? null : 0,
             ]);
         }
+        $period = $this->openPeriod();
+        foreach ([$engineer, $uncontrolledOnly, $removed, $legacy] as $index => $person) {
+            $timesheet = $this->submittedTimesheet($person, $period, $project, [
+                'status' => $index % 2 === 0 ? Timesheet::STATUS_APPROVED : Timesheet::STATUS_SUBMITTED,
+            ]);
+            $timesheet->entries()->first()->update([
+                'department_id' => $chargingDepartment->id,
+                'regular_hours' => $index + 1,
+                'overtime_hours' => 0,
+            ]);
+        }
 
         $response = $this->actingAs($manager)->get(route('projects.utilization', $project));
 
         $response->assertOk()
-            ->assertSee('Project team categories')
+            ->assertDontSee('Project team categories')
+            ->assertSee('People charging to Project Mechanical')
+            ->assertSee('Home department')
+            ->assertSee('Home Engineering')
+            ->assertSee('Role')
+            ->assertSee('Head of Department')
+            ->assertSee('Manpower Category')
             ->assertSee('Assigned Engineer')
             ->assertSee('Engineer')
             ->assertSee('Uncontrolled User')
-            ->assertSee('Uncontrolled departments only');
+            ->assertSee('Uncontrolled departments only')
+            ->assertSee('Removed User')
+            ->assertSee('Not currently assigned')
+            ->assertSee('Legacy Category User')
+            ->assertSee('Needs administrator review')
+            ->assertDontSee('Assigned Without Hours');
     }
 
     public function test_utilization_date_range_filters_department_and_people_hours(): void
