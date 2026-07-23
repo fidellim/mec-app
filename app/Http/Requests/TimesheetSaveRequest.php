@@ -70,10 +70,15 @@ class TimesheetSaveRequest extends FormRequest
                 $availableProjects = Project::query()
                     ->availableForTimesheetsBy($this->user())
                     ->whereKey($projectIds)
-                    ->with('departmentAllocations:project_id,department_id')
+                    ->with([
+                        'departmentAllocations.manpowerCategoryAllocations',
+                        'assignedUsers' => fn ($query) => $query->whereKey($this->user()->id),
+                    ])
                     ->get(['id'])
                     ->keyBy(fn (Project $project) => (int) $project->id);
                 $availableProjectIds = $availableProjects->keys();
+                $existingEntries = $this->route('timesheet')
+                    ?->entries()->get(['id', 'project_id', 'department_id'])->keyBy('id') ?? collect();
 
                 foreach ($this->input('entries', []) as $index => $entry) {
                     $entryLabel = ucfirst($this->entryLabel($index, $entry));
@@ -103,6 +108,38 @@ class TimesheetSaveRequest extends FormRequest
                                 "entries.$index.department_id",
                                 'Select a discipline that participates in this project.',
                             );
+                        }
+
+                        $departmentAllocation = $project->departmentAllocations->firstWhere('department_id', $departmentId);
+                        $entryId = (int) ($entry['id'] ?? 0);
+                        $existingEntry = $existingEntries->get($entryId);
+                        $isUnchangedExistingDepartment = $existingEntry
+                            && (int) $existingEntry->project_id === (int) $project->id
+                            && (int) $existingEntry->department_id === $departmentId;
+
+                        if ($departmentAllocation?->usesManpowerCategories()) {
+                            $assignedCategory = $project->manpowerCategoryFor($this->user());
+                            $hasCurrentConfiguration = $departmentAllocation->hasCurrentManpowerCategoryConfiguration();
+                            $categoryIsAllowed = $departmentAllocation->allowsManpowerCategory($assignedCategory);
+                            $mustReject = ! $isUnchangedExistingDepartment
+                                || ($this->boolean('submit') && ($regular > 0 || $overtime > 0));
+
+                            if ($mustReject && ! $hasCurrentConfiguration) {
+                                $validator->errors()->add(
+                                    "entries.$index.department_id",
+                                    \App\Services\TimesheetAllocationService::LEGACY_SETUP_MESSAGE,
+                                );
+                            } elseif ($mustReject && ! $assignedCategory) {
+                                $validator->errors()->add(
+                                    "entries.$index.department_id",
+                                    \App\Services\TimesheetAllocationService::MISSING_CATEGORY_MESSAGE,
+                                );
+                            } elseif ($mustReject && ! $categoryIsAllowed) {
+                                $validator->errors()->add(
+                                    "entries.$index.department_id",
+                                    \App\Services\TimesheetAllocationService::INVALID_CATEGORY_MESSAGE,
+                                );
+                            }
                         }
                     }
 

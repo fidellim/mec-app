@@ -159,6 +159,7 @@
                                 @foreach($departments as $department)<option value="{{ $department->id }}" @selected(old("entries.$i.department_id", $row->department_id ?? auth()->user()->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ?? true ? '' : ' — inactive' }}</option>@endforeach
                             </select>
                             @error("entries.$i.department_id")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            <div class="invalid-feedback d-block d-none" data-client-error-for="department_id"></div>
                             <div class="small text-muted mt-1" data-discipline-help></div>
                         </td>
                         <td style="width: 110px;">
@@ -238,7 +239,7 @@
     const projectOptionalAttendanceCodes = @json($projectOptionalAttendanceCodes ?? config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
     const homeDepartmentId = '{{ auth()->user()->department_id }}';
     const departmentOptions = @json($departments->map(fn ($department) => ['value' => (string) $department->id, 'text' => $department->name.(($department->is_active ?? true) ? '' : ' — inactive')])->values());
-    const projectDepartmentIds = @json($projects->mapWithKeys(fn ($project) => [(string) $project->id => $project->departmentAllocations->pluck('department_id')->map(fn ($id) => (string) $id)->values()])->all());
+    const projectDepartmentAccess = @json($projects->mapWithKeys(fn ($project) => [(string) $project->id => $project->timesheet_department_access])->all());
     const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
     const isProjectOptionalAttendanceCode = (value) => projectOptionalAttendanceCodes.includes(value);
 
@@ -259,7 +260,7 @@
     });
 
     form?.addEventListener('submit', (event) => {
-        const messages = validateTimesheetEntries();
+        const messages = validateTimesheetEntries(event.submitter?.value === '1');
 
         if (!messages.length) {
             return;
@@ -325,16 +326,22 @@
         }
     };
 
-    const refreshParticipatingDepartments = (row, preferredValue = null) => {
+    const refreshParticipatingDepartments = (row, preferredValue = null, preserveExisting = true) => {
         const projectId = getSearchableSelectValue(row, 'project_id');
         const departmentSelect = row.querySelector('[data-field="department_id"]');
-        const allowedIds = projectDepartmentIds[projectId] ?? [];
-        const unrestricted = !projectId || allowedIds.length === 0;
+        const access = projectDepartmentAccess[projectId] ?? { restricted: false, allowed_ids: [] };
+        const allowedIds = access.allowed_ids ?? [];
+        const unrestricted = !projectId || !access.restricted;
         const currentValue = preferredValue ?? getSearchableSelectValue(row, 'department_id');
         const visibleOptions = unrestricted
             ? departmentOptions
             : departmentOptions.filter((option) => allowedIds.includes(option.value));
-        const targetValue = visibleOptions.some((option) => option.value === String(currentValue))
+        const currentOption = departmentOptions.find((option) => option.value === String(currentValue));
+        const preserveUnavailable = preserveExisting
+            && Boolean(row.querySelector('[data-field="id"]'))
+            && Boolean(currentOption)
+            && !visibleOptions.some((option) => option.value === String(currentValue));
+        const targetValue = visibleOptions.some((option) => option.value === String(currentValue)) || preserveUnavailable
             ? String(currentValue)
             : (visibleOptions.some((option) => option.value === homeDepartmentId) ? homeDepartmentId : '');
 
@@ -342,6 +349,9 @@
         departmentSelect.disabled = false;
         departmentSelect.replaceChildren(new Option('Select discipline', ''));
         visibleOptions.forEach((option) => departmentSelect.add(new Option(option.text, option.value)));
+        if (preserveUnavailable) {
+            departmentSelect.add(new Option(`${currentOption.text} — administrator setup required`, currentOption.value));
+        }
         departmentSelect.value = targetValue;
         initializeDisciplineSelect(departmentSelect);
 
@@ -353,7 +363,9 @@
         const help = row.querySelector('[data-discipline-help]');
         if (help) help.textContent = !projectId
             ? 'Select a project to choose a discipline.'
-            : (!unrestricted ? `${visibleOptions.length} participating ${visibleOptions.length === 1 ? 'discipline' : 'disciplines'}` : '');
+            : (preserveUnavailable
+                ? 'Administrator setup is required before this row can be submitted.'
+                : (!unrestricted ? `${visibleOptions.length} available ${visibleOptions.length === 1 ? 'discipline' : 'disciplines'} for this project assignment.` : ''));
     };
 
     const cloneEntryRow = (currentRow) => {
@@ -374,6 +386,7 @@
     };
 
     const prepareClonedRow = (newRow, values) => {
+        newRow.querySelector('[data-field="id"]')?.remove();
         Object.entries(values).forEach(([fieldName, value]) => {
             setRowFieldValue(newRow, fieldName, value);
         });
@@ -442,7 +455,7 @@
         return summary ? getDayLabel(summary) : row.dataset.workDate;
     };
 
-    const validateTimesheetEntries = () => {
+    const validateTimesheetEntries = (isSubmission = false) => {
         const messages = [];
         clearClientValidation();
 
@@ -453,6 +466,8 @@
             const attendanceCode = getSearchableSelectValue(row, 'attendance_code');
             const projectId = getSearchableSelectValue(row, 'project_id');
             const departmentId = getSearchableSelectValue(row, 'department_id');
+            const departmentAccess = projectDepartmentAccess[projectId] ?? { restricted: false, allowed_ids: [] };
+            const departmentIsAllowed = !departmentAccess.restricted || departmentAccess.allowed_ids.includes(String(departmentId));
             const label = getRowLabel(row);
 
             if (!hasHours) {
@@ -475,6 +490,12 @@
                 const message = `${label} needs a participating discipline when project hours are entered.`;
                 messages.push(message);
                 setClientFieldError(row, 'department_id', 'Select a participating discipline.');
+            }
+
+            if (isSubmission && projectId && departmentId && !departmentIsAllowed) {
+                const message = `${label} uses a discipline that is not available for this project assignment.`;
+                messages.push(message);
+                setClientFieldError(row, 'department_id', 'Choose an available discipline or contact the project administrator.');
             }
         });
 
@@ -504,7 +525,7 @@
         setRowFieldValue(row, 'work_date', workDate);
         setRowFieldValue(row, 'attendance_code', values.attendance_code);
         setRowFieldValue(row, 'project_id', values.project_id);
-        refreshParticipatingDepartments(row, values.department_id);
+        refreshParticipatingDepartments(row, values.department_id, false);
         setRowFieldValue(row, 'regular_hours', values.regular_hours);
         setRowFieldValue(row, 'overtime_hours', values.overtime_hours);
         setRowFieldValue(row, 'remarks', values.remarks);
@@ -618,7 +639,7 @@
                 insertAfter = newRow;
                 initializeTooltips(newRow);
                 initializeSearchableSelects(newRow);
-                refreshParticipatingDepartments(newRow, values.department_id);
+                refreshParticipatingDepartments(newRow, values.department_id, false);
                 updateRowRequirements(newRow);
             });
         });
@@ -798,6 +819,7 @@
             if (sameDayRows.length === 1) {
                 setSearchableSelectValue(currentRow.querySelector('[data-field="attendance_code"]'), '');
                 setSearchableSelectValue(currentRow.querySelector('[data-field="project_id"]'), '');
+                refreshParticipatingDepartments(currentRow);
                 currentRow.querySelector('[data-field="regular_hours"]').value = '0';
                 currentRow.querySelector('[data-field="overtime_hours"]').value = '0';
                 currentRow.querySelector('[data-field="remarks"]').value = '';
@@ -833,7 +855,9 @@
     table.addEventListener('change', (event) => {
         if (event.target.matches('[data-field="attendance_code"], [data-field="project_id"], [data-field="department_id"]')) {
             const row = event.target.closest('[data-entry-row]');
-            if (event.target.matches('[data-field="project_id"]')) refreshParticipatingDepartments(row);
+            if (event.target.matches('[data-field="project_id"]')) {
+                refreshParticipatingDepartments(row, null, false);
+            }
             clearRowClientValidation(row);
             updateRowRequirements(row);
             calculateDayTotals(row.dataset.workDate);
@@ -841,7 +865,9 @@
         }
     });
 
-    table.querySelectorAll('[data-entry-row]').forEach((row) => refreshParticipatingDepartments(row));
+    table.querySelectorAll('[data-entry-row]').forEach((row) => {
+        refreshParticipatingDepartments(row);
+    });
 
     resequenceRows();
 })();

@@ -69,7 +69,7 @@ class TimesheetExportService
             $handle = fopen('php://output', 'w');
             fputcsv($handle, [
                 'employee name', 'employee number', 'job title', 'department', 'week number', 'year', 'date', 'day', 'attendance code',
-                'project code', 'project name', 'regular hours', 'overtime hours', 'total hours',
+                'project code', 'project name', 'manpower category', 'regular hours', 'overtime hours', 'total hours',
                 'remarks', 'status', 'approved by', 'approved date',
             ]);
 
@@ -92,6 +92,7 @@ class TimesheetExportService
                                 $entry->attendance_code,
                                 $entry->project?->project_code,
                                 $entry->project?->project_name,
+                                config('manpower_categories.labels.'.$entry->manpower_category_snapshot, $entry->manpower_category_snapshot ? 'Legacy / Unclassified' : null),
                                 $entry->regular_hours,
                                 $entry->overtime_hours,
                                 $entry->regular_hours + $entry->overtime_hours,
@@ -237,7 +238,7 @@ class TimesheetExportService
                 $query
                     ->select([
                         'id', 'timesheet_id', 'work_date', 'day_name', 'attendance_code',
-                        'project_id', 'regular_hours', 'overtime_hours', 'remarks',
+                        'project_id', 'manpower_category_snapshot', 'regular_hours', 'overtime_hours', 'remarks',
                     ])
                     ->when($monthly, fn ($entry) => $entry->whereBetween('work_date', [
                         $monthRange['start']->toDateString(),

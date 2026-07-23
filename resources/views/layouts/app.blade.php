@@ -1499,7 +1499,7 @@
             filter: invert(1);
         }
         @media (min-width: 992px) {
-            .timesheet-entry-table { min-width: 1120px; }
+            .timesheet-entry-table { min-width: 1320px; }
         }
         @media (max-width: 575.98px) {
             .leave-balance-card-header {

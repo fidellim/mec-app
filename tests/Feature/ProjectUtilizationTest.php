@@ -65,6 +65,38 @@ class ProjectUtilizationTest extends TestCase
         }
     }
 
+    public function test_utilization_lists_every_selected_user_with_their_project_category(): void
+    {
+        $department = $this->department(['name' => 'Engineering']);
+        $manager = $this->userWithRole('employee', ['department_id' => $department->id]);
+        $engineer = $this->userWithRole('employee', ['name' => 'Assigned Engineer', 'department_id' => $department->id]);
+        $uncontrolledOnly = $this->userWithRole('hod', ['name' => 'Uncontrolled User', 'department_id' => $department->id]);
+        $project = $this->project([
+            'project_manager_id' => $manager->id,
+            'timesheet_assignment_mode' => Project::ASSIGNMENT_SELECTED_USERS,
+        ]);
+        $project->assignedUsers()->sync([
+            $engineer->id => ['manpower_category' => 'engineer'],
+            $uncontrolledOnly->id => ['manpower_category' => null],
+        ]);
+        $allocation = $project->departmentAllocations()->create(['department_id' => $department->id, 'allocated_hours' => 100]);
+        foreach (array_keys(config('manpower_categories.labels')) as $category) {
+            $allocation->manpowerCategoryAllocations()->create([
+                'manpower_category' => $category,
+                'allocated_hours' => $category === 'engineer' ? null : 0,
+            ]);
+        }
+
+        $response = $this->actingAs($manager)->get(route('projects.utilization', $project));
+
+        $response->assertOk()
+            ->assertSee('Project team categories')
+            ->assertSee('Assigned Engineer')
+            ->assertSee('Engineer')
+            ->assertSee('Uncontrolled User')
+            ->assertSee('Uncontrolled departments only');
+    }
+
     public function test_utilization_date_range_filters_department_and_people_hours(): void
     {
         $department = $this->department(['name' => 'Design']);

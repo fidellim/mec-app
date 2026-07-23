@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\AdminHodTimesheetController;
 use App\Http\Controllers\AdminAnnualLeaveCarryOverController;
+use App\Http\Controllers\AdminHodTimesheetController;
 use App\Http\Controllers\AdminLeavePlanController;
 use App\Http\Controllers\AdminTimesheetController;
 use App\Http\Controllers\AuthController;
@@ -18,11 +18,11 @@ use App\Http\Controllers\Manage\HolidayController;
 use App\Http\Controllers\Manage\LeavePlanApproverController;
 use App\Http\Controllers\Manage\LeaveSettingController;
 use App\Http\Controllers\Manage\ProjectController;
-use App\Http\Controllers\ProjectUtilizationController;
-use App\Http\Controllers\TimesheetCorrectionRequestController;
 use App\Http\Controllers\Manage\SystemSettingController;
 use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
+use App\Http\Controllers\ProjectUtilizationController;
+use App\Http\Controllers\TimesheetCorrectionRequestController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -159,6 +159,8 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->middleware('throttle:authenticated-writes')->name('projects.status');
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/create', [ProjectController::class, 'create'])->name('projects.create');
+        Route::get('projects/assignment-template', [ProjectController::class, 'assignmentTemplate'])->middleware('throttle:exports')->name('projects.assignment-template');
+        Route::post('projects/assignment-import/preview', [ProjectController::class, 'previewAssignmentImport'])->middleware('throttle:authenticated-writes')->name('projects.assignment-import.preview');
         Route::post('projects', [ProjectController::class, 'store'])->middleware('throttle:authenticated-writes')->name('projects.store');
         Route::get('projects/{project}/edit', [ProjectController::class, 'edit'])->name('projects.edit');
         Route::match(['put', 'patch'], 'projects/{project}', [ProjectController::class, 'update'])->middleware('throttle:authenticated-writes')->name('projects.update');

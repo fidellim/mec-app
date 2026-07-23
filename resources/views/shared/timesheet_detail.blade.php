@@ -15,10 +15,13 @@
     </div>
     </div>
 </div>
+@php
+    $showManpowerCategory = $showManpowerCategory ?? auth()->user()->isAdminLike();
+@endphp
 <div class="content-card overflow-hidden">
     <div class="content-card-header">
         <h2 class="h5 mb-1">Entry details</h2>
-        <div class="small text-muted">Daily attendance, project, and overtime records.</div>
+        <div class="small text-muted">Daily attendance, project, discipline, and overtime records.</div>
     </div>
     <div class="table-responsive">
         @php
@@ -28,11 +31,11 @@
                 ->groupBy(fn ($entry) => $entry->work_date->toDateString());
         @endphp
         <table class="table table-hover mb-0">
-            <thead><tr><th>Attendance Code</th><th>Project / Job</th><th>Discipline</th><th class="text-end">Regular</th><th class="text-end">Overtime</th><th>Remarks</th></tr></thead>
+            <thead><tr><th>Attendance Code</th><th>Project / Job</th><th>Discipline</th>@if($showManpowerCategory)<th>Manpower Category</th>@endif<th class="text-end">Regular</th><th class="text-end">Overtime</th><th>Remarks</th></tr></thead>
             <tbody>
             @foreach($entriesByDate as $workDate => $dayEntries)
                 <tr class="timesheet-day-row">
-                    <td colspan="6">
+                    <td colspan="{{ $showManpowerCategory ? 7 : 6 }}">
                         <div>
                             <span class="fw-semibold">{{ $dayEntries->first()->day_name }}</span>
                             <span class="text-muted ms-2">{{ $workDate }}</span>
@@ -54,6 +57,7 @@
                             @endif
                         </td>
                         <td>{{ $entry->department?->name ?? $timesheet->department->name }}</td>
+                        @if($showManpowerCategory)<td>{{ config('manpower_categories.labels.'.$entry->manpower_category_snapshot, $entry->manpower_category_snapshot ? 'Legacy / Unclassified' : '—') }}</td>@endif
                         <td class="text-end fw-semibold">{{ $entry->regular_hours }}</td>
                         <td class="text-end fw-semibold">{{ $entry->overtime_hours }}</td>
                         <td>{{ $entry->remarks }}</td>

@@ -17,7 +17,6 @@ class UserFactory extends Factory
             'password' => Hash::make('password123'),
             'remember_token' => Str::random(10),
             'job_title' => null,
-            'job_level' => null,
             'gender' => null,
             'joining_date' => null,
             'marital_status' => null,

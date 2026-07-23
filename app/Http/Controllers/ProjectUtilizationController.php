@@ -69,47 +69,95 @@ class ProjectUtilizationController extends Controller
             'pending_hours' => $people->sum('pending_hours'),
         ]);
 
-        $levelUsage = DB::table('timesheet_entries as entries')
+        $memberUsage = $peopleUsage->flatten(1)->groupBy('user_id');
+        $projectMembers = $project->assignedUsers()
+            ->with('department:id,name')
+            ->orderBy('users.name')
+            ->get(['users.id', 'users.name', 'users.email', 'users.role', 'users.department_id'])
+            ->each(function ($member) use ($memberUsage) {
+                $rows = $memberUsage->get($member->id, collect());
+                $member->approved_hours = (float) $rows->sum('approved_hours');
+                $member->pending_hours = (float) $rows->sum('pending_hours');
+                $member->assigned_manpower_category = $member->pivot->manpower_category;
+            });
+
+        $categoryUsage = DB::table('timesheet_entries as entries')
             ->join('timesheets', 'timesheets.id', '=', 'entries.timesheet_id')
             ->where('entries.project_id', $project->id)
             ->whereNotNull('entries.department_id')
             ->whereIn('timesheets.status', [Timesheet::STATUS_SUBMITTED, Timesheet::STATUS_APPROVED])
             ->when($filters['date_from'] ?? null, fn ($query, $date) => $query->where('entries.work_date', '>=', $date))
             ->when($filters['date_to'] ?? null, fn ($query, $date) => $query->where('entries.work_date', '<=', $date))
-            ->groupBy('entries.department_id', 'entries.job_level_snapshot', 'entries.allocation_bucket_snapshot')
-            ->selectRaw('entries.department_id, entries.job_level_snapshot, entries.allocation_bucket_snapshot,
+            ->groupBy('entries.department_id', 'entries.manpower_category_snapshot', 'entries.allocation_bucket_snapshot')
+            ->selectRaw('entries.department_id, entries.manpower_category_snapshot, entries.allocation_bucket_snapshot,
                 SUM(CASE WHEN timesheets.status = ? THEN entries.regular_hours + entries.overtime_hours ELSE 0 END) as approved_hours,
                 SUM(CASE WHEN timesheets.status = ? THEN entries.regular_hours + entries.overtime_hours ELSE 0 END) as pending_hours',
                 [Timesheet::STATUS_APPROVED, Timesheet::STATUS_SUBMITTED])
             ->get()->groupBy('department_id');
 
-        $allocations = $project->departmentAllocations()->with(['department:id,name,code,is_active', 'jobLevelAllocations'])
-            ->orderBy('department_id')->get()->map(function ($allocation) use ($usage, $peopleUsage, $levelUsage) {
+        $canonicalCategories = array_keys(config('manpower_categories.labels'));
+        $allocations = $project->departmentAllocations()->with(['department:id,name,code,is_active', 'manpowerCategoryAllocations'])
+            ->orderBy('department_id')->get()->map(function ($allocation) use ($usage, $peopleUsage, $categoryUsage, $canonicalCategories) {
                 $row = $usage->get($allocation->department_id);
                 $allocation->approved_hours = (float) ($row->approved_hours ?? 0);
                 $allocation->pending_hours = (float) ($row->pending_hours ?? 0);
                 $allocation->charging_people = $peopleUsage->get($allocation->department_id, collect());
-                $rows = $levelUsage->get($allocation->department_id, collect());
-                $reservedTotal = (float) $allocation->jobLevelAllocations->sum(fn ($item) => $item->allocated_hours === null ? 0 : (float) $item->allocated_hours);
-                $allocation->job_level_usage = $allocation->jobLevelAllocations->isEmpty() ? collect() : collect([
-                    (object) [
-                        'label' => 'Shared remainder',
+                $rows = $categoryUsage->get($allocation->department_id, collect());
+                $settings = $allocation->manpowerCategoryAllocations->whereIn('manpower_category', $canonicalCategories);
+                $hasCategoryControls = $allocation->manpowerCategoryAllocations->isNotEmpty();
+                $reservedSettings = $settings->filter(fn ($item) => $item->allocated_hours !== null && (float) $item->allocated_hours > 0);
+                $sharedSettings = $settings->filter(fn ($item) => $item->allocated_hours === null);
+                $notAllowedSettings = $settings->filter(fn ($item) => $item->allocated_hours !== null && (float) $item->allocated_hours === 0.0);
+                $legacyRows = $rows->filter(fn ($item) => ! in_array($item->manpower_category_snapshot, $canonicalCategories, true));
+                $currentSharedRows = $rows->filter(fn ($item) => $item->allocation_bucket_snapshot === 'shared'
+                    && in_array($item->manpower_category_snapshot, $canonicalCategories, true));
+                $reservedTotal = (float) $reservedSettings->sum(fn ($item) => (float) $item->allocated_hours);
+
+                $categoryLedger = collect();
+                if ($sharedSettings->isNotEmpty()) {
+                    $sharedLabels = $sharedSettings->sortBy(fn ($item) => array_search($item->manpower_category, $canonicalCategories, true))
+                        ->map(fn ($item) => config('manpower_categories.labels.'.$item->manpower_category))->implode(', ');
+                    $categoryLedger->push((object) [
+                        'label' => 'Shared remainder — '.$sharedLabels,
                         'state' => 'shared',
                         'allocated_hours' => (float) $allocation->allocated_hours - $reservedTotal,
-                        'approved_hours' => (float) $rows->filter(fn ($item) => $item->allocation_bucket_snapshot === 'shared' || $item->allocation_bucket_snapshot === null)->sum('approved_hours'),
-                        'pending_hours' => (float) $rows->filter(fn ($item) => $item->allocation_bucket_snapshot === 'shared' || $item->allocation_bucket_snapshot === null)->sum('pending_hours'),
-                    ],
-                ])->concat($allocation->jobLevelAllocations->sortBy(fn ($item) => array_search($item->job_level, array_keys(config('job_levels.labels')), true))->map(function ($item) use ($rows) {
-                    $reservedRows = $rows->where('allocation_bucket_snapshot', 'reserved')->where('job_level_snapshot', $item->job_level);
-
-                    return (object) [
-                        'label' => config('job_levels.labels.'.$item->job_level, $item->job_level),
-                        'state' => $item->allocated_hours === null ? 'shared' : ((float) $item->allocated_hours === 0.0 ? 'not_allowed' : 'reserved'),
-                        'allocated_hours' => $item->allocated_hours === null ? null : (float) $item->allocated_hours,
+                        'approved_hours' => (float) $currentSharedRows->sum('approved_hours'),
+                        'pending_hours' => (float) $currentSharedRows->sum('pending_hours'),
+                        'deducted_legacy_hours' => (float) $legacyRows->sum('approved_hours') + (float) $legacyRows->sum('pending_hours'),
+                    ]);
+                }
+                foreach ($reservedSettings->sortBy(fn ($item) => array_search($item->manpower_category, $canonicalCategories, true)) as $item) {
+                    $reservedRows = $rows->where('allocation_bucket_snapshot', 'reserved')->where('manpower_category_snapshot', $item->manpower_category);
+                    $categoryLedger->push((object) [
+                        'label' => config('manpower_categories.labels.'.$item->manpower_category),
+                        'state' => 'reserved',
+                        'allocated_hours' => (float) $item->allocated_hours,
                         'approved_hours' => (float) $reservedRows->sum('approved_hours'),
                         'pending_hours' => (float) $reservedRows->sum('pending_hours'),
-                    ];
-                }))->values();
+                        'deducted_legacy_hours' => 0.0,
+                    ]);
+                }
+                foreach ($notAllowedSettings->sortBy(fn ($item) => array_search($item->manpower_category, $canonicalCategories, true)) as $item) {
+                    $categoryLedger->push((object) [
+                        'label' => config('manpower_categories.labels.'.$item->manpower_category),
+                        'state' => 'not_allowed',
+                        'allocated_hours' => 0.0,
+                        'approved_hours' => 0.0,
+                        'pending_hours' => 0.0,
+                        'deducted_legacy_hours' => 0.0,
+                    ]);
+                }
+                if ($legacyRows->isNotEmpty()) {
+                    $categoryLedger->push((object) [
+                        'label' => 'Legacy / Unclassified',
+                        'state' => 'legacy',
+                        'allocated_hours' => null,
+                        'approved_hours' => (float) $legacyRows->sum('approved_hours'),
+                        'pending_hours' => (float) $legacyRows->sum('pending_hours'),
+                        'deducted_legacy_hours' => 0.0,
+                    ]);
+                }
+                $allocation->manpower_category_usage = $hasCategoryControls ? $categoryLedger : collect();
 
                 return $allocation;
             });
@@ -136,7 +184,7 @@ class ProjectUtilizationController extends Controller
         $reviewTimesheets = Timesheet::query()
             ->select(['id', 'user_id', 'department_id', 'timesheet_period_id', 'status'])
             ->with(['user:id,name', 'period:id,week_number,year,start_date,end_date', 'entries' => fn ($query) => $entryScope($query)
-                ->select(['id', 'timesheet_id', 'work_date', 'department_id', 'regular_hours', 'overtime_hours', 'description'])
+                ->select(['id', 'timesheet_id', 'work_date', 'department_id', 'manpower_category_snapshot', 'regular_hours', 'overtime_hours', 'description'])
                 ->with('department:id,name,code')->orderBy('work_date')->orderBy('id')])
             ->withCount(['entries as project_entries_count' => $entryScope])
             ->withSum(['entries as project_regular_hours' => $entryScope], 'regular_hours')
@@ -169,6 +217,7 @@ class ProjectUtilizationController extends Controller
         return view('projects.utilization', [
             'project' => $project->load('projectManager:id,name,email'),
             'allocations' => $allocations,
+            'projectMembers' => $projectMembers,
             'filters' => $filters,
             'reviewTimesheets' => $reviewTimesheets,
             'openEntryRequestIds' => $openEntryRequestIds,

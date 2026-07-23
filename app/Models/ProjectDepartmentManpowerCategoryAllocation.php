@@ -4,9 +4,9 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
-class ProjectDepartmentJobLevelAllocation extends Model
+class ProjectDepartmentManpowerCategoryAllocation extends Model
 {
-    protected $fillable = ['project_department_allocation_id', 'job_level', 'allocated_hours'];
+    protected $fillable = ['project_department_allocation_id', 'manpower_category', 'allocated_hours'];
 
     protected function casts(): array
     {

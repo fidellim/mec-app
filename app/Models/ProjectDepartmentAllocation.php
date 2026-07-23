@@ -23,8 +23,39 @@ class ProjectDepartmentAllocation extends Model
         return $this->belongsTo(Project::class);
     }
 
-    public function jobLevelAllocations()
+    public function manpowerCategoryAllocations()
     {
-        return $this->hasMany(ProjectDepartmentJobLevelAllocation::class);
+        return $this->hasMany(ProjectDepartmentManpowerCategoryAllocation::class);
+    }
+
+    public function usesManpowerCategories(): bool
+    {
+        return $this->manpowerCategoryAllocations->isNotEmpty();
+    }
+
+    public function hasCurrentManpowerCategoryConfiguration(): bool
+    {
+        $canonicalCategories = array_keys(config('manpower_categories.labels'));
+        $rows = $this->manpowerCategoryAllocations;
+
+        return $rows->isNotEmpty()
+            && ! $rows->contains(fn ($row) => ! in_array($row->manpower_category, $canonicalCategories, true))
+            && $rows->whereIn('manpower_category', $canonicalCategories)->count() === count($canonicalCategories);
+    }
+
+    public function allowsManpowerCategory(?string $manpowerCategory): bool
+    {
+        if (! $this->usesManpowerCategories()) {
+            return true;
+        }
+
+        if (! $manpowerCategory || ! $this->hasCurrentManpowerCategoryConfiguration()) {
+            return false;
+        }
+
+        $categoryAllocation = $this->manpowerCategoryAllocations->firstWhere('manpower_category', $manpowerCategory);
+
+        return $categoryAllocation
+            && ($categoryAllocation->allocated_hours === null || (float) $categoryAllocation->allocated_hours > 0);
     }
 }

@@ -100,7 +100,7 @@ class EmployeeTimesheetController extends Controller
         $timesheet = DB::transaction(function () use ($request, $user, $period, $audit, $history, $allocations) {
             $snapshots = $request->boolean('submit')
                 ? $allocations->validateSubmission($user, $request->entries)
-                : [];
+                : $allocations->snapshotsForDraft($user, $request->entries);
             $timesheet = Timesheet::create([
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
@@ -175,21 +175,19 @@ class EmployeeTimesheetController extends Controller
         $old = $timesheet->load('entries')->toArray();
         $wasRejected = $timesheet->status === 'rejected';
         $wasRecalled = $timesheet->status === Timesheet::STATUS_RECALLED;
-        $originalJobLevels = $timesheet->entries->keyBy('id')->map->job_level_snapshot;
+        $originalCategories = $timesheet->entries->keyBy('id')->map->manpower_category_snapshot;
 
-        DB::transaction(function () use ($request, $timesheet, $audit, $history, $old, $wasRejected, $wasRecalled, $allocations, $originalJobLevels) {
-            $timesheetJobLevel = $originalJobLevels->filter()->first();
-            $jobLevelOverrides = collect($request->entries)->mapWithKeys(function ($entry, $index) use ($originalJobLevels, $timesheetJobLevel) {
+        DB::transaction(function () use ($request, $timesheet, $audit, $history, $old, $wasRejected, $wasRecalled, $allocations, $originalCategories) {
+            $existingSnapshots = collect($request->entries)->mapWithKeys(function ($entry, $index) use ($originalCategories) {
                 $entryId = (int) ($entry['id'] ?? 0);
-                $jobLevel = $entryId && $originalJobLevels->has($entryId)
-                    ? $originalJobLevels->get($entryId)
-                    : $timesheetJobLevel;
 
-                return $jobLevel ? [$index => $jobLevel] : [];
+                return $entryId && $originalCategories->has($entryId)
+                    ? [$index => $originalCategories->get($entryId)]
+                    : [];
             })->all();
             $snapshots = $request->boolean('submit')
-                ? $allocations->validateSubmission($request->user(), $request->entries, $timesheet, $jobLevelOverrides)
-                : [];
+                ? $allocations->validateSubmission($request->user(), $request->entries, $timesheet)
+                : $allocations->snapshotsForDraft($request->user(), $request->entries, $existingSnapshots);
             $timesheet->update([
                 'department_id' => $request->user()->department_id,
                 'status' => $request->boolean('submit') ? 'submitted' : 'draft',
@@ -268,14 +266,23 @@ class EmployeeTimesheetController extends Controller
             ->map(fn ($id) => (int) $id);
 
         return Project::query()
-            ->with('departmentAllocations:project_id,department_id')
+            ->with([
+                'departmentAllocations.manpowerCategoryAllocations:id,project_department_allocation_id,manpower_category,allocated_hours',
+                'assignedUsers' => fn ($query) => $query->whereKey($user->id),
+            ])
             ->whereIn('id', $availableIds->merge($includedProjectIds)->unique())
             ->orderBy('project_code')
             ->get()
-            ->each(fn (Project $project) => $project->setAttribute(
-                'is_timesheet_accessible',
-                $availableIds->contains($project->id),
-            ));
+            ->each(function (Project $project) use ($availableIds, $user) {
+                $project->setAttribute('is_timesheet_accessible', $availableIds->contains($project->id));
+                $assignedCategory = $project->manpowerCategoryFor($user);
+                $project->setAttribute('timesheet_department_access', [
+                    'restricted' => $project->departmentAllocations->isNotEmpty(),
+                    'allowed_ids' => $project->departmentAllocations
+                        ->filter(fn ($allocation) => $allocation->allowsManpowerCategory($assignedCategory))
+                        ->pluck('department_id')->map(fn ($id) => (string) $id)->values()->all(),
+                ]);
+            });
     }
 
     private function defaultEntries(TimesheetPeriod $period)
@@ -357,7 +364,7 @@ class EmployeeTimesheetController extends Controller
                 'attendance_code' => $entry['attendance_code'] ?: null,
                 'project_id' => $entry['project_id'] ?: null,
                 'department_id' => ($entry['department_id'] ?? null) ?: $timesheet->department_id,
-                'job_level_snapshot' => $snapshots[$index]['job_level_snapshot'] ?? null,
+                'manpower_category_snapshot' => $snapshots[$index]['manpower_category_snapshot'] ?? null,
                 'allocation_bucket_snapshot' => $snapshots[$index]['allocation_bucket_snapshot'] ?? null,
                 'regular_hours' => $entry['regular_hours'] ?? 0,
                 'overtime_hours' => $entry['overtime_hours'] ?? 0,

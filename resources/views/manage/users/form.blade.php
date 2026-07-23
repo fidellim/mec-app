@@ -50,17 +50,6 @@
             <div class="form-text">Optional. Shown in timesheet exports.</div>
         </div>
         <div class="col-md-4">
-            <label class="form-label" for="job_level">Job Level</label>
-            <select class="form-select @error('job_level') is-invalid @enderror" id="job_level" name="job_level">
-                <option value="">Not classified</option>
-                @foreach(config('job_levels.labels') as $value => $label)
-                    <option value="{{ $value }}" @selected(old('job_level', $userModel->job_level) === $value)>{{ $label }}</option>
-                @endforeach
-            </select>
-            <div class="form-text">Required for new active employees and HODs. Used for controlled project manhour allocations.</div>
-            @error('job_level')<div class="invalid-feedback">{{ $message }}</div>@enderror
-        </div>
-        <div class="col-md-4">
             <label class="form-label" for="gender">Gender</label>
             <select class="form-select @error('gender') is-invalid @enderror" id="gender" name="gender">
                 <option value="">Not specified</option>

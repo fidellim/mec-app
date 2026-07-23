@@ -33,7 +33,20 @@ class Project extends Model
 
     public function assignedUsers()
     {
-        return $this->belongsToMany(User::class)->withTimestamps();
+        return $this->belongsToMany(User::class)
+            ->withPivot('manpower_category')
+            ->withTimestamps();
+    }
+
+    public function manpowerCategoryFor(User $user): ?string
+    {
+        $assignedUser = $this->relationLoaded('assignedUsers')
+            ? $this->assignedUsers->firstWhere('id', $user->id)
+            : $this->assignedUsers()->whereKey($user->id)->first();
+
+        return filled($assignedUser?->pivot?->manpower_category)
+            ? $assignedUser->pivot->manpower_category
+            : null;
     }
 
     public function projectManager() { return $this->belongsTo(User::class, 'project_manager_id'); }

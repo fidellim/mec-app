@@ -11,7 +11,7 @@ class TimesheetEntry extends Model
 
     protected $fillable = [
         'timesheet_id', 'work_date', 'day_name', 'attendance_code', 'project_id', 'department_id', 'regular_hours',
-        'overtime_hours', 'description', 'remarks', 'job_level_snapshot', 'allocation_bucket_snapshot',
+        'overtime_hours', 'description', 'remarks', 'manpower_category_snapshot', 'allocation_bucket_snapshot',
     ];
 
     protected function casts(): array
