@@ -159,6 +159,8 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::patch('projects/{project}/status', [ProjectController::class, 'status'])->middleware('throttle:authenticated-writes')->name('projects.status');
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/create', [ProjectController::class, 'create'])->name('projects.create');
+        Route::get('projects/allocation-template', [ProjectController::class, 'allocationTemplate'])->middleware('throttle:exports')->name('projects.allocation-template');
+        Route::post('projects/allocation-import/preview', [ProjectController::class, 'previewAllocationImport'])->middleware('throttle:authenticated-writes')->name('projects.allocation-import.preview');
         Route::get('projects/assignment-template', [ProjectController::class, 'assignmentTemplate'])->middleware('throttle:exports')->name('projects.assignment-template');
         Route::post('projects/assignment-import/preview', [ProjectController::class, 'previewAssignmentImport'])->middleware('throttle:authenticated-writes')->name('projects.assignment-import.preview');
         Route::post('projects', [ProjectController::class, 'store'])->middleware('throttle:authenticated-writes')->name('projects.store');

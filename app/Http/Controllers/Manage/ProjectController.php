@@ -8,6 +8,7 @@ use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\ProjectAllocationSpreadsheetService;
 use App\Services\ProjectAssignmentSpreadsheetService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -66,8 +67,10 @@ class ProjectController extends Controller
     public function store(Request $request, AuditLogService $audit)
     {
         $validated = $this->validated($request);
-        $importToken = $validated['assignment_import_token'] ?? null;
-        $importApplied = $this->validateAssignmentImportToken($request, null, $importToken);
+        $assignmentImportToken = $validated['assignment_import_token'] ?? null;
+        $assignmentImportApplied = $this->validateAssignmentImportToken($request, null, $assignmentImportToken);
+        $allocationImportToken = $validated['allocation_import_token'] ?? null;
+        $allocationImport = $this->validateAllocationImportToken($request, null, $allocationImportToken);
         $assignedUserIds = $validated['assigned_user_ids'] ?? [];
         $assignedUserCategories = $this->assignedUserCategories($assignedUserIds, $validated['assigned_user_categories'] ?? []);
         $allocations = $validated['department_allocations'] ?? [];
@@ -77,23 +80,30 @@ class ProjectController extends Controller
             throw ValidationException::withMessages(['department_allocations' => 'Allocate manhours to at least one department.']);
         }
         $this->validateProjectAssignments($assignedUserCategories, $allocations, $categorySettings);
-        $importSummary = $importApplied
+        $assignmentImportSummary = $assignmentImportApplied
             ? $this->assignmentImportSummary(collect(), collect($assignedUserCategories)->map(fn ($pivot) => $pivot['manpower_category']))
             : null;
-        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token']);
+        $allocationImportSummary = $allocationImport
+            ? $this->allocationImportSummary($allocationImport, $allocations, $categorySettings)
+            : null;
+        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token'], $validated['allocation_import_token']);
 
-        $project = DB::transaction(function () use ($validated, $assignedUserCategories, $allocations, $categorySettings, $audit, $importSummary) {
+        $project = DB::transaction(function () use ($validated, $assignedUserCategories, $allocations, $categorySettings, $audit, $assignmentImportSummary, $allocationImportSummary) {
             $project = Project::create($validated);
             $project->assignedUsers()->sync($assignedUserCategories);
             $this->syncAllocations($project, $allocations, $categorySettings);
             $audit->record('project_created', $project, null, $this->auditValues($project));
-            if ($importSummary !== null) {
-                $audit->record('project_assignment_excel_imported', $project, null, $importSummary);
+            if ($assignmentImportSummary !== null) {
+                $audit->record('project_assignment_excel_imported', $project, null, $assignmentImportSummary);
+            }
+            if ($allocationImportSummary !== null) {
+                $audit->record('project_allocation_excel_imported', $project, null, $allocationImportSummary);
             }
 
             return $project;
         });
-        $this->forgetAssignmentImportToken($request, $importToken);
+        $this->forgetAssignmentImportToken($request, $assignmentImportToken);
+        $this->forgetAllocationImportToken($request, $allocationImportToken);
 
         return redirect()->route('manage.projects.index')->with('success', 'Project created.');
     }
@@ -138,6 +148,29 @@ class ProjectController extends Controller
         $spreadsheet = $spreadsheets->template($project);
         $prefix = $project ? Str::slug($project->project_code, '_') : 'new_project';
         $fileName = $prefix.'_assignment_template_'.now()->format('Ymd_His').'.xlsx';
+
+        return response()->streamDownload(function () use ($spreadsheet) {
+            try {
+                (new Xlsx($spreadsheet))->save('php://output');
+            } finally {
+                $spreadsheet->disconnectWorksheets();
+            }
+        }, $fileName, [
+            'Content-Type' => 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        ]);
+    }
+
+    public function allocationTemplate(Request $request, ProjectAllocationSpreadsheetService $spreadsheets)
+    {
+        $validated = $request->validate([
+            'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')],
+        ]);
+        $project = filled($validated['project_id'] ?? null)
+            ? Project::findOrFail((int) $validated['project_id'])
+            : null;
+        $spreadsheet = $spreadsheets->template($project);
+        $prefix = $project ? Str::slug($project->project_code, '_') : 'new_project';
+        $fileName = $prefix.'_department_allocations_'.now()->format('Ymd_His').'.xlsx';
 
         return response()->streamDownload(function () use ($spreadsheet) {
             try {
@@ -208,11 +241,71 @@ class ProjectController extends Controller
         }
     }
 
+    public function previewAllocationImport(
+        Request $request,
+        ProjectAllocationSpreadsheetService $spreadsheets,
+    ) {
+        $uploadedFile = $request->file('allocation_file');
+        $path = $uploadedFile?->getRealPath();
+
+        try {
+            $validated = $request->validate([
+                'allocation_file' => ['required', 'file', 'extensions:xlsx', 'mimes:xlsx', 'max:5120'],
+                'project_id' => ['nullable', 'integer', Rule::exists('projects', 'id')],
+                'department_allocations' => ['nullable', 'array'],
+                'job_level_controls' => ['nullable', 'array'],
+                'job_level_allocations' => ['nullable', 'array'],
+                'assigned_user_ids' => ['nullable', 'array'],
+                'assigned_user_categories' => ['nullable', 'array'],
+            ], [
+                'allocation_file.required' => 'Choose an Excel allocation file.',
+                'allocation_file.extensions' => 'Upload an .xlsx file.',
+                'allocation_file.mimes' => 'Upload a valid .xlsx file.',
+                'allocation_file.max' => 'The allocation file may not exceed 5 MB.',
+            ]);
+
+            $project = filled($validated['project_id'] ?? null)
+                ? Project::findOrFail((int) $validated['project_id'])
+                : null;
+            if (! $path) {
+                return response()->json([
+                    'message' => 'The uploaded Excel file could not be read.',
+                    'valid' => false,
+                    'errors' => ['The uploaded Excel file could not be read.'],
+                ], 422);
+            }
+
+            try {
+                $preview = $spreadsheets->preview($path, $request->all(), $project);
+            } catch (Throwable $exception) {
+                report($exception);
+
+                return response()->json([
+                    'message' => 'The allocation preview could not be prepared. Check the workbook and try again.',
+                    'valid' => false,
+                    'errors' => ['The allocation preview could not be prepared. Check the workbook and try again.'],
+                ], 422);
+            }
+
+            $preview['token'] = $preview['valid']
+                ? $this->storeAllocationImportToken($request, $project, $preview)
+                : null;
+
+            return response()->json($preview);
+        } finally {
+            if ($path && is_file($path)) {
+                @unlink($path);
+            }
+        }
+    }
+
     public function update(Request $request, Project $project, AuditLogService $audit)
     {
         $validated = $this->validated($request, $project);
-        $importToken = $validated['assignment_import_token'] ?? null;
-        $importApplied = $this->validateAssignmentImportToken($request, $project, $importToken);
+        $assignmentImportToken = $validated['assignment_import_token'] ?? null;
+        $assignmentImportApplied = $this->validateAssignmentImportToken($request, $project, $assignmentImportToken);
+        $allocationImportToken = $validated['allocation_import_token'] ?? null;
+        $allocationImport = $this->validateAllocationImportToken($request, $project, $allocationImportToken);
         $assignedUserIds = $validated['assigned_user_ids'] ?? [];
         $assignedUserCategories = $this->assignedUserCategories($assignedUserIds, $validated['assigned_user_categories'] ?? []);
         $allocations = $validated['department_allocations'] ?? [];
@@ -223,7 +316,7 @@ class ProjectController extends Controller
         }
         $this->validateProjectAssignments($assignedUserCategories, $allocations, $categorySettings, $project);
         $reason = $validated['allocation_change_reason'] ?? null;
-        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token']);
+        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token'], $validated['allocation_import_token']);
         $oldAllocations = $this->allocationAuditValues($project);
         $newAllocations = $this->normalizedAllocationAuditValues($allocations, $categorySettings);
         $allocationsChanged = $oldAllocations !== $newAllocations;
@@ -233,11 +326,14 @@ class ProjectController extends Controller
         $old = $this->auditValues($project);
         $oldAssignments = $this->assignmentMap($project);
         $newAssignments = collect($assignedUserCategories)->map(fn ($pivot) => $pivot['manpower_category']);
-        $importSummary = $importApplied
+        $assignmentImportSummary = $assignmentImportApplied
             ? $this->assignmentImportSummary($oldAssignments, $newAssignments)
             : null;
+        $allocationImportSummary = $allocationImport
+            ? $this->allocationImportSummary($allocationImport, $allocations, $categorySettings, $reason)
+            : null;
 
-        DB::transaction(function () use ($project, $validated, $assignedUserCategories, $allocations, $categorySettings, $audit, $old, $oldAllocations, $newAllocations, $allocationsChanged, $reason, $importSummary) {
+        DB::transaction(function () use ($project, $validated, $assignedUserCategories, $allocations, $categorySettings, $audit, $old, $oldAllocations, $newAllocations, $allocationsChanged, $reason, $assignmentImportSummary, $allocationImportSummary) {
             $this->validateAllocationChanges($project, $allocations, $categorySettings);
             $project->update($validated);
             $project->assignedUsers()->sync($assignedUserCategories);
@@ -246,11 +342,15 @@ class ProjectController extends Controller
             if ($allocationsChanged) {
                 $audit->record('project_allocations_updated', $project, $oldAllocations, $newAllocations + ['reason' => $reason]);
             }
-            if ($importSummary !== null) {
-                $audit->record('project_assignment_excel_imported', $project, null, $importSummary);
+            if ($assignmentImportSummary !== null) {
+                $audit->record('project_assignment_excel_imported', $project, null, $assignmentImportSummary);
+            }
+            if ($allocationImportSummary !== null) {
+                $audit->record('project_allocation_excel_imported', $project, $oldAllocations, $allocationImportSummary);
             }
         });
-        $this->forgetAssignmentImportToken($request, $importToken);
+        $this->forgetAssignmentImportToken($request, $assignmentImportToken);
+        $this->forgetAllocationImportToken($request, $allocationImportToken);
 
         return redirect()->route('manage.projects.index')->with('success', 'Project updated.');
     }
@@ -306,6 +406,7 @@ class ProjectController extends Controller
             'assigned_user_categories' => ['nullable', 'array'],
             'assigned_user_categories.*' => ['nullable', Rule::in(array_keys(config('manpower_categories.labels')))],
             'assignment_import_token' => ['nullable', 'string', 'max:100'],
+            'allocation_import_token' => ['nullable', 'string', 'max:100'],
             'department_allocations' => ['required', 'array', 'min:1'],
             'department_allocations.*' => ['nullable', 'numeric', 'min:0.25', 'max:9999999999.99'],
             'job_level_controls' => ['nullable', 'array'],
@@ -663,6 +764,20 @@ class ProjectController extends Controller
         ];
     }
 
+    private function allocationImportSummary(
+        array $import,
+        array $allocations,
+        array $categorySettings,
+        ?string $reason = null,
+    ): array {
+        return [
+            'source' => 'excel_import',
+            'reason' => $reason,
+            'summary' => $import['summary'] ?? [],
+            'allocations' => $this->normalizedAllocationAuditValues($allocations, $categorySettings),
+        ];
+    }
+
     private function storeAssignmentImportToken(Request $request, ?Project $project): string
     {
         $tokens = collect($request->session()->get('project_assignment_import_tokens', []))
@@ -704,6 +819,57 @@ class ProjectController extends Controller
     {
         if (filled($token)) {
             $request->session()->forget('project_assignment_import_tokens.'.$token);
+        }
+    }
+
+    private function storeAllocationImportToken(
+        Request $request,
+        ?Project $project,
+        array $preview,
+    ): string {
+        $tokens = collect($request->session()->get('project_allocation_import_tokens', []))
+            ->filter(fn ($details) => (int) ($details['created_at'] ?? 0) >= now()->subHours(2)->timestamp)
+            ->all();
+        $token = Str::random(48);
+        $tokens[$token] = [
+            'user_id' => $request->user()->id,
+            'project_id' => $project?->id,
+            'created_at' => now()->timestamp,
+            'summary' => $preview['summary'] ?? [],
+        ];
+        $request->session()->put('project_allocation_import_tokens', $tokens);
+
+        return $token;
+    }
+
+    private function validateAllocationImportToken(
+        Request $request,
+        ?Project $project,
+        ?string $token,
+    ): ?array {
+        if (blank($token)) {
+            return null;
+        }
+
+        $details = $request->session()->get('project_allocation_import_tokens.'.$token);
+        $valid = is_array($details)
+            && (int) ($details['user_id'] ?? 0) === (int) $request->user()->id
+            && ($details['project_id'] ?? null) === $project?->id
+            && (int) ($details['created_at'] ?? 0) >= now()->subHours(2)->timestamp;
+
+        if (! $valid) {
+            throw ValidationException::withMessages([
+                'allocation_import_token' => 'The Excel allocation preview expired. Upload the file again.',
+            ]);
+        }
+
+        return $details;
+    }
+
+    private function forgetAllocationImportToken(Request $request, ?string $token): void
+    {
+        if (filled($token)) {
+            $request->session()->forget('project_allocation_import_tokens.'.$token);
         }
     }
 }

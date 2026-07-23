@@ -5,6 +5,7 @@
 <form class="content-card p-3" method="post" action="{{ $project->exists ? route('manage.projects.update', $project) : route('manage.projects.store') }}">
     @csrf @if($project->exists) @method('put') @endif
     <input type="hidden" name="assignment_import_token" value="{{ old('assignment_import_token') }}" data-assignment-import-token>
+    <input type="hidden" name="allocation_import_token" value="{{ old('allocation_import_token') }}" data-allocation-import-token>
     <div class="row g-3">
         <div class="col-md-4"><label class="form-label">Project code</label><input class="form-control" name="project_code" value="{{ old('project_code', $project->project_code) }}" required></div>
         <div class="col-md-4"><label class="form-label">Project name</label><input class="form-control" name="project_name" value="{{ old('project_name', $project->project_name) }}" required></div>
@@ -16,6 +17,65 @@
             <fieldset class="border rounded-3 p-3">
                 <legend class="h6 px-2">Department manhour allocations</legend>
                 <p class="small text-muted">Set each discipline's lifetime budget. Optional Manpower Category controls divide it into protected reservations and a shared remainder. Submitted and approved hours both consume allocation.</p>
+                @error('allocation_import_token')<div class="alert alert-danger py-2" role="alert">{{ $message }}</div>@enderror
+                <section class="rounded-3 border bg-body-tertiary p-3 mb-3"
+                         aria-labelledby="allocation-import-heading"
+                         data-allocation-import
+                         data-project-id="{{ $project->exists ? $project->id : '' }}"
+                         data-preview-url="{{ route('manage.projects.allocation-import.preview') }}">
+                    <div class="d-flex flex-column flex-lg-row gap-3 justify-content-between align-items-lg-start">
+                        <div>
+                            <div class="d-flex align-items-center gap-2">
+                                <span class="badge text-bg-success">Excel</span>
+                                <h2 class="h6 mb-0" id="allocation-import-heading">Import department allocations</h2>
+                            </div>
+                            <p class="small text-muted mb-0 mt-2">Preview a separate allocation workbook against the values currently on this form. Applying a valid preview stages the changes; Save Project remains the only database write.</p>
+                        </div>
+                        <a class="btn btn-sm btn-outline-secondary flex-shrink-0" href="{{ route('manage.projects.allocation-template', $project->exists ? ['project_id' => $project->id] : []) }}">
+                            Download allocation template
+                        </a>
+                    </div>
+                    <div class="row g-2 align-items-end mt-1">
+                        <div class="col-lg-7">
+                            <label class="form-label small fw-semibold" for="allocation-import-file">Completed allocation template</label>
+                            <input class="form-control form-control-sm" id="allocation-import-file" type="file" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" data-allocation-import-file>
+                        </div>
+                        <div class="col-lg-auto">
+                            <button class="btn btn-sm btn-success w-100" type="button" data-preview-allocation-import disabled>Preview allocation import</button>
+                        </div>
+                    </div>
+                    <div class="small text-muted mt-2" data-allocation-import-status>Choose the completed .xlsx template to prepare a preview.</div>
+                    <div class="d-none mt-3" data-allocation-import-preview aria-live="polite">
+                        <div class="alert alert-danger py-2 d-none" data-allocation-global-errors role="alert"></div>
+                        <div class="alert alert-warning py-2 d-none" data-allocation-assignment-warnings role="alert"></div>
+                        <div class="row g-2 mb-3" data-allocation-import-summary></div>
+                        <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center mb-2">
+                            <div class="small fw-semibold">Allocation changes</div>
+                            <button class="btn btn-sm btn-link p-0 d-none" type="button" data-toggle-unchanged-allocations>Show unchanged rows</button>
+                        </div>
+                        <div class="table-responsive border rounded-2">
+                            <table class="table table-sm align-middle mb-0">
+                                <thead>
+                                    <tr>
+                                        <th>Department</th>
+                                        <th>Current</th>
+                                        <th>Imported</th>
+                                        <th>Result</th>
+                                        <th>Issues</th>
+                                    </tr>
+                                </thead>
+                                <tbody data-allocation-preview-rows></tbody>
+                            </table>
+                        </div>
+                        <div class="d-flex flex-column flex-sm-row gap-2 justify-content-between align-items-sm-center mt-3">
+                            <div class="small text-muted" data-allocation-preview-message></div>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-secondary" type="button" data-close-allocation-preview>Close preview</button>
+                                <button class="btn btn-sm btn-success" type="button" data-apply-allocation-import disabled>Apply to form</button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
                 @if(($legacyCategoryDepartmentIds ?? collect())->isNotEmpty())
                     <div class="alert alert-warning py-2" role="alert">
                         <div class="fw-semibold">Manpower Category setup needs review</div>
@@ -32,7 +92,7 @@
                             $storedCategories = $manpowerCategorySettings->get($department->id, collect());
                             $hasLegacyCategories = ($legacyCategoryDepartmentIds ?? collect())->contains($department->id);
                         @endphp
-                        <div class="col-12" data-department-allocation>
+                        <div class="col-12" data-department-allocation data-department-id="{{ $department->id }}">
                             <section class="border rounded-3 overflow-hidden">
                                 <div class="p-3 bg-body-tertiary d-flex flex-column flex-lg-row gap-3 align-items-lg-end justify-content-between">
                                     <div class="flex-grow-1">
@@ -59,7 +119,7 @@
                                                 $categoryHours = old($hoursKey, $defaultMode === 'reserved' ? $storedValue : null);
                                             @endphp
                                             <div class="col-md-6 col-xl-4">
-                                                <div class="border rounded-2 p-2 h-100" data-job-level-row>
+                                                <div class="border rounded-2 p-2 h-100" data-job-level-row data-manpower-category="{{ $manpowerCategory }}">
                                                     <label class="form-label small fw-semibold" for="mode_{{ $department->id }}_{{ $manpowerCategory }}">{{ $manpowerCategoryLabel }}</label>
                                                     <div class="input-group input-group-sm">
                                                         <select class="form-select" id="mode_{{ $department->id }}_{{ $manpowerCategory }}" name="job_level_allocations[{{ $department->id }}][{{ $manpowerCategory }}][mode]" data-job-level-mode>
@@ -296,6 +356,271 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.querySelectorAll('[data-job-level-mode]').forEach(mode => mode.addEventListener('change', refresh));
         refresh();
     });
+
+    (() => {
+        const workspace = document.querySelector('[data-allocation-import]');
+        if (! workspace) return;
+
+        const projectForm = workspace.closest('form');
+        const fileInput = workspace.querySelector('[data-allocation-import-file]');
+        const previewButton = workspace.querySelector('[data-preview-allocation-import]');
+        const status = workspace.querySelector('[data-allocation-import-status]');
+        const previewPanel = workspace.querySelector('[data-allocation-import-preview]');
+        const globalErrors = workspace.querySelector('[data-allocation-global-errors]');
+        const assignmentWarnings = workspace.querySelector('[data-allocation-assignment-warnings]');
+        const summary = workspace.querySelector('[data-allocation-import-summary]');
+        const rows = workspace.querySelector('[data-allocation-preview-rows]');
+        const message = workspace.querySelector('[data-allocation-preview-message]');
+        const applyButton = workspace.querySelector('[data-apply-allocation-import]');
+        const closeButton = workspace.querySelector('[data-close-allocation-preview]');
+        const toggleUnchanged = workspace.querySelector('[data-toggle-unchanged-allocations]');
+        const tokenInput = projectForm.querySelector('[data-allocation-import-token]');
+        let lastPreview = null;
+        let loading = false;
+        let showUnchanged = false;
+
+        const node = (tag, className, text) => {
+            const result = document.createElement(tag);
+            if (className) result.className = className;
+            if (text !== undefined) result.textContent = text;
+            return result;
+        };
+        const appendMessages = (container, messages, className) => {
+            messages.forEach(item => container.append(node('div', className, item)));
+        };
+        const formatHours = value => `${Number(value || 0).toLocaleString(undefined, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+        })} hrs`;
+        const validationMessages = payload => {
+            if (Array.isArray(payload?.errors)) return payload.errors;
+            if (payload?.errors && typeof payload.errors === 'object') return Object.values(payload.errors).flat();
+            return [payload?.message || 'The allocation preview could not be prepared.'];
+        };
+
+        const refreshAvailability = () => {
+            previewButton.disabled = loading || ! fileInput.files.length;
+            if (loading) return;
+            status.textContent = fileInput.files.length
+                ? 'Ready to validate the workbook against the staged form and existing usage.'
+                : 'Choose the completed .xlsx template to prepare a preview.';
+        };
+
+        const renderPreview = preview => {
+            lastPreview = preview;
+            showUnchanged = false;
+            previewPanel.classList.remove('d-none');
+
+            const errors = preview.errors || [];
+            globalErrors.classList.toggle('d-none', errors.length === 0);
+            globalErrors.replaceChildren();
+            appendMessages(globalErrors, errors, 'small');
+
+            const warnings = preview.assignment_warnings || [];
+            assignmentWarnings.classList.toggle('d-none', warnings.length === 0);
+            assignmentWarnings.replaceChildren();
+            if (warnings.length) {
+                assignmentWarnings.append(node('div', 'fw-semibold small mb-1', 'Must resolve before saving'));
+                appendMessages(assignmentWarnings, warnings, 'small');
+            }
+
+            const summaryItems = [
+                ['added', 'Added', false],
+                ['updated', 'Updated', false],
+                ['category_changed', 'Category changes', false],
+                ['removed', 'Removed', false],
+                ['errors', 'Errors', false],
+                ['current_total', 'Current total', true],
+                ['imported_total', 'Staged total', true],
+                ['net_change', 'Net change', true],
+                ['controlled_total', 'Category-controlled', true],
+                ['uncontrolled_total', 'Uncontrolled', true],
+            ];
+            summary.replaceChildren();
+            summaryItems.forEach(([key, label, isHours]) => {
+                const column = node('div', 'col-6 col-md-4 col-xl-2');
+                const card = node('div', `border rounded-2 p-2 h-100 bg-body${key === 'errors' && preview.summary?.[key] ? ' border-danger' : ''}`);
+                card.append(node('div', 'fs-6 fw-semibold', isHours ? formatHours(preview.summary?.[key]) : String(preview.summary?.[key] || 0)));
+                card.append(node('div', 'small text-muted', label));
+                column.append(card);
+                summary.append(column);
+            });
+
+            rows.replaceChildren();
+            let quietRows = 0;
+            (preview.rows || []).forEach(row => {
+                const tr = node('tr');
+                const hasIssues = (row.errors || []).length || (row.warnings || []).length;
+                if (row.change === 'unchanged' && ! hasIssues) {
+                    tr.dataset.unchangedAllocation = '';
+                    tr.classList.add('d-none');
+                    quietRows++;
+                }
+                if ((row.errors || []).length) tr.classList.add('table-danger');
+
+                const departmentCell = node('td');
+                departmentCell.append(node('div', 'fw-medium', row.department_name));
+                departmentCell.append(node('div', 'small text-muted', `${row.department_code || 'No code'} · Excel row ${row.row_number}`));
+                tr.append(departmentCell);
+
+                const currentCell = node('td', 'small');
+                currentCell.append(node('div', 'fw-medium', row.current?.label || 'Not included'));
+                if (row.current?.detail) currentCell.append(node('div', 'text-muted mt-1', row.current.detail));
+                tr.append(currentCell);
+
+                const importedCell = node('td', 'small');
+                importedCell.append(node('div', 'fw-medium', row.imported?.label || 'Not included'));
+                if (row.imported?.detail) importedCell.append(node('div', 'text-muted mt-1', row.imported.detail));
+                tr.append(importedCell);
+
+                const resultCell = node('td');
+                const badgeClass = {
+                    added: 'text-bg-primary',
+                    updated: 'text-bg-info',
+                    removed: 'text-bg-danger',
+                    unchanged: 'text-bg-secondary',
+                }[row.change] || 'text-bg-secondary';
+                resultCell.append(node('span', `badge ${badgeClass}`, row.change_label));
+                tr.append(resultCell);
+
+                const issuesCell = node('td');
+                if (! hasIssues) {
+                    issuesCell.append(node('span', 'small text-muted', '—'));
+                } else {
+                    appendMessages(issuesCell, row.errors || [], 'small text-danger');
+                    appendMessages(issuesCell, row.warnings || [], 'small text-warning-emphasis');
+                }
+                tr.append(issuesCell);
+                rows.append(tr);
+            });
+
+            toggleUnchanged.classList.toggle('d-none', quietRows === 0);
+            toggleUnchanged.textContent = `Show unchanged rows (${quietRows})`;
+            applyButton.disabled = ! preview.valid;
+            message.textContent = preview.valid
+                ? (warnings.length
+                    ? 'Allocation validation passed. You may apply it now, but resolve the listed assignments before Save Project.'
+                    : 'Validation passed. Apply these allocations to the form, then save the project.')
+                : 'Nothing has been applied. Correct every Excel error and preview the file again.';
+        };
+
+        fileInput.addEventListener('change', () => {
+            previewPanel.classList.add('d-none');
+            lastPreview = null;
+            tokenInput.value = '';
+            refreshAvailability();
+        });
+        previewButton.addEventListener('click', async () => {
+            if (! fileInput.files.length || loading) return;
+
+            loading = true;
+            previewButton.setAttribute('aria-busy', 'true');
+            status.textContent = 'Validating allocations, usage minimums, and assignment impacts…';
+            refreshAvailability();
+
+            const payload = new FormData(projectForm);
+            payload.delete('_method');
+            payload.set('allocation_file', fileInput.files[0]);
+            if (workspace.dataset.projectId) payload.set('project_id', workspace.dataset.projectId);
+            else payload.delete('project_id');
+
+            try {
+                const response = await fetch(workspace.dataset.previewUrl, {
+                    method: 'POST',
+                    body: payload,
+                    headers: {
+                        Accept: 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                    },
+                    credentials: 'same-origin',
+                });
+                const result = await response.json().catch(() => ({
+                    message: 'The server returned an unreadable response.',
+                }));
+                if (! response.ok) {
+                    const errors = validationMessages(result);
+                    renderPreview({
+                        valid: false,
+                        errors,
+                        assignment_warnings: [],
+                        rows: [],
+                        summary: { errors: errors.length },
+                        token: null,
+                    });
+                    status.textContent = 'The allocation workbook could not be previewed.';
+                    return;
+                }
+
+                renderPreview(result);
+                status.textContent = result.valid
+                    ? 'Preview ready. Review the staged totals and department changes.'
+                    : 'Preview found blocking errors that must be corrected.';
+            } catch (error) {
+                renderPreview({
+                    valid: false,
+                    errors: ['The preview request failed. Check your connection and try again.'],
+                    assignment_warnings: [],
+                    rows: [],
+                    summary: { errors: 1 },
+                    token: null,
+                });
+                status.textContent = 'The allocation workbook could not be previewed.';
+            } finally {
+                loading = false;
+                previewButton.removeAttribute('aria-busy');
+                refreshAvailability();
+            }
+        });
+        toggleUnchanged.addEventListener('click', () => {
+            showUnchanged = ! showUnchanged;
+            rows.querySelectorAll('[data-unchanged-allocation]').forEach(row => {
+                row.classList.toggle('d-none', ! showUnchanged);
+            });
+            const count = rows.querySelectorAll('[data-unchanged-allocation]').length;
+            toggleUnchanged.textContent = showUnchanged ? 'Hide unchanged rows' : `Show unchanged rows (${count})`;
+        });
+        closeButton.addEventListener('click', () => previewPanel.classList.add('d-none'));
+        applyButton.addEventListener('click', () => {
+            if (! lastPreview?.valid || ! lastPreview.token) return;
+
+            (lastPreview.rows || []).forEach(row => {
+                if (! row.department_id || row.included === null) return;
+                const allocation = document.querySelector(`[data-department-allocation][data-department-id="${row.department_id}"]`);
+                if (! allocation) return;
+
+                const total = allocation.querySelector('[data-department-hours]');
+                const control = allocation.querySelector('[data-job-level-toggle]');
+                total.value = row.included ? row.total_hours : '';
+                control.checked = row.included && row.controlled;
+
+                allocation.querySelectorAll('[data-job-level-row]').forEach(categoryRow => {
+                    const imported = row.categories?.[categoryRow.dataset.manpowerCategory];
+                    const mode = categoryRow.querySelector('[data-job-level-mode]');
+                    const hours = categoryRow.querySelector('[data-job-level-hours]');
+                    mode.value = row.included && row.controlled && imported ? imported.mode : 'shared';
+                    hours.value = row.included && row.controlled && imported?.mode === 'reserved'
+                        ? imported.hours
+                        : '';
+                    mode.dispatchEvent(new Event('change', { bubbles: true }));
+                });
+                control.dispatchEvent(new Event('change', { bubbles: true }));
+                total.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+
+            tokenInput.value = lastPreview.token;
+            const hasAssignmentWarnings = (lastPreview.assignment_warnings || []).length > 0;
+            status.textContent = hasAssignmentWarnings
+                ? 'Applied to the form. Resolve the assignment warnings, add the change reason if required, then save the project.'
+                : 'Applied to the form. Review the staged values, add the change reason if required, then save the project.';
+            applyButton.disabled = true;
+            message.textContent = hasAssignmentWarnings
+                ? 'Applied to the project form. The assignment warnings above must be resolved before Save Project.'
+                : 'Applied to the project form. Review the staged values, then select Save Project.';
+            previewPanel.classList.toggle('d-none', ! hasAssignmentWarnings);
+        });
+
+        refreshAvailability();
+    })();
 
     const picker = document.querySelector('[data-assignment-picker]');
     if (! picker) return;
