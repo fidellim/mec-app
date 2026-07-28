@@ -9,12 +9,12 @@ use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
 use App\Services\AdminExclusionService;
+use App\Services\AdminHodCorrectionRequestQuery;
 use App\Services\AuditLogService;
 use App\Services\TimesheetEmailNotificationService;
 use App\Services\TimesheetExportService;
 use App\Services\TimesheetRecallService;
 use App\Services\TimesheetStatusHistoryService;
-use App\Services\AdminHodCorrectionRequestQuery;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
@@ -77,6 +77,7 @@ class AdminTimesheetController extends Controller
 
         if (
             ($filters['filter_mode'] ?? 'weekly') !== 'monthly'
+            && ! filter_var($filters['employee_totals_only'] ?? false, FILTER_VALIDATE_BOOL)
             &&
             filter_var($filters['include_employee_sheets'] ?? false, FILTER_VALIDATE_BOOL)
             && $export->matchingTimesheetCount($filters) > self::EMPLOYEE_SHEET_EXPORT_MAX_TIMESHEETS
@@ -202,6 +203,7 @@ class AdminTimesheetController extends Controller
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'status' => ['nullable', 'in:draft,submitted,approved,rejected,withdrawn,recalled,voided,not_submitted'],
             'include_employee_sheets' => ['nullable', 'boolean'],
+            'employee_totals_only' => ['nullable', 'boolean'],
             'corrections' => ['nullable', 'in:open'],
         ], [
             'week_from.required_with' => 'Enter From Week when using To Week.',

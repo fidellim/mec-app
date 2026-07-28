@@ -3,9 +3,11 @@
 namespace App\Services;
 
 use App\Exports\AttendanceSummaryWorksheetExport;
+use App\Exports\EmployeeHoursSummaryExport;
 use App\Exports\ProjectSummaryWorksheetExport;
 use App\Exports\TimesheetsExcelExport;
 use App\Models\Timesheet;
+use App\Models\TimesheetPeriod;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
@@ -23,6 +25,15 @@ class TimesheetExportService
             ->with($this->exportRelations($filters, includeApprover: true))
             ->orderByDesc('id')
             ->get();
+
+        if ($this->employeeTotalsOnly($filters)) {
+            $summary = $this->buildEmployeeHoursSummary($timesheets, $filters);
+            $fileName = $monthly
+                ? 'employee_monthly_hours_'.$this->monthlyDateRange($filters)['start']->format('Y_m').'_'.now()->format('Ymd_His').'.xlsx'
+                : 'employee_weekly_hours_'.now()->format('Ymd_His').'.xlsx';
+
+            return Excel::download(new EmployeeHoursSummaryExport($summary), $fileName, ExcelWriter::XLSX);
+        }
 
         $includeEmployeeSheets = ! $monthly && $this->includeEmployeeSheets($filters);
         $payload = $includeEmployeeSheets
@@ -211,6 +222,11 @@ class TimesheetExportService
         return filter_var($filters['include_employee_sheets'] ?? false, FILTER_VALIDATE_BOOL);
     }
 
+    private function employeeTotalsOnly(array $filters): bool
+    {
+        return filter_var($filters['employee_totals_only'] ?? false, FILTER_VALIDATE_BOOL);
+    }
+
     private function summaryTimesheets(array $filters): Collection
     {
         return $this->query($filters)
@@ -264,7 +280,11 @@ class TimesheetExportService
         $monthRange = $monthly ? $this->monthlyDateRange($filters) : null;
 
         $query
-            ->where('status', '!=', Timesheet::STATUS_VOIDED)
+            ->when(
+                $filters['status'] ?? null,
+                fn ($q, $status) => $q->where('status', $status),
+                fn ($q) => $q->where('status', '!=', Timesheet::STATUS_VOIDED)
+            )
             ->when(! $monthly && $weekFrom, fn ($q) => $q->whereHas('period', fn ($p) => $p->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo])))
             ->when(! $monthly && ($filters['year'] ?? null), fn ($q) => $q->whereHas('period', fn ($p) => $p->where('year', $filters['year'])))
             ->when($monthly, fn ($q) => $q
@@ -279,13 +299,107 @@ class TimesheetExportService
             ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
             ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
             ->when($filters['role'] ?? null, fn ($q, $v) => $q->whereHas('user', fn ($user) => $user->where('role', $v)))
-            ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry
                 ->where('project_id', $v)
                 ->when($monthly, fn ($entry) => $entry->whereBetween('work_date', [
                     $monthRange['start']->toDateString(),
                     $monthRange['end']->toDateString(),
                 ]))));
+    }
+
+    private function buildEmployeeHoursSummary(Collection $timesheets, array $filters): array
+    {
+        $monthly = $this->isMonthly($filters);
+        $periods = $monthly
+            ? collect([[
+                'key' => $this->monthlyDateRange($filters)['start']->format('Y-m'),
+                'label' => $this->monthlyDateRange($filters)['start']->format('F Y'),
+                'dates' => $this->monthlyDateRange($filters)['start']->format('d-M-y').' to '.$this->monthlyDateRange($filters)['end']->format('d-M-y'),
+            ]])
+            : $this->employeeHoursPeriods($timesheets, $filters);
+
+        $employees = $timesheets
+            ->groupBy('user_id')
+            ->map(function (Collection $employeeTimesheets) use ($monthly, $periods) {
+                $first = $employeeTimesheets->first();
+                $hoursByPeriod = $periods->mapWithKeys(function (array $period) use ($employeeTimesheets, $monthly) {
+                    $matchingTimesheets = $monthly
+                        ? $employeeTimesheets
+                        : $employeeTimesheets->where('timesheet_period_id', $period['id']);
+                    $regular = (float) $matchingTimesheets->sum(fn (Timesheet $timesheet) => (float) $timesheet->entries->sum('regular_hours'));
+                    $overtime = (float) $matchingTimesheets->sum(fn (Timesheet $timesheet) => (float) $timesheet->entries->sum('overtime_hours'));
+
+                    return [$period['key'] => [
+                        'regular_hours' => $regular,
+                        'overtime_hours' => $overtime,
+                        'total_hours' => $regular + $overtime,
+                    ]];
+                });
+
+                return [
+                    'employee_id' => $this->spreadsheetText($first->user->employee_code ?? ''),
+                    'employee_name' => $this->spreadsheetText($first->user->name),
+                    'department_name' => $this->spreadsheetText($first->department?->name ?? '-'),
+                    'job_title' => $this->spreadsheetText($first->user->job_title ?: '-'),
+                    'periods' => $hoursByPeriod,
+                    'regular_hours' => (float) $hoursByPeriod->sum('regular_hours'),
+                    'overtime_hours' => (float) $hoursByPeriod->sum('overtime_hours'),
+                    'total_hours' => (float) $hoursByPeriod->sum('total_hours'),
+                ];
+            })
+            ->sortBy([
+                ['employee_name', 'asc'],
+                ['employee_id', 'asc'],
+            ])
+            ->values();
+
+        $monthRange = $monthly ? $this->monthlyDateRange($filters) : null;
+
+        return [
+            'mode' => $monthly ? 'monthly' : 'weekly',
+            'title' => $monthly ? 'Employee Monthly Hours Summary' : 'Employee Weekly Hours Summary',
+            'period_label' => $monthly
+                ? $monthRange['start']->format('F Y')
+                : $this->weeklySummaryPeriodLabel($periods),
+            'periods' => $periods,
+            'employees' => $employees,
+        ];
+    }
+
+    private function employeeHoursPeriods(Collection $timesheets, array $filters): Collection
+    {
+        $weekFrom = $filters['week_from'] ?? $filters['week_number'] ?? null;
+        $weekTo = $filters['week_to'] ?? $weekFrom;
+
+        return TimesheetPeriod::query()
+            ->where('year', $filters['year'])
+            ->when(
+                $weekFrom,
+                fn ($query) => $query->whereBetween('week_number', [(int) $weekFrom, (int) $weekTo]),
+                fn ($query) => $query->whereIn('id', $timesheets->pluck('timesheet_period_id')->unique())
+            )
+            ->orderBy('week_number')
+            ->get(['id', 'week_number', 'year', 'start_date', 'end_date'])
+            ->map(fn (TimesheetPeriod $period) => [
+                'id' => $period->id,
+                'key' => (string) $period->id,
+                'label' => 'Week '.$period->week_number.', '.$period->year,
+                'dates' => $period->start_date->format('d-M-y').' to '.$period->end_date->format('d-M-y'),
+            ])
+            ->values();
+    }
+
+    private function weeklySummaryPeriodLabel(Collection $periods): string
+    {
+        if ($periods->isEmpty()) {
+            return 'No matching weekly periods';
+        }
+
+        if ($periods->count() === 1) {
+            return $periods->first()['label'];
+        }
+
+        return $periods->first()['label'].' to '.$periods->last()['label'];
     }
 
     private function buildProjectWeeklySummary($timesheets, $projectId = null, array $filters = [])

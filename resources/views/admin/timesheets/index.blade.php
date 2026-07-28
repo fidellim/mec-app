@@ -6,7 +6,7 @@
     $weekFrom = request('week_from', request('week_number'));
     $weekTo = request('week_to', $weekFrom);
     $selectedMonth = request('month', now()->month);
-    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request('corrections') || request()->boolean('include_employee_sheets');
+    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request('corrections') || request()->boolean('include_employee_sheets') || request()->boolean('employee_totals_only');
 @endphp
 <style>
     .summary-preview-info-button {
@@ -46,6 +46,12 @@
     .report-mode-control .btn:not(.active) {
         color: var(--bs-secondary-color);
         background: transparent;
+    }
+    .employee-totals-option {
+        border: 1px solid color-mix(in srgb, var(--bs-primary) 25%, var(--bs-border-color));
+        border-radius: var(--bs-border-radius-lg);
+        padding: .85rem 1rem;
+        background: color-mix(in srgb, var(--bs-primary) 5%, var(--bs-body-bg));
     }
 </style>
 <div class="section-header">
@@ -113,6 +119,16 @@
     </div>
     <div class="col-md-4 d-flex align-items-end" data-monthly-filter>
         <div class="text-muted small mb-2">Monthly reports are summary-only and count only dates inside the selected calendar month.</div>
+    </div>
+    <div class="col-12">
+        <div class="employee-totals-option">
+            <div class="form-check mb-0">
+                <input type="hidden" name="employee_totals_only" value="0">
+                <input class="form-check-input" type="checkbox" id="employee_totals_only" name="employee_totals_only" value="1" @checked(request()->boolean('employee_totals_only'))>
+                <label class="form-check-label fw-semibold" for="employee_totals_only">Export employee totals only</label>
+                <div class="form-text">Creates one Employee Hours Summary sheet with regular, overtime, and total hours for each matching employee.</div>
+            </div>
+        </div>
     </div>
     <div class="col-12 text-end">
         <div class="d-inline-flex gap-2">
@@ -200,6 +216,9 @@
             @if(request('corrections') === 'open')
                 <span class="badge filter-summary-badge px-3 py-2">Correction review: Open HOD requests</span>
             @endif
+            @if(request()->boolean('employee_totals_only'))
+                <span class="badge filter-summary-badge px-3 py-2">Export: Employee totals only</span>
+            @endif
             @unless($hasVisibleFilters)
                 <span class="badge filter-summary-badge px-3 py-2">No filters applied</span>
             @endunless
@@ -239,6 +258,8 @@
         const weeklyFilters = document.querySelectorAll('[data-weekly-filter]');
         const monthlyFilters = document.querySelectorAll('[data-monthly-filter]');
         const modeInputs = document.querySelectorAll('input[name="filter_mode"]');
+        const employeeTotalsOnly = document.getElementById('employee_totals_only');
+        const includeEmployeeSheets = document.getElementById('include_employee_sheets');
 
         function syncReportMode() {
             const mode = document.querySelector('input[name="filter_mode"]:checked')?.value || 'weekly';
@@ -256,8 +277,22 @@
             });
         }
 
+        function syncExportOptions() {
+            if (!employeeTotalsOnly || !includeEmployeeSheets) {
+                return;
+            }
+
+            if (employeeTotalsOnly.checked) {
+                includeEmployeeSheets.checked = false;
+            }
+
+            includeEmployeeSheets.disabled = employeeTotalsOnly.checked;
+        }
+
         modeInputs.forEach((input) => input.addEventListener('change', syncReportMode));
+        employeeTotalsOnly?.addEventListener('change', syncExportOptions);
         syncReportMode();
+        syncExportOptions();
 
         if (! exportButton) {
             return;
