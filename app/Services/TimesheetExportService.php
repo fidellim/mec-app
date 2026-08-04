@@ -8,6 +8,7 @@ use App\Exports\ProjectSummaryWorksheetExport;
 use App\Exports\TimesheetsExcelExport;
 use App\Models\Timesheet;
 use App\Models\TimesheetPeriod;
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
@@ -299,6 +300,7 @@ class TimesheetExportService
             ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
             ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
             ->when($filters['role'] ?? null, fn ($q, $v) => $q->whereHas('user', fn ($user) => $user->where('role', $v)))
+            ->when($filters['employee_types'] ?? [], fn ($q, $types) => $q->whereHas('user', fn ($user) => $user->withEmployeeTypes($types)))
             ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry
                 ->where('project_id', $v)
                 ->when($monthly, fn ($entry) => $entry->whereBetween('work_date', [
@@ -338,6 +340,7 @@ class TimesheetExportService
 
                 return [
                     'employee_id' => $this->spreadsheetText($first->user->employee_code ?? ''),
+                    'employee_type' => $this->employeeType($first->user->employee_code),
                     'employee_name' => $this->spreadsheetText($first->user->name),
                     'department_name' => $this->spreadsheetText($first->department?->name ?? '-'),
                     'job_title' => $this->spreadsheetText($first->user->job_title ?: '-'),
@@ -585,5 +588,10 @@ class TimesheetExportService
         }
 
         return preg_match('/^[=\-+@]/', $value) ? "'".$value : $value;
+    }
+
+    private function employeeType(?string $employeeCode): string
+    {
+        return User::employeeTypeFromCode($employeeCode);
     }
 }

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Mail\TimesheetWorkflowMail;
 use App\Models\LeavePlan;
 use App\Models\TimesheetEntry;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
@@ -81,6 +82,84 @@ class AdminExportWorkflowTest extends TestCase
             ->assertDontSee('<td class="fw-semibold">Role Filter Employee</td>', false);
     }
 
+    public function test_admin_can_filter_all_timesheets_by_single_multiple_and_unclassified_employee_types(): void
+    {
+        $department = $this->department(['name' => 'Employee Type Department']);
+        $project = $this->project();
+        $period = $this->openPeriod();
+        $employees = [
+            $this->userWithRole('employee', ['name' => 'MEC Type Employee', 'employee_code' => 'MEC-HR-2026-201', 'department_id' => $department->id]),
+            $this->userWithRole('employee', ['name' => 'MCE Type Employee', 'employee_code' => 'MCE-HR-2026-202', 'department_id' => $department->id]),
+            $this->userWithRole('employee', ['name' => 'Philippines Type Employee', 'employee_code' => 'MEC-PHIL-HR-2026-203', 'department_id' => $department->id]),
+            $this->userWithRole('employee', ['name' => 'Unclassified Type Employee', 'employee_code' => 'LEGACY-2026-204', 'department_id' => $department->id]),
+            $this->userWithRole('employee', ['name' => 'Blank Type Employee', 'employee_code' => null, 'department_id' => $department->id]),
+        ];
+
+        foreach ($employees as $employee) {
+            $this->submittedTimesheet($employee, $period, $project);
+        }
+
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index'))
+            ->assertOk()
+            ->assertSee('All employee types')
+            ->assertSee('<td class="fw-semibold">MEC Type Employee</td>', false)
+            ->assertSee('<td class="fw-semibold">MCE Type Employee</td>', false)
+            ->assertSee('<td class="fw-semibold">Philippines Type Employee</td>', false)
+            ->assertSee('<td class="fw-semibold">Unclassified Type Employee</td>', false)
+            ->assertSee('<td class="fw-semibold">Blank Type Employee</td>', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'employee_types' => [User::EMPLOYEE_TYPE_MEC_HR, User::EMPLOYEE_TYPE_MCE_HR],
+            ]))
+            ->assertOk()
+            ->assertSee('name="employee_types[]"', false)
+            ->assertSee('Employee type: MEC-HR, MCE-HR')
+            ->assertSee('MEC Type Employee')
+            ->assertSee('MCE Type Employee')
+            ->assertDontSee('<td class="fw-semibold">Philippines Type Employee</td>', false)
+            ->assertDontSee('<td class="fw-semibold">Unclassified Type Employee</td>', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'employee_types' => [User::EMPLOYEE_TYPE_MEC_PHIL_HR],
+            ]))
+            ->assertOk()
+            ->assertSee('Employee type: MEC-PHIL-HR')
+            ->assertSee('Philippines Type Employee')
+            ->assertDontSee('<td class="fw-semibold">MEC Type Employee</td>', false)
+            ->assertDontSee('<td class="fw-semibold">MCE Type Employee</td>', false);
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'employee_types' => [User::EMPLOYEE_TYPE_OTHER],
+            ]))
+            ->assertOk()
+            ->assertSee('Employee type: Other / Unclassified')
+            ->assertSee('Unclassified Type Employee')
+            ->assertSee('Blank Type Employee')
+            ->assertDontSee('<td class="fw-semibold">MEC Type Employee</td>', false)
+            ->assertDontSee('<td class="fw-semibold">Philippines Type Employee</td>', false);
+    }
+
+    public function test_employee_type_filter_rejects_unknown_or_duplicate_values(): void
+    {
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', ['employee_types' => ['UNKNOWN']]))
+            ->assertSessionHasErrors('employee_types.0');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'employee_types' => [User::EMPLOYEE_TYPE_MEC_HR, User::EMPLOYEE_TYPE_MEC_HR],
+            ]))
+            ->assertSessionHasErrors('employee_types.0');
+    }
+
     public function test_admin_can_view_not_submitted_users_by_week_and_role(): void
     {
         $department = $this->department(['name' => 'Missing Department']);
@@ -153,6 +232,36 @@ class AdminExportWorkflowTest extends TestCase
         $this->actingAs($admin)
             ->get(route('admin.timesheets.index', ['status' => 'not_submitted']))
             ->assertSessionHasErrors(['week_from', 'year']);
+    }
+
+    public function test_not_submitted_results_respect_employee_type_filter(): void
+    {
+        $department = $this->department(['name' => 'Missing Type Department']);
+        $this->openPeriod();
+        $this->userWithRole('employee', [
+            'name' => 'Missing MEC Employee',
+            'employee_code' => 'MEC-HR-2026-211',
+            'department_id' => $department->id,
+        ]);
+        $this->userWithRole('employee', [
+            'name' => 'Missing Philippines Employee',
+            'employee_code' => 'MEC-PHIL-HR-2026-212',
+            'department_id' => $department->id,
+        ]);
+        $admin = $this->userWithRole('admin');
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', [
+                'status' => 'not_submitted',
+                'week_from' => 20,
+                'year' => 2026,
+                'department_id' => $department->id,
+                'employee_types' => [User::EMPLOYEE_TYPE_MEC_PHIL_HR],
+            ]))
+            ->assertOk()
+            ->assertSee('Employee type: MEC-PHIL-HR')
+            ->assertSee('Missing Philippines Employee')
+            ->assertDontSee('<td class="fw-semibold">Missing MEC Employee</td>', false);
     }
 
     public function test_admin_can_approve_employee_timesheet(): void
@@ -389,15 +498,21 @@ class AdminExportWorkflowTest extends TestCase
         ]);
         $alice = $this->userWithRole('employee', [
             'department_id' => $department->id,
-            'employee_code' => 'EMP-ALICE',
+            'employee_code' => 'MEC-HR-2026-001',
             'name' => 'Alice Weekly',
             'job_title' => 'Engineer',
         ]);
         $cara = $this->userWithRole('employee', [
             'department_id' => $department->id,
-            'employee_code' => 'EMP-CARA',
+            'employee_code' => 'MCE-HR-2026-002',
             'name' => 'Cara Partial',
             'job_title' => 'Planner',
+        ]);
+        $filipino = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-PHIL-HR-2026-003',
+            'name' => 'Filipino Weekly',
+            'job_title' => 'Coordinator',
         ]);
         $excluded = $this->userWithRole('employee', [
             'department_id' => $department->id,
@@ -409,6 +524,7 @@ class AdminExportWorkflowTest extends TestCase
         $aliceWeek21 = $this->submittedTimesheet($alice, $week21, $project, ['status' => 'approved']);
         $aliceWeek21->entries()->first()->update(['regular_hours' => 6, 'overtime_hours' => 1]);
         $this->submittedTimesheet($cara, $week20, $project, ['status' => 'approved']);
+        $this->submittedTimesheet($filipino, $week20, $project, ['status' => 'approved']);
         $this->submittedTimesheet($excluded, $week21, $project, ['status' => 'submitted']);
 
         $admin = $this->userWithRole('admin');
@@ -431,36 +547,41 @@ class AdminExportWorkflowTest extends TestCase
 
         $this->assertSame('Employee Hours Summary', $sheet->getTitle());
         $this->assertSame('Employee Weekly Hours Summary', $sheet->getCell('A1')->getValue());
-        $this->assertStringContainsString('Week 20, 2026', $sheet->getCell('E3')->getValue());
-        $this->assertStringContainsString('Week 21, 2026', $sheet->getCell('H3')->getValue());
-        $this->assertSame('Selected Weeks Total', $sheet->getCell('K3')->getValue());
-        $this->assertSame('EMP-ALICE', $sheet->getCell('A5')->getValue());
-        $this->assertSame('Alice Weekly', $sheet->getCell('B5')->getValue());
-        $this->assertSame('Weekly Totals', $sheet->getCell('C5')->getValue());
-        $this->assertSame('Engineer', $sheet->getCell('D5')->getValue());
-        $this->assertEquals(8, $sheet->getCell('E5')->getCalculatedValue());
-        $this->assertEquals(2, $sheet->getCell('F5')->getCalculatedValue());
-        $this->assertEquals(10, $sheet->getCell('G5')->getCalculatedValue());
-        $this->assertEquals(6, $sheet->getCell('H5')->getCalculatedValue());
-        $this->assertEquals(1, $sheet->getCell('I5')->getCalculatedValue());
-        $this->assertEquals(7, $sheet->getCell('J5')->getCalculatedValue());
-        $this->assertEquals(14, $sheet->getCell('K5')->getCalculatedValue());
-        $this->assertEquals(3, $sheet->getCell('L5')->getCalculatedValue());
-        $this->assertEquals(17, $sheet->getCell('M5')->getCalculatedValue());
-        $this->assertSame('Cara Partial', $sheet->getCell('B6')->getValue());
-        $this->assertEquals(0, $sheet->getCell('H6')->getCalculatedValue());
+        $this->assertStringContainsString('Week 20, 2026', $sheet->getCell('F3')->getValue());
+        $this->assertStringContainsString('Week 21, 2026', $sheet->getCell('I3')->getValue());
+        $this->assertSame('Selected Weeks Total', $sheet->getCell('L3')->getValue());
+        $this->assertSame('MEC-HR-2026-001', $sheet->getCell('A5')->getValue());
+        $this->assertSame('MEC-HR', $sheet->getCell('B5')->getValue());
+        $this->assertSame('Alice Weekly', $sheet->getCell('C5')->getValue());
+        $this->assertSame('Weekly Totals', $sheet->getCell('D5')->getValue());
+        $this->assertSame('Engineer', $sheet->getCell('E5')->getValue());
+        $this->assertEquals(8, $sheet->getCell('F5')->getCalculatedValue());
+        $this->assertEquals(2, $sheet->getCell('G5')->getCalculatedValue());
+        $this->assertEquals(10, $sheet->getCell('H5')->getCalculatedValue());
+        $this->assertEquals(6, $sheet->getCell('I5')->getCalculatedValue());
+        $this->assertEquals(1, $sheet->getCell('J5')->getCalculatedValue());
+        $this->assertEquals(7, $sheet->getCell('K5')->getCalculatedValue());
+        $this->assertEquals(14, $sheet->getCell('L5')->getCalculatedValue());
+        $this->assertEquals(3, $sheet->getCell('M5')->getCalculatedValue());
+        $this->assertEquals(17, $sheet->getCell('N5')->getCalculatedValue());
+        $this->assertSame('MCE-HR', $sheet->getCell('B6')->getValue());
+        $this->assertSame('Cara Partial', $sheet->getCell('C6')->getValue());
         $this->assertEquals(0, $sheet->getCell('I6')->getCalculatedValue());
         $this->assertEquals(0, $sheet->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(0, $sheet->getCell('K6')->getCalculatedValue());
+        $this->assertSame('MEC-PHIL-HR', $sheet->getCell('B7')->getValue());
+        $this->assertSame('Filipino Weekly', $sheet->getCell('C7')->getValue());
         $this->assertEquals(22, $sheet->getColumnDimension('A')->getWidth());
-        $this->assertEquals(18, $sheet->getColumnDimension('E')->getWidth());
+        $this->assertEquals(18, $sheet->getColumnDimension('F')->getWidth());
         $this->assertEquals(26, $sheet->getRowDimension(1)->getRowHeight());
         $this->assertEquals(22, $sheet->getRowDimension(2)->getRowHeight());
         $this->assertEquals(38, $sheet->getRowDimension(3)->getRowHeight());
         $this->assertEquals(34, $sheet->getRowDimension(4)->getRowHeight());
         $this->assertEquals(-1, $sheet->getRowDimension(5)->getRowHeight());
-        $this->assertTrue($sheet->getStyle('A3:M6')->getAlignment()->getWrapText());
-        $this->assertSame('M', $sheet->getHighestColumn());
-        $this->assertSame(6, $sheet->getHighestDataRow());
+        $this->assertTrue($sheet->getStyle('A3:N7')->getAlignment()->getWrapText());
+        $this->assertSame('A4:N4', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('N', $sheet->getHighestColumn());
+        $this->assertSame(7, $sheet->getHighestDataRow());
     }
 
     public function test_admin_can_export_one_calendar_month_total_per_matching_employee(): void
@@ -524,12 +645,14 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('Employee Hours Summary', $sheet->getTitle());
         $this->assertSame('Employee Monthly Hours Summary', $sheet->getCell('A1')->getValue());
         $this->assertSame('May 2026', $sheet->getCell('A2')->getValue());
-        $this->assertStringContainsString('May 2026', $sheet->getCell('E3')->getValue());
-        $this->assertSame('Monthly Total Worker', $sheet->getCell('B5')->getValue());
-        $this->assertEquals(6, $sheet->getCell('E5')->getCalculatedValue());
-        $this->assertEquals(1, $sheet->getCell('F5')->getCalculatedValue());
-        $this->assertEquals(7, $sheet->getCell('G5')->getCalculatedValue());
-        $this->assertSame('G', $sheet->getHighestColumn());
+        $this->assertStringContainsString('May 2026', $sheet->getCell('F3')->getValue());
+        $this->assertSame('Other / Unclassified', $sheet->getCell('B5')->getValue());
+        $this->assertSame('Monthly Total Worker', $sheet->getCell('C5')->getValue());
+        $this->assertEquals(6, $sheet->getCell('F5')->getCalculatedValue());
+        $this->assertEquals(1, $sheet->getCell('G5')->getCalculatedValue());
+        $this->assertEquals(7, $sheet->getCell('H5')->getCalculatedValue());
+        $this->assertSame('A4:H4', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('H', $sheet->getHighestColumn());
         $this->assertSame(5, $sheet->getHighestDataRow());
     }
 
@@ -1638,6 +1761,64 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('PREVIEW-100')
             ->assertSee('Preview Employee')
             ->assertSee('8.00');
+    }
+
+    public function test_employee_type_filter_controls_summary_preview_and_every_export_sheet(): void
+    {
+        $department = $this->department(['name' => 'Filtered Preview Department']);
+        $project = $this->project(['project_code' => 'TYPE-PREVIEW', 'project_name' => 'Type Filter Project']);
+        $period = $this->openPeriod();
+        $mecEmployee = $this->userWithRole('employee', [
+            'name' => 'Included MEC Preview',
+            'employee_code' => 'MEC-HR-2026-221',
+            'department_id' => $department->id,
+        ]);
+        $mceEmployee = $this->userWithRole('employee', [
+            'name' => 'Included MCE Preview',
+            'employee_code' => 'MCE-HR-2026-222',
+            'department_id' => $department->id,
+        ]);
+        $philippinesEmployee = $this->userWithRole('employee', [
+            'name' => 'Excluded Philippines Preview',
+            'employee_code' => 'MEC-PHIL-HR-2026-223',
+            'department_id' => $department->id,
+        ]);
+
+        foreach ([$mecEmployee, $mceEmployee, $philippinesEmployee] as $employee) {
+            $this->submittedTimesheet($employee, $period, $project, ['status' => 'approved']);
+        }
+
+        $admin = $this->userWithRole('admin');
+        $filters = [
+            'week_from' => 20,
+            'year' => 2026,
+            'status' => 'approved',
+            'employee_types' => [User::EMPLOYEE_TYPE_MEC_HR, User::EMPLOYEE_TYPE_MCE_HR],
+        ];
+
+        $this->actingAs($admin)
+            ->get(route('admin.timesheets.index', array_merge($filters, ['preview' => 'summary'])))
+            ->assertOk()
+            ->assertSee('Previewing 2 matching timesheet(s).')
+            ->assertSee('<div class="fw-semibold">Included MEC Preview</div>', false)
+            ->assertSee('<div class="fw-semibold">Included MCE Preview</div>', false)
+            ->assertDontSee('<div class="fw-semibold">Excluded Philippines Preview</div>', false);
+
+        $response = $this->actingAs($admin)->get(route('admin.timesheets.export', array_merge($filters, [
+            'include_employee_sheets' => 1,
+        ])));
+
+        $response->assertOk();
+        $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+        $workbookText = collect($spreadsheet->getAllSheets())
+            ->flatMap(fn ($sheet) => collect($sheet->toArray())->flatten())
+            ->filter(fn ($value) => is_scalar($value))
+            ->implode(' ');
+
+        $this->assertSame(4, $spreadsheet->getSheetCount());
+        $this->assertStringContainsString('Included MEC Preview', $workbookText);
+        $this->assertStringContainsString('Included MCE Preview', $workbookText);
+        $this->assertStringNotContainsString('Excluded Philippines Preview', $workbookText);
     }
 
     public function test_summary_report_preview_is_hidden_for_more_than_six_selected_weeks(): void

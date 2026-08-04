@@ -6,7 +6,9 @@
     $weekFrom = request('week_from', request('week_number'));
     $weekTo = request('week_to', $weekFrom);
     $selectedMonth = request('month', now()->month);
-    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || request('status') || request('corrections') || request()->boolean('include_employee_sheets') || request()->boolean('employee_totals_only');
+    $selectedEmployeeTypes = collect((array) request('employee_types', []))->filter(fn ($type) => is_string($type) && isset($employeeTypeLabels[$type]))->values()->all();
+    $selectedEmployeeTypeLabels = collect($selectedEmployeeTypes)->map(fn ($type) => $employeeTypeLabels[$type])->values();
+    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || $selectedEmployeeTypes || request('status') || request('corrections') || request()->boolean('include_employee_sheets') || request()->boolean('employee_totals_only');
 @endphp
 <style>
     .summary-preview-info-button {
@@ -52,6 +54,48 @@
         border-radius: var(--bs-border-radius-lg);
         padding: .85rem 1rem;
         background: color-mix(in srgb, var(--bs-primary) 5%, var(--bs-body-bg));
+    }
+    .employee-type-toggle {
+        width: 100%;
+        min-height: calc(1.5em + .75rem + 2px);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: .75rem;
+        border: var(--bs-border-width) solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius);
+        color: var(--bs-body-color);
+        background: var(--bs-body-bg);
+        text-align: left;
+    }
+    .employee-type-toggle:hover,
+    .employee-type-toggle:focus-visible,
+    .employee-type-toggle[aria-expanded="true"] {
+        border-color: color-mix(in srgb, var(--bs-primary) 55%, var(--bs-border-color));
+        color: var(--bs-body-color);
+        background: var(--bs-body-bg);
+        box-shadow: 0 0 0 .25rem color-mix(in srgb, var(--bs-primary) 22%, transparent);
+    }
+    .employee-type-menu {
+        width: max(100%, 18rem);
+        padding: .55rem;
+        border-color: var(--bs-border-color);
+        background: var(--bs-body-bg);
+        box-shadow: var(--bs-box-shadow);
+    }
+    .employee-type-option {
+        margin: 0;
+        padding: .55rem .65rem .55rem 2.15rem;
+        border-radius: var(--bs-border-radius-sm);
+    }
+    .employee-type-option:hover {
+        background: var(--bs-tertiary-bg);
+    }
+    .employee-type-option-all {
+        margin-bottom: .35rem;
+        border-bottom: 1px solid var(--bs-border-color);
+        border-radius: var(--bs-border-radius-sm) var(--bs-border-radius-sm) 0 0;
+        font-weight: 600;
     }
 </style>
 <div class="section-header">
@@ -107,6 +151,29 @@
     <div class="col-md-3"><label class="form-label small text-muted" for="department_id">Department</label><select id="department_id" class="form-select" name="department_id"><option value="">All departments</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(request('department_id') == $department->id)>{{ $department->name }}</option>@endforeach</select></div>
     <div class="col-md-3"><label class="form-label small text-muted" for="employee_id">User</label><select id="employee_id" class="form-select" name="employee_id"><option value="">All users</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected(request('employee_id') == $employee->id)>{{ $employee->name }}</option>@endforeach</select></div>
     <div class="col-md-2"><label class="form-label small text-muted" for="role">Role</label><select id="role" class="form-select" name="role"><option value="">All roles</option>@foreach($roleLabels as $role => $label)<option value="{{ $role }}" @selected(request('role') === $role)>{{ $label }}</option>@endforeach</select></div>
+    <div class="col-md-3">
+        <label class="form-label small text-muted" for="employee_type_filter">Employee type</label>
+        <div class="dropdown">
+            <button class="btn employee-type-toggle" id="employee_type_filter" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                <span data-employee-type-label>{{ $selectedEmployeeTypes ? $selectedEmployeeTypeLabels->join(', ') : 'All employee types' }}</span>
+                <span class="badge text-bg-primary rounded-pill @if(count($selectedEmployeeTypes) < 2) d-none @endif" data-employee-type-count>{{ count($selectedEmployeeTypes) }}</span>
+            </button>
+            <div class="dropdown-menu employee-type-menu" aria-labelledby="employee_type_filter">
+                <div class="form-check employee-type-option employee-type-option-all">
+                    <input class="form-check-input" type="checkbox" id="employee_type_all" data-employee-type-all @checked(!$selectedEmployeeTypes)>
+                    <label class="form-check-label" for="employee_type_all">All employee types</label>
+                </div>
+                @foreach($employeeTypeLabels as $type => $label)
+                    <div class="form-check employee-type-option">
+                        <input class="form-check-input" type="checkbox" id="employee_type_{{ $loop->index }}" name="employee_types[]" value="{{ $type }}" data-employee-type-option @checked(in_array($type, $selectedEmployeeTypes, true))>
+                        <label class="form-check-label" for="employee_type_{{ $loop->index }}">{{ $label }}</label>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+        @error('employee_types')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+        @error('employee_types.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+    </div>
     <div class="col-md-2"><label class="form-label small text-muted" for="status">Status</label><select id="status" class="form-select" name="status"><option value="">All statuses</option>@foreach(['draft' => 'Draft','submitted' => 'Submitted','approved' => 'Approved','rejected' => 'Rejected','withdrawn' => 'Withdrawn','recalled' => 'Recalled','voided' => 'Voided','not_submitted' => 'Not Submitted'] as $status => $label)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $label }}</option>@endforeach</select></div>
     <div class="col-md-3"><label class="form-label small text-muted" for="corrections">Correction review</label><select id="corrections" class="form-select" name="corrections" data-searchable="false"><option value="">All timesheets</option><option value="open" @selected(request('corrections') === 'open')>Open HOD correction requests</option></select></div>
     <div class="col-md-4 d-flex align-items-end" data-weekly-filter>
@@ -210,6 +277,9 @@
             @if(request('role'))
                 <span class="badge filter-summary-badge px-3 py-2">Role: {{ $selectedRole }}</span>
             @endif
+            @if($selectedEmployeeTypes)
+                <span class="badge filter-summary-badge px-3 py-2">Employee type: {{ $selectedEmployeeTypeLabels->join(', ') }}</span>
+            @endif
             @if(request('status'))
                 <span class="badge filter-summary-badge px-3 py-2">Status: {{ str_replace('_', ' ', ucfirst(request('status'))) }}</span>
             @endif
@@ -233,18 +303,18 @@
 @if($summaryPreview)
     @include('admin.timesheets._summary_preview', ['summaryPreview' => $summaryPreview])
 @endif
-<div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>User</th><th>Role</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
+<div class="content-card overflow-hidden"><div class="table-responsive"><table class="table table-hover mb-0"><thead><tr><th>User</th><th>Employee Type</th><th>Role</th><th>Department</th><th>Week</th><th>Status</th><th>Total</th><th></th></tr></thead><tbody>
 @if($showingNotSubmitted)
     @forelse($timesheets as $row)
-        <tr><td class="fw-semibold">{{ $row->user->name }}</td><td>{{ $roleLabels[$row->user->role] ?? $row->user->role }}</td><td>{{ $row->department?->name ?: '-' }}</td><td>{{ $row->period->week_number }} / {{ $row->period->year }}</td><td>@include('partials.status', ['status' => 'not_submitted'])</td><td><span class="fw-semibold">0.00</span></td><td></td></tr>
+        <tr><td class="fw-semibold">{{ $row->user->name }}</td><td>{{ $row->user->employeeTypeLabel() }}</td><td>{{ $roleLabels[$row->user->role] ?? $row->user->role }}</td><td>{{ $row->department?->name ?: '-' }}</td><td>{{ $row->period->week_number }} / {{ $row->period->year }}</td><td>@include('partials.status', ['status' => 'not_submitted'])</td><td><span class="fw-semibold">0.00</span></td><td></td></tr>
     @empty
-        <tr><td colspan="7" class="empty-state">No users match the not submitted filters.</td></tr>
+        <tr><td colspan="8" class="empty-state">No users match the not submitted filters.</td></tr>
     @endforelse
 @else
     @forelse($timesheets as $timesheet)
-        <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $roleLabels[$timesheet->user->role] ?? $timesheet->user->role }}</td><td>{{ $timesheet->department->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status]) @if($timesheet->eligible_open_correction_requests_count)<span class="badge text-bg-warning ms-1">Needs review · {{ $timesheet->eligible_open_correction_requests_count }}</span>@endif</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.timesheets.show', $timesheet) }}">View</a></td></tr>
+        <tr><td class="fw-semibold">{{ $timesheet->user->name }}</td><td>{{ $timesheet->user->employeeTypeLabel() }}</td><td>{{ $roleLabels[$timesheet->user->role] ?? $timesheet->user->role }}</td><td>{{ $timesheet->department->name }}</td><td>{{ $timesheet->period->week_number }} / {{ $timesheet->period->year }}</td><td>@include('partials.status', ['status' => $timesheet->status]) @if($timesheet->eligible_open_correction_requests_count)<span class="badge text-bg-warning ms-1">Needs review · {{ $timesheet->eligible_open_correction_requests_count }}</span>@endif</td><td><span class="fw-semibold">{{ $timesheet->total_hours }}</span></td><td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('admin.timesheets.show', $timesheet) }}">View</a></td></tr>
     @empty
-        <tr><td colspan="7" class="empty-state">No records found.</td></tr>
+        <tr><td colspan="8" class="empty-state">No records found.</td></tr>
     @endforelse
 @endif
 </tbody></table></div></div>
@@ -260,6 +330,10 @@
         const modeInputs = document.querySelectorAll('input[name="filter_mode"]');
         const employeeTotalsOnly = document.getElementById('employee_totals_only');
         const includeEmployeeSheets = document.getElementById('include_employee_sheets');
+        const allEmployeeTypes = document.querySelector('[data-employee-type-all]');
+        const employeeTypeOptions = Array.from(document.querySelectorAll('[data-employee-type-option]'));
+        const employeeTypeLabel = document.querySelector('[data-employee-type-label]');
+        const employeeTypeCount = document.querySelector('[data-employee-type-count]');
 
         function syncReportMode() {
             const mode = document.querySelector('input[name="filter_mode"]:checked')?.value || 'weekly';
@@ -289,10 +363,42 @@
             includeEmployeeSheets.disabled = employeeTotalsOnly.checked;
         }
 
+        function syncEmployeeTypes(changedInput) {
+            if (!allEmployeeTypes || !employeeTypeLabel) {
+                return;
+            }
+
+            if (changedInput === allEmployeeTypes && allEmployeeTypes.checked) {
+                employeeTypeOptions.forEach((option) => { option.checked = false; });
+            } else if (changedInput?.matches('[data-employee-type-option]') && changedInput.checked) {
+                allEmployeeTypes.checked = false;
+            }
+
+            const selected = employeeTypeOptions.filter((option) => option.checked);
+
+            if (selected.length === 0) {
+                allEmployeeTypes.checked = true;
+                employeeTypeLabel.textContent = 'All employee types';
+            } else {
+                allEmployeeTypes.checked = false;
+                employeeTypeLabel.textContent = selected.length === 1
+                    ? selected[0].nextElementSibling.textContent.trim()
+                    : `${selected.length} employee types`;
+            }
+
+            if (employeeTypeCount) {
+                employeeTypeCount.textContent = selected.length;
+                employeeTypeCount.classList.toggle('d-none', selected.length < 2);
+            }
+        }
+
         modeInputs.forEach((input) => input.addEventListener('change', syncReportMode));
         employeeTotalsOnly?.addEventListener('change', syncExportOptions);
+        allEmployeeTypes?.addEventListener('change', (event) => syncEmployeeTypes(event.currentTarget));
+        employeeTypeOptions.forEach((option) => option.addEventListener('change', (event) => syncEmployeeTypes(event.currentTarget)));
         syncReportMode();
         syncExportOptions();
+        syncEmployeeTypes();
 
         if (! exportButton) {
             return;

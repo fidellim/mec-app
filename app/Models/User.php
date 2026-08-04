@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Notifications\QueuedResetPassword;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -10,6 +11,14 @@ use Illuminate\Notifications\Notifiable;
 class User extends Authenticatable
 {
     use HasFactory, Notifiable;
+
+    public const EMPLOYEE_TYPE_MEC_HR = 'MEC-HR';
+
+    public const EMPLOYEE_TYPE_MCE_HR = 'MCE-HR';
+
+    public const EMPLOYEE_TYPE_MEC_PHIL_HR = 'MEC-PHIL-HR';
+
+    public const EMPLOYEE_TYPE_OTHER = 'other';
 
     protected $fillable = [
         'name', 'email', 'password', 'employee_code', 'initials', 'job_title', 'gender', 'joining_date', 'marital_status',
@@ -19,6 +28,63 @@ class User extends Authenticatable
     ];
 
     protected $hidden = ['password', 'remember_token'];
+
+    public static function employeeTypeLabels(): array
+    {
+        return [
+            self::EMPLOYEE_TYPE_MEC_HR => self::EMPLOYEE_TYPE_MEC_HR,
+            self::EMPLOYEE_TYPE_MCE_HR => self::EMPLOYEE_TYPE_MCE_HR,
+            self::EMPLOYEE_TYPE_MEC_PHIL_HR => self::EMPLOYEE_TYPE_MEC_PHIL_HR,
+            self::EMPLOYEE_TYPE_OTHER => 'Other / Unclassified',
+        ];
+    }
+
+    public static function employeeTypeFromCode(?string $employeeCode): string
+    {
+        $employeeCode = strtoupper(trim((string) $employeeCode));
+
+        foreach ([self::EMPLOYEE_TYPE_MEC_PHIL_HR, self::EMPLOYEE_TYPE_MEC_HR, self::EMPLOYEE_TYPE_MCE_HR] as $type) {
+            if (str_starts_with($employeeCode, $type.'-')) {
+                return $type;
+            }
+        }
+
+        return self::employeeTypeLabels()[self::EMPLOYEE_TYPE_OTHER];
+    }
+
+    public function employeeTypeLabel(): string
+    {
+        return self::employeeTypeFromCode($this->employee_code);
+    }
+
+    public function scopeWithEmployeeTypes(Builder $query, array $employeeTypes): Builder
+    {
+        $employeeTypes = array_values(array_unique($employeeTypes));
+
+        if ($employeeTypes === []) {
+            return $query;
+        }
+
+        return $query->where(function (Builder $typeQuery) use ($employeeTypes): void {
+            foreach ($employeeTypes as $employeeType) {
+                if ($employeeType === self::EMPLOYEE_TYPE_OTHER) {
+                    $typeQuery->orWhere(function (Builder $otherQuery): void {
+                        $otherQuery
+                            ->whereNull('employee_code')
+                            ->orWhere(function (Builder $unclassifiedQuery): void {
+                                foreach ([self::EMPLOYEE_TYPE_MEC_HR, self::EMPLOYEE_TYPE_MCE_HR, self::EMPLOYEE_TYPE_MEC_PHIL_HR] as $recognizedType) {
+                                    $unclassifiedQuery->where('employee_code', 'not like', $recognizedType.'-%');
+                                }
+                            });
+                    });
+
+                    continue;
+                }
+
+                $typeQuery->orWhere('employee_code', 'like', $employeeType.'-%');
+            }
+        });
+    }
 
     protected function casts(): array
     {

@@ -55,6 +55,7 @@
         <th class="group-header"></th>
         <th class="group-header"></th>
         <th class="group-header"></th>
+        <th class="group-header"></th>
         @foreach($periods as $period)
             <th colspan="3" class="group-header">{{ $period['label'] }}<br>{{ $period['dates'] }}</th>
         @endforeach
@@ -64,6 +65,7 @@
     </tr>
     <tr>
         <th class="column-header">Employee Number</th>
+        <th class="column-header">Employee Type</th>
         <th class="column-header">Employee Name</th>
         <th class="column-header">Department</th>
         <th class="column-header">Job Title</th>
@@ -81,6 +83,7 @@
     @forelse($employees as $employee)
         <tr>
             <td>{{ $employee['employee_id'] }}</td>
+            <td>{{ $employee['employee_type'] }}</td>
             <td>{{ $employee['employee_name'] }}</td>
             <td>{{ $employee['department_name'] }}</td>
             <td>{{ $employee['job_title'] }}</td>

@@ -34,12 +34,13 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
     {
         $widths = [
             'A' => 22,
-            'B' => 28,
-            'C' => 24,
+            'B' => 22,
+            'C' => 28,
             'D' => 24,
+            'E' => 24,
         ];
 
-        for ($column = 5; $column <= $this->totalColumns(); $column++) {
+        for ($column = 6; $column <= $this->totalColumns(); $column++) {
             $widths[Coordinate::stringFromColumnIndex($column)] = 18;
         }
 
@@ -112,14 +113,14 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
                 }
 
                 if ($this->summary['employees']->isNotEmpty()) {
-                    $sheet->getStyle("E5:{$lastColumn}{$lastRow}")
+                    $sheet->getStyle("F5:{$lastColumn}{$lastRow}")
                         ->getNumberFormat()
                         ->setFormatCode('0.00');
                 }
 
-                $sheet->freezePane('E5');
+                $sheet->freezePane('F5');
                 $sheet->setAutoFilter("A4:{$lastColumn}4");
-                $sheet->getStyle("E5:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("F5:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             },
         ];
     }
@@ -129,7 +130,7 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
         $periodColumns = $this->summary['periods']->count() * 3;
         $selectedWeeksTotalColumns = $this->summary['mode'] === 'weekly' ? 3 : 0;
 
-        return 4 + $periodColumns + $selectedWeeksTotalColumns;
+        return 5 + $periodColumns + $selectedWeeksTotalColumns;
     }
 
     private function periodColumnRanges(): array
@@ -137,7 +138,7 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
         return $this->summary['periods']
             ->values()
             ->map(function (array $period, int $index) {
-                $start = 5 + ($index * 3);
+                $start = 6 + ($index * 3);
 
                 return [
                     Coordinate::stringFromColumnIndex($start),
@@ -149,7 +150,7 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
 
     private function selectedWeeksTotalColumnRange(): array
     {
-        $start = 5 + ($this->summary['periods']->count() * 3);
+        $start = 6 + ($this->summary['periods']->count() * 3);
 
         return [
             Coordinate::stringFromColumnIndex($start),

@@ -47,6 +47,7 @@ class AdminTimesheetController extends Controller
             'projects' => Project::orderBy('project_code')->orderBy('project_name')->get(),
             'selectedPeriodRange' => $this->selectedPeriodRange($filters),
             'roleLabels' => config('roles.labels'),
+            'employeeTypeLabels' => User::employeeTypeLabels(),
             'showingNotSubmitted' => $showingNotSubmitted,
             'summaryPreviewState' => $summaryPreviewState,
             'summaryPreview' => $summaryPreviewState['requested'] && $summaryPreviewState['can_preview']
@@ -175,6 +176,7 @@ class AdminTimesheetController extends Controller
             ->when($filters['department_id'] ?? null, fn ($q, $v) => $q->where('department_id', $v))
             ->when($filters['employee_id'] ?? null, fn ($q, $v) => $q->where('user_id', $v))
             ->when($filters['role'] ?? null, fn ($q, $v) => $q->whereHas('user', fn ($user) => $user->where('role', $v)))
+            ->when($filters['employee_types'] ?? [], fn ($q, $types) => $q->whereHas('user', fn ($user) => $user->withEmployeeTypes($types)))
             ->when($filters['status'] ?? null, fn ($q, $v) => $q->where('status', $v))
             ->when($filters['project_id'] ?? null, fn ($q, $v) => $q->whereHas('entries', fn ($entry) => $entry
                 ->where('project_id', $v)
@@ -200,6 +202,8 @@ class AdminTimesheetController extends Controller
             'department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'employee_id' => ['nullable', 'integer', 'exists:users,id'],
             'role' => ['nullable', Rule::in(array_keys(config('roles.labels')))],
+            'employee_types' => ['nullable', 'array', 'max:4'],
+            'employee_types.*' => ['string', 'distinct', Rule::in(array_keys(User::employeeTypeLabels()))],
             'project_id' => ['nullable', 'integer', 'exists:projects,id'],
             'status' => ['nullable', 'in:draft,submitted,approved,rejected,withdrawn,recalled,voided,not_submitted'],
             'include_employee_sheets' => ['nullable', 'boolean'],
@@ -397,6 +401,7 @@ class AdminTimesheetController extends Controller
             ->when($filters['department_id'] ?? null, fn ($query, $departmentId) => $query->where('department_id', $departmentId))
             ->when($filters['employee_id'] ?? null, fn ($query, $employeeId) => $query->where('id', $employeeId))
             ->when($filters['role'] ?? null, fn ($query, $role) => $query->where('role', $role))
+            ->when($filters['employee_types'] ?? [], fn ($query, $types) => $query->withEmployeeTypes($types))
             ->orderBy('name')
             ->get();
 
