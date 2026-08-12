@@ -38,9 +38,12 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
             'C' => 28,
             'D' => 24,
             'E' => 24,
+            'F' => 18,
+            'G' => 32,
+            'H' => 28,
         ];
 
-        for ($column = 6; $column <= $this->totalColumns(); $column++) {
+        for ($column = 9; $column <= $this->totalColumns(); $column++) {
             $widths[Coordinate::stringFromColumnIndex($column)] = 18;
         }
 
@@ -53,7 +56,7 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
             AfterSheet::class => function (AfterSheet $event): void {
                 $sheet = $event->sheet->getDelegate();
                 $lastColumn = Coordinate::stringFromColumnIndex($this->totalColumns());
-                $lastRow = max(5, 4 + $this->summary['employees']->count());
+                $lastRow = $this->lastRow();
 
                 $sheet->getDefaultRowDimension()->setRowHeight(22);
                 $sheet->getRowDimension(1)->setRowHeight(26);
@@ -113,14 +116,43 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
                 }
 
                 if ($this->summary['employees']->isNotEmpty()) {
-                    $sheet->getStyle("F5:{$lastColumn}{$lastRow}")
+                    $sheet->getStyle("I5:{$lastColumn}{$lastRow}")
                         ->getNumberFormat()
                         ->setFormatCode('0.00');
                 }
 
-                $sheet->freezePane('F5');
+                foreach ($this->employeeRowGroups() as $group) {
+                    $sheet->getStyle("A{$group['summary_row']}:{$lastColumn}{$group['summary_row']}")->applyFromArray([
+                        'font' => ['bold' => true],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF1F5F9']],
+                        'borders' => [
+                            'top' => [
+                                'borderStyle' => Border::BORDER_MEDIUM,
+                                'color' => ['argb' => 'FF94A3B8'],
+                            ],
+                        ],
+                    ]);
+
+                    if ($group['detail_start'] === null) {
+                        continue;
+                    }
+
+                    for ($row = $group['detail_start']; $row <= $group['detail_end']; $row++) {
+                        $sheet->getRowDimension($row)
+                            ->setOutlineLevel(1)
+                            ->setVisible(false);
+                    }
+
+                    $sheet->getRowDimension($group['summary_row'])->setCollapsed(true);
+                    $sheet->getStyle("F{$group['detail_start']}:F{$group['detail_end']}")
+                        ->getAlignment()
+                        ->setIndent(1);
+                }
+
+                $sheet->setShowSummaryBelow(false);
+                $sheet->freezePane('I5');
                 $sheet->setAutoFilter("A4:{$lastColumn}4");
-                $sheet->getStyle("F5:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
+                $sheet->getStyle("I5:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
             },
         ];
     }
@@ -130,7 +162,7 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
         $periodColumns = $this->summary['periods']->count() * 3;
         $selectedWeeksTotalColumns = $this->summary['mode'] === 'weekly' ? 3 : 0;
 
-        return 5 + $periodColumns + $selectedWeeksTotalColumns;
+        return 8 + $periodColumns + $selectedWeeksTotalColumns;
     }
 
     private function periodColumnRanges(): array
@@ -138,7 +170,7 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
         return $this->summary['periods']
             ->values()
             ->map(function (array $period, int $index) {
-                $start = 6 + ($index * 3);
+                $start = 9 + ($index * 3);
 
                 return [
                     Coordinate::stringFromColumnIndex($start),
@@ -150,11 +182,38 @@ class EmployeeHoursSummaryExport implements FromView, WithColumnWidths, WithEven
 
     private function selectedWeeksTotalColumnRange(): array
     {
-        $start = 6 + ($this->summary['periods']->count() * 3);
+        $start = 9 + ($this->summary['periods']->count() * 3);
 
         return [
             Coordinate::stringFromColumnIndex($start),
             Coordinate::stringFromColumnIndex($start + 2),
         ];
+    }
+
+    private function lastRow(): int
+    {
+        $dataRows = $this->summary['employees']->sum(
+            fn (array $employee) => 1 + $employee['charges']->count()
+        );
+
+        return max(5, 4 + $dataRows);
+    }
+
+    private function employeeRowGroups(): array
+    {
+        $row = 5;
+        $groups = [];
+
+        foreach ($this->summary['employees'] as $employee) {
+            $detailCount = $employee['charges']->count();
+            $groups[] = [
+                'summary_row' => $row,
+                'detail_start' => $detailCount > 0 ? $row + 1 : null,
+                'detail_end' => $detailCount > 0 ? $row + $detailCount : null,
+            ];
+            $row += 1 + $detailCount;
+        }
+
+        return $groups;
     }
 }

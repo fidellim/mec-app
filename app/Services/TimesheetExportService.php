@@ -7,11 +7,13 @@ use App\Exports\EmployeeHoursSummaryExport;
 use App\Exports\ProjectSummaryWorksheetExport;
 use App\Exports\TimesheetsExcelExport;
 use App\Models\Timesheet;
+use App\Models\TimesheetEntry;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonPeriod;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Excel as ExcelWriter;
 use Maatwebsite\Excel\Facades\Excel;
 use Symfony\Component\HttpFoundation\BinaryFileResponse;
@@ -22,12 +24,16 @@ class TimesheetExportService
     public function excel(array $filters): BinaryFileResponse
     {
         $monthly = $this->isMonthly($filters);
-        $timesheets = $this->query($filters)
-            ->with($this->exportRelations($filters, includeApprover: true))
-            ->orderByDesc('id')
-            ->get();
 
         if ($this->employeeTotalsOnly($filters)) {
+            $timesheets = $this->query($filters)
+                ->with([
+                    'user:id,name,employee_code,job_title',
+                    'department:id,name',
+                    'period:id,week_number,year,start_date,end_date',
+                ])
+                ->orderByDesc('id')
+                ->get();
             $summary = $this->buildEmployeeHoursSummary($timesheets, $filters);
             $fileName = $monthly
                 ? 'employee_monthly_hours_'.$this->monthlyDateRange($filters)['start']->format('Y_m').'_'.now()->format('Ymd_His').'.xlsx'
@@ -36,6 +42,10 @@ class TimesheetExportService
             return Excel::download(new EmployeeHoursSummaryExport($summary), $fileName, ExcelWriter::XLSX);
         }
 
+        $timesheets = $this->query($filters)
+            ->with($this->exportRelations($filters, includeApprover: true))
+            ->orderByDesc('id')
+            ->get();
         $includeEmployeeSheets = ! $monthly && $this->includeEmployeeSheets($filters);
         $payload = $includeEmployeeSheets
             ? $timesheets->map(fn (Timesheet $timesheet) => $this->buildWorksheet($timesheet))
@@ -312,6 +322,7 @@ class TimesheetExportService
     private function buildEmployeeHoursSummary(Collection $timesheets, array $filters): array
     {
         $monthly = $this->isMonthly($filters);
+        $allocations = $this->buildEmployeeChargeAllocations($filters);
         $periods = $monthly
             ? collect([[
                 'key' => $this->monthlyDateRange($filters)['start']->format('Y-m'),
@@ -319,24 +330,48 @@ class TimesheetExportService
                 'dates' => $this->monthlyDateRange($filters)['start']->format('d-M-y').' to '.$this->monthlyDateRange($filters)['end']->format('d-M-y'),
             ]])
             : $this->employeeHoursPeriods($timesheets, $filters);
+        $attendanceLabels = config('timesheet.attendance_codes', []);
+        $allocationsByEmployee = $allocations->groupBy('user_id');
 
         $employees = $timesheets
             ->groupBy('user_id')
-            ->map(function (Collection $employeeTimesheets) use ($monthly, $periods) {
+            ->map(function (Collection $employeeTimesheets) use ($allocationsByEmployee, $attendanceLabels, $monthly, $periods) {
                 $first = $employeeTimesheets->first();
-                $hoursByPeriod = $periods->mapWithKeys(function (array $period) use ($employeeTimesheets, $monthly) {
-                    $matchingTimesheets = $monthly
-                        ? $employeeTimesheets
-                        : $employeeTimesheets->where('timesheet_period_id', $period['id']);
-                    $regular = (float) $matchingTimesheets->sum(fn (Timesheet $timesheet) => (float) $timesheet->entries->sum('regular_hours'));
-                    $overtime = (float) $matchingTimesheets->sum(fn (Timesheet $timesheet) => (float) $timesheet->entries->sum('overtime_hours'));
+                $employeeAllocations = $allocationsByEmployee->get($first->user_id, collect());
+                $hoursByPeriod = $this->hoursByEmployeePeriod($employeeAllocations, $periods, $monthly);
+                $charges = $employeeAllocations
+                    ->groupBy(fn ($allocation) => implode('|', [
+                        $allocation->project_id ?: '-',
+                        $allocation->attendance_code ?: '-',
+                    ]))
+                    ->map(function (Collection $chargeAllocations) use ($attendanceLabels, $monthly, $periods) {
+                        $charge = $chargeAllocations->first();
+                        $attendanceCode = filled($charge->attendance_code) ? (string) $charge->attendance_code : null;
+                        $chargeHoursByPeriod = $this->hoursByEmployeePeriod($chargeAllocations, $periods, $monthly);
 
-                    return [$period['key'] => [
-                        'regular_hours' => $regular,
-                        'overtime_hours' => $overtime,
-                        'total_hours' => $regular + $overtime,
-                    ]];
-                });
+                        return [
+                            'project_sort' => $charge->project_id ? 0 : 1,
+                            'project_code' => $charge->project_id
+                                ? $this->spreadsheetText($charge->project_code ?: 'Unknown project')
+                                : 'Non-project',
+                            'project_name' => $charge->project_id
+                                ? $this->spreadsheetText($charge->project_name ?: 'Unknown Project')
+                                : '-',
+                            'attendance_code' => $attendanceCode
+                                ? $this->spreadsheetText($attendanceCode.' - '.($attendanceLabels[$attendanceCode] ?? 'Unknown / legacy code'))
+                                : 'Uncoded',
+                            'periods' => $chargeHoursByPeriod,
+                            'regular_hours' => (float) $chargeHoursByPeriod->sum('regular_hours'),
+                            'overtime_hours' => (float) $chargeHoursByPeriod->sum('overtime_hours'),
+                            'total_hours' => (float) $chargeHoursByPeriod->sum('total_hours'),
+                        ];
+                    })
+                    ->sortBy([
+                        ['project_sort', 'asc'],
+                        ['project_code', 'asc'],
+                        ['attendance_code', 'asc'],
+                    ])
+                    ->values();
 
                 return [
                     'employee_id' => $this->spreadsheetText($first->user->employee_code ?? ''),
@@ -348,6 +383,7 @@ class TimesheetExportService
                     'regular_hours' => (float) $hoursByPeriod->sum('regular_hours'),
                     'overtime_hours' => (float) $hoursByPeriod->sum('overtime_hours'),
                     'total_hours' => (float) $hoursByPeriod->sum('total_hours'),
+                    'charges' => $charges,
                 ];
             })
             ->sortBy([
@@ -367,6 +403,67 @@ class TimesheetExportService
             'periods' => $periods,
             'employees' => $employees,
         ];
+    }
+
+    private function buildEmployeeChargeAllocations(array $filters): Collection
+    {
+        $monthly = $this->isMonthly($filters);
+        $monthRange = $monthly ? $this->monthlyDateRange($filters) : null;
+        $matchingTimesheets = $this->query($filters)->select('timesheets.id');
+
+        return TimesheetEntry::query()
+            ->from('timesheet_entries as employee_entries')
+            ->join('timesheets as employee_timesheets', 'employee_timesheets.id', '=', 'employee_entries.timesheet_id')
+            ->leftJoin('projects as employee_projects', 'employee_projects.id', '=', 'employee_entries.project_id')
+            ->whereIn('employee_timesheets.id', $matchingTimesheets)
+            ->when($monthly, fn ($query) => $query->whereBetween('employee_entries.work_date', [
+                $monthRange['start']->toDateString(),
+                $monthRange['end']->toDateString(),
+            ]))
+            ->when($filters['project_id'] ?? null, fn ($query, $projectId) => $query->where('employee_entries.project_id', $projectId))
+            ->where(function ($query) {
+                $query->where('employee_entries.regular_hours', '>', 0)
+                    ->orWhere('employee_entries.overtime_hours', '>', 0);
+            })
+            ->groupBy([
+                'employee_timesheets.user_id',
+                'employee_timesheets.timesheet_period_id',
+                'employee_entries.project_id',
+                'employee_projects.project_code',
+                'employee_projects.project_name',
+                'employee_entries.attendance_code',
+            ])
+            ->orderBy('employee_timesheets.user_id')
+            ->orderBy('employee_timesheets.timesheet_period_id')
+            ->orderBy('employee_projects.project_code')
+            ->orderBy('employee_entries.attendance_code')
+            ->get([
+                'employee_timesheets.user_id',
+                'employee_timesheets.timesheet_period_id',
+                'employee_entries.project_id',
+                'employee_projects.project_code',
+                'employee_projects.project_name',
+                'employee_entries.attendance_code',
+                DB::raw('SUM(employee_entries.regular_hours) as regular_hours'),
+                DB::raw('SUM(employee_entries.overtime_hours) as overtime_hours'),
+            ]);
+    }
+
+    private function hoursByEmployeePeriod(Collection $allocations, Collection $periods, bool $monthly): Collection
+    {
+        return $periods->mapWithKeys(function (array $period) use ($allocations, $monthly) {
+            $matchingAllocations = $monthly
+                ? $allocations
+                : $allocations->where('timesheet_period_id', $period['id']);
+            $regular = (float) $matchingAllocations->sum('regular_hours');
+            $overtime = (float) $matchingAllocations->sum('overtime_hours');
+
+            return [$period['key'] => [
+                'regular_hours' => $regular,
+                'overtime_hours' => $overtime,
+                'total_hours' => $regular + $overtime,
+            ]];
+        });
     }
 
     private function employeeHoursPeriods(Collection $timesheets, array $filters): Collection

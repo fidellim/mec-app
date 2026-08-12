@@ -37,6 +37,13 @@
         .selected-total-cell {
             background: #f8dfd0;
         }
+        .employee-total-cell {
+            background: #f1f5f9;
+            font-weight: 700;
+        }
+        .charge-cell {
+            background: #ffffff;
+        }
         .right {
             text-align: right;
         }
@@ -56,6 +63,9 @@
         <th class="group-header"></th>
         <th class="group-header"></th>
         <th class="group-header"></th>
+        <th class="group-header"></th>
+        <th class="group-header"></th>
+        <th class="group-header"></th>
         @foreach($periods as $period)
             <th colspan="3" class="group-header">{{ $period['label'] }}<br>{{ $period['dates'] }}</th>
         @endforeach
@@ -69,6 +79,9 @@
         <th class="column-header">Employee Name</th>
         <th class="column-header">Department</th>
         <th class="column-header">Job Title</th>
+        <th class="column-header">Project Code</th>
+        <th class="column-header">Project Name</th>
+        <th class="column-header">Attendance Code</th>
         @foreach($periods as $period)
             <th class="column-header">Regular Hours</th>
             <th class="column-header">Overtime Hours</th>
@@ -82,16 +95,19 @@
     </tr>
     @forelse($employees as $employee)
         <tr>
-            <td>{{ $employee['employee_id'] }}</td>
-            <td>{{ $employee['employee_type'] }}</td>
-            <td>{{ $employee['employee_name'] }}</td>
-            <td>{{ $employee['department_name'] }}</td>
-            <td>{{ $employee['job_title'] }}</td>
+            <td class="employee-total-cell">{{ $employee['employee_id'] }}</td>
+            <td class="employee-total-cell">{{ $employee['employee_type'] }}</td>
+            <td class="employee-total-cell">{{ $employee['employee_name'] }}</td>
+            <td class="employee-total-cell">{{ $employee['department_name'] }}</td>
+            <td class="employee-total-cell">{{ $employee['job_title'] }}</td>
+            <td class="employee-total-cell"></td>
+            <td class="employee-total-cell"></td>
+            <td class="employee-total-cell"></td>
             @foreach($periods as $period)
                 @php($hours = $employee['periods'][$period['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
-                <td class="right">{{ number_format($hours['regular_hours'], 2, '.', '') }}</td>
-                <td class="right">{{ number_format($hours['overtime_hours'], 2, '.', '') }}</td>
-                <td class="right">{{ number_format($hours['total_hours'], 2, '.', '') }}</td>
+                <td class="employee-total-cell right">{{ number_format($hours['regular_hours'], 2, '.', '') }}</td>
+                <td class="employee-total-cell right">{{ number_format($hours['overtime_hours'], 2, '.', '') }}</td>
+                <td class="employee-total-cell right">{{ number_format($hours['total_hours'], 2, '.', '') }}</td>
             @endforeach
             @if($mode === 'weekly')
                 <td class="selected-total-cell right">{{ number_format($employee['regular_hours'], 2, '.', '') }}</td>
@@ -99,6 +115,29 @@
                 <td class="selected-total-cell right">{{ number_format($employee['total_hours'], 2, '.', '') }}</td>
             @endif
         </tr>
+        @foreach($employee['charges'] as $charge)
+            <tr>
+                <td class="charge-cell"></td>
+                <td class="charge-cell"></td>
+                <td class="charge-cell"></td>
+                <td class="charge-cell"></td>
+                <td class="charge-cell"></td>
+                <td class="charge-cell">{{ $charge['project_code'] }}</td>
+                <td class="charge-cell">{{ $charge['project_name'] }}</td>
+                <td class="charge-cell">{{ $charge['attendance_code'] }}</td>
+                @foreach($periods as $period)
+                    @php($hours = $charge['periods'][$period['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0])
+                    <td class="charge-cell right">{{ number_format($hours['regular_hours'], 2, '.', '') }}</td>
+                    <td class="charge-cell right">{{ number_format($hours['overtime_hours'], 2, '.', '') }}</td>
+                    <td class="charge-cell right">{{ number_format($hours['total_hours'], 2, '.', '') }}</td>
+                @endforeach
+                @if($mode === 'weekly')
+                    <td class="selected-total-cell right">{{ number_format($charge['regular_hours'], 2, '.', '') }}</td>
+                    <td class="selected-total-cell right">{{ number_format($charge['overtime_hours'], 2, '.', '') }}</td>
+                    <td class="selected-total-cell right">{{ number_format($charge['total_hours'], 2, '.', '') }}</td>
+                @endif
+            </tr>
+        @endforeach
     @empty
         <tr>
             <td colspan="{{ $totalColumns }}">No matching timesheets found.</td>

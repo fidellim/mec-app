@@ -192,8 +192,8 @@
             <div class="form-check mb-0">
                 <input type="hidden" name="employee_totals_only" value="0">
                 <input class="form-check-input" type="checkbox" id="employee_totals_only" name="employee_totals_only" value="1" @checked(request()->boolean('employee_totals_only'))>
-                <label class="form-check-label fw-semibold" for="employee_totals_only">Export employee totals only</label>
-                <div class="form-text">Creates one Employee Hours Summary sheet with regular, overtime, and total hours for each matching employee.</div>
+                <label class="form-check-label fw-semibold" for="employee_totals_only">Export employee charging report</label>
+                <div class="form-text">Creates one expandable Employee Hours Summary sheet with period totals and project/attendance charging breakdowns for each matching employee.</div>
             </div>
         </div>
     </div>
@@ -287,7 +287,7 @@
                 <span class="badge filter-summary-badge px-3 py-2">Correction review: Open HOD requests</span>
             @endif
             @if(request()->boolean('employee_totals_only'))
-                <span class="badge filter-summary-badge px-3 py-2">Export: Employee totals only</span>
+                <span class="badge filter-summary-badge px-3 py-2">Export: Employee charging report</span>
             @endif
             @unless($hasVisibleFilters)
                 <span class="badge filter-summary-badge px-3 py-2">No filters applied</span>

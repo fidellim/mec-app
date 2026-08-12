@@ -39,8 +39,8 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('href="'.route('admin.timesheets.index').'"', false)
             ->assertSee('Clear')
             ->assertSee('Include individual employee timesheet sheets')
-            ->assertSee('Export employee totals only')
-            ->assertSee('Creates one Employee Hours Summary sheet with regular, overtime, and total hours for each matching employee.')
+            ->assertSee('Export employee charging report')
+            ->assertSee('Creates one expandable Employee Hours Summary sheet with period totals and project/attendance charging breakdowns for each matching employee.')
             ->assertSee('Filters are active. Add a valid week and year to see the configured date range.')
             ->assertSee('filter-summary-badge')
             ->assertSee('Export started. Your Excel file will download when ready.')
@@ -489,7 +489,8 @@ class AdminExportWorkflowTest extends TestCase
     public function test_admin_can_export_weekly_employee_totals_with_each_week_and_selected_range_totals(): void
     {
         $department = $this->department(['name' => 'Weekly Totals']);
-        $project = $this->project();
+        $project = $this->project(['project_code' => 'PRJ-001', 'project_name' => 'Office Tower']);
+        $secondProject = $this->project(['project_code' => 'PRJ-014', 'project_name' => 'Infrastructure']);
         $week20 = $this->openPeriod();
         $week21 = $this->openPeriod([
             'week_number' => 21,
@@ -521,8 +522,28 @@ class AdminExportWorkflowTest extends TestCase
 
         $aliceWeek20 = $this->submittedTimesheet($alice, $week20, $project, ['status' => 'approved']);
         $aliceWeek20->entries()->first()->update(['regular_hours' => 8, 'overtime_hours' => 2]);
+        TimesheetEntry::create([
+            'timesheet_id' => $aliceWeek20->id,
+            'work_date' => '2026-05-12',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => $secondProject->id,
+            'department_id' => $department->id,
+            'regular_hours' => 3,
+            'overtime_hours' => 1,
+        ]);
         $aliceWeek21 = $this->submittedTimesheet($alice, $week21, $project, ['status' => 'approved']);
         $aliceWeek21->entries()->first()->update(['regular_hours' => 6, 'overtime_hours' => 1]);
+        TimesheetEntry::create([
+            'timesheet_id' => $aliceWeek21->id,
+            'work_date' => '2026-05-19',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'L100',
+            'project_id' => null,
+            'department_id' => $department->id,
+            'regular_hours' => 2,
+            'overtime_hours' => 0,
+        ]);
         $this->submittedTimesheet($cara, $week20, $project, ['status' => 'approved']);
         $this->submittedTimesheet($filipino, $week20, $project, ['status' => 'approved']);
         $this->submittedTimesheet($excluded, $week21, $project, ['status' => 'submitted']);
@@ -547,41 +568,89 @@ class AdminExportWorkflowTest extends TestCase
 
         $this->assertSame('Employee Hours Summary', $sheet->getTitle());
         $this->assertSame('Employee Weekly Hours Summary', $sheet->getCell('A1')->getValue());
-        $this->assertStringContainsString('Week 20, 2026', $sheet->getCell('F3')->getValue());
-        $this->assertStringContainsString('Week 21, 2026', $sheet->getCell('I3')->getValue());
-        $this->assertSame('Selected Weeks Total', $sheet->getCell('L3')->getValue());
+        $this->assertSame('Project Code', $sheet->getCell('F4')->getValue());
+        $this->assertSame('Project Name', $sheet->getCell('G4')->getValue());
+        $this->assertSame('Attendance Code', $sheet->getCell('H4')->getValue());
+        $this->assertStringContainsString('Week 20, 2026', $sheet->getCell('I3')->getValue());
+        $this->assertStringContainsString('Week 21, 2026', $sheet->getCell('L3')->getValue());
+        $this->assertSame('Selected Weeks Total', $sheet->getCell('O3')->getValue());
         $this->assertSame('MEC-HR-2026-001', $sheet->getCell('A5')->getValue());
         $this->assertSame('MEC-HR', $sheet->getCell('B5')->getValue());
         $this->assertSame('Alice Weekly', $sheet->getCell('C5')->getValue());
         $this->assertSame('Weekly Totals', $sheet->getCell('D5')->getValue());
         $this->assertSame('Engineer', $sheet->getCell('E5')->getValue());
-        $this->assertEquals(8, $sheet->getCell('F5')->getCalculatedValue());
-        $this->assertEquals(2, $sheet->getCell('G5')->getCalculatedValue());
-        $this->assertEquals(10, $sheet->getCell('H5')->getCalculatedValue());
-        $this->assertEquals(6, $sheet->getCell('I5')->getCalculatedValue());
-        $this->assertEquals(1, $sheet->getCell('J5')->getCalculatedValue());
-        $this->assertEquals(7, $sheet->getCell('K5')->getCalculatedValue());
-        $this->assertEquals(14, $sheet->getCell('L5')->getCalculatedValue());
-        $this->assertEquals(3, $sheet->getCell('M5')->getCalculatedValue());
-        $this->assertEquals(17, $sheet->getCell('N5')->getCalculatedValue());
-        $this->assertSame('MCE-HR', $sheet->getCell('B6')->getValue());
-        $this->assertSame('Cara Partial', $sheet->getCell('C6')->getValue());
-        $this->assertEquals(0, $sheet->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(0, $sheet->getCell('J6')->getCalculatedValue());
-        $this->assertEquals(0, $sheet->getCell('K6')->getCalculatedValue());
-        $this->assertSame('MEC-PHIL-HR', $sheet->getCell('B7')->getValue());
-        $this->assertSame('Filipino Weekly', $sheet->getCell('C7')->getValue());
+        $this->assertEquals(11, $sheet->getCell('I5')->getCalculatedValue());
+        $this->assertEquals(3, $sheet->getCell('J5')->getCalculatedValue());
+        $this->assertEquals(14, $sheet->getCell('K5')->getCalculatedValue());
+        $this->assertEquals(8, $sheet->getCell('L5')->getCalculatedValue());
+        $this->assertEquals(1, $sheet->getCell('M5')->getCalculatedValue());
+        $this->assertEquals(9, $sheet->getCell('N5')->getCalculatedValue());
+        $this->assertEquals(19, $sheet->getCell('O5')->getCalculatedValue());
+        $this->assertEquals(4, $sheet->getCell('P5')->getCalculatedValue());
+        $this->assertEquals(23, $sheet->getCell('Q5')->getCalculatedValue());
+
+        $this->assertSame('PRJ-001', $sheet->getCell('F6')->getValue());
+        $this->assertSame('Office Tower', $sheet->getCell('G6')->getValue());
+        $this->assertSame('O100 - Office', $sheet->getCell('H6')->getValue());
+        $this->assertEquals(8, $sheet->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(2, $sheet->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(6, $sheet->getCell('L6')->getCalculatedValue());
+        $this->assertEquals(1, $sheet->getCell('M6')->getCalculatedValue());
+        $this->assertEquals(14, $sheet->getCell('O6')->getCalculatedValue());
+        $this->assertEquals(3, $sheet->getCell('P6')->getCalculatedValue());
+
+        $this->assertSame('PRJ-014', $sheet->getCell('F7')->getValue());
+        $this->assertSame('Infrastructure', $sheet->getCell('G7')->getValue());
+        $this->assertSame('O100 - Office', $sheet->getCell('H7')->getValue());
+        $this->assertEquals(3, $sheet->getCell('I7')->getCalculatedValue());
+        $this->assertEquals(1, $sheet->getCell('J7')->getCalculatedValue());
+        $this->assertEquals(0, $sheet->getCell('L7')->getCalculatedValue());
+
+        $this->assertSame('Non-project', $sheet->getCell('F8')->getValue());
+        $this->assertSame('-', $sheet->getCell('G8')->getValue());
+        $this->assertSame('L100 - Annual Leave', $sheet->getCell('H8')->getValue());
+        $this->assertEquals(2, $sheet->getCell('L8')->getCalculatedValue());
+        $this->assertEquals(0, $sheet->getCell('M8')->getCalculatedValue());
+        $this->assertEquals(2, $sheet->getCell('N8')->getCalculatedValue());
+
+        $this->assertEquals($sheet->getCell('I5')->getCalculatedValue(), array_sum([
+            $sheet->getCell('I6')->getCalculatedValue(),
+            $sheet->getCell('I7')->getCalculatedValue(),
+            $sheet->getCell('I8')->getCalculatedValue(),
+        ]));
+        $this->assertEquals($sheet->getCell('J5')->getCalculatedValue(), array_sum([
+            $sheet->getCell('J6')->getCalculatedValue(),
+            $sheet->getCell('J7')->getCalculatedValue(),
+            $sheet->getCell('J8')->getCalculatedValue(),
+        ]));
+        $this->assertEquals($sheet->getCell('Q5')->getCalculatedValue(), array_sum([
+            $sheet->getCell('Q6')->getCalculatedValue(),
+            $sheet->getCell('Q7')->getCalculatedValue(),
+            $sheet->getCell('Q8')->getCalculatedValue(),
+        ]));
+
+        $this->assertSame('MCE-HR', $sheet->getCell('B9')->getValue());
+        $this->assertSame('Cara Partial', $sheet->getCell('C9')->getValue());
+        $this->assertEquals(0, $sheet->getCell('L9')->getCalculatedValue());
+        $this->assertSame('MEC-PHIL-HR', $sheet->getCell('B11')->getValue());
+        $this->assertSame('Filipino Weekly', $sheet->getCell('C11')->getValue());
         $this->assertEquals(22, $sheet->getColumnDimension('A')->getWidth());
-        $this->assertEquals(18, $sheet->getColumnDimension('F')->getWidth());
+        $this->assertEquals(18, $sheet->getColumnDimension('I')->getWidth());
         $this->assertEquals(26, $sheet->getRowDimension(1)->getRowHeight());
         $this->assertEquals(22, $sheet->getRowDimension(2)->getRowHeight());
         $this->assertEquals(38, $sheet->getRowDimension(3)->getRowHeight());
         $this->assertEquals(34, $sheet->getRowDimension(4)->getRowHeight());
         $this->assertEquals(-1, $sheet->getRowDimension(5)->getRowHeight());
-        $this->assertTrue($sheet->getStyle('A3:N7')->getAlignment()->getWrapText());
-        $this->assertSame('A4:N4', $sheet->getAutoFilter()->getRange());
-        $this->assertSame('N', $sheet->getHighestColumn());
-        $this->assertSame(7, $sheet->getHighestDataRow());
+        $this->assertFalse($sheet->getShowSummaryBelow());
+        $this->assertTrue($sheet->getRowDimension(5)->getCollapsed());
+        $this->assertSame(1, $sheet->getRowDimension(6)->getOutlineLevel());
+        $this->assertFalse($sheet->getRowDimension(6)->getVisible());
+        $this->assertSame(1, $sheet->getRowDimension(8)->getOutlineLevel());
+        $this->assertFalse($sheet->getRowDimension(8)->getVisible());
+        $this->assertTrue($sheet->getStyle('A3:Q12')->getAlignment()->getWrapText());
+        $this->assertSame('A4:Q4', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('Q', $sheet->getHighestColumn());
+        $this->assertSame(12, $sheet->getHighestDataRow());
     }
 
     public function test_admin_can_export_one_calendar_month_total_per_matching_employee(): void
@@ -645,15 +714,78 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('Employee Hours Summary', $sheet->getTitle());
         $this->assertSame('Employee Monthly Hours Summary', $sheet->getCell('A1')->getValue());
         $this->assertSame('May 2026', $sheet->getCell('A2')->getValue());
-        $this->assertStringContainsString('May 2026', $sheet->getCell('F3')->getValue());
+        $this->assertStringContainsString('May 2026', $sheet->getCell('I3')->getValue());
         $this->assertSame('Other / Unclassified', $sheet->getCell('B5')->getValue());
         $this->assertSame('Monthly Total Worker', $sheet->getCell('C5')->getValue());
-        $this->assertEquals(6, $sheet->getCell('F5')->getCalculatedValue());
-        $this->assertEquals(1, $sheet->getCell('G5')->getCalculatedValue());
-        $this->assertEquals(7, $sheet->getCell('H5')->getCalculatedValue());
-        $this->assertSame('A4:H4', $sheet->getAutoFilter()->getRange());
-        $this->assertSame('H', $sheet->getHighestColumn());
-        $this->assertSame(5, $sheet->getHighestDataRow());
+        $this->assertEquals(6, $sheet->getCell('I5')->getCalculatedValue());
+        $this->assertEquals(1, $sheet->getCell('J5')->getCalculatedValue());
+        $this->assertEquals(7, $sheet->getCell('K5')->getCalculatedValue());
+        $this->assertSame($project->project_code, $sheet->getCell('F6')->getValue());
+        $this->assertSame($project->project_name, $sheet->getCell('G6')->getValue());
+        $this->assertSame('O100 - Office', $sheet->getCell('H6')->getValue());
+        $this->assertEquals(4, $sheet->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(1, $sheet->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(5, $sheet->getCell('K6')->getCalculatedValue());
+        $this->assertSame('Non-project', $sheet->getCell('F7')->getValue());
+        $this->assertSame('L100 - Annual Leave', $sheet->getCell('H7')->getValue());
+        $this->assertEquals(2, $sheet->getCell('I7')->getCalculatedValue());
+        $this->assertEquals(0, $sheet->getCell('J7')->getCalculatedValue());
+        $this->assertEquals(2, $sheet->getCell('K7')->getCalculatedValue());
+        $this->assertTrue($sheet->getRowDimension(5)->getCollapsed());
+        $this->assertSame(1, $sheet->getRowDimension(6)->getOutlineLevel());
+        $this->assertFalse($sheet->getRowDimension(6)->getVisible());
+        $this->assertSame('A4:K4', $sheet->getAutoFilter()->getRange());
+        $this->assertSame('K', $sheet->getHighestColumn());
+        $this->assertSame(7, $sheet->getHighestDataRow());
+    }
+
+    public function test_employee_charging_report_applies_project_filter_to_parent_and_breakdown_hours(): void
+    {
+        $department = $this->department(['name' => 'Filtered Charging']);
+        $includedProject = $this->project(['project_code' => 'PRJ-IN', 'project_name' => 'Included Project']);
+        $excludedProject = $this->project(['project_code' => 'PRJ-OUT', 'project_name' => 'Excluded Project']);
+        $period = $this->openPeriod();
+        $employee = $this->userWithRole('employee', [
+            'department_id' => $department->id,
+            'employee_code' => 'MEC-HR-2026-099',
+            'name' => 'Filtered Employee',
+        ]);
+        $timesheet = $this->submittedTimesheet($employee, $period, $excludedProject, ['status' => 'approved']);
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-12',
+            'day_name' => 'Tuesday',
+            'attendance_code' => 'O100',
+            'project_id' => $includedProject->id,
+            'department_id' => $department->id,
+            'regular_hours' => 5,
+            'overtime_hours' => 2,
+        ]);
+
+        $response = $this->actingAs($this->userWithRole('admin'))->get(route('admin.timesheets.export', [
+            'filter_mode' => 'weekly',
+            'week_from' => 20,
+            'week_to' => 20,
+            'year' => 2026,
+            'status' => 'approved',
+            'project_id' => $includedProject->id,
+            'employee_totals_only' => 1,
+        ]));
+
+        $response->assertOk();
+        $sheet = IOFactory::load($response->getFile()->getPathname())->getSheet(0);
+
+        $this->assertSame('Filtered Employee', $sheet->getCell('C5')->getValue());
+        $this->assertEquals(5, $sheet->getCell('I5')->getCalculatedValue());
+        $this->assertEquals(2, $sheet->getCell('J5')->getCalculatedValue());
+        $this->assertEquals(7, $sheet->getCell('K5')->getCalculatedValue());
+        $this->assertSame('PRJ-IN', $sheet->getCell('F6')->getValue());
+        $this->assertSame('Included Project', $sheet->getCell('G6')->getValue());
+        $this->assertSame('O100 - Office', $sheet->getCell('H6')->getValue());
+        $this->assertEquals(5, $sheet->getCell('I6')->getCalculatedValue());
+        $this->assertEquals(2, $sheet->getCell('J6')->getCalculatedValue());
+        $this->assertEquals(7, $sheet->getCell('K6')->getCalculatedValue());
+        $this->assertSame(6, $sheet->getHighestDataRow());
     }
 
     public function test_admin_timesheet_index_supports_monthly_reporting_mode(): void
@@ -1008,6 +1140,15 @@ class AdminExportWorkflowTest extends TestCase
             'overtime_hours' => 0,
             'remarks' => '=Leave Formula',
         ]);
+        TimesheetEntry::create([
+            'timesheet_id' => $timesheet->id,
+            'work_date' => '2026-05-13',
+            'day_name' => 'Wednesday',
+            'attendance_code' => 'X999',
+            'project_id' => $project->id,
+            'regular_hours' => 2,
+            'overtime_hours' => 1,
+        ]);
         $admin = $this->userWithRole('admin');
 
         $response = $this->actingAs($admin)->get(route('admin.timesheets.export', [
@@ -1069,6 +1210,25 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell("A{$formulaProjectRow}")->getDataType());
         $this->assertSame(DataType::TYPE_STRING, $employeeSheet->getCell("U{$formulaProjectRow}")->getDataType());
         $this->assertSame("'=HYPERLINK(\"https://example.test\",\"Open\")", $employeeSheet->getCell("U{$formulaProjectRow}")->getValue());
+
+        $chargingResponse = $this->actingAs($admin)->get(route('admin.timesheets.export', [
+            'week_number' => 20,
+            'year' => 2026,
+            'employee_totals_only' => 1,
+        ]));
+
+        $chargingResponse->assertOk();
+        $chargingSheet = IOFactory::load($chargingResponse->getFile()->getPathname())->getSheet(0);
+        $this->assertSame("'=EMP-001", $chargingSheet->getCell('A5')->getValue());
+        $this->assertSame("'=Employee Formula", $chargingSheet->getCell('C5')->getValue());
+        $this->assertSame("'=Operations", $chargingSheet->getCell('D5')->getValue());
+        $this->assertSame("'=Engineer", $chargingSheet->getCell('E5')->getValue());
+        $this->assertSame("'=P-FORMULA", $chargingSheet->getCell('F6')->getValue());
+        $this->assertSame("'=Project Formula", $chargingSheet->getCell('G6')->getValue());
+        $this->assertSame('O100 - Office', $chargingSheet->getCell('H6')->getValue());
+        $this->assertSame('X999 - Unknown / legacy code', $chargingSheet->getCell('H7')->getValue());
+        $this->assertSame('Non-project', $chargingSheet->getCell('F8')->getValue());
+        $this->assertSame('L100 - Annual Leave', $chargingSheet->getCell('H8')->getValue());
     }
 
     public function test_individual_excel_sheet_does_not_count_training_code_as_leave_hours(): void

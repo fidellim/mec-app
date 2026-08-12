@@ -2080,6 +2080,8 @@ class LeavePlanWorkflowTest extends TestCase
 
     public function test_uae_annual_leave_uses_two_working_days_per_completed_service_month_before_one_year(): void
     {
+        $this->travelTo('2026-07-27 12:00:00');
+
         $department = $this->department();
         $sixMonthEmployee = $this->userWithRole('employee', [
             'department_id' => $department->id,
