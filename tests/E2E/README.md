@@ -10,6 +10,7 @@ These Playwright tests exercise the main browser workflows against a seeded loca
 - Admin timesheet export download
 - Super Admin management pages
 - Flatpickr month/year selection and light/dark theme readability
+- Tom Select value synchronization, focus stability, dynamic rows, async loading, and responsive theming
 
 ## Setup
 
@@ -27,6 +28,8 @@ npm run test:e2e:prepare
 npm run test:e2e
 ```
 
+The preparation command refuses to run unless both application environment values are `e2e`, the database name ends with `_e2e`, and it differs from the local database configured in `.env`.
+
 On Windows PowerShell:
 
 ```powershell
@@ -38,7 +41,7 @@ npm run test:e2e
 To reset the E2E database and run browser tests in one step:
 
 ```bash
-npm run test:e2e:fresh
+E2E_BASE_URL=http://127.0.0.1:8765 PHP_BINARY=php npm run test:e2e:fresh
 ```
 
 Playwright automatically loads `.env.e2e` when it exists. If npm can run but Playwright cannot find PHP, set `PHP_BINARY` in `.env.e2e`:
@@ -46,6 +49,8 @@ Playwright automatically loads `.env.e2e` when it exists. If npm can run but Pla
 E2E defaults to one worker because these specs use shared seeded accounts and a shared local database. You can set `E2E_WORKERS` for parallel experiments, but login throttling may apply.
 
 `.env.e2e` sets `E2E_DISABLE_LOGIN_THROTTLE=true` so repeated automated logins do not trip Laravel's login rate limiter. The bypass only applies when the app runs with `--env=e2e`.
+
+It also sets `E2E_DISABLE_EXPORT_THROTTLE=true` so the same export checks can run across the browser matrix. Export throttling remains enabled in every non-E2E environment.
 
 ```env
 PHP_BINARY='C:\xampp\php\php.exe'
@@ -87,20 +92,20 @@ E2E_BASE_URL=https://your-domain.test npm run test:e2e
 Run against an already-running Laravel server:
 
 ```bash
-E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e
+E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8765 npm run test:e2e
 ```
 
 Run headed mode against an already-running Laravel server:
 
 ```bash
-E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e:headed
+E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8765 npm run test:e2e:headed
 ```
 
 On Windows PowerShell:
 
 ```powershell
 $env:E2E_SKIP_WEBSERVER="1"
-$env:E2E_BASE_URL="http://127.0.0.1:8000"
+$env:E2E_BASE_URL="http://127.0.0.1:8765"
 npm run test:e2e
 ```
 
@@ -108,7 +113,7 @@ Windows PowerShell headed mode:
 
 ```powershell
 $env:E2E_SKIP_WEBSERVER="1"
-$env:E2E_BASE_URL="http://127.0.0.1:8000"
+$env:E2E_BASE_URL="http://127.0.0.1:8765"
 npm run test:e2e:headed
 ```
 
@@ -116,7 +121,7 @@ Windows PowerShell slow headed mode:
 
 ```powershell
 $env:E2E_SKIP_WEBSERVER="1"
-$env:E2E_BASE_URL="http://127.0.0.1:8000"
+$env:E2E_BASE_URL="http://127.0.0.1:8765"
 npm run test:e2e:headed:slow
 ```
 
@@ -125,6 +130,33 @@ Run one browser project only:
 ```bash
 npx playwright test --project=chromium --headed
 ```
+
+Run the complete E2E suite with the locally installed Microsoft Edge channel:
+
+```bash
+npm run test:e2e:edge
+```
+
+Reset the isolated E2E database first, or watch the Edge run in headed mode:
+
+```bash
+E2E_BASE_URL=http://127.0.0.1:8765 PHP_BINARY=php npm run test:e2e:edge:fresh
+E2E_BASE_URL=http://127.0.0.1:8765 PHP_BINARY=php npm run test:e2e:edge:headed
+```
+
+The Edge project is opt-in so the default Chromium/tablet matrix still works on systems without Edge installed.
+
+Run desktop WebKit as automated Safari-oriented coverage:
+
+```bash
+E2E_BASE_URL=http://127.0.0.1:8765 PHP_BINARY=php npm run test:e2e:webkit
+E2E_BASE_URL=http://127.0.0.1:8765 PHP_BINARY=php npm run test:e2e:webkit:fresh
+E2E_BASE_URL=http://127.0.0.1:8765 PHP_BINARY=php npm run test:e2e:webkit:headed
+```
+
+Playwright WebKit is not the installed Safari browser. For final Safari acceptance, use macOS Safari with Web Inspector open, then rapidly Add, Duplicate, Remove, and Copy Day on a weekly timesheet. Confirm the rows remain synchronized, tooltips disappear after pointer exit, and no page error is reported.
+
+For the final Autofill acceptance check, use only seeded E2E accounts. In headed Edge, open a long form with multiple searchable selects, choose a saved Autofill suggestion near both the top and bottom of the form, and verify for at least three seconds that focus stays on the intended field, only one select remains focused/open, and the page does not oscillate. Repeat in light and dark themes.
 
 Run one browser project slowly:
 
@@ -149,11 +181,12 @@ Useful accounts:
 superadmin@example.com
 admin@example.com
 aisha@example.com
+carla@example.com
 ```
 
 ## Troubleshooting
 
 - If browsers are missing, run `npx playwright install`.
-- If seeded accounts are missing, run `php artisan migrate:fresh --seed`.
-- If port 8000 is already in use, start Laravel manually on another port and set `E2E_BASE_URL`.
+- If seeded accounts are missing, run `PHP_BINARY=php npm run test:e2e:prepare`; its safety checks prevent resetting the local application database.
+- If port 8765 is already in use, start Laravel manually on another port and set `E2E_BASE_URL`.
 - If export tests leave temporary files, clear Laravel cache/storage temp folders before rerunning.

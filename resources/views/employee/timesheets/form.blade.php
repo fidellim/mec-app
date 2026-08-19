@@ -648,24 +648,26 @@
         resequenceRows();
     };
 
-    const removeTooltipElements = () => {
-        document.querySelectorAll('.tooltip').forEach((element) => element.remove());
-    };
-
     const hideActionTooltip = (button) => {
-        if (!button || !window.bootstrap) {
+        if (!button || !window.bootstrap?.Tooltip) {
             return;
         }
 
-        const tooltip = bootstrap.Tooltip.getOrCreateInstance(button);
+        const tooltip = bootstrap.Tooltip.getInstance(button);
 
-        tooltip.hide();
-        tooltip.dispose();
-        removeTooltipElements();
-        requestAnimationFrame(removeTooltipElements);
-        setTimeout(removeTooltipElements, 150);
-        button.addEventListener('mouseleave', () => bootstrap.Tooltip.getOrCreateInstance(button), { once: true });
+        tooltip?.hide();
+
         button.blur();
+    };
+
+    const disposeRowTooltips = (row) => {
+        if (!row || !window.bootstrap?.Tooltip) {
+            return;
+        }
+
+        row.querySelectorAll('[data-bs-toggle="tooltip"]').forEach((button) => {
+            bootstrap.Tooltip.getInstance(button)?.dispose();
+        });
     };
 
     const calculateDayTotals = (workDate) => {
@@ -757,7 +759,7 @@
         const duplicateButton = event.target.closest('[data-duplicate-entry]');
         const removeButton = event.target.closest('[data-remove-entry]');
         const copyDayButton = event.target.closest('[data-copy-day]');
-        const actionButton = addButton || duplicateButton || removeButton;
+        const actionButton = addButton || duplicateButton;
 
         hideActionTooltip(actionButton);
 
@@ -817,6 +819,7 @@
             const sameDayRows = rows.filter((row) => row.dataset.workDate === currentRow.dataset.workDate);
 
             if (sameDayRows.length === 1) {
+                hideActionTooltip(removeButton);
                 setSearchableSelectValue(currentRow.querySelector('[data-field="attendance_code"]'), '');
                 setSearchableSelectValue(currentRow.querySelector('[data-field="project_id"]'), '');
                 refreshParticipatingDepartments(currentRow);
@@ -829,6 +832,7 @@
                 return;
             }
 
+            disposeRowTooltips(currentRow);
             currentRow.remove();
             resequenceRows();
         }

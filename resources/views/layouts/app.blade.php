@@ -16,7 +16,7 @@
         })();
     </script>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/css/tom-select.bootstrap5.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.css" rel="stylesheet">
     <style>
         :root {
@@ -1948,7 +1948,7 @@
     </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.6.2/dist/js/tom-select.complete.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/flatpickr@4.6.13/dist/flatpickr.min.js"></script>
 <script>
 const initializeTooltips = (scope = document) => {
@@ -2169,6 +2169,10 @@ window.setDatePickerMin = (input, minDate) => {
         const currentDate = parseDateInputValue(currentValue);
 
         input._flatpickr.set('minDate', minDate || null);
+
+        if (input._flatpickr.mobileInput) {
+            input._flatpickr.mobileInput.min = minDate || '';
+        }
 
         if (currentDate) {
             input._flatpickr.setDate(currentValue, false, 'Y-m-d');

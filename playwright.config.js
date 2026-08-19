@@ -39,7 +39,10 @@ const loadEnvFile = (file) => {
 
 loadEnvFile('.env.e2e');
 
-const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:8000';
+const baseURL = process.env.E2E_BASE_URL || 'http://127.0.0.1:8765';
+const serverURL = new URL(baseURL);
+const serverHost = serverURL.hostname;
+const serverPort = serverURL.port || (serverURL.protocol === 'https:' ? '443' : '80');
 const slowMo = Number(process.env.E2E_SLOW_MO || 0);
 const workers = Number(process.env.E2E_WORKERS || 1);
 const phpBinary = process.env.PHP_BINARY || 'php';
@@ -75,7 +78,7 @@ export default defineConfig({
   webServer: process.env.E2E_SKIP_WEBSERVER
     ? undefined
     : {
-        command: `${quoteCommandPath(phpBinary)} artisan serve${e2eEnvArg} --host=127.0.0.1 --port=8000`,
+        command: `${quoteCommandPath(phpBinary)} artisan serve${e2eEnvArg} --host=${serverHost} --port=${serverPort}`,
         url: baseURL,
         reuseExistingServer: true,
         timeout: 120_000,

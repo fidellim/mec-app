@@ -52,6 +52,10 @@ class AppServiceProvider extends ServiceProvider
         });
 
         RateLimiter::for('exports', function (Request $request) {
+            if (config('app.env') === 'e2e' && env('E2E_DISABLE_EXPORT_THROTTLE', false)) {
+                return Limit::none();
+            }
+
             return Limit::perMinute(6)->by($this->userIpKey($request));
         });
     }

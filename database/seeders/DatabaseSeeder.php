@@ -98,6 +98,16 @@ class DatabaseSeeder extends Seeder
 
         $this->call(ProjectSeeder::class);
 
+        if (app()->environment('e2e')) {
+            $carla = User::where('email', 'carla@example.com')->firstOrFail();
+            $assignedProject = Project::where('project_code', 'P300')->firstOrFail();
+
+            $assignedProject->update([
+                'timesheet_assignment_mode' => Project::ASSIGNMENT_SELECTED_USERS,
+            ]);
+            $assignedProject->assignedUsers()->syncWithoutDetaching([$carla->id]);
+        }
+
         foreach ([
             AutomationSetting::TIMESHEET_PERIOD_AUTO_CREATION => [
                 'name' => 'Weekly Period Auto Creation',

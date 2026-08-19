@@ -1,24 +1,24 @@
 const { existsSync, readFileSync } = require('node:fs');
 const { spawnSync } = require('node:child_process');
 
-function loadEnvFile(file) {
+function parseEnvFile(file) {
   if (!existsSync(file)) {
-    return;
+    return {};
   }
 
-  readFileSync(file, 'utf8')
+  return readFileSync(file, 'utf8')
     .split(/\r?\n/)
-    .forEach((line) => {
+    .reduce((values, line) => {
       const trimmed = line.trim();
 
       if (!trimmed || trimmed.startsWith('#')) {
-        return;
+        return values;
       }
 
       const separator = trimmed.indexOf('=');
 
       if (separator === -1) {
-        return;
+        return values;
       }
 
       const key = trimmed.slice(0, separator).trim();
@@ -31,10 +31,20 @@ function loadEnvFile(file) {
         value = value.slice(1, -1);
       }
 
-      if (key && process.env[key] === undefined) {
-        process.env[key] = value;
+      if (key) {
+        values[key] = value;
       }
-    });
+
+      return values;
+    }, {});
+}
+
+function loadEnvValues(values) {
+  Object.entries(values).forEach(([key, value]) => {
+    if (process.env[key] === undefined) {
+      process.env[key] = value;
+    }
+  });
 }
 
 function run(command, args, options = {}) {
@@ -56,19 +66,33 @@ function run(command, args, options = {}) {
   }
 }
 
-loadEnvFile('.env.e2e');
+const localEnv = parseEnvFile('.env');
+const e2eEnv = parseEnvFile('.env.e2e');
+loadEnvValues(e2eEnv);
 
 const php = process.env.PHP_BINARY || 'php';
 const appEnv = process.env.E2E_APP_ENV || 'e2e';
 const dbConnection = process.env.DB_CONNECTION || 'mysql';
 const dbName = process.env.DB_DATABASE;
+const configuredAppEnv = process.env.APP_ENV;
+const localDbName = localEnv.DB_DATABASE;
+
+if (configuredAppEnv !== 'e2e' || appEnv !== 'e2e') {
+  console.error('Refusing to prepare E2E data unless APP_ENV and E2E_APP_ENV are both set to e2e.');
+  process.exit(1);
+}
+
+if (!dbName || !dbName.endsWith('_e2e')) {
+  console.error('Refusing to prepare E2E data unless DB_DATABASE ends with _e2e.');
+  process.exit(1);
+}
+
+if (localDbName && dbName === localDbName) {
+  console.error(`Refusing to prepare E2E data because DB_DATABASE matches the local database (${dbName}).`);
+  process.exit(1);
+}
 
 if (dbConnection === 'mysql') {
-  if (!dbName) {
-    console.error('DB_DATABASE must be set in .env.e2e before preparing the E2E database.');
-    process.exit(1);
-  }
-
   const createDatabaseCode = `
     $host = getenv('DB_HOST') ?: '127.0.0.1';
     $port = getenv('DB_PORT') ?: '3306';

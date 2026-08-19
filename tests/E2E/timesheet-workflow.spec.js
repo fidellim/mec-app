@@ -10,6 +10,24 @@ async function login(page, email, password = 'password123') {
   await expect(page).toHaveURL(/\/$/);
 }
 
+function collectClientErrors(page) {
+  const errors = [];
+
+  page.on('pageerror', (error) => errors.push(`pageerror: ${error.stack || error.message}`));
+  page.on('console', (message) => {
+    if (message.type() === 'error') {
+      errors.push(`console: ${message.text()}`);
+    }
+  });
+
+  return errors;
+}
+
+async function expectNoOrphanedTooltips(page) {
+  await page.mouse.move(0, 0);
+  await expect(page.locator('.tooltip')).toHaveCount(0);
+}
+
 async function chooseFirstOpenPeriod(page) {
   const periodSelect = page.locator('select[name="period_id"]');
 
@@ -75,12 +93,17 @@ test.describe('employee timesheet workflow', () => {
   });
 
   test('employee timesheet form keeps dynamically added project rows usable', async ({ page }) => {
+    const errors = collectClientErrors(page);
     await login(page, employeeEmail);
     await page.goto('/my-timesheets/create');
     await chooseOpenPeriodWithCreateForm(page);
 
     const firstProjectSelect = page.locator('select[name*="[project_id]"]').first();
-    const firstProjectValue = await firstProjectSelect.locator('option').nth(1).getAttribute('value');
+    const assignedProject = firstProjectSelect.locator('option', { hasText: /^P300$/ });
+    const unassignedProject = firstProjectSelect.locator('option', { hasText: /^P21008$/ });
+    await expect(assignedProject).toHaveCount(1);
+    await expect(unassignedProject).toHaveCount(0);
+    const firstProjectValue = await assignedProject.getAttribute('value');
     expect(firstProjectValue).toBeTruthy();
 
     await firstProjectSelect.evaluate((select, value) => {
@@ -102,7 +125,7 @@ test.describe('employee timesheet workflow', () => {
       await expect(page.locator('select[name*="[project_id]"]').nth(1)).toHaveValue('');
       await expect(firstDayRows).toHaveCount(2);
       await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
-      await expect(page.locator('.tooltip')).toHaveCount(0);
+      await expectNoOrphanedTooltips(page);
 
       await firstDayRows.first().locator('select[name*="[attendance_code]"]').evaluate((select) => {
         select.tomselect?.setValue('O100');
@@ -113,7 +136,7 @@ test.describe('employee timesheet workflow', () => {
       await firstDayRows.first().locator('input[name*="[remarks]"]').fill('Copied row');
       await firstDayRows.first().getByRole('button', { name: /duplicate/i }).click();
       await expect(firstDayRows).toHaveCount(3);
-      await expect(page.locator('.tooltip')).toHaveCount(0);
+      await expectNoOrphanedTooltips(page);
       await expect(firstDayRows.nth(1).locator('select[name*="[attendance_code]"]')).toHaveValue('O100');
       await expect(firstDayRows.nth(1).locator('select[name*="[project_id]"]')).toHaveValue(firstProjectValue);
       await expect(firstDayRows.nth(1).locator('input[name*="[regular_hours]"]')).toHaveValue('3.50');
@@ -122,14 +145,16 @@ test.describe('employee timesheet workflow', () => {
 
       await firstDayRows.getByRole('button', { name: /add project/i }).click();
       await expect(firstDayRows).toHaveCount(4);
-      await expect(page.locator('.tooltip')).toHaveCount(0);
+      await expectNoOrphanedTooltips(page);
       await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
 
       await firstDayRows.first().getByRole('button', { name: /remove/i }).click();
       await expect(firstDayRows).toHaveCount(3);
-      await expect(page.locator('.tooltip')).toHaveCount(0);
+      await expectNoOrphanedTooltips(page);
       await expect(firstDayRows.getByRole('button', { name: /add project/i })).toHaveCount(1);
     }
+
+    expect(errors).toEqual([]);
   });
 
   test('employee timesheet form shows full and ISO dates together', async ({ page }) => {
@@ -162,12 +187,13 @@ test.describe('employee timesheet workflow', () => {
   });
 
   test('employee can copy one day and overwrite selected target days', async ({ page }) => {
+    const errors = collectClientErrors(page);
     await login(page, employeeEmail);
     await page.goto('/my-timesheets/create');
     await chooseOpenPeriodWithCreateForm(page);
 
     const projectSelect = page.locator('select[name*="[project_id]"]').first();
-    const projectValue = await projectSelect.locator('option').nth(1).getAttribute('value');
+    const projectValue = await projectSelect.locator('option', { hasText: /^P300$/ }).getAttribute('value');
     expect(projectValue).toBeTruthy();
 
     const workDates = await page.locator('[data-day-summary-row]').evaluateAll((rows) => rows.map((row) => row.dataset.workDate));
@@ -228,6 +254,7 @@ test.describe('employee timesheet workflow', () => {
     await expect(targetRows.nth(1).locator('input[name*="[remarks]"]')).toHaveValue('Copied second row');
     await expect(page.locator(`[data-day-summary-row][data-work-date="${targetDate}"] [data-day-regular-total]`)).toContainText('RT 5.50');
     await expect(page.locator(`[data-day-summary-row][data-work-date="${targetDate}"] [data-day-overtime-total]`)).toContainText('OT 1.25');
+    expect(errors).toEqual([]);
   });
 });
 
@@ -243,14 +270,29 @@ test.describe('approval and admin workflows', () => {
     await expect(page.getByText(/submitted|approved|rejected|not submitted/i).first()).toBeVisible();
   });
 
-  test('admin can view records and request an export', async ({ page }) => {
+  test('admin export without a year is blocked without starting a download', async ({ page }) => {
     await login(page, 'admin@example.com');
 
     await page.goto('/admin/timesheets');
     await expect(page.getByRole('heading', { name: /timesheets/i })).toBeVisible();
 
+    let downloadCount = 0;
+    page.on('download', () => { downloadCount += 1; });
+    await page.getByRole('link', { name: /export excel/i }).click();
+    await expect(page.locator('#appToastContainer').getByText('Timesheet Excel exports are limited to one year at a time. Please select a year before exporting.')).toBeVisible();
+    expect(downloadCount).toBe(0);
+  });
+
+  test('admin can filter by year and download an Excel export', async ({ page }) => {
+    await login(page, 'admin@example.com');
+
+    await page.goto('/admin/timesheets');
+    await page.locator('#year').fill(String(new Date().getFullYear()));
+    await page.getByRole('button', { name: /apply filters/i }).click();
+    await expect(page.locator('#year')).toHaveValue(String(new Date().getFullYear()));
+
     const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('link', { name: /export/i }).click();
+    await page.getByRole('link', { name: /export excel/i }).click();
     const download = await downloadPromise;
     expect(download.suggestedFilename()).toMatch(/\.xlsx$/);
   });

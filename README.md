@@ -893,17 +893,17 @@ Open the Playwright UI runner:
 npm run test:e2e:ui
 ```
 
-By default, Playwright starts the Laravel development server at `http://127.0.0.1:8000`. To test an already-running app:
+By default, Playwright starts the Laravel development server at `http://127.0.0.1:8765`. To test an already-running app:
 
 ```bash
-E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8000 npm run test:e2e
+E2E_SKIP_WEBSERVER=1 E2E_BASE_URL=http://127.0.0.1:8765 npm run test:e2e
 ```
 
 On Windows PowerShell:
 
 ```powershell
 $env:E2E_SKIP_WEBSERVER="1"
-$env:E2E_BASE_URL="http://127.0.0.1:8000"
+$env:E2E_BASE_URL="http://127.0.0.1:8765"
 npm run test:e2e
 ```
 
@@ -911,7 +911,7 @@ For headed mode against an already-running app on Windows PowerShell:
 
 ```powershell
 $env:E2E_SKIP_WEBSERVER="1"
-$env:E2E_BASE_URL="http://127.0.0.1:8000"
+$env:E2E_BASE_URL="http://127.0.0.1:8765"
 npm run test:e2e:headed
 ```
 
@@ -919,7 +919,7 @@ For slow headed mode against an already-running app on Windows PowerShell:
 
 ```powershell
 $env:E2E_SKIP_WEBSERVER="1"
-$env:E2E_BASE_URL="http://127.0.0.1:8000"
+$env:E2E_BASE_URL="http://127.0.0.1:8765"
 npm run test:e2e:headed:slow
 ```
 
