@@ -157,7 +157,7 @@
                         $rateColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($showCosting ? 5 : $firstPeriodColumn + 3);
                         $regularCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$regularColumn.$employeeRow.'*'.$rateColumn.$employeeRow.')';
                         $overtimeCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$overtimeColumn.$employeeRow.'*'.$rateColumn.$employeeRow.'*1.25)';
-                        $totalCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$totalColumn.$employeeRow.'*'.$rateColumn.$employeeRow.')';
+                        $totalCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",('.$regularColumn.$employeeRow.'+'.$overtimeColumn.$employeeRow.'*1.25)*'.$rateColumn.$employeeRow.')';
                     @endphp
                     @php
                         $hours = $employee['weeks'][$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0];
@@ -177,7 +177,7 @@
                             $rateColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(5);
                             $selectedRegularCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$employee['regular_hours'].'*'.$rateColumn.$employeeRow.')';
                             $selectedOvertimeCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$employee['overtime_hours'].'*'.$rateColumn.$employeeRow.'*1.25)';
-                            $selectedTotalCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",'.$employee['total_hours'].'*'.$rateColumn.$employeeRow.')';
+                            $selectedTotalCostFormula = '=IF('.$rateColumn.$employeeRow.'="","",('.$employee['regular_hours'].'+'.$employee['overtime_hours'].'*1.25)*'.$rateColumn.$employeeRow.')';
                         @endphp
                     @endif
                     <td class="period-total-cell right">{{ number_format($employee['regular_hours'], 2) }}</td>

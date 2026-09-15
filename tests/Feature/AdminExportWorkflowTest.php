@@ -901,7 +901,7 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(5, $projectSummary->getCell('H6')->getCalculatedValue());
         $this->assertSame('=IF(E6="","",F6*E6)', $projectSummary->getCell('I6')->getValue());
         $this->assertSame('=IF(E6="","",G6*E6*1.25)', $projectSummary->getCell('J6')->getValue());
-        $this->assertSame('=IF(E6="","",H6*E6)', $projectSummary->getCell('K6')->getValue());
+        $this->assertSame('=IF(E6="","",(F6+G6*1.25)*E6)', $projectSummary->getCell('K6')->getValue());
         $this->assertEquals(4, $projectSummary->getCell('F7')->getCalculatedValue());
         $this->assertEquals(1, $projectSummary->getCell('G7')->getCalculatedValue());
         $this->assertEquals(5, $projectSummary->getCell('H7')->getCalculatedValue());
@@ -921,7 +921,7 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(2, $attendanceSummary->getCell('K6')->getCalculatedValue());
         $this->assertSame('=IF(F6="","",I6*F6)', $attendanceSummary->getCell('L6')->getValue());
         $this->assertSame('=IF(F6="","",J6*F6*1.25)', $attendanceSummary->getCell('M6')->getValue());
-        $this->assertSame('=IF(F6="","",K6*F6)', $attendanceSummary->getCell('N6')->getValue());
+        $this->assertSame('=IF(F6="","",(I6+J6*1.25)*F6)', $attendanceSummary->getCell('N6')->getValue());
     }
 
     public function test_monthly_timesheet_export_respects_project_status_and_employee_filters(): void
@@ -1419,8 +1419,11 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(22, $weekly->getCell('T6')->getCalculatedValue());
         $this->assertSame('=IF(E6="","",17*E6)', $weekly->getCell('U6')->getValue());
         $this->assertSame('=IF(E6="","",5*E6*1.25)', $weekly->getCell('V6')->getValue());
-        $this->assertSame('=IF(E6="","",22*E6)', $weekly->getCell('W6')->getValue());
+        $this->assertSame('=IF(E6="","",(17+5*1.25)*E6)', $weekly->getCell('W6')->getValue());
         $this->assertSame('"AED" #,##0.00', $weekly->getStyle('U6')->getNumberFormat()->getFormatCode());
+        $weekly->setCellValue('E6', 20);
+        $this->assertEquals(465, $weekly->getCell('W6')->getCalculatedValue());
+
         $this->assertSame('Alice Santos', $weekly->getCell('C7')->getValue());
         $this->assertSame('-', $weekly->getCell('D7')->getValue());
         $this->assertSame('AS', $weekly->getCell('B7')->getValue());
@@ -1610,7 +1613,11 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(14, $attendanceSummary->getCell('W6')->getCalculatedValue());
         $this->assertSame('=IF(F6="","",12*F6)', $attendanceSummary->getCell('X6')->getValue());
         $this->assertSame('=IF(F6="","",2*F6*1.25)', $attendanceSummary->getCell('Y6')->getValue());
-        $this->assertSame('=IF(F6="","",14*F6)', $attendanceSummary->getCell('Z6')->getValue());
+        $this->assertSame('=IF(F6="","",(12+2*1.25)*F6)', $attendanceSummary->getCell('Z6')->getValue());
+        $attendanceSummary->setCellValue('F6', 20);
+        $this->assertEquals(130, $attendanceSummary->getCell('T6')->getCalculatedValue());
+        $this->assertEquals(290, $attendanceSummary->getCell('Z6')->getCalculatedValue());
+        $this->assertEquals(290, $attendanceSummary->getCell('Z9')->getCalculatedValue());
         $this->assertSame('Grand Total', $attendanceSummary->getCell('A9')->getValue());
         $this->assertEquals(12, $attendanceSummary->getCell('U9')->getCalculatedValue());
         $this->assertEquals(2, $attendanceSummary->getCell('V9')->getCalculatedValue());
