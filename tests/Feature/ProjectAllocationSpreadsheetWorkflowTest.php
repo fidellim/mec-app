@@ -130,7 +130,7 @@ class ProjectAllocationSpreadsheetWorkflowTest extends TestCase
 
         [$upload, $path] = $this->allocationUpload([
             ['MEC', 'Mechanical', 'No', 100, '', '', '', '', '', '', '', '', ''],
-            ['UNKNOWN', 'Unknown', 'Yes', 10.10, 'No', '', '', '', '', '', '', '', ''],
+            ['UNKNOWN', 'Unknown', 'Yes', 10.03, 'No', '', '', '', '', '', '', '', ''],
         ], function (Spreadsheet $spreadsheet) {
             $spreadsheet->getActiveSheet()->setCellValueExplicit('C2', '=1+1', DataType::TYPE_FORMULA);
         });
@@ -150,7 +150,7 @@ class ProjectAllocationSpreadsheetWorkflowTest extends TestCase
         $messages = collect($response->json('rows'))->flatMap(fn ($row) => $row['errors'])->implode(' ');
         $this->assertStringContainsString('Included cannot contain a formula.', $messages);
         $this->assertStringContainsString('Department Code does not match', $messages);
-        $this->assertStringContainsString('0.25-hour increments', $messages);
+        $this->assertStringContainsString('0.05-hour increments', $messages);
         $this->assertFileDoesNotExist($path);
     }
 
@@ -281,7 +281,7 @@ class ProjectAllocationSpreadsheetWorkflowTest extends TestCase
         ]);
 
         [$upload] = $this->allocationUpload([
-            ['MEC', 'Mechanical', 'Yes', 150, 'No', '', '', '', '', '', '', '', ''],
+            ['MEC', 'Mechanical', 'Yes', 150.05, 'No', '', '', '', '', '', '', '', ''],
         ]);
         $preview = $this->actingAs($admin)
             ->withHeader('Accept', 'application/json')
@@ -301,7 +301,7 @@ class ProjectAllocationSpreadsheetWorkflowTest extends TestCase
             'project_manager_id' => $manager->id,
             'is_active' => '1',
             'timesheet_assignment_mode' => Project::ASSIGNMENT_ALL_USERS,
-            'department_allocations' => [$department->id => 150],
+            'department_allocations' => [$department->id => 150.05],
             'job_level_controls' => [$department->id => 0],
             'allocation_change_reason' => 'Import the revised discipline budget.',
             'allocation_import_token' => $preview->json('token'),
@@ -310,15 +310,66 @@ class ProjectAllocationSpreadsheetWorkflowTest extends TestCase
         $this->assertDatabaseHas('project_department_allocations', [
             'project_id' => $project->id,
             'department_id' => $department->id,
-            'allocated_hours' => 150,
+            'allocated_hours' => 150.05,
         ]);
         $audit = AuditLog::where('action', 'project_allocation_excel_imported')->latest('id')->firstOrFail();
         $this->assertSame('excel_import', $audit->new_values['source']);
         $this->assertSame('Import the revised discipline budget.', $audit->new_values['reason']);
         $this->assertSame(1, $audit->new_values['summary']['updated']);
         $this->assertSame('100.00', $audit->old_values[(string) $department->id]['allocated_hours']);
-        $this->assertSame('150.00', $audit->new_values['allocations'][(string) $department->id]['allocated_hours']);
+        $this->assertSame('150.05', $audit->new_values['allocations'][(string) $department->id]['allocated_hours']);
         $this->assertArrayNotHasKey('filename', $audit->new_values);
+    }
+
+    public function test_project_allocations_require_positive_five_hundredth_hour_increments(): void
+    {
+        $admin = $this->userWithRole('admin');
+        $department = $this->department(['code' => 'MEC']);
+        $manager = $this->userWithRole('hod', ['department_id' => $department->id]);
+        $project = $this->project(['project_manager_id' => $manager->id, 'start_date' => '2026-01-01']);
+        $payload = [
+            'project_code' => $project->project_code,
+            'project_name' => $project->project_name,
+            'client_name' => $project->client_name,
+            'start_date' => '2026-01-01',
+            'project_manager_id' => $manager->id,
+            'is_active' => '1',
+            'timesheet_assignment_mode' => Project::ASSIGNMENT_SELECTED_USERS,
+            'job_level_controls' => [$department->id => 1],
+            'allocation_change_reason' => 'Adjust the fractional budget.',
+        ];
+
+        foreach ([0, 0.01, 0.03, 0.051, 10.03] as $hours) {
+            $payload['department_allocations'] = [$department->id => $hours];
+            $payload['job_level_allocations'] = [
+                $department->id => ['engineer' => ['mode' => 'reserved', 'hours' => $hours]],
+            ];
+            $this->actingAs($admin)->put(route('manage.projects.update', $project), $payload)
+                ->assertSessionHasErrors([
+                    "department_allocations.$department->id",
+                    "job_level_allocations.$department->id.engineer.hours",
+                ]);
+        }
+
+        foreach ([0.05, 0.10, 10.30] as $hours) {
+            $payload['department_allocations'] = [$department->id => $hours];
+            $payload['job_level_allocations'] = [
+                $department->id => ['engineer' => ['mode' => 'reserved', 'hours' => $hours]],
+            ];
+            $this->actingAs($admin)->put(route('manage.projects.update', $project), $payload)
+                ->assertSessionHasNoErrors()
+                ->assertRedirect(route('manage.projects.index'));
+            $this->assertDatabaseHas('project_department_allocations', [
+                'project_id' => $project->id,
+                'department_id' => $department->id,
+                'allocated_hours' => $hours,
+            ]);
+            $this->assertDatabaseHas('project_department_manpower_category_allocations', [
+                'project_department_allocation_id' => $project->departmentAllocations()->firstOrFail()->id,
+                'manpower_category' => 'engineer',
+                'allocated_hours' => $hours,
+            ]);
+        }
     }
 
     public function test_upload_is_deleted_when_allocation_file_validation_fails(): void

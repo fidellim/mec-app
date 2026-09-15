@@ -695,7 +695,7 @@ class ProjectAllocationSpreadsheetService
             ['2. Included = Yes creates or updates an allocation. Included = No removes it and requires every remaining allocation/control cell on that row to be blank.'],
             ['3. Rows omitted from the workbook keep their current values on the project form.'],
             ['4. When category control is No, leave all category cells blank. When it is Yes, set every category to Shared, Reserved, or Not allowed.'],
-            ['5. Reserved modes require reserved hours. Shared and Not allowed modes require blank reserved hours. All hour values must use 0.25-hour increments.'],
+            ['5. Reserved modes require reserved hours. Shared and Not allowed modes require blank reserved hours. All hour values must use 0.05-hour increments.'],
             ['6. The Usage Reference sheet is read-only guidance and is ignored during import. Submitted and approved usage may prevent reductions or removals.'],
             ['7. Upload this .xlsx file, review the all-or-nothing preview, apply it to the form, resolve assignment warnings, then save the project.'],
             ['8. The uploaded file is deleted from temporary storage after preview, whether validation succeeds or fails.'],
@@ -738,13 +738,13 @@ class ProjectAllocationSpreadsheetService
         }
 
         $hours = (float) $value;
-        if ($hours < 0.25 || $hours > self::MAX_HOURS) {
-            $errors[] = "{$label} must be between 0.25 and ".number_format(self::MAX_HOURS, 2, '.', ',').'.';
+        if ($hours < 0.05 || $hours > self::MAX_HOURS) {
+            $errors[] = "{$label} must be between 0.05 and ".number_format(self::MAX_HOURS, 2, '.', ',').'.';
 
             return null;
         }
-        if (abs($hours * 4 - round($hours * 4)) > 0.0001) {
-            $errors[] = "{$label} must use 0.25-hour increments.";
+        if (abs($hours * 20 - round($hours * 20)) > 0.0001) {
+            $errors[] = "{$label} must use 0.05-hour increments.";
 
             return null;
         }
@@ -902,8 +902,8 @@ class ProjectAllocationSpreadsheetService
         $validation->setShowErrorMessage(true);
         $validation->setErrorStyle(DataValidation::STYLE_STOP);
         $validation->setErrorTitle('Invalid hours');
-        $validation->setError('Enter a positive number in 0.25-hour increments.');
-        $validation->setFormula1('0.25');
+        $validation->setError('Enter a positive number in 0.05-hour increments.');
+        $validation->setFormula1('0.05');
         $validation->setFormula2((string) self::MAX_HOURS);
     }
 

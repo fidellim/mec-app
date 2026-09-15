@@ -97,7 +97,7 @@
                                 <div class="p-3 bg-body-tertiary d-flex flex-column flex-lg-row gap-3 align-items-lg-end justify-content-between">
                                     <div class="flex-grow-1">
                                         <label class="form-label fw-semibold" for="allocation_{{ $department->id }}">{{ $department->name }}{{ ($department->is_active ?? true) ? '' : ' (inactive)' }} @if($hasLegacyCategories)<span class="badge text-bg-warning ms-1">Review categories</span>@endif</label>
-                                        <div class="input-group" style="max-width: 280px;"><input class="form-control {{ $errors->has($allocationKey) ? 'is-invalid' : '' }}" id="allocation_{{ $department->id }}" name="department_allocations[{{ $department->id }}]" type="number" min="0.25" step="0.25" value="{{ $hours }}" placeholder="No allocation" data-department-hours><span class="input-group-text">hrs</span>@if($errors->has($allocationKey))<div class="invalid-feedback">{{ $errors->first($allocationKey) }}</div>@endif</div>
+                                        <div class="input-group" style="max-width: 280px;"><input class="form-control {{ $errors->has($allocationKey) ? 'is-invalid' : '' }}" id="allocation_{{ $department->id }}" name="department_allocations[{{ $department->id }}]" type="number" min="0.05" step="0.05" value="{{ $hours }}" placeholder="No allocation" data-department-hours><span class="input-group-text">hrs</span>@if($errors->has($allocationKey))<div class="invalid-feedback">{{ $errors->first($allocationKey) }}</div>@endif</div>
                                     </div>
                                     <div class="form-check form-switch mb-1">
                                         <input type="hidden" name="job_level_controls[{{ $department->id }}]" value="0">
@@ -127,7 +127,7 @@
                                                             <option value="reserved" @selected($mode === 'reserved')>Reserved</option>
                                                             <option value="not_allowed" @selected($mode === 'not_allowed')>Not allowed</option>
                                                         </select>
-                                                        <input class="form-control {{ $errors->has($hoursKey) ? 'is-invalid' : '' }}" name="job_level_allocations[{{ $department->id }}][{{ $manpowerCategory }}][hours]" type="number" min="0.25" step="0.25" value="{{ $categoryHours }}" placeholder="Hours" data-job-level-hours>
+                                                        <input class="form-control {{ $errors->has($hoursKey) ? 'is-invalid' : '' }}" name="job_level_allocations[{{ $department->id }}][{{ $manpowerCategory }}][hours]" type="number" min="0.05" step="0.05" value="{{ $categoryHours }}" placeholder="Hours" data-job-level-hours>
                                                         <span class="input-group-text">hrs</span>
                                                     </div>
                                                     @if($errors->has($hoursKey))<div class="text-danger small mt-1">{{ $errors->first($hoursKey) }}</div>@endif

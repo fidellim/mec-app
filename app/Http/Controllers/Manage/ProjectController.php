@@ -408,13 +408,13 @@ class ProjectController extends Controller
             'assignment_import_token' => ['nullable', 'string', 'max:100'],
             'allocation_import_token' => ['nullable', 'string', 'max:100'],
             'department_allocations' => ['required', 'array', 'min:1'],
-            'department_allocations.*' => ['nullable', 'numeric', 'min:0.25', 'max:9999999999.99'],
+            'department_allocations.*' => ['nullable', 'numeric', 'min:0.05', 'multiple_of:0.05', 'max:9999999999.99'],
             'job_level_controls' => ['nullable', 'array'],
             'job_level_controls.*' => ['nullable', 'boolean'],
             'job_level_allocations' => ['nullable', 'array'],
             'job_level_allocations.*' => ['nullable', 'array'],
             'job_level_allocations.*.*.mode' => ['nullable', Rule::in(['shared', 'reserved', 'not_allowed'])],
-            'job_level_allocations.*.*.hours' => ['nullable', 'numeric', 'min:0.25', 'max:9999999999.99'],
+            'job_level_allocations.*.*.hours' => ['nullable', 'numeric', 'min:0.05', 'multiple_of:0.05', 'max:9999999999.99'],
             'allocation_change_reason' => ['nullable', 'string', 'max:2000'],
         ]) + ['is_active' => false];
     }
