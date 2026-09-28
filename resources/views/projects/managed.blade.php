@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="project-responsive-page">
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">My Managed Projects</h1>
@@ -17,18 +18,18 @@
 
 <div class="content-card overflow-hidden">
     <div class="table-responsive">
-        <table class="table align-middle mb-0">
+        <table class="project-responsive-table table align-middle mb-0">
             <thead><tr><th>Code</th><th>Project</th><th>Client</th><th>Starting date</th><th class="text-end">Disciplines</th><th>Status</th><th></th></tr></thead>
             <tbody>
             @forelse($projects as $project)
                 <tr>
-                    <td class="fw-semibold">{{ $project->project_code }}</td>
-                    <td class="project-name-cell">{{ $project->project_name }}</td>
-                    <td>{{ $project->client_name ?: '-' }}</td>
-                    <td>{{ $project->start_date?->toFormattedDateString() ?? 'Not set' }}</td>
-                    <td class="text-end">{{ $project->department_allocations_count }}</td>
-                    <td><span class="badge {{ $project->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $project->is_active ? 'Active' : 'Inactive' }}</span></td>
-                    <td class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('projects.utilization', $project) }}">View utilization</a></td>
+                    <td data-label="Code" class="fw-semibold">{{ $project->project_code }}</td>
+                    <td data-label="Project" class="project-name-cell">{{ $project->project_name }}</td>
+                    <td data-label="Client">{{ $project->client_name ?: '-' }}</td>
+                    <td data-label="Starting date">{{ $project->start_date?->toFormattedDateString() ?? 'Not set' }}</td>
+                    <td data-label="Disciplines" class="text-end">{{ $project->department_allocations_count }}</td>
+                    <td data-label="Status"><span class="badge {{ $project->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">{{ $project->is_active ? 'Active' : 'Inactive' }}</span></td>
+                    <td data-label="Actions" class="text-end"><a class="btn btn-sm btn-primary" href="{{ route('projects.utilization', $project) }}">View utilization</a></td>
                 </tr>
             @empty
                 <tr><td colspan="7" class="empty-state text-center"><div class="fw-semibold mb-1">No managed projects</div><div class="small text-muted">Projects will appear here when an administrator assigns you as project manager.</div></td></tr>
@@ -39,4 +40,5 @@
 </div>
 
 @include('shared.pagination-footer', ['paginator' => $projects, 'label' => 'project'])
+</div>
 @endsection

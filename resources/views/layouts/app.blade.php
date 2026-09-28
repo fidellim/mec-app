@@ -1733,6 +1733,57 @@
                 grid-template-columns: 1fr;
             }
         }
+
+        /* Keep project information readable without horizontal scrolling on phones. */
+        .project-responsive-page .section-header > div { min-width: 0; }
+        .project-responsive-page .page-heading,
+        .project-responsive-page .meta-value { overflow-wrap: anywhere; }
+        @media (min-width: 768px) {
+            .project-responsive-table.table-fixed { min-width: 68rem; }
+        }
+        @media (max-width: 767.98px) {
+            .project-responsive-page .filter-summary-badge,
+            .project-responsive-table .badge { white-space: normal; overflow-wrap: anywhere; text-align: start; }
+            .project-responsive-table,
+            .project-responsive-table > tbody { display: block; width: 100%; }
+            .project-responsive-table > thead {
+                position: absolute;
+                width: 1px;
+                height: 1px;
+                padding: 0;
+                overflow: hidden;
+                clip-path: inset(50%);
+                white-space: nowrap;
+            }
+            .project-responsive-table > tbody > tr:not(.collapse):not(.collapsing),
+            .project-responsive-table > tbody > tr.collapse.show,
+            .project-responsive-table > tbody > tr.collapsing { display: block; }
+            .project-responsive-table > tbody > tr + tr:not(.collapse):not(.collapsing) {
+                border-top: .65rem solid var(--app-muted-bg);
+            }
+            .project-responsive-table > tbody > tr > td {
+                display: block;
+                width: 100%;
+                min-width: 0;
+                padding: .65rem 1rem;
+                text-align: start !important;
+                white-space: normal;
+                overflow-wrap: anywhere;
+            }
+            .project-responsive-table > tbody > tr > td[data-label]::before {
+                content: attr(data-label);
+                display: block;
+                margin-bottom: .25rem;
+                font-size: .75rem;
+                font-weight: 600;
+                color: var(--bs-secondary-color);
+            }
+            .project-responsive-table .project-name-cell { font-weight: 600; font-size: 1rem; }
+            .project-responsive-table .action-group { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .project-responsive-table .btn { min-height: 2.75rem; white-space: normal; }
+            .project-responsive-table .action-group .btn { display: flex; align-items: center; justify-content: center; height: 100%; }
+            .project-responsive-page .form-control[type="date"] { min-width: 0; }
+        }
     </style>
 </head>
 <body>

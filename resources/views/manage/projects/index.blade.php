@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="project-responsive-page">
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Projects / Job Numbers</h1>
@@ -69,7 +70,7 @@
 
 <div class="content-card overflow-hidden">
     <div class="table-responsive">
-        <table class="table table-fixed align-middle mb-0">
+        <table class="project-responsive-table table table-fixed align-middle mb-0">
             <thead>
                 <tr>
                     <th style="width: 9rem;">Code</th>
@@ -84,16 +85,16 @@
                 @forelse($projects as $project)
                     @php($canDelete = $project->entries_count === 0)
                     <tr>
-                        <td>{{ $project->project_code }}</td>
-                        <td class="project-name-cell">{{ $project->project_name }}</td>
-                        <td>{{ $project->client_name ?: '-' }}</td>
-                        <td>
+                        <td data-label="Code">{{ $project->project_code }}</td>
+                        <td data-label="Project" class="project-name-cell">{{ $project->project_name }}</td>
+                        <td data-label="Client">{{ $project->client_name ?: '-' }}</td>
+                        <td data-label="Status">
                             <span class="badge {{ $project->is_active ? 'text-bg-success' : 'text-bg-secondary' }}">
                                 {{ $project->is_active ? 'Active' : 'Inactive' }}
                             </span>
                         </td>
-                        <td class="small text-muted">{{ $project->entries_count }} entries</td>
-                        <td class="text-end">
+                        <td data-label="Usage" class="small text-muted">{{ $project->entries_count }} entries</td>
+                        <td data-label="Actions" class="text-end">
                             <div class="action-group">
                                 <a class="btn btn-sm btn-outline-primary" href="{{ route('projects.utilization', $project) }}">Utilization</a>
                                 <a class="btn btn-sm btn-primary" href="{{ route('manage.projects.edit', $project) }}">Edit</a>
@@ -155,4 +156,5 @@
 @endif
 
 @include('shared.pagination-footer', ['paginator' => $projects, 'label' => 'project'])
+</div>
 @endsection

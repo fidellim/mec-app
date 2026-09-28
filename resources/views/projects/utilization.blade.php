@@ -1,6 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
+<div class="project-responsive-page">
 <div class="section-header">
     <div>
         <div class="small text-muted mb-1">{{ $project->project_code }}</div>
@@ -48,7 +49,7 @@
 <div class="content-card overflow-hidden">
     <div class="content-card-header"><h2 class="h5 mb-1">Department budget ledger</h2><div class="small text-muted">Approved hours are official usage. Submitted hours remain pending until approval. Expand a department to see who charged the hours.</div></div>
     <div class="table-responsive">
-        <table class="table align-middle mb-0">
+        <table class="project-responsive-table table align-middle mb-0">
             <thead><tr><th>Discipline / department</th><th class="text-end">Allocated</th><th class="text-end">Approved</th><th class="text-end">Pending</th><th class="text-end">Remaining</th><th style="min-width: 12rem;">Utilization</th></tr></thead>
             <tbody>
             @forelse($allocations as $allocation)
@@ -56,12 +57,12 @@
                 @php($percent = (float) $allocation->allocated_hours > 0 ? (($allocation->approved_hours + $allocation->pending_hours) / (float) $allocation->allocated_hours) * 100 : 0)
                 @php($peopleId = 'department-people-'.$allocation->department_id)
                 <tr>
-                    <td><div class="fw-semibold">{{ $allocation->department->name }}</div><div class="small text-muted">{{ $allocation->department->code }}</div>@if((float) $allocation->allocated_hours <= 0)<span class="badge text-bg-warning mt-1">No allocation</span>@elseif($remaining < 0)<span class="badge text-bg-danger mt-1">Over allocation</span>@endif @if($allocation->charging_people->isNotEmpty())<button class="btn btn-sm btn-link px-0 ms-2 text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $peopleId }}" aria-expanded="false" aria-controls="{{ $peopleId }}">People charging <span class="badge rounded-pill text-bg-secondary">{{ $allocation->charging_people->count() }}</span></button>@endif</td>
-                    <td class="text-end">{{ number_format((float) $allocation->allocated_hours, 2) }}</td>
-                    <td class="text-end fw-semibold">{{ number_format($allocation->approved_hours, 2) }}</td>
-                    <td class="text-end">{{ number_format($allocation->pending_hours, 2) }}</td>
-                    <td class="text-end fw-semibold {{ $remaining < 0 ? 'text-danger' : '' }}">{{ number_format($remaining, 2) }}</td>
-                    <td><div class="progress" role="progressbar" aria-label="{{ $allocation->department->name }} utilization" aria-valuenow="{{ min(100, round($percent)) }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar {{ $percent > 100 ? 'bg-danger' : '' }}" style="width: {{ min(100, $percent) }}%"></div></div><div class="small text-muted mt-1">{{ number_format($percent, 1) }}%</div></td>
+                    <td data-label="Discipline / department"><div class="fw-semibold">{{ $allocation->department->name }}</div><div class="small text-muted">{{ $allocation->department->code }}</div>@if((float) $allocation->allocated_hours <= 0)<span class="badge text-bg-warning mt-1">No allocation</span>@elseif($remaining < 0)<span class="badge text-bg-danger mt-1">Over allocation</span>@endif @if($allocation->charging_people->isNotEmpty())<button class="btn btn-sm btn-link px-0 ms-2 text-decoration-none collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#{{ $peopleId }}" aria-expanded="false" aria-controls="{{ $peopleId }}">People charging <span class="badge rounded-pill text-bg-secondary">{{ $allocation->charging_people->count() }}</span></button>@endif</td>
+                    <td data-label="Allocated" class="text-end">{{ number_format((float) $allocation->allocated_hours, 2) }}</td>
+                    <td data-label="Approved" class="text-end fw-semibold">{{ number_format($allocation->approved_hours, 2) }}</td>
+                    <td data-label="Pending" class="text-end">{{ number_format($allocation->pending_hours, 2) }}</td>
+                    <td data-label="Remaining" class="text-end fw-semibold {{ $remaining < 0 ? 'text-danger' : '' }}">{{ number_format($remaining, 2) }}</td>
+                    <td data-label="Utilization"><div class="progress" role="progressbar" aria-label="{{ $allocation->department->name }} utilization" aria-valuenow="{{ min(100, round($percent)) }}" aria-valuemin="0" aria-valuemax="100"><div class="progress-bar {{ $percent > 100 ? 'bg-danger' : '' }}" style="width: {{ min(100, $percent) }}%"></div></div><div class="small text-muted mt-1">{{ number_format($percent, 1) }}%</div></td>
                 </tr>
                 @if($allocation->charging_people->isNotEmpty())
                     <tr class="collapse" id="{{ $peopleId }}">
@@ -70,13 +71,13 @@
                                 @if(($allocation->manpower_category_usage ?? collect())->isNotEmpty())
                                     <div class="small fw-semibold text-uppercase text-muted mb-2">Manpower Category allocation</div>
                                     <div class="table-responsive mb-3">
-                                        <table class="table table-sm align-middle mb-0">
+                                        <table class="project-responsive-table table table-sm align-middle mb-0">
                                             <thead><tr><th>Category / pool</th><th>State</th><th class="text-end">Allocated</th><th class="text-end">Consumed</th><th class="text-end">Remaining</th></tr></thead>
                                             <tbody>
                                             @foreach($allocation->manpower_category_usage as $category)
                                                 @php($consumed = $category->approved_hours + $category->pending_hours)
                                                 @php($categoryRemaining = $category->allocated_hours === null ? null : $category->allocated_hours - $consumed - ($category->deducted_legacy_hours ?? 0))
-                                                <tr><td class="fw-semibold">{{ $category->label }}</td><td><span class="badge {{ $category->state === 'reserved' ? 'text-bg-primary' : ($category->state === 'shared' ? 'text-bg-secondary' : ($category->state === 'legacy' ? 'text-bg-warning' : 'text-bg-light border text-dark')) }}">{{ str_replace('_', ' ', ucfirst($category->state)) }}</span></td><td class="text-end">{{ $category->allocated_hours === null ? '—' : number_format($category->allocated_hours, 2) }}</td><td class="text-end">{{ number_format($consumed, 2) }}</td><td class="text-end">{{ $categoryRemaining === null ? '—' : number_format($categoryRemaining, 2) }}</td></tr>
+                                                <tr><td data-label="Category / pool" class="fw-semibold">{{ $category->label }}</td><td data-label="State"><span class="badge {{ $category->state === 'reserved' ? 'text-bg-primary' : ($category->state === 'shared' ? 'text-bg-secondary' : ($category->state === 'legacy' ? 'text-bg-warning' : 'text-bg-light border text-dark')) }}">{{ str_replace('_', ' ', ucfirst($category->state)) }}</span></td><td data-label="Allocated" class="text-end">{{ $category->allocated_hours === null ? '—' : number_format($category->allocated_hours, 2) }}</td><td data-label="Consumed" class="text-end">{{ number_format($consumed, 2) }}</td><td data-label="Remaining" class="text-end">{{ $categoryRemaining === null ? '—' : number_format($categoryRemaining, 2) }}</td></tr>
                                             @endforeach
                                             </tbody>
                                         </table>
@@ -85,7 +86,7 @@
                                 @endif
                                 <div class="small fw-semibold text-uppercase text-muted mb-2">People charging to {{ $allocation->department->name }}</div>
                                 <div class="table-responsive">
-                                    <table class="table table-sm align-middle mb-0">
+                                    <table class="project-responsive-table table table-sm align-middle mb-0">
                                         <thead><tr><th>Employee</th><th>Home department</th><th>Role</th><th>Manpower Category</th><th class="text-end">Approved</th><th class="text-end">Pending</th></tr></thead>
                                         <tbody>
                                         @foreach($allocation->charging_people as $person)
@@ -97,10 +98,10 @@
                                                 default => 'Employee',
                                             })
                                             <tr>
-                                                <td class="fw-semibold">{{ $person->name }}</td>
-                                                <td>{{ $person->home_department_name ?: '—' }}</td>
-                                                <td><span class="badge bg-body border text-body">{{ $roleLabel }}</span></td>
-                                                <td>
+                                                <td data-label="Employee" class="fw-semibold">{{ $person->name }}</td>
+                                                <td data-label="Home department">{{ $person->home_department_name ?: '—' }}</td>
+                                                <td data-label="Role"><span class="badge bg-body border text-body">{{ $roleLabel }}</span></td>
+                                                <td data-label="Manpower Category">
                                                     @if($person->assignment_user_id && $categoryLabel)
                                                         <span class="fw-semibold">{{ $categoryLabel }}</span>
                                                     @elseif($person->assignment_user_id && $person->manpower_category)
@@ -113,8 +114,8 @@
                                                         <span class="badge text-bg-warning">Not currently assigned</span>
                                                     @endif
                                                 </td>
-                                                <td class="text-end">{{ number_format((float) $person->approved_hours, 2) }}</td>
-                                                <td class="text-end">{{ number_format((float) $person->pending_hours, 2) }}</td>
+                                                <td data-label="Approved" class="text-end">{{ number_format((float) $person->approved_hours, 2) }}</td>
+                                                <td data-label="Pending" class="text-end">{{ number_format((float) $person->pending_hours, 2) }}</td>
                                             </tr>
                                         @endforeach
                                         </tbody>
@@ -166,10 +167,10 @@
                 <div class="collapse" id="{{ $packetId }}">
                     <form method="post" action="{{ route('timesheet-corrections.store') }}" data-confirm="Send this correction request for the selected entries?">
                         @csrf
-                        <div class="table-responsive border-top"><table class="table table-sm align-middle mb-0"><thead><tr><th class="text-center" style="width:3rem"><span class="visually-hidden">Select</span></th><th>Date</th><th>Discipline</th><th>Manpower Category</th><th class="text-end">Regular</th><th class="text-end">OT</th><th>Description</th><th>Review state</th></tr></thead><tbody>
+                        <div class="table-responsive border-top"><table class="project-responsive-table table table-sm align-middle mb-0"><thead><tr><th class="text-center" style="width:3rem"><span class="visually-hidden">Select</span></th><th>Date</th><th>Discipline</th><th>Manpower Category</th><th class="text-end">Regular</th><th class="text-end">OT</th><th>Description</th><th>Review state</th></tr></thead><tbody>
                         @foreach($reviewTimesheet->entries as $entry)
                             @php($openRequestId = $openEntryRequestIds->get($entry->id))
-                            <tr><td class="text-center"><input class="form-check-input" type="checkbox" name="entry_ids[]" value="{{ $entry->id }}" aria-label="Select {{ $entry->work_date->toDateString() }} entry" @disabled($openRequestId)></td><td class="text-nowrap">{{ $entry->work_date->format('D, d M') }}</td><td>{{ $entry->department?->code ?? '—' }}</td><td>{{ config('manpower_categories.labels.'.$entry->manpower_category_snapshot, $entry->manpower_category_snapshot ? 'Legacy / Unclassified' : '—') }}</td><td class="text-end">{{ number_format((float)$entry->regular_hours, 2) }}</td><td class="text-end">{{ number_format((float)$entry->overtime_hours, 2) }}</td><td>{{ $entry->description ?: '—' }}</td><td>@if($openRequestId)<span class="badge text-bg-warning">Request #{{ $openRequestId }}</span>@else<span class="small text-muted">Available</span>@endif</td></tr>
+                            <tr><td data-label="Select" class="text-center"><input class="form-check-input" type="checkbox" name="entry_ids[]" value="{{ $entry->id }}" aria-label="Select {{ $entry->work_date->toDateString() }} entry" @disabled($openRequestId)></td><td data-label="Date" class="text-nowrap">{{ $entry->work_date->format('D, d M') }}</td><td data-label="Discipline">{{ $entry->department?->code ?? '—' }}</td><td data-label="Manpower Category">{{ config('manpower_categories.labels.'.$entry->manpower_category_snapshot, $entry->manpower_category_snapshot ? 'Legacy / Unclassified' : '—') }}</td><td data-label="Regular" class="text-end">{{ number_format((float)$entry->regular_hours, 2) }}</td><td data-label="OT" class="text-end">{{ number_format((float)$entry->overtime_hours, 2) }}</td><td data-label="Description">{{ $entry->description ?: '—' }}</td><td data-label="Review state">@if($openRequestId)<span class="badge text-bg-warning">Request #{{ $openRequestId }}</span>@else<span class="small text-muted">Available</span>@endif</td></tr>
                         @endforeach
                         </tbody></table></div>
                         @if($reviewTimesheet->entries->contains(fn($entry) => ! $openEntryRequestIds->has($entry->id)))
@@ -187,10 +188,11 @@
 </div>
 <div class="content-card mt-3 overflow-hidden">
     <div class="content-card-header"><h2 class="h5 mb-1">My recent requests</h2><div class="small text-muted">Open requests can be withdrawn but not edited.</div></div>
-    <div class="table-responsive"><table class="table align-middle mb-0"><thead><tr><th>Request</th><th>Employee</th><th>Entries</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>
-    @forelse($myRequests as $requestItem)<tr><td class="fw-semibold">#{{ $requestItem->id }}</td><td>{{ $requestItem->timesheet->user->name }}</td><td>{{ $requestItem->entries_count }}</td><td><span class="badge text-bg-{{ $requestItem->status === 'open' ? 'warning' : ($requestItem->status === 'accepted' ? 'danger' : 'secondary') }}">{{ ucfirst($requestItem->status) }}</span></td><td>{{ $requestItem->created_at->format('d M Y H:i') }}</td><td class="text-end">@if($requestItem->status === 'open')<form method="post" action="{{ route('timesheet-corrections.withdraw', $requestItem) }}" data-confirm="Withdraw this correction request?">@csrf<button class="btn btn-sm btn-outline-secondary">Withdraw</button></form>@endif</td></tr>
+    <div class="table-responsive"><table class="project-responsive-table table align-middle mb-0"><thead><tr><th>Request</th><th>Employee</th><th>Entries</th><th>Status</th><th>Created</th><th></th></tr></thead><tbody>
+    @forelse($myRequests as $requestItem)<tr><td data-label="Request" class="fw-semibold">#{{ $requestItem->id }}</td><td data-label="Employee">{{ $requestItem->timesheet->user->name }}</td><td data-label="Entries">{{ $requestItem->entries_count }}</td><td data-label="Status"><span class="badge text-bg-{{ $requestItem->status === 'open' ? 'warning' : ($requestItem->status === 'accepted' ? 'danger' : 'secondary') }}">{{ ucfirst($requestItem->status) }}</span></td><td data-label="Created">{{ $requestItem->created_at->format('d M Y H:i') }}</td><td data-label="Actions" class="text-end">@if($requestItem->status === 'open')<form method="post" action="{{ route('timesheet-corrections.withdraw', $requestItem) }}" data-confirm="Withdraw this correction request?">@csrf<button class="btn btn-sm btn-outline-secondary">Withdraw</button></form>@endif</td></tr>
     @empty<tr><td colspan="6" class="empty-state text-center">No correction requests for this project.</td></tr>@endforelse
     </tbody></table></div>
 </div>
 @endif
+</div>
 @endsection
