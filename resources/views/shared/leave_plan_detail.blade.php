@@ -25,6 +25,25 @@
                 <div class="meta-label">Duration</div>
                 <div class="meta-value">{{ $leavePlan->leaveLengthLabel() }}</div>
             </div>
+            @if($leavePlan->attendance_code === \App\Services\LeaveEntitlementService::ANNUAL_LEAVE_CODE)
+                @php($coverage = app(\App\Services\LeaveCoverageService::class)->preview($leavePlan->user, $leavePlan->getAttributes(), $leavePlan->id))
+                <div class="col-12">
+                    <div class="border rounded p-3 bg-body-tertiary">
+                        <div class="fw-semibold mb-2">Annual leave allocation</div>
+                        <div>{{ $coverage['selected'] }} days selected · {{ $coverage['approved'] }} approved under other requests · {{ $coverage['pending'] }} pending under other requests · {{ $coverage['additional'] }} days not covered elsewhere</div>
+                        @if($coverage['additional_dates_label'])
+                            <div class="small mt-2">Dates not covered elsewhere: {{ $coverage['additional_dates_label'] }}</div>
+                        @endif
+                        <div class="small text-muted mt-2">This request covers its entire selected period. Shared dates count once in the employee’s annual balance. This breakdown reflects current coverage, not a historical deduction.</div>
+                        @foreach($coverage['overlaps'] as $overlap)
+                            <div class="small mt-2">Request #{{ $overlap['id'] }} ({{ str_replace('_', ' ', $overlap['status']) }}): {{ $overlap['dates_label'] }}</div>
+                        @endforeach
+                        @if(in_array($leavePlan->status, [\App\Models\LeavePlan::STATUS_APPROVED, \App\Models\LeavePlan::STATUS_CANCELLATION_REQUESTED]))
+                            <div class="small mt-2">If cancellation is approved with current coverage unchanged, {{ $coverage['additional'] }} days will return to the annual leave balance. Dates covered by other requests will keep their own approval or pending status.</div>
+                        @endif
+                    </div>
+                </div>
+            @endif
             @if($leavePlan->attendance_code === \App\Services\LeaveEntitlementService::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE)
                 <div class="col-md-4">
                     <div class="meta-label">Bereavement relationship</div>

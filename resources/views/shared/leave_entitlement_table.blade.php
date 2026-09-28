@@ -38,7 +38,12 @@
                                     <div class="small text-muted">Base {{ $balance['formatted']['base_allowance'] }} + carry-over {{ $balance['formatted']['carry_over'] }}</div>
                                 @endif
                             </td>
-                            <td>{{ $balance['formatted']['used'] }} days</td>
+                            <td>
+                                {{ $balance['formatted']['used'] }} days
+                                @if(isset($balance['approved_days']))
+                                    <div class="small text-muted">{{ $balance['approved_days'] }} approved · {{ $balance['pending_days'] }} pending</div>
+                                @endif
+                            </td>
                             <td>
                                 <div>{{ $balance['formatted']['remaining'] }} days</div>
                                 <div class="small text-muted">{{ $balance['remaining_label'] ?? 'Remaining' }}</div>

@@ -20,6 +20,7 @@
         You need to be assigned to a department before creating or submitting a leave plan. Please contact Super Admin.
     </div>
 @endunless
+@include('shared.leave_balance_cards', ['leaveBalances' => $leaveBalances])
 <div class="content-card overflow-hidden">
     <div class="table-responsive">
         <table class="table table-hover mb-0">

@@ -8,22 +8,20 @@ use App\Models\LeavePlan;
 use App\Models\User;
 use App\Services\AuditLogService;
 use App\Services\HodExclusionService;
+use App\Services\LeaveEntitlementService;
 use App\Services\LeavePlanApprovalService;
-use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanCalendarService;
+use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanReviewCalendarService;
 use App\Services\LeavePlanStatusHistoryService;
-use App\Services\LeaveEntitlementService;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Http\Request;
-use Illuminate\Validation\Rule;
+use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 
 class HodLeavePlanController extends Controller
 {
-    public function __construct(private readonly HodExclusionService $hodExclusions)
-    {
-    }
+    public function __construct(private readonly HodExclusionService $hodExclusions) {}
 
     public function index()
     {
@@ -201,59 +199,63 @@ class HodLeavePlanController extends Controller
 
     public function approve(LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeApprovalAction($leavePlan, 'approve');
-        abort_unless($leavePlan->status === LeavePlan::STATUS_SUBMITTED, 422);
+        return DB::transaction(function () use ($leavePlan, $audit, $emails, $history) {
+            User::whereKey($leavePlan->user_id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            $this->authorizeApprovalAction($leavePlan, 'approve');
+            abort_unless($leavePlan->status === LeavePlan::STATUS_SUBMITTED, 422);
 
-        $old = $leavePlan->toArray();
-        $stage = $leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD;
-        $updates = [
-            'rejected_at' => null,
-            'rejected_by' => null,
-            'rejection_comment' => null,
-            'rejected_approval_stage' => null,
-        ];
-
-        if ($stage === LeavePlan::APPROVAL_STAGE_HOD) {
-            $updates += [
-                'approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
-                'hod_approved_at' => now(),
-                'hod_approved_by' => auth()->id(),
+            $old = $leavePlan->toArray();
+            $stage = $leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD;
+            $updates = [
+                'rejected_at' => null,
+                'rejected_by' => null,
+                'rejection_comment' => null,
+                'rejected_approval_stage' => null,
             ];
-        } elseif ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
-            $updates += [
-                'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
-                'director_approved_at' => now(),
-                'director_approved_by' => auth()->id(),
-            ];
-        } else {
-            $updates += [
-                'status' => LeavePlan::STATUS_APPROVED,
-                'approval_stage' => null,
-                'hr_approved_at' => now(),
-                'hr_approved_by' => auth()->id(),
-                'approved_at' => now(),
-                'approved_by' => auth()->id(),
-            ];
-        }
 
-        $leavePlan->update($updates);
-        $fresh = $leavePlan->fresh(['user', 'department']);
+            if ($stage === LeavePlan::APPROVAL_STAGE_HOD) {
+                $updates += [
+                    'approval_stage' => LeavePlan::APPROVAL_STAGE_DIRECTOR,
+                    'hod_approved_at' => now(),
+                    'hod_approved_by' => auth()->id(),
+                ];
+            } elseif ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
+                $updates += [
+                    'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+                    'director_approved_at' => now(),
+                    'director_approved_by' => auth()->id(),
+                ];
+            } else {
+                $updates += [
+                    'status' => LeavePlan::STATUS_APPROVED,
+                    'approval_stage' => null,
+                    'hr_approved_at' => now(),
+                    'hr_approved_by' => auth()->id(),
+                    'approved_at' => now(),
+                    'approved_by' => auth()->id(),
+                ];
+            }
 
-        $action = $fresh->status === LeavePlan::STATUS_APPROVED ? 'leave_plan_approved' : 'leave_plan_stage_approved';
-        $audit->record($action, $fresh, $old, $fresh->toArray());
-        $history->record($action, $fresh, $old, $fresh->toArray());
+            $leavePlan->update($updates);
+            $fresh = $leavePlan->fresh(['user', 'department']);
 
-        if ($fresh->status === LeavePlan::STATUS_APPROVED) {
-            $this->removeOneShotStatutoryEligibilityAfterApproval($fresh, $audit);
-            $this->removeOneShotBereavementEligibilityAfterApproval($fresh, $audit);
-            $emails->approved($fresh);
-        } else {
-            $emails->stagePending($fresh);
-        }
+            $action = $fresh->status === LeavePlan::STATUS_APPROVED ? 'leave_plan_approved' : 'leave_plan_stage_approved';
+            $audit->record($action, $fresh, $old, $fresh->toArray());
+            $history->record($action, $fresh, $old, $fresh->toArray());
 
-        return $this->reviewActionRedirect(
-            $fresh->status === LeavePlan::STATUS_APPROVED ? 'Leave plan approved.' : 'Leave plan moved to '.$fresh->approvalStageLabel().' review.'
-        );
+            if ($fresh->status === LeavePlan::STATUS_APPROVED) {
+                $this->removeOneShotStatutoryEligibilityAfterApproval($fresh, $audit);
+                $this->removeOneShotBereavementEligibilityAfterApproval($fresh, $audit);
+                $emails->approved($fresh);
+            } else {
+                $emails->stagePending($fresh);
+            }
+
+            return $this->reviewActionRedirect(
+                $fresh->status === LeavePlan::STATUS_APPROVED ? 'Leave plan approved.' : 'Leave plan moved to '.$fresh->approvalStageLabel().' review.'
+            );
+        });
     }
 
     private function removeOneShotStatutoryEligibilityAfterApproval(LeavePlan $leavePlan, AuditLogService $audit): void
@@ -294,147 +296,167 @@ class HodLeavePlanController extends Controller
 
     public function reject(RejectLeavePlanRequest $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeApprovalAction($leavePlan, 'reject');
-        abort_unless($leavePlan->status === LeavePlan::STATUS_SUBMITTED, 422);
+        return DB::transaction(function () use ($request, $leavePlan, $audit, $emails, $history) {
+            User::whereKey($leavePlan->user_id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            $this->authorizeApprovalAction($leavePlan, 'reject');
+            abort_unless($leavePlan->status === LeavePlan::STATUS_SUBMITTED, 422);
 
-        $old = $leavePlan->toArray();
-        $stage = $leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD;
-        $leavePlan->update([
-            'status' => LeavePlan::STATUS_REJECTED,
-            'approval_stage' => null,
-            'rejected_at' => now(),
-            'rejected_by' => $request->user()->id,
-            'rejection_comment' => $request->rejection_comment,
-            'rejected_approval_stage' => $stage,
-            'approved_at' => null,
-            'approved_by' => null,
-        ]);
+            $old = $leavePlan->toArray();
+            $stage = $leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD;
+            $leavePlan->update([
+                'status' => LeavePlan::STATUS_REJECTED,
+                'approval_stage' => null,
+                'rejected_at' => now(),
+                'rejected_by' => $request->user()->id,
+                'rejection_comment' => $request->rejection_comment,
+                'rejected_approval_stage' => $stage,
+                'approved_at' => null,
+                'approved_by' => null,
+            ]);
 
-        $new = $leavePlan->fresh()->toArray();
-        $audit->record('leave_plan_rejected', $leavePlan, $old, $new);
-        $history->record('leave_plan_rejected', $leavePlan, $old, $new);
-        $emails->rejected($leavePlan);
+            $new = $leavePlan->fresh()->toArray();
+            $audit->record('leave_plan_rejected', $leavePlan, $old, $new);
+            $history->record('leave_plan_rejected', $leavePlan, $old, $new);
+            $emails->rejected($leavePlan);
 
-        return $this->reviewActionRedirect('Leave plan rejected.');
+            return $this->reviewActionRedirect('Leave plan rejected.');
+        });
     }
 
     public function approveCancellation(LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeApprovalAction($leavePlan, 'approve cancellation for', $this->cancellationIsStaged($leavePlan));
-        abort_unless($leavePlan->status === LeavePlan::STATUS_CANCELLATION_REQUESTED, 422);
+        return DB::transaction(function () use ($leavePlan, $audit, $emails, $history) {
+            User::whereKey($leavePlan->user_id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            $this->authorizeApprovalAction($leavePlan, 'approve cancellation for', $this->cancellationIsStaged($leavePlan));
+            abort_unless($leavePlan->status === LeavePlan::STATUS_CANCELLATION_REQUESTED, 422);
 
-        $old = $leavePlan->toArray();
-        $stage = $leavePlan->approval_stage;
-        $updates = [
-            'cancellation_rejection_comment' => null,
-            'rejected_approval_stage' => null,
-        ];
-
-        if ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
-            $updates += [
-                'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+            $old = $leavePlan->toArray();
+            $stage = $leavePlan->approval_stage;
+            $updates = [
+                'cancellation_rejection_comment' => null,
+                'rejected_approval_stage' => null,
             ];
-        } else {
-            $updates += [
-                'status' => LeavePlan::STATUS_CANCELLED,
-                'approval_stage' => null,
-                'cancelled_at' => now(),
-                'cancelled_by' => auth()->id(),
-            ];
-        }
 
-        $leavePlan->update($updates);
+            if ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
+                $updates += [
+                    'approval_stage' => LeavePlan::APPROVAL_STAGE_HR,
+                ];
+            } else {
+                $updates += [
+                    'status' => LeavePlan::STATUS_CANCELLED,
+                    'approval_stage' => null,
+                    'cancelled_at' => now(),
+                    'cancelled_by' => auth()->id(),
+                ];
+            }
 
-        $new = $leavePlan->fresh()->toArray();
-        $action = ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) ? 'leave_plan_stage_approved' : 'leave_plan_cancellation_approved';
-        $audit->record($action, $leavePlan, $old, $new);
-        $history->record($action, $leavePlan, $old, $new);
+            $leavePlan->update($updates);
 
-        if ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
-            $emails->cancellationStagePending($leavePlan);
-        } else {
-            $emails->cancellationApproved($leavePlan);
-        }
+            $new = $leavePlan->fresh()->toArray();
+            $action = ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) ? 'leave_plan_stage_approved' : 'leave_plan_cancellation_approved';
+            $audit->record($action, $leavePlan, $old, $new);
+            $history->record($action, $leavePlan, $old, $new);
 
-        return $this->reviewActionRedirect(
-            $stage === LeavePlan::APPROVAL_STAGE_DIRECTOR ? 'Leave plan cancellation moved to '.$leavePlan->fresh()->approvalStageLabel().' review.' : 'Leave plan cancellation approved.'
-        );
+            if ($stage === LeavePlan::APPROVAL_STAGE_DIRECTOR) {
+                $emails->cancellationStagePending($leavePlan);
+            } else {
+                $emails->cancellationApproved($leavePlan);
+            }
+
+            return $this->reviewActionRedirect(
+                $stage === LeavePlan::APPROVAL_STAGE_DIRECTOR ? 'Leave plan cancellation moved to '.$leavePlan->fresh()->approvalStageLabel().' review.' : 'Leave plan cancellation approved.'
+            );
+        });
     }
 
     public function rejectCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeApprovalAction($leavePlan, 'reject cancellation for', $this->cancellationIsStaged($leavePlan));
-        abort_unless($leavePlan->status === LeavePlan::STATUS_CANCELLATION_REQUESTED, 422);
+        return DB::transaction(function () use ($request, $leavePlan, $audit, $emails, $history) {
+            User::whereKey($leavePlan->user_id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            $this->authorizeApprovalAction($leavePlan, 'reject cancellation for', $this->cancellationIsStaged($leavePlan));
+            abort_unless($leavePlan->status === LeavePlan::STATUS_CANCELLATION_REQUESTED, 422);
 
-        $validated = $request->validate([
-            'cancellation_rejection_comment' => ['required', 'string', 'min:3', 'max:2000'],
-        ]);
+            $validated = $request->validate([
+                'cancellation_rejection_comment' => ['required', 'string', 'min:3', 'max:2000'],
+            ]);
 
-        $old = $leavePlan->toArray();
-        $stage = $leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD;
-        $leavePlan->update([
-            'status' => LeavePlan::STATUS_APPROVED,
-            'approval_stage' => null,
-            'cancellation_rejection_comment' => $validated['cancellation_rejection_comment'],
-            'rejected_approval_stage' => $stage,
-        ]);
+            $old = $leavePlan->toArray();
+            $stage = $leavePlan->approval_stage ?: LeavePlan::APPROVAL_STAGE_HOD;
+            $leavePlan->update([
+                'status' => LeavePlan::STATUS_APPROVED,
+                'approval_stage' => null,
+                'cancellation_rejection_comment' => $validated['cancellation_rejection_comment'],
+                'rejected_approval_stage' => $stage,
+            ]);
 
-        $new = $leavePlan->fresh()->toArray();
-        $audit->record('leave_plan_cancellation_rejected', $leavePlan, $old, $new);
-        $history->record('leave_plan_cancellation_rejected', $leavePlan, $old, $new);
-        $emails->cancellationRejected($leavePlan);
+            $new = $leavePlan->fresh()->toArray();
+            $audit->record('leave_plan_cancellation_rejected', $leavePlan, $old, $new);
+            $history->record('leave_plan_cancellation_rejected', $leavePlan, $old, $new);
+            $emails->cancellationRejected($leavePlan);
 
-        return $this->reviewActionRedirect('Leave plan cancellation rejected.');
+            return $this->reviewActionRedirect('Leave plan cancellation rejected.');
+        });
     }
 
     public function recallApproved(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeApprovalAction($leavePlan, 'recall', false);
-        abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 422, 'Only approved leave plans can be recalled.');
+        return DB::transaction(function () use ($request, $leavePlan, $audit, $emails, $history) {
+            User::whereKey($leavePlan->user_id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            $this->authorizeApprovalAction($leavePlan, 'recall', false);
+            abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 422, 'Only approved leave plans can be recalled.');
 
-        $validated = $request->validate([
-            'recall_reason' => ['required', 'string', 'min:5', 'max:2000'],
-        ]);
+            $validated = $request->validate([
+                'recall_reason' => ['required', 'string', 'min:5', 'max:2000'],
+            ]);
 
-        $old = $leavePlan->toArray();
-        $leavePlan->update([
-            'status' => LeavePlan::STATUS_RECALLED,
-            'recalled_at' => now(),
-            'recalled_by' => $request->user()->id,
-            'recall_reason' => $validated['recall_reason'],
-        ]);
+            $old = $leavePlan->toArray();
+            $leavePlan->update([
+                'status' => LeavePlan::STATUS_RECALLED,
+                'recalled_at' => now(),
+                'recalled_by' => $request->user()->id,
+                'recall_reason' => $validated['recall_reason'],
+            ]);
 
-        $new = $leavePlan->fresh()->toArray();
-        $audit->record('leave_plan_approved_recalled', $leavePlan, $old, $new);
-        $history->record('leave_plan_approved_recalled', $leavePlan, $old, $new);
-        $emails->recalled($leavePlan);
+            $new = $leavePlan->fresh()->toArray();
+            $audit->record('leave_plan_approved_recalled', $leavePlan, $old, $new);
+            $history->record('leave_plan_approved_recalled', $leavePlan, $old, $new);
+            $emails->recalled($leavePlan);
 
-        return back()->with('success', 'Approved leave plan recalled. The employee can now correct and resubmit it.');
+            return back()->with('success', 'Approved leave plan recalled. The employee can now correct and resubmit it.');
+        });
     }
 
     public function voidApproved(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanStatusHistoryService $history)
     {
-        abort_unless($request->user()?->role === 'super_admin', 403);
-        $this->authorizeApprovalAction($leavePlan, 'void', false);
-        abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 422, 'Only approved leave plans can be voided.');
+        return DB::transaction(function () use ($request, $leavePlan, $audit, $history) {
+            User::whereKey($leavePlan->user_id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            abort_unless($request->user()?->role === 'super_admin', 403);
+            $this->authorizeApprovalAction($leavePlan, 'void', false);
+            abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 422, 'Only approved leave plans can be voided.');
 
-        $validated = $request->validate([
-            'void_reason' => ['required', 'string', 'min:5', 'max:2000'],
-        ]);
+            $validated = $request->validate([
+                'void_reason' => ['required', 'string', 'min:5', 'max:2000'],
+            ]);
 
-        $old = $leavePlan->toArray();
-        $leavePlan->update([
-            'status' => LeavePlan::STATUS_VOIDED,
-            'voided_at' => now(),
-            'voided_by' => $request->user()->id,
-            'void_reason' => $validated['void_reason'],
-        ]);
+            $old = $leavePlan->toArray();
+            $leavePlan->update([
+                'status' => LeavePlan::STATUS_VOIDED,
+                'voided_at' => now(),
+                'voided_by' => $request->user()->id,
+                'void_reason' => $validated['void_reason'],
+            ]);
 
-        $new = $leavePlan->fresh()->toArray();
-        $audit->record('leave_plan_voided', $leavePlan, $old, $new);
-        $history->record('leave_plan_voided', $leavePlan, $old, $new);
+            $new = $leavePlan->fresh()->toArray();
+            $audit->record('leave_plan_voided', $leavePlan, $old, $new);
+            $history->record('leave_plan_voided', $leavePlan, $old, $new);
 
-        return back()->with('success', 'Approved leave plan voided. The record is retained for audit history.');
+            return back()->with('success', 'Approved leave plan voided. The record is retained for audit history.');
+        });
     }
 
     private function scope($query, ?int $selectedDepartmentId = null)

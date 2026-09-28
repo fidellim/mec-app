@@ -41,23 +41,37 @@
                                             <div class="leave-balance-note mt-1">Base {{ $balance['formatted']['base_allowance'] }} + carry-over {{ $balance['formatted']['carry_over'] }}</div>
                                         @endif
                                     </div>
+                                    @if(isset($balance['approved_days']))
+                                        <div class="leave-balance-metric">
+                                            <div class="leave-balance-metric-label">Approved</div>
+                                            <div class="leave-balance-metric-value">{{ app(\App\Services\LeaveEntitlementService::class)->formatDays($balance['approved_days']) }} {{ \Illuminate\Support\Str::plural('day', $balance['approved_days']) }}</div>
+                                        </div>
+                                        <div class="leave-balance-metric">
+                                            <div class="leave-balance-metric-label">Pending</div>
+                                            <div class="leave-balance-metric-value">{{ app(\App\Services\LeaveEntitlementService::class)->formatDays($balance['pending_days']) }} {{ \Illuminate\Support\Str::plural('day', $balance['pending_days']) }}</div>
+                                        </div>
+                                    @else
                                     <div class="leave-balance-metric">
                                         <div class="leave-balance-metric-label">Used</div>
                                         <div class="leave-balance-metric-value">{{ $balance['formatted']['used'] }} days</div>
                                     </div>
+                                    @endif
                                 </div>
                             </div>
 
                             <div class="leave-balance-track-group">
                                 <div class="leave-balance-track-labels">
-                                    <span>{{ number_format($usedPercent, 0) }}% used</span>
+                                    <span>{{ number_format($usedPercent, 0) }}% {{ isset($balance['approved_days']) ? 'allocated' : 'used' }}</span>
                                     <span>{{ number_format($remainingPercent, 0) }}% remaining</span>
                                 </div>
-                                <div class="leave-balance-progress" role="img" aria-label="{{ $balance['formatted']['used'] }} of {{ $balance['formatted']['allowance'] }} days used">
+                                <div class="leave-balance-progress" role="img" aria-label="{{ $balance['formatted']['used'] }} of {{ $balance['formatted']['allowance'] }} days {{ isset($balance['approved_days']) ? 'allocated' : 'used' }}">
                                     <span style="width: {{ $usedPercent }}%;"></span>
                                 </div>
                             </div>
 
+                            @if(isset($balance['approved_days']))
+                                <div class="leave-balance-note">Available balance subtracts approved and pending days. Overlapping half-days count once. Leave awaiting cancellation remains approved.</div>
+                            @endif
                             @if(! empty($balance['description']))
                                 <div class="leave-balance-note">{{ $balance['description'] }}</div>
                             @endif

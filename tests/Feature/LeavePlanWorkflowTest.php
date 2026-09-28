@@ -11,6 +11,7 @@ use App\Models\LeavePlanApproverSetting;
 use App\Models\LeavePlanStatusHistory;
 use App\Models\LeaveSetting;
 use App\Models\User;
+use App\Services\LeaveEntitlementService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Mail;
@@ -2131,7 +2132,7 @@ class LeavePlanWorkflowTest extends TestCase
             ]))
             ->assertSessionHasErrors('attendance_code');
 
-        $elevenMonthBalance = app(\App\Services\LeaveEntitlementService::class)
+        $elevenMonthBalance = app(LeaveEntitlementService::class)
             ->balanceFor($elevenMonthEmployee, 2026, null, 'L100', '2026-10-01');
 
         $this->assertSame(22.0, $elevenMonthBalance['claimable_allowance']);
@@ -2197,7 +2198,7 @@ class LeavePlanWorkflowTest extends TestCase
             'joining_date' => '2025-01-15',
         ]);
 
-        $violations = app(\App\Services\LeaveEntitlementService::class)->submissionViolations($employee, [
+        $violations = app(LeaveEntitlementService::class)->submissionViolations($employee, [
             'attendance_code' => 'L100',
             'start_date' => '2025-12-29',
             'end_date' => '2026-02-06',
@@ -3121,7 +3122,7 @@ class LeavePlanWorkflowTest extends TestCase
         ]);
     }
 
-    public function test_leave_plan_validation_and_overlap_warning(): void
+    public function test_leave_plan_validation_and_duplicate_annual_leave_prevention(): void
     {
         $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
         LeavePlan::factory()->create([
@@ -3173,9 +3174,9 @@ class LeavePlanWorkflowTest extends TestCase
 
         $this->actingAs($employee)
             ->post(route('employee.leave-plans.store'), $this->validLeavePlanPayload(['submit' => '1']))
-            ->assertSessionHas('warning');
+            ->assertSessionHasErrors('attendance_code');
 
-        $this->assertSame(3, LeavePlan::where('user_id', $employee->id)->count());
+        $this->assertSame(2, LeavePlan::where('user_id', $employee->id)->count());
     }
 
     public function test_duration_counts_include_counted_leave_days_only(): void

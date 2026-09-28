@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\LeavePlan;
+use App\Services\LeaveCoverageService;
 use App\Services\LeaveEntitlementService;
 use Carbon\Carbon;
 use Illuminate\Foundation\Http\FormRequest;
@@ -57,6 +58,13 @@ class LeavePlanSaveRequest extends FormRequest
             }
 
             $leavePlan = $this->route('leavePlan');
+            $coverage = app(LeaveCoverageService::class)->preview($this->user(), $this->only([
+                'attendance_code', 'start_date', 'end_date', 'duration_type', 'half_day_period',
+            ]), $leavePlan?->id);
+            foreach ($coverage['errors'] as $message) {
+                $validator->errors()->add('attendance_code', $message);
+            }
+
             if ($attendanceCode === LeaveEntitlementService::BEREAVEMENT_COMPASSIONATE_LEAVE_CODE
                 && $entitlements->regionFor($this->user()) === 'uae'
                 && ! $this->filled('bereavement_relationship')) {

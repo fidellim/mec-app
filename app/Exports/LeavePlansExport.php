@@ -21,9 +21,7 @@ class LeavePlansExport implements FromQuery, ShouldAutoSize, WithHeadings, WithM
 
     private const MAX_CELL_LENGTH = 32000;
 
-    public function __construct(private readonly Builder $query)
-    {
-    }
+    public function __construct(private readonly Builder $query) {}
 
     public function query(): Builder
     {
@@ -48,7 +46,7 @@ class LeavePlansExport implements FromQuery, ShouldAutoSize, WithHeadings, WithM
             'End Date',
             'Duration Type',
             'Half Day Period',
-            'Counted Leave Days',
+            'Request Days (overlapping requests are not additive)',
             'Status',
             'Approval Stage / Progress',
             'Submitted At',

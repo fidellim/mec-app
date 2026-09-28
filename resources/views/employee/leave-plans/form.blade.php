@@ -87,6 +87,14 @@
                     <div class="form-text">UAE bereavement requires HR eligibility approval and is tracked by relationship for the calendar year.</div>
                     @error('bereavement_relationship')<div class="invalid-feedback">{{ $message }}</div>@enderror
                 </div>
+                <div class="col-12 d-none" data-coverage-preview role="status" aria-live="polite">
+                    <div class="border rounded p-3 bg-body-tertiary">
+                        <div class="fw-semibold mb-1">Annual leave allocation</div>
+                        <div data-coverage-summary></div>
+                        <div class="small text-muted mt-2" data-coverage-context></div>
+                        <div class="small mt-2" data-coverage-requests></div>
+                    </div>
+                </div>
                 <div class="col-12">
                     <label class="form-label" for="reason">Reason <span class="text-muted fw-normal">(optional)</span></label>
                     <textarea id="reason" class="form-control @error('reason') is-invalid @enderror" name="reason" rows="4" placeholder="Add context for your HOD.">{{ old('reason', $leavePlan?->reason) }}</textarea>
@@ -101,11 +109,13 @@
         </div>
     </div>
 </form>
+<div data-leave-balances>
 @include('shared.leave_balance_cards', [
     'leaveBalances' => $leaveBalances,
     'class' => 'mt-3 mb-4',
     'description' => $leaveBalanceDescription,
 ])
+</div>
 @if(! empty($availabilityCalendar))
     <div class="mt-3" data-availability-calendar-shell>
         @include('shared.leave_plan_calendar', array_merge($availabilityCalendar, [
@@ -131,6 +141,52 @@
     const availabilityCalendarShell = document.querySelector('[data-availability-calendar-shell]');
     const supportingDocumentNotes = @json($supportingDocumentNotes);
     let availabilityCalendarChangeTimer = null;
+
+    const coveragePanel = document.querySelector('[data-coverage-preview]');
+    let coverageSequence = 0;
+    let coverageTimer;
+    const previewCoverage = async () => {
+        const sequence = ++coverageSequence;
+        const valid = attendanceCode.value === 'L100' && startDate.value && endDate.value && endDate.value >= startDate.value
+            && (durationType.value !== 'half_day' || halfDayPeriod.value);
+        coveragePanel.classList.toggle('d-none', !valid);
+        if (!valid) return;
+        const summary = coveragePanel.querySelector('[data-coverage-summary]');
+        const context = coveragePanel.querySelector('[data-coverage-context]');
+        const requests = coveragePanel.querySelector('[data-coverage-requests]');
+        summary.textContent = 'Checking annual leave allocation…';
+        context.textContent = '';
+        requests.replaceChildren();
+        const url = new URL(window.location.href);
+        url.search = new URLSearchParams({coverage_preview: '1', attendance_code: attendanceCode.value,
+            start_date: startDate.value, end_date: endDate.value, duration_type: durationType.value,
+            half_day_period: halfDayPeriod.value});
+        try {
+            const response = await fetch(url, {headers: {Accept: 'application/json'}, credentials: 'same-origin'});
+            if (!response.ok) throw new Error('Preview unavailable');
+            const data = await response.json();
+            if (sequence !== coverageSequence) return;
+            const c = data.coverage;
+            summary.textContent = `${c.selected} ${c.selected === 1 ? 'day' : 'days'} selected · ${c.approved} already approved · ${c.pending} already pending · ${c.additional} additional ${c.additional === 1 ? 'day' : 'days'} required`;
+            context.textContent = c.errors.length ? c.errors.join(' ') : 'The full selected period follows its own approval process. Shared dates count only once. Allocation is checked again when you submit.';
+            c.overlaps.forEach(overlap => {
+                const link = document.createElement('a');
+                link.className = 'd-block';
+                link.href = @json(route('employee.leave-plans.index')) + '/' + overlap.id;
+                link.textContent = `Request #${overlap.id} (${overlap.status.replaceAll('_', ' ')}): ` + overlap.dates_label;
+                requests.append(link);
+            });
+            document.querySelector('[data-leave-balances]').innerHTML = data.balances_html;
+        } catch (error) {
+            if (sequence === coverageSequence) summary.textContent = 'Allocation preview is unavailable. Your dates and balance will be checked when you submit.';
+        }
+    };
+    [startDate, endDate, durationType, halfDayPeriod, attendanceCode].forEach(input => input.addEventListener('change', () => {
+        ++coverageSequence;
+        clearTimeout(coverageTimer);
+        coverageTimer = setTimeout(previewCoverage, 200);
+    }));
+    window.addEventListener('pageshow', previewCoverage);
 
     const getAvailabilityCalendar = () => availabilityCalendarShell?.querySelector('[data-leave-plan-availability-calendar]');
 

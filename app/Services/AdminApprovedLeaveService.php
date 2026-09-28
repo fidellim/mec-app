@@ -9,6 +9,7 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class AdminApprovedLeaveService
 {
@@ -31,8 +32,7 @@ class AdminApprovedLeaveService
         private readonly AuditLogService $audit,
         private readonly LeaveEntitlementService $entitlements,
         private readonly LeavePlanStatusHistoryService $history,
-    ) {
-    }
+    ) {}
 
     public function csvHeaders(): array
     {
@@ -155,6 +155,11 @@ class AdminApprovedLeaveService
     public function createApprovedLeave(array $attributes, User $employee): LeavePlan
     {
         return DB::transaction(function () use ($attributes, $employee) {
+            User::whereKey($employee->id)->lockForUpdate()->firstOrFail();
+            $result = $this->validateRow(array_merge($attributes, ['employee_code' => $employee->employee_code]));
+            if (! $result['valid']) {
+                throw ValidationException::withMessages(['admin_approved_leave' => $result['errors']]);
+            }
             $approvedAt = Carbon::parse($attributes['approved_at']);
 
             $leavePlan = LeavePlan::create([
@@ -186,6 +191,9 @@ class AdminApprovedLeaveService
     public function importApprovedLeaves(array $rows): array
     {
         return DB::transaction(function () use ($rows) {
+            // Take all employee locks before validation establishes a database snapshot.
+            User::whereIn('employee_code', array_column($rows, 'employee_code'))
+                ->orderBy('id')->lockForUpdate()->get();
             $created = [];
 
             foreach ($rows as $row) {
@@ -283,8 +291,12 @@ class AdminApprovedLeaveService
         }
 
         $submissionAttributes = $this->submissionAttributes($normalized);
+        $coverageService = app(LeaveCoverageService::class);
+        $coveragePlans = $coverageService->plans($employee)->concat(($pendingLeavePlans ?? collect())->filter(fn ($plan) => (int) $plan->user_id === (int) $employee->id));
+        $coverage = $coverageService->preview($employee, $submissionAttributes, plans: $coveragePlans);
+        $errors = array_merge($errors, $coverage['errors']);
 
-        foreach ($this->entitlements->submissionViolations($employee, $submissionAttributes) as $violation) {
+        foreach ($this->entitlements->submissionViolations($employee, $submissionAttributes, coveragePlans: $coveragePlans) as $violation) {
             $policyErrors[] = $this->entitlements->violationMessage($violation);
         }
 
@@ -292,11 +304,11 @@ class AdminApprovedLeaveService
             $errors[] = $this->entitlements->bereavementViolationMessage($violation);
         }
 
-        if ($this->overlapsExistingLeave($employee, $normalized)) {
+        if ($normalized['attendance_code'] !== LeaveEntitlementService::ANNUAL_LEAVE_CODE && $this->overlapsExistingLeave($employee, $normalized)) {
             $errors[] = 'This leave overlaps an existing active leave plan for the same employee.';
         }
 
-        if ($pendingLeavePlans && $this->overlapsPendingLeave($employee, $normalized, $pendingLeavePlans)) {
+        if ($normalized['attendance_code'] !== LeaveEntitlementService::ANNUAL_LEAVE_CODE && $pendingLeavePlans && $this->overlapsPendingLeave($employee, $normalized, $pendingLeavePlans)) {
             $errors[] = 'This leave overlaps another row in the uploaded CSV for the same employee.';
         }
 
@@ -356,7 +368,7 @@ class AdminApprovedLeaveService
     private function overlapsExistingLeave(User $employee, array $normalized): bool
     {
         $candidate = $this->makeUnsavedLeavePlan($normalized, $employee);
-        $candidateDates = $this->entitlements->countedLeaveDatesForPlan($candidate);
+        $candidateDates = app(LeaveCoverageService::class)->slots($candidate);
 
         if ($candidateDates->isEmpty()) {
             return false;
@@ -368,8 +380,8 @@ class AdminApprovedLeaveService
             ->whereDate('start_date', '<=', $normalized['end_date'])
             ->whereDate('end_date', '>=', $normalized['start_date'])
             ->get()
-            ->contains(fn (LeavePlan $leavePlan) => $this->entitlements
-                ->countedLeaveDatesForPlan($leavePlan)
+            ->contains(fn (LeavePlan $leavePlan) => app(LeaveCoverageService::class)
+                ->slots($leavePlan)
                 ->intersect($candidateDates)
                 ->isNotEmpty());
     }
@@ -377,7 +389,7 @@ class AdminApprovedLeaveService
     private function overlapsPendingLeave(User $employee, array $normalized, Collection $pendingLeavePlans): bool
     {
         $candidate = $this->makeUnsavedLeavePlan($normalized, $employee);
-        $candidateDates = $this->entitlements->countedLeaveDatesForPlan($candidate);
+        $candidateDates = app(LeaveCoverageService::class)->slots($candidate);
 
         if ($candidateDates->isEmpty()) {
             return false;
@@ -385,8 +397,8 @@ class AdminApprovedLeaveService
 
         return $pendingLeavePlans
             ->filter(fn (LeavePlan $leavePlan) => (int) $leavePlan->user_id === (int) $employee->id)
-            ->contains(fn (LeavePlan $leavePlan) => $this->entitlements
-                ->countedLeaveDatesForPlan($leavePlan)
+            ->contains(fn (LeavePlan $leavePlan) => app(LeaveCoverageService::class)
+                ->slots($leavePlan)
                 ->intersect($candidateDates)
                 ->isNotEmpty());
     }

@@ -4,26 +4,32 @@ namespace App\Http\Controllers;
 
 use App\Http\Requests\LeavePlanSaveRequest;
 use App\Models\LeavePlan;
+use App\Models\User;
 use App\Services\AuditLogService;
-use App\Services\LeavePlanEmailNotificationService;
-use App\Services\LeavePlanCalendarService;
+use App\Services\LeaveCoverageService;
 use App\Services\LeaveEntitlementService;
 use App\Services\LeavePlanApprovalService;
+use App\Services\LeavePlanCalendarService;
+use App\Services\LeavePlanEmailNotificationService;
 use App\Services\LeavePlanStatusHistoryService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class EmployeeLeavePlanController extends Controller
 {
-    public function index()
+    public function index(Request $request, LeaveEntitlementService $entitlements)
     {
         $leavePlans = LeavePlan::with('department')
             ->where('user_id', auth()->id())
             ->latest()
             ->paginate(15);
 
-        return view('employee.leave-plans.index', compact('leavePlans'));
+        return view('employee.leave-plans.index', [
+            'leavePlans' => $leavePlans,
+            'leaveBalances' => $this->leaveBalances($request, $entitlements),
+        ]);
     }
 
     public function calendar(Request $request, LeavePlanCalendarService $calendar)
@@ -64,6 +70,10 @@ class EmployeeLeavePlanController extends Controller
             return $redirect;
         }
 
+        if ($request->query('coverage_preview') === '1') {
+            return $this->coveragePreview($request, null);
+        }
+
         if ($this->wantsAvailabilityCalendarFragment($request)) {
             return $this->availabilityCalendarFragment($request, $calendar);
         }
@@ -87,6 +97,10 @@ class EmployeeLeavePlanController extends Controller
         $submit = $request->boolean('submit');
 
         $leavePlan = DB::transaction(function () use ($request, $user, $submit, $audit, $approvals, $history) {
+            User::whereKey($user->id)->lockForUpdate()->firstOrFail();
+            if ($submit) {
+                $this->validateCoverageSubmission($request);
+            }
             $leavePlan = LeavePlan::create(array_merge($this->attributes($request), [
                 'user_id' => $user->id,
                 'department_id' => $user->department_id,
@@ -137,6 +151,10 @@ class EmployeeLeavePlanController extends Controller
         $this->authorizeOwner($leavePlan);
         abort_unless($leavePlan->editableBy(auth()->user()), 403);
 
+        if ($request->query('coverage_preview') === '1') {
+            return $this->coveragePreview($request, $leavePlan);
+        }
+
         if ($this->wantsAvailabilityCalendarFragment($request)) {
             return $this->availabilityCalendarFragment($request, $calendar, $leavePlan);
         }
@@ -165,6 +183,12 @@ class EmployeeLeavePlanController extends Controller
         $wasRecalled = $leavePlan->status === LeavePlan::STATUS_RECALLED;
 
         DB::transaction(function () use ($request, $leavePlan, $submit, $audit, $approvals, $history, $old, $wasRejected, $wasRecalled) {
+            User::whereKey($request->user()->id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            abort_unless($leavePlan->editableBy($request->user()), 403);
+            if ($submit) {
+                $this->validateCoverageSubmission($request, $leavePlan);
+            }
             $leavePlan->update(array_merge($this->attributes($request), [
                 'department_id' => $request->user()->department_id,
                 'status' => $submit ? LeavePlan::STATUS_SUBMITTED : LeavePlan::STATUS_DRAFT,
@@ -209,28 +233,32 @@ class EmployeeLeavePlanController extends Controller
 
     public function requestCancellation(Request $request, LeavePlan $leavePlan, AuditLogService $audit, LeavePlanEmailNotificationService $emails, LeavePlanApprovalService $approvals, LeavePlanStatusHistoryService $history)
     {
-        $this->authorizeOwner($leavePlan);
-        abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 403, 'Only approved leave plans can request cancellation.');
+        return DB::transaction(function () use ($request, $leavePlan, $audit, $emails, $approvals, $history) {
+            User::whereKey($leavePlan->user_id)->lockForUpdate()->firstOrFail();
+            $leavePlan->refresh();
+            $this->authorizeOwner($leavePlan);
+            abort_unless($leavePlan->status === LeavePlan::STATUS_APPROVED, 403, 'Only approved leave plans can request cancellation.');
 
-        $validated = $request->validate([
-            'cancellation_reason' => ['required', 'string', 'min:3', 'max:2000'],
-        ]);
+            $validated = $request->validate([
+                'cancellation_reason' => ['required', 'string', 'min:3', 'max:2000'],
+            ]);
 
-        $old = $leavePlan->toArray();
-        $leavePlan->update([
-            'status' => LeavePlan::STATUS_CANCELLATION_REQUESTED,
-            'approval_stage' => $request->user()->role === 'hod' ? $approvals->initialApprovalStageFor($request->user()) : null,
-            'cancellation_requested_at' => now(),
-            'cancellation_reason' => $validated['cancellation_reason'],
-            'cancellation_rejection_comment' => null,
-        ]);
+            $old = $leavePlan->toArray();
+            $leavePlan->update([
+                'status' => LeavePlan::STATUS_CANCELLATION_REQUESTED,
+                'approval_stage' => $request->user()->role === 'hod' ? $approvals->initialApprovalStageFor($request->user()) : null,
+                'cancellation_requested_at' => now(),
+                'cancellation_reason' => $validated['cancellation_reason'],
+                'cancellation_rejection_comment' => null,
+            ]);
 
-        $new = $leavePlan->fresh()->toArray();
-        $audit->record('leave_plan_cancellation_requested', $leavePlan, $old, $new);
-        $history->record('leave_plan_cancellation_requested', $leavePlan, $old, $new);
-        $emails->cancellationRequested($leavePlan);
+            $new = $leavePlan->fresh()->toArray();
+            $audit->record('leave_plan_cancellation_requested', $leavePlan, $old, $new);
+            $history->record('leave_plan_cancellation_requested', $leavePlan, $old, $new);
+            $emails->cancellationRequested($leavePlan);
 
-        return back()->with('success', 'Cancellation request sent for approval.');
+            return back()->with('success', 'Cancellation request sent for approval.');
+        });
     }
 
     public function destroy(LeavePlan $leavePlan)
@@ -325,8 +353,55 @@ class EmployeeLeavePlanController extends Controller
         }
     }
 
+    private function coveragePreview(Request $request, ?LeavePlan $leavePlan)
+    {
+        $attributes = $request->validate([
+            'attendance_code' => ['required', 'in:L100'],
+            'start_date' => ['required', 'date_format:Y-m-d'],
+            'end_date' => ['required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+            'duration_type' => ['required', 'in:full_day,half_day'],
+            'half_day_period' => ['nullable', 'required_if:duration_type,half_day', 'in:morning,afternoon'],
+        ]);
+        if ($attributes['duration_type'] === 'half_day' && $attributes['start_date'] !== $attributes['end_date']) {
+            throw ValidationException::withMessages(['end_date' => 'Half-day leave must use the same start and end date.']);
+        }
+        $coverage = app(LeaveCoverageService::class)->preview($request->user(), $attributes, $leavePlan?->id);
+        $entitlements = app(LeaveEntitlementService::class);
+        $balances = [];
+        foreach (range((int) substr($attributes['start_date'], 0, 4), (int) substr($attributes['end_date'], 0, 4)) as $year) {
+            $balances = array_merge($balances, array_values($entitlements->visibleBalancesFor(
+                $request->user(), $year, $leavePlan?->id, $year === (int) substr($attributes['start_date'], 0, 4) ? $attributes['start_date'] : $year.'-01-01', $request->user()
+            )));
+        }
+
+        return response()->json([
+            'coverage' => $coverage,
+            'balances_html' => view('shared.leave_balance_cards', [
+                'leaveBalances' => $balances,
+                'description' => 'Balances for the selected calendar year(s). Available annual leave subtracts approved and pending days.',
+            ])->render(),
+        ]);
+    }
+
+    private function validateCoverageSubmission(LeavePlanSaveRequest $request, ?LeavePlan $leavePlan = null): void
+    {
+        $attributes = $this->attributes($request);
+        $errors = app(LeaveCoverageService::class)->preview($request->user(), $attributes, $leavePlan?->id)['errors'];
+        // Resolve a fresh service after taking the lock; validation before the transaction may be stale.
+        $entitlements = app()->make(LeaveEntitlementService::class);
+        foreach ($entitlements->submissionViolations($request->user(), $attributes, $leavePlan?->id) as $violation) {
+            $errors[] = $entitlements->violationMessage($violation);
+        }
+        if ($errors) {
+            throw ValidationException::withMessages(['attendance_code' => $errors]);
+        }
+    }
+
     private function overlapFlash(LeavePlan $leavePlan): array
     {
+        if ($leavePlan->attendance_code === LeaveEntitlementService::ANNUAL_LEAVE_CODE) {
+            return [];
+        }
         $entitlements = app(LeaveEntitlementService::class);
         $countedDates = $entitlements->countedLeaveDatesForPlan($leavePlan);
 

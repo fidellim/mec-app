@@ -28,6 +28,8 @@ class LeaveEntitlementService
     /** @var array<string, float> */
     private array $leaveSettingValues = [];
 
+    private array $annualBreakdowns = [];
+
     public const ANNUAL_LEAVE_CODE = 'L100';
 
     public const SICK_LEAVE_CODE = 'L110';
@@ -174,6 +176,11 @@ class LeaveEntitlementService
     public function usedDaysByYear(User $user, string $attendanceCode, ?int $excludeLeavePlanId = null): Collection
     {
         $cacheKey = implode(':', [$user->id, $attendanceCode, $excludeLeavePlanId ?? 'none']);
+        if ($attendanceCode === self::ANNUAL_LEAVE_CODE && ! isset($this->usedDaysByUserCodeAndExclusion[$cacheKey])) {
+            $coverage = app(LeaveCoverageService::class);
+
+            return $coverage->totals($coverage->coverage($coverage->plans($user, $excludeLeavePlanId)->where('attendance_code', $attendanceCode)));
+        }
 
         return $this->usedDaysByUserCodeAndExclusion[$cacheKey] ??= LeavePlan::query()
             ->with('user')
@@ -219,7 +226,15 @@ class LeaveEntitlementService
         $carryOver = (float) $this->approvedCarryOverDaysFor($user, $year, $attendanceCode);
         $allowance = $baseAllowance + $carryOver;
         $claimableAllowance = $baseClaimableAllowance + $carryOver;
-        $used = (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
+        $annualBreakdown = [];
+        if ($attendanceCode === self::ANNUAL_LEAVE_CODE) {
+            $coverage = app(LeaveCoverageService::class);
+            $annualBreakdown = ($excludeLeavePlanId === null ? ($this->annualBreakdowns[$user->id.':'.$year] ?? null) : null)
+                ?? $coverage->breakdown($coverage->plans($user, $excludeLeavePlanId)->where('attendance_code', $attendanceCode), $year);
+        }
+        $used = $annualBreakdown
+            ? $annualBreakdown['approved_days'] + $annualBreakdown['pending_days']
+            : (float) $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId)->get($year, 0.0);
         $isVisibleFullPayAllowance = $claimableAllowance > $allowance;
         $usesOverride = $entitlement?->source === LeaveEntitlement::SOURCE_USER_OVERRIDE;
         $payBands = $this->visibleSupplementalPayBandsFor($user, $attendanceCode, $used);
@@ -233,11 +248,12 @@ class LeaveEntitlementService
             'base_allowance' => $baseAllowance,
             'base_claimable_allowance' => $baseClaimableAllowance,
             'carry_over' => $carryOver,
+            ...$annualBreakdown,
             'used' => $used,
             'remaining' => max(0.0, $allowance - $used),
             'claimable_remaining' => max(0.0, $claimableAllowance - $used),
             'allowance_label' => $isVisibleFullPayAllowance ? 'Full-pay allowance' : 'Allowance',
-            'remaining_label' => $isVisibleFullPayAllowance ? 'Full-pay remaining' : 'Remaining',
+            'remaining_label' => $attendanceCode === self::ANNUAL_LEAVE_CODE ? 'Available' : ($isVisibleFullPayAllowance ? 'Full-pay remaining' : 'Remaining'),
             'description' => $this->balanceDescription($user, $attendanceCode),
             'pay_bands' => $payBands,
             'uses_override' => $usesOverride,
@@ -341,14 +357,10 @@ class LeaveEntitlementService
                 $this->carryOversByUserYearCode[$this->carryOverCacheKey($user, $year, $attendanceCode)] = (float) ($carryOver?->approved_days ?? 0);
 
                 $plans = collect($usedPlans->get($user->id, collect())->get($attendanceCode, collect()));
-                $this->usedDaysByUserCodeAndExclusion[$this->usedDaysCacheKey($user, $attendanceCode)] = $plans
-                    ->reduce(function (Collection $totals, LeavePlan $leavePlan) use ($countedDatesByPlan) {
-                        return $this->addCountedDatesToYearTotals(
-                            $totals,
-                            $leavePlan,
-                            collect($countedDatesByPlan->get($leavePlan->id, [])),
-                        );
-                    }, collect());
+                $this->usedDaysByUserCodeAndExclusion[$this->usedDaysCacheKey($user, $attendanceCode)] = $this->totalPlansByYear($plans, $attendanceCode, $countedDatesByPlan);
+                if ($attendanceCode === self::ANNUAL_LEAVE_CODE) {
+                    $this->annualBreakdowns[$user->id.':'.$year] = app(LeaveCoverageService::class)->breakdown($plans, $year, $countedDatesByPlan);
+                }
             }
         }
 
@@ -435,10 +447,9 @@ class LeaveEntitlementService
             ])->filter();
             $carryOver = (float) ($carryOvers->get($user->id)?->approved_days ?? 0);
             $this->carryOversByUserYearCode[$this->carryOverCacheKey($user, $year, self::ANNUAL_LEAVE_CODE)] = $carryOver;
-            $this->usedDaysByUserCodeAndExclusion[$this->usedDaysCacheKey($user, self::ANNUAL_LEAVE_CODE)] = collect($plansByUser->get($user->id, []))
-                ->reduce(function (Collection $totals, LeavePlan $plan) use ($countedDatesByPlan) {
-                    return $this->addCountedDatesToYearTotals($totals, $plan, collect($countedDatesByPlan->get($plan->id, [])));
-                }, collect());
+            $plans = collect($plansByUser->get($user->id, []));
+            $this->usedDaysByUserCodeAndExclusion[$this->usedDaysCacheKey($user, self::ANNUAL_LEAVE_CODE)] = $this->totalPlansByYear($plans, self::ANNUAL_LEAVE_CODE, $countedDatesByPlan);
+            $this->annualBreakdowns[$user->id.':'.$year] = app(LeaveCoverageService::class)->breakdown($plans, $year, $countedDatesByPlan);
         }
 
         return $users->mapWithKeys(fn (User $user) => [
@@ -633,7 +644,7 @@ class LeaveEntitlementService
         };
     }
 
-    public function submissionViolations(User $user, array $attributes, ?int $excludeLeavePlanId = null): array
+    public function submissionViolations(User $user, array $attributes, ?int $excludeLeavePlanId = null, ?Collection $coveragePlans = null): array
     {
         $attendanceCode = $attributes['attendance_code'] ?? null;
 
@@ -645,13 +656,19 @@ class LeaveEntitlementService
             return [];
         }
 
-        $requestedByYear = $this->requestedDaysByYear($user, $attributes, $attendanceCode);
+        $requestedByYear = $attendanceCode === self::ANNUAL_LEAVE_CODE
+            ? app(LeaveCoverageService::class)->preview($user, $attributes, $excludeLeavePlanId, $coveragePlans)['additional_by_year']
+            : $this->requestedDaysByYear($user, $attributes, $attendanceCode);
 
         if ($requestedByYear->isEmpty()) {
             return [];
         }
 
         $usedByYear = $this->usedDaysByYear($user, $attendanceCode, $excludeLeavePlanId);
+        if ($attendanceCode === self::ANNUAL_LEAVE_CODE && $coveragePlans !== null) {
+            $coverage = app(LeaveCoverageService::class);
+            $usedByYear = $coverage->totals($coverage->coverage($coveragePlans->where('attendance_code', $attendanceCode)));
+        }
         $asOfByYear = $this->requestedAsOfDatesByYear($user, $attributes, $attendanceCode);
 
         return $requestedByYear
@@ -925,6 +942,17 @@ class LeaveEntitlementService
             .' days, used: '.$this->formatDays((float) $violation['used'])
             .' days, requested: '.$this->formatDays((float) $violation['requested'])
             .' days, remaining: '.$this->formatDays((float) $violation['remaining']).' days.';
+    }
+
+    private function totalPlansByYear(Collection $plans, string $code, Collection $dates): Collection
+    {
+        if ($code === self::ANNUAL_LEAVE_CODE) {
+            $coverage = app(LeaveCoverageService::class);
+
+            return $coverage->totals($coverage->coverage($plans, $dates));
+        }
+
+        return $plans->reduce(fn (Collection $totals, LeavePlan $plan) => $this->addCountedDatesToYearTotals($totals, $plan, collect($dates->get($plan->id, []))), collect());
     }
 
     private function addPlanDaysToYearTotals(Collection $totals, LeavePlan $leavePlan): Collection
