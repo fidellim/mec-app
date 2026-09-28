@@ -1,10 +1,25 @@
 @extends('layouts.app')
 
+@section('handles-validation-errors', '1')
+
 @section('content')
 @php
     $isEdit = (bool) $timesheet;
-    $timesheetEntryErrors = collect($errors->getMessages())
-        ->filter(fn ($messages, $key) => $key === 'entries' || str_starts_with($key, 'entries.'));
+    $errorGroups = collect();
+    foreach ($errors->getMessages() as $key => $messages) {
+        foreach ($messages as $message) {
+            $group = $errorGroups->get($message, []);
+            if (preg_match('/^entries\.(\d+)\./', $key, $matches)) {
+                $index = $matches[1];
+                $entry = collect($entries)->get($index);
+                $projectId = old("entries.$index.project_id", data_get($entry, 'project_id'));
+                $project = $projects->firstWhere('id', $projectId);
+                $date = old("entries.$index.work_date", data_get($entry, 'work_date'));
+                $group[$index] = ($project?->project_code ?? 'No project selected').' · '.($date ? \Carbon\Carbon::parse($date)->format('M j, Y') : 'Date missing');
+            }
+            $errorGroups->put($message, $group);
+        }
+    }
 @endphp
 <div class="d-flex flex-column flex-lg-row justify-content-between align-items-lg-start gap-3 mb-4">
     <div>
@@ -23,19 +38,21 @@
         <div>{{ $timesheet->rejection_comment }}</div>
     </div>
 @endif
-@if($timesheetEntryErrors->isNotEmpty())
-    <div class="alert alert-warning">
-        <div class="fw-semibold mb-1">Timesheet could not be saved or submitted</div>
-        <div class="mb-2">Please correct the highlighted daily entries, then try Save Draft or Submit for Approval again.</div>
-        <ul class="mb-0">
-            @foreach($timesheetEntryErrors as $messages)
-                @foreach($messages as $message)
-                    <li>{{ $message }}</li>
-                @endforeach
-            @endforeach
-        </ul>
-    </div>
-@endif
+<div class="alert alert-danger {{ $errors->any() ? '' : 'd-none' }}" id="timesheet-error-summary" role="alert" tabindex="-1" data-timesheet-client-warning>
+    <div class="fw-semibold mb-1" data-timesheet-warning-title>{{ old('submit') === '1' ? 'Timesheet could not be submitted' : 'Timesheet draft could not be saved' }}</div>
+    <div class="mb-2">Review the issues below and the affected entries.</div>
+    <ul class="mb-0" data-timesheet-client-warning-list>
+        @foreach($errorGroups as $message => $affectedEntries)
+            <li class="mb-2" id="timesheet-issue-{{ $loop->index }}" tabindex="-1">
+                <div>{{ $message }}</div>
+                @if(count($affectedEntries))
+                    <div class="small mt-1">{{ count($affectedEntries) }} affected {{ count($affectedEntries) === 1 ? 'entry' : 'entries' }} · <a class="alert-link" data-timesheet-review-link href="#timesheet-entry-{{ array_key_first($affectedEntries) }}">Review first entry</a></div>
+                    <div class="small">{{ implode('; ', $affectedEntries) }}</div>
+                @endif
+            </li>
+        @endforeach
+    </ul>
+</div>
 @if(($approvedLeavePlans ?? collect())->isNotEmpty())
     <div class="alert alert-warning">
         <div class="fw-semibold mb-1">Approved leave planned for this week</div>
@@ -53,11 +70,6 @@
 <form method="post" action="{{ $isEdit ? route('employee.timesheets.update', $timesheet) : route('employee.timesheets.store') }}" data-prevent-enter-submit novalidate>
     @csrf
     @if($isEdit) @method('put') @endif
-    <div class="alert alert-warning d-none" data-timesheet-client-warning role="alert" tabindex="-1">
-        <div class="fw-semibold mb-1">Timesheet could not be saved or submitted</div>
-        <div class="mb-2">Please correct the highlighted daily entries, then try Save Draft or Submit for Approval again.</div>
-        <ul class="mb-0" data-timesheet-client-warning-list></ul>
-    </div>
     <div class="toolbar-card p-3 mb-3">
         <div class="row g-3 align-items-end">
             <div class="col-lg-5">
@@ -130,7 +142,7 @@
                             <th scope="col" class="text-end">Actions</th>
                         </tr>
                     @endif
-                    <tr @class(['timesheet-entry-row-invalid' => $rowHasErrors]) data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
+                    <tr id="timesheet-entry-{{ $i }}" tabindex="-1" @class(['timesheet-entry-row-invalid' => $rowHasErrors]) data-entry-row data-work-date="{{ $workDate }}" data-day-name="{{ $dayName }}">
                         <td>
                             @if(! empty($row->id))<input type="hidden" name="entries[{{ $i }}][id]" value="{{ $row->id }}" data-field="id">@endif
                             <input type="hidden" name="entries[{{ $i }}][work_date]" value="{{ old("entries.$i.work_date", $workDate) }}" data-field="work_date">
@@ -140,7 +152,7 @@
                                     <option value="{{ $code }}" @selected($selectedAttendanceCode === $code)>{{ $code }} - {{ $label }}</option>
                                 @endforeach
                             </select>
-                            @error("entries.$i.attendance_code")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error("entries.$i.attendance_code")<div class="invalid-feedback d-block" data-server-error><a class="text-danger" data-timesheet-review-link href="#timesheet-issue-{{ $errorGroups->keys()->search($message) }}">Review issue</a></div>@enderror
                             <div class="invalid-feedback d-block d-none" data-client-error-for="attendance_code"></div>
                         </td>
                         <td>
@@ -150,7 +162,7 @@
                                     <option value="{{ $project->id }}" title="{{ $project->project_name }}" @selected(old("entries.$i.project_id", $row->project_id) == $project->id)>{{ $project->project_code }}{{ $project->is_timesheet_accessible ? '' : ' — unavailable' }}</option>
                                 @endforeach
                             </select>
-                            @error("entries.$i.project_id")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error("entries.$i.project_id")<div class="invalid-feedback d-block" data-server-error><a class="text-danger" data-timesheet-review-link href="#timesheet-issue-{{ $errorGroups->keys()->search($message) }}">Review issue</a></div>@enderror
                             <div class="invalid-feedback d-block d-none" data-client-error-for="project_id"></div>
                         </td>
                         <td>
@@ -158,23 +170,23 @@
                                 <option value="">Select discipline</option>
                                 @foreach($departments as $department)<option value="{{ $department->id }}" @selected(old("entries.$i.department_id", $row->department_id ?? auth()->user()->department_id) == $department->id)>{{ $department->name }}{{ $department->is_active ?? true ? '' : ' — inactive' }}</option>@endforeach
                             </select>
-                            @error("entries.$i.department_id")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error("entries.$i.department_id")<div class="invalid-feedback d-block" data-server-error><a class="text-danger" data-timesheet-review-link href="#timesheet-issue-{{ $errorGroups->keys()->search($message) }}">Review issue</a></div>@enderror
                             <div class="invalid-feedback d-block d-none" data-client-error-for="department_id"></div>
                             <div class="small text-muted mt-1" data-discipline-help></div>
                         </td>
                         <td style="width: 110px;">
                             <input class="form-control @error("entries.$i.regular_hours") is-invalid @enderror" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][regular_hours]" data-field="regular_hours" value="{{ old("entries.$i.regular_hours", $row->regular_hours ?? 0) }}">
-                            @error("entries.$i.regular_hours")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error("entries.$i.regular_hours")<div class="invalid-feedback d-block" data-server-error><a class="text-danger" data-timesheet-review-link href="#timesheet-issue-{{ $errorGroups->keys()->search($message) }}">Review issue</a></div>@enderror
                             <div class="invalid-feedback d-block d-none" data-client-error-for="regular_hours"></div>
                         </td>
                         <td style="width: 110px;">
                             <input class="form-control @error("entries.$i.overtime_hours") is-invalid @enderror" type="number" min="0" max="24" step="0.25" name="entries[{{ $i }}][overtime_hours]" data-field="overtime_hours" value="{{ old("entries.$i.overtime_hours", $row->overtime_hours ?? 0) }}">
-                            @error("entries.$i.overtime_hours")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error("entries.$i.overtime_hours")<div class="invalid-feedback d-block" data-server-error><a class="text-danger" data-timesheet-review-link href="#timesheet-issue-{{ $errorGroups->keys()->search($message) }}">Review issue</a></div>@enderror
                             <div class="invalid-feedback d-block d-none" data-client-error-for="overtime_hours"></div>
                         </td>
                         <td class="remarks-cell">
                             <input class="form-control @error("entries.$i.remarks") is-invalid @enderror" name="entries[{{ $i }}][remarks]" data-field="remarks" value="{{ old("entries.$i.remarks", $row->remarks) }}">
-                            @error("entries.$i.remarks")<div class="invalid-feedback d-block">{{ $message }}</div>@enderror
+                            @error("entries.$i.remarks")<div class="invalid-feedback d-block" data-server-error><a class="text-danger" data-timesheet-review-link href="#timesheet-issue-{{ $errorGroups->keys()->search($message) }}">Review issue</a></div>@enderror
                         </td>
                         <td>
                             <div class="timesheet-row-actions">
@@ -231,9 +243,10 @@
     const copyDaySourceLabel = document.getElementById('copyDaySourceLabel');
     const copyDayTargetList = document.getElementById('copyDayTargetList');
     const copyDayPasteButton = document.getElementById('copyDayPasteButton');
-    const clientWarning = form?.querySelector('[data-timesheet-client-warning]');
-    const clientWarningList = form?.querySelector('[data-timesheet-client-warning-list]');
+    const clientWarning = document.querySelector('[data-timesheet-client-warning]');
+    const clientWarningList = document.querySelector('[data-timesheet-client-warning-list]');
     let nextIndex = {{ count($entries) }};
+    let nextRowAnchor = nextIndex;
     let copiedDay = null;
     const leaveAttendanceCodes = @json($leaveAttendanceCodes ?? config('timesheet.leave_attendance_codes', []));
     const projectOptionalAttendanceCodes = @json($projectOptionalAttendanceCodes ?? config('timesheet.project_optional_attendance_codes', config('timesheet.leave_attendance_codes', [])));
@@ -242,6 +255,23 @@
     const projectDepartmentAccess = @json($projects->mapWithKeys(fn ($project) => [(string) $project->id => $project->timesheet_department_access])->all());
     const isLeaveAttendanceCode = (value) => leaveAttendanceCodes.includes(value);
     const isProjectOptionalAttendanceCode = (value) => projectOptionalAttendanceCodes.includes(value);
+
+    // Native fragment scrolling places the target underneath the sticky topbar.
+    // Delegate clicks so newly generated client-validation links work as well.
+    document.addEventListener('click', (event) => {
+        const link = event.target.closest('[data-timesheet-review-link]');
+        if (!link || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+
+        const target = document.getElementById(link.hash.slice(1));
+        if (!target) return;
+
+        event.preventDefault();
+        const headerHeight = document.querySelector('.topbar')?.getBoundingClientRect().height ?? 0;
+        target.style.scrollMarginTop = `${headerHeight + 16}px`;
+        target.focus({ preventScroll: true });
+        target.scrollIntoView({ behavior: 'instant', block: 'start', inline: 'nearest' });
+        history.replaceState(history.state, '', link.hash);
+    });
 
     form?.addEventListener('keydown', (event) => {
         if (event.key !== 'Enter' || event.isComposing) {
@@ -268,11 +298,11 @@
 
         event.preventDefault();
         event.stopImmediatePropagation();
-        showClientWarning(messages);
-        window.showAppToast?.('Please correct the highlighted timesheet rows before saving or submitting.', 'warning', 'Timesheet needs attention');
+        showClientWarning(messages, event.submitter?.value === '1');
     });
 
     const renameRowFields = (row, index) => {
+        if (!row.id) row.id = `timesheet-entry-${nextRowAnchor++}`;
         row.querySelectorAll('[data-field]').forEach((field) => {
             field.name = `entries[${index}][${field.dataset.field}]`;
         });
@@ -386,7 +416,11 @@
     };
 
     const prepareClonedRow = (newRow, values) => {
+        newRow.removeAttribute('id');
         newRow.querySelector('[data-field="id"]')?.remove();
+        newRow.querySelectorAll('[data-server-error]').forEach((error) => error.remove());
+        newRow.classList.remove('timesheet-entry-row-invalid');
+        newRow.querySelectorAll('.is-invalid').forEach((field) => field.classList.remove('is-invalid'));
         Object.entries(values).forEach(([fieldName, value]) => {
             setRowFieldValue(newRow, fieldName, value);
         });
@@ -432,7 +466,18 @@
         if (clientWarningList) {
             clientWarningList.innerHTML = '';
         }
-        table.querySelectorAll('[data-entry-row]').forEach(clearRowClientValidation);
+        table.querySelectorAll('[data-entry-row]').forEach((row) => {
+            clearRowClientValidation(row);
+            // The previous response's summary is replaced by this validation attempt.
+            // Remove its field markers as well so no links point to removed issues.
+            row.querySelectorAll('[data-server-error]').forEach((error) => {
+                const field = error.closest('td')?.querySelector('[data-field]:not([type="hidden"])');
+                field?.classList.remove('is-invalid');
+                field?.tomselect?.wrapper.classList.remove('is-invalid');
+                error.remove();
+            });
+            row.classList.remove('timesheet-entry-row-invalid');
+        });
     };
 
     const setClientFieldError = (row, fieldName, message) => {
@@ -468,33 +513,32 @@
             const departmentId = getSearchableSelectValue(row, 'department_id');
             const departmentAccess = projectDepartmentAccess[projectId] ?? { restricted: false, allowed_ids: [] };
             const departmentIsAllowed = !departmentAccess.restricted || departmentAccess.allowed_ids.includes(String(departmentId));
-            const label = getRowLabel(row);
 
             if (!hasHours) {
                 return;
             }
 
             if (!attendanceCode) {
-                const message = `${label} needs an attendance code when hours are entered.`;
-                messages.push(message);
+                const message = `An entry needs an attendance code when hours are entered.`;
+                messages.push({ message, row });
                 setClientFieldError(row, 'attendance_code', 'Select an attendance code.');
             }
 
             if (!isProjectOptionalAttendanceCode(attendanceCode) && !projectId) {
-                const message = `${label} needs a project/job number when hours are entered.`;
-                messages.push(message);
+                const message = `An entry needs a project/job number when hours are entered.`;
+                messages.push({ message, row });
                 setClientFieldError(row, 'project_id', 'Select a project/job number.');
             }
 
             if (projectId && !departmentId) {
-                const message = `${label} needs a participating discipline when project hours are entered.`;
-                messages.push(message);
+                const message = `An entry needs a participating discipline when project hours are entered.`;
+                messages.push({ message, row });
                 setClientFieldError(row, 'department_id', 'Select a participating discipline.');
             }
 
             if (isSubmission && projectId && departmentId && !departmentIsAllowed) {
-                const message = `${label} uses a discipline that is not available for this project assignment.`;
-                messages.push(message);
+                const message = `An entry uses a discipline that is not available for this project assignment.`;
+                messages.push({ message, row });
                 setClientFieldError(row, 'department_id', 'Choose an available discipline or contact the project administrator.');
             }
         });
@@ -502,20 +546,41 @@
         return messages;
     };
 
-    const showClientWarning = (messages) => {
+    const showClientWarning = (messages, isSubmission) => {
         if (!clientWarning || !clientWarningList) {
             return;
         }
 
-        clientWarningList.innerHTML = '';
-        messages.forEach((message) => {
+        clientWarning.querySelector('[data-timesheet-warning-title]').textContent = isSubmission
+            ? 'Timesheet could not be submitted' : 'Timesheet draft could not be saved';
+        clientWarningList.replaceChildren();
+        const groups = new Map();
+        messages.forEach(({ message, row }) => {
+            if (!groups.has(message)) groups.set(message, new Set());
+            groups.get(message).add(row);
+        });
+        groups.forEach((rows, message) => {
             const item = document.createElement('li');
-            item.textContent = message;
+            item.className = 'mb-2';
+            const description = document.createElement('div');
+            description.textContent = message;
+            const link = document.createElement('a');
+            link.className = 'alert-link small';
+            link.dataset.timesheetReviewLink = '';
+            link.href = `#${[...rows][0].id}`;
+            link.textContent = `${rows.size} affected ${rows.size === 1 ? 'entry' : 'entries'} · Review first entry`;
+            const labels = document.createElement('div');
+            labels.className = 'small';
+            labels.textContent = [...rows].map((row) => {
+                const project = row.querySelector('[data-field="project_id"]');
+                return `${project?.value ? project.selectedOptions[0].textContent : 'No project selected'} · ${getRowLabel(row)}`;
+            }).join('; ');
+            item.append(description, link, labels);
             clientWarningList.appendChild(item);
         });
         clientWarning.classList.remove('d-none');
         clientWarning.focus({ preventScroll: true });
-        clientWarning.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        clientWarning.scrollIntoView({ block: 'center' });
     };
 
     const getCopiedRowsForDay = (workDate) => getDayRows(workDate).map(getRowValues);

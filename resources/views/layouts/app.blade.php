@@ -1943,7 +1943,7 @@
                 @if(session('warning'))
                     <div class="alert alert-warning d-flex align-items-start gap-2"><span class="fw-bold">Notice</span><span>{{ session('warning') }}</span></div>
                 @endif
-                @if($errors->any())
+                @if($errors->any() && ! View::hasSection('handles-validation-errors'))
                     <div class="alert alert-danger">
                         <strong>Please check the form.</strong>
                         <ul class="mb-0">@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul>
@@ -1973,7 +1973,7 @@
             <div class="toast-body">{{ session('warning') }}</div>
         </div>
     @endif
-    @if($errors->any())
+    @if($errors->any() && ! View::hasSection('handles-validation-errors'))
         <div class="toast app-toast app-toast-error" role="alert" aria-live="assertive" aria-atomic="true" data-app-toast>
             <div class="toast-header">
                 <strong class="me-auto">Something went wrong</strong>

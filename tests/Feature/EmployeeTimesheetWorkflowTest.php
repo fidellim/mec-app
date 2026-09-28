@@ -441,7 +441,10 @@ class EmployeeTimesheetWorkflowTest extends TestCase
                 'entries' => $entries,
             ])
             ->assertOk()
-            ->assertSee('Timesheet could not be saved or submitted')
+            ->assertSee('Timesheet draft could not be saved')
+            ->assertDontSee('Please check the form.')
+            ->assertSee('Review first entry')
+            ->assertSee('No project selected · May 11, 2026')
             ->assertSee('Row for 2026-05-11 needs a project/job number when hours are entered.')
             ->assertSee('Row for 2026-05-11 needs an attendance code when hours are entered.')
             ->assertSee('timesheet-entry-row-invalid', false);
@@ -450,6 +453,36 @@ class EmployeeTimesheetWorkflowTest extends TestCase
             'user_id' => $employee->id,
             'timesheet_period_id' => $period->id,
         ]);
+    }
+
+    public function test_repeated_allocation_errors_have_one_summary_with_affected_entries(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $entries = $this->validEntries($project);
+        $message = \App\Services\TimesheetAllocationService::EXCEEDED_MESSAGE;
+        $errors = new \Illuminate\Support\MessageBag([
+            'entries.0.department_id' => [$message],
+            'entries.1.department_id' => [$message],
+        ]);
+
+        $response = $this->actingAs($employee)->withSession([
+            'errors' => (new \Illuminate\Support\ViewErrorBag())->put('default', $errors),
+            '_old_input' => ['submit' => '1', 'entries' => $entries],
+        ])->get(route('employee.timesheets.create', ['period_id' => $period->id]));
+
+        $response->assertOk()
+            ->assertSee('Timesheet could not be submitted')
+            ->assertDontSee('Please check the form.')
+            ->assertSee('2 affected entries')
+            ->assertSee($project->project_code.' · May 11, 2026')
+            ->assertSee('href="#timesheet-entry-0"', false)
+            ->assertSee('id="timesheet-entry-0"', false)
+            ->assertSee('id="timesheet-issue-0" tabindex="-1"', false)
+            ->assertSee('data-timesheet-review-link', false)
+            ->assertSee('Review issue');
+        $this->assertSame(1, substr_count($response->getContent(), $message));
     }
 
     public function test_leave_codes_allow_regular_hours_without_project(): void
