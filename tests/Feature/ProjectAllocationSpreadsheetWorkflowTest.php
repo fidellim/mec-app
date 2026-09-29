@@ -305,7 +305,7 @@ class ProjectAllocationSpreadsheetWorkflowTest extends TestCase
             'job_level_controls' => [$department->id => 0],
             'allocation_change_reason' => 'Import the revised discipline budget.',
             'allocation_import_token' => $preview->json('token'),
-        ])->assertRedirect(route('manage.projects.index'));
+        ])->assertRedirect(route('projects.utilization', ['project' => $project, 'tab' => 'overview']));
 
         $this->assertDatabaseHas('project_department_allocations', [
             'project_id' => $project->id,
@@ -358,7 +358,7 @@ class ProjectAllocationSpreadsheetWorkflowTest extends TestCase
             ];
             $this->actingAs($admin)->put(route('manage.projects.update', $project), $payload)
                 ->assertSessionHasNoErrors()
-                ->assertRedirect(route('manage.projects.index'));
+                ->assertRedirect(route('projects.utilization', ['project' => $project, 'tab' => 'overview']));
             $this->assertDatabaseHas('project_department_allocations', [
                 'project_id' => $project->id,
                 'department_id' => $department->id,

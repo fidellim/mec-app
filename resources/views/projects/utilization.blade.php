@@ -1,15 +1,23 @@
 @extends('layouts.app')
 
 @section('content')
+@php($activeTab = $activeTab ?? 'utilization')
 <div class="project-responsive-page">
 <div class="section-header">
     <div>
         <div class="small text-muted mb-1">{{ $project->project_code }}</div>
-        <h1 class="h3 page-heading mb-1">{{ $project->project_name }} utilization</h1>
-        <div class="text-muted">Lifetime manhour allocation and timesheet usage by discipline.</div>
+        <h1 class="h3 page-heading mb-1">{{ $project->project_name }}</h1>
+        <div class="text-muted">{{ $activeTab === 'overview' ? 'Project details, timesheet access, and saved allocations.' : 'Lifetime manhour allocation and timesheet usage by discipline.' }}</div>
     </div>
+    <div class="action-group">
+        <a class="btn btn-outline-secondary" href="{{ auth()->user()->isAdminLike() ? route('manage.projects.index') : route('managed-projects.index') }}">Back to projects</a>
     @if(auth()->user()->isAdminLike())<a class="btn btn-outline-secondary" href="{{ route('manage.projects.edit', $project) }}">Edit project</a>@endif
+    </div>
 </div>
+<nav class="nav nav-tabs mb-3" aria-label="Project sections">
+    <a class="nav-link {{ $activeTab === 'overview' ? 'active' : '' }}" @if($activeTab === 'overview') aria-current="page" @endif href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview']) }}">Overview</a>
+    <a class="nav-link {{ $activeTab === 'utilization' ? 'active' : '' }}" @if($activeTab === 'utilization') aria-current="page" @endif href="{{ route('projects.utilization', $project) }}">Utilization</a>
+</nav>
 <div class="content-card p-3 mb-3">
     <div class="row g-3">
         <div class="col-md-4"><div class="meta-label">Project manager</div><div class="meta-value">{{ $project->projectManager?->name ?? '-' }}</div></div>
@@ -17,6 +25,9 @@
         <div class="col-md-4"><div class="meta-label">Client</div><div class="meta-value">{{ $project->client_name ?: '-' }}</div></div>
     </div>
 </div>
+@if($activeTab === 'overview')
+    @include('projects.partials.overview')
+@else
 <div class="content-card p-3 mb-3">
     <form method="GET" action="{{ route('projects.utilization', $project) }}">
         <div class="row g-3 align-items-end">
@@ -193,6 +204,7 @@
     @empty<tr><td colspan="6" class="empty-state text-center">No correction requests for this project.</td></tr>@endforelse
     </tbody></table></div>
 </div>
+@endif
 @endif
 </div>
 @endsection

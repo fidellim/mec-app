@@ -314,7 +314,7 @@ class ProjectAssignmentSpreadsheetWorkflowTest extends TestCase
             'assigned_user_categories' => [$employee->id => 'engineer'],
             'assignment_import_token' => $preview->json('token'),
             'allocation_change_reason' => 'Configure the initial controlled discipline.',
-        ])->assertRedirect(route('manage.projects.index'));
+        ])->assertRedirect(route('projects.utilization', ['project' => $project, 'tab' => 'overview']));
 
         $this->assertDatabaseHas('project_user', [
             'project_id' => $project->id,

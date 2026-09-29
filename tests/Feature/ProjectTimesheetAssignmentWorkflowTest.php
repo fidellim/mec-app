@@ -46,7 +46,7 @@ class ProjectTimesheetAssignmentWorkflowTest extends TestCase
             'is_active' => '1',
             'timesheet_assignment_mode' => Project::ASSIGNMENT_SELECTED_USERS,
             'assigned_user_ids' => [$employee->id, $hod->id],
-        ])->assertRedirect(route('manage.projects.index'));
+        ])->assertRedirect(route('projects.utilization', ['project' => Project::latest('id')->first(), 'tab' => 'overview']));
 
         $project = Project::where('project_code', 'CLIENT-101')->firstOrFail();
         $this->assertSame(Project::ASSIGNMENT_SELECTED_USERS, $project->timesheet_assignment_mode);
@@ -187,7 +187,7 @@ class ProjectTimesheetAssignmentWorkflowTest extends TestCase
             'is_active' => '1',
             'timesheet_assignment_mode' => Project::ASSIGNMENT_ALL_USERS,
             'assigned_user_ids' => [$employee->id],
-        ])->assertRedirect(route('manage.projects.index'));
+        ])->assertRedirect(route('projects.utilization', ['project' => $project, 'tab' => 'overview']));
 
         $this->assertSame(Project::ASSIGNMENT_ALL_USERS, $project->fresh()->timesheet_assignment_mode);
         $this->assertTrue($project->assignedUsers()->whereKey($employee->id)->exists());

@@ -34,6 +34,19 @@ class ProjectUtilizationController extends Controller
         $user = auth()->user();
         abort_unless($user->isAdminLike() || (int) $project->project_manager_id === (int) $user->id, 403);
 
+        if (request()->query('tab') === 'overview') {
+            return view('projects.utilization', [
+                'project' => $project->load([
+                    'projectManager:id,name,email',
+                    'assignedUsers' => fn ($query) => $query->orderBy('name'),
+                    'assignedUsers.department:id,name',
+                    'departmentAllocations.department:id,name,code',
+                    'departmentAllocations.manpowerCategoryAllocations',
+                ]),
+                'activeTab' => 'overview',
+            ]);
+        }
+
         $filters = request()->validate([
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],

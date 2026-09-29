@@ -96,6 +96,7 @@
                         <td data-label="Usage" class="small text-muted">{{ $project->entries_count }} entries</td>
                         <td data-label="Actions" class="text-end">
                             <div class="action-group">
+                                <a class="btn btn-sm btn-outline-primary" href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview']) }}">Overview</a>
                                 <a class="btn btn-sm btn-outline-primary" href="{{ route('projects.utilization', $project) }}">Utilization</a>
                                 <a class="btn btn-sm btn-primary" href="{{ route('manage.projects.edit', $project) }}">Edit</a>
                                 <form method="post" action="{{ route('manage.projects.status', $project) }}" data-confirm="{{ $project->is_active ? 'Deactivate this project? Existing records will remain visible.' : 'Reactivate this project?' }}">

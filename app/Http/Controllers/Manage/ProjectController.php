@@ -105,7 +105,7 @@ class ProjectController extends Controller
         $this->forgetAssignmentImportToken($request, $assignmentImportToken);
         $this->forgetAllocationImportToken($request, $allocationImportToken);
 
-        return redirect()->route('manage.projects.index')->with('success', 'Project created.');
+        return redirect()->route('projects.utilization', ['project' => $project, 'tab' => 'overview'])->with('success', 'Project created.');
     }
 
     public function edit(Project $project)
@@ -352,7 +352,7 @@ class ProjectController extends Controller
         $this->forgetAssignmentImportToken($request, $assignmentImportToken);
         $this->forgetAllocationImportToken($request, $allocationImportToken);
 
-        return redirect()->route('manage.projects.index')->with('success', 'Project updated.');
+        return redirect()->route('projects.utilization', ['project' => $project, 'tab' => 'overview'])->with('success', 'Project updated.');
     }
 
     public function status(Project $project, AuditLogService $audit)

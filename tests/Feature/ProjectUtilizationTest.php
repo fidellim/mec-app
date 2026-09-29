@@ -13,6 +13,39 @@ class ProjectUtilizationTest extends TestCase
 {
     use CreatesTimesheetData, RefreshDatabase;
 
+    public function test_overview_shows_saved_assignments_and_allocations_without_usage(): void
+    {
+        $department = $this->department(['name' => 'Overview Engineering']);
+        $manager = $this->userWithRole('employee');
+        $worker = $this->userWithRole('employee', ['name' => 'Newly Assigned Engineer', 'department_id' => $department->id]);
+        $project = $this->project([
+            'project_manager_id' => $manager->id,
+            'timesheet_assignment_mode' => Project::ASSIGNMENT_SELECTED_USERS,
+            'is_active' => false,
+        ]);
+        $project->assignedUsers()->attach($worker);
+        $allocation = $project->departmentAllocations()->create(['department_id' => $department->id, 'allocated_hours' => 120]);
+        $category = array_key_first(config('manpower_categories.labels'));
+        $allocation->manpowerCategoryAllocations()->create(['manpower_category' => $category, 'allocated_hours' => 40]);
+
+        foreach ([$manager, $this->userWithRole('admin'), $this->userWithRole('super_admin')] as $viewer) {
+            $this->actingAs($viewer)->get(route('projects.utilization', ['project' => $project, 'tab' => 'overview']))
+                ->assertOk()
+                ->assertSee('Newly Assigned Engineer')
+                ->assertSee('Overview Engineering')
+                ->assertSee('Selected users')
+                ->assertSee('Inactive')
+                ->assertSee('120.00')
+                ->assertSee('40.00')
+                ->assertSee('Reserved')
+                ->assertSee('Back to projects')
+                ->assertDontSee('Apply date range');
+        }
+        $this->actingAs($this->userWithRole('employee'))
+            ->get(route('projects.utilization', ['project' => $project, 'tab' => 'overview']))
+            ->assertForbidden();
+    }
+
     public function test_project_manager_sees_approved_and_pending_hours_by_entry_discipline(): void
     {
         $home = $this->department(['name' => 'Home']);
@@ -228,7 +261,7 @@ class ProjectUtilizationTest extends TestCase
         ];
 
         $this->actingAs($admin)->put(route('manage.projects.update', $project), $payload)
-            ->assertRedirect(route('manage.projects.index'))
+            ->assertRedirect(route('projects.utilization', ['project' => $project, 'tab' => 'overview']))
             ->assertSessionHasNoErrors();
         $this->assertDatabaseHas('project_department_allocations', ['project_id' => $project->id, 'department_id' => $department->id, 'allocated_hours' => 80]);
 
