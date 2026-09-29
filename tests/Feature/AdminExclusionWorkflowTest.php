@@ -36,7 +36,7 @@ class AdminExclusionWorkflowTest extends TestCase
                 'admin_notification_exclusion_ids' => [$hod->id],
                 'admin_approval_exclusion_ids' => [$hod->id],
             ]))
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $admin));
 
         $this->assertDatabaseHas('admin_notification_exclusions', [
             'admin_user_id' => $admin->id,
@@ -53,7 +53,7 @@ class AdminExclusionWorkflowTest extends TestCase
 
         $this->actingAs($superAdmin)
             ->put(route('manage.users.update', $admin), $this->userPayload($admin))
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $admin));
 
         $this->assertDatabaseMissing('admin_notification_exclusions', ['admin_user_id' => $admin->id]);
         $this->assertDatabaseMissing('admin_approval_exclusions', ['admin_user_id' => $admin->id]);

@@ -317,7 +317,7 @@ class HodExclusionWorkflowTest extends TestCase
                 'hod_approval_exclusion_ids' => [$employee->id],
                 'hod_visibility_exclusion_ids' => [$employee->id],
             ]))
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $hod));
 
         $this->assertDatabaseHas('hod_notification_exclusions', [
             'hod_user_id' => $hod->id,
@@ -408,7 +408,7 @@ class HodExclusionWorkflowTest extends TestCase
                 'hod_notification_exclusion_ids' => [$profileEmployee->id, $primaryEmployee->id, $additionalEmployee->id],
                 'hod_approval_exclusion_ids' => [$profileEmployee->id],
             ]))
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $hod));
 
         $this->assertDatabaseMissing('hod_notification_exclusions', [
             'hod_user_id' => $hod->id,
@@ -442,7 +442,7 @@ class HodExclusionWorkflowTest extends TestCase
             ->put(route('manage.users.update', $employee), $this->userPayload($employee, [
                 'department_id' => $otherDepartment->id,
             ]))
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $employee));
 
         $this->assertDatabaseMissing('hod_notification_exclusions', [
             'hod_user_id' => $hod->id,
@@ -468,7 +468,7 @@ class HodExclusionWorkflowTest extends TestCase
                 'employee_code' => null,
                 'department_id' => null,
             ]))
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $hod));
 
         $this->assertDatabaseMissing('hod_notification_exclusions', ['hod_user_id' => $hod->id]);
         $this->assertDatabaseMissing('hod_approval_exclusions', ['hod_user_id' => $hod->id]);

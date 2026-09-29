@@ -144,7 +144,7 @@ class ManagementWorkflowTest extends TestCase
                 'is_active' => '1',
                 'annual_leave_allowance_days' => '',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $user));
 
         $this->assertNull($user->fresh()->annual_leave_allowance_days);
         $this->assertDatabaseHas('leave_entitlements', [
@@ -523,7 +523,7 @@ class ManagementWorkflowTest extends TestCase
                 'is_active' => '0',
                 'annual_leave_allowance_days' => '18.5',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $employee));
 
         $this->actingAs($admin)
             ->put(route('manage.users.update', $hod), [
@@ -534,7 +534,7 @@ class ManagementWorkflowTest extends TestCase
                 'department_id' => $newDepartment->id,
                 'is_active' => '1',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $hod));
 
         $employee->refresh();
         $hod->refresh();
@@ -580,7 +580,7 @@ class ManagementWorkflowTest extends TestCase
                 'is_active' => '0',
                 'annual_leave_allowance_days' => '',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $employee));
 
         $this->assertNull($employee->fresh()->annual_leave_allowance_days);
         $this->assertDatabaseHas('leave_entitlements', [
@@ -642,7 +642,7 @@ class ManagementWorkflowTest extends TestCase
                 'annual_leave_allowance_days' => '99',
                 'receives_hod_timesheet_submission_emails' => '1',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $employee));
 
         $employee->refresh();
 
@@ -726,7 +726,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', $user));
 
         $this->assertTrue(Hash::check('updated pass 1!', $user->fresh()->password));
     }
@@ -753,7 +753,7 @@ class ManagementWorkflowTest extends TestCase
                 'is_active' => '1',
                 'receives_hod_timesheet_submission_emails' => '0',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $admin));
 
         $this->actingAs($superAdmin)
             ->put(route('manage.users.update', $targetSuperAdmin), [
@@ -767,7 +767,7 @@ class ManagementWorkflowTest extends TestCase
                 'is_active' => '1',
                 'receives_hod_timesheet_submission_emails' => '0',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $targetSuperAdmin));
 
         $this->assertFalse($admin->refresh()->receives_hod_timesheet_submission_emails);
         $this->assertFalse($targetSuperAdmin->refresh()->receives_hod_timesheet_submission_emails);
@@ -864,7 +864,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', $user));
 
         $this->assertDatabaseHas('users', [
             'email' => 'titled.employee@example.com',
@@ -954,7 +954,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', $user));
 
         $user->refresh();
 
@@ -1442,7 +1442,7 @@ class ManagementWorkflowTest extends TestCase
                 'role' => 'employee',
                 'is_active' => '1',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', $hod));
 
         $this->assertSame('employee', $hod->refresh()->role);
         $this->assertNull($primaryDepartment->refresh()->hod_id);
@@ -1546,7 +1546,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $newDepartment->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', $employee));
 
         $this->assertSame($newDepartment->id, $employee->refresh()->department_id);
         $this->assertSame($newDepartment->id, $draft->refresh()->department_id);

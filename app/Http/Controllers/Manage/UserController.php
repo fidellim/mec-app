@@ -316,7 +316,7 @@ class UserController extends Controller
             }
         });
 
-        return redirect()->route('manage.users.index')->with('success', 'User updated.');
+        return redirect()->route('manage.users.show', $user)->with('success', 'User updated.');
     }
 
     public function destroy(Request $request, User $user, AuditLogService $audit)
