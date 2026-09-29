@@ -2,6 +2,9 @@
 
 @section('content')
 @php
+    $listContext = \App\Support\ListContext::parameters('users');
+@endphp
+@php
     $roleLabels = config('roles.labels');
     $genderLabels = ['male' => 'Male', 'female' => 'Female'];
     $maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'];
@@ -34,9 +37,9 @@
         <div class="text-muted">{{ $userModel->name }}</div>
     </div>
     <div class="action-group">
-        <a class="btn btn-outline-secondary" href="{{ route('manage.users.index') }}">Back to Users</a>
+        <a class="btn btn-outline-secondary" href="{{ route('manage.users.index', $listContext['list'] ?? []) }}">Back to Users</a>
         @if(auth()->user()->role === 'super_admin' || (auth()->user()->role === 'admin' && in_array($userModel->role, ['hod', 'employee'], true)))
-            <a class="btn btn-primary" href="{{ route('manage.users.edit', $userModel) }}">Edit</a>
+            <a class="btn btn-primary" href="{{ route('manage.users.edit', ['user' => $userModel] + $listContext) }}">Edit</a>
         @endif
     </div>
 </div>

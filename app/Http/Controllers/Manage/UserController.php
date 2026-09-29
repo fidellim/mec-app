@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
+use App\Support\ListContext;
 use App\Models\Department;
 use App\Models\User;
 use App\Services\AdminExclusionService;
@@ -85,31 +86,37 @@ class UserController extends Controller
             ->all();
         $searchLike = is_string($searchFilter) && filled($searchFilter) ? '%'.addcslashes($searchFilter, '\%_').'%' : null;
 
+        $users = User::with(['department', 'primaryDepartments', 'managedDepartments'])
+            ->when($request->user()->role === 'admin', fn ($query) => $query->whereIn('role', $this->adminViewableRoles()))
+            ->when($departmentFilter === 'unassigned', fn ($query) => $query->whereNull('department_id'))
+            ->when(filled($departmentFilter) && $departmentFilter !== 'unassigned', fn ($query) => $query->where('department_id', $departmentFilter))
+            ->when(filled($roleFilter), fn ($query) => $query->where('role', $roleFilter))
+            ->when($regionFilter === 'uae', fn ($query) => $query->where(function ($query) {
+                $query->where('employee_code', 'like', 'MEC-HR-%')
+                    ->orWhere('employee_code', 'like', 'MCE-HR-%');
+            }))
+            ->when($regionFilter === 'ph', fn ($query) => $query->where('employee_code', 'like', 'MEC-PHIL-HR-%'))
+            ->when($regionFilter === 'unknown', fn ($query) => $query->where(function ($query) {
+                $query->whereNull('employee_code')
+                    ->orWhere('employee_code', '')
+                    ->orWhere(function ($query) {
+                        $query->where('employee_code', 'not like', 'MEC-HR-%')
+                            ->where('employee_code', 'not like', 'MCE-HR-%')
+                            ->where('employee_code', 'not like', 'MEC-PHIL-HR-%');
+                    });
+            }))
+            ->when(is_array($searchFilter) && filled($selectedSearchNames), fn ($query) => $query->whereIn('name', $selectedSearchNames))
+            ->when(! is_array($searchFilter) && filled($searchLike), fn ($query) => $query->where('name', 'like', $searchLike))
+            ->orderBy('name')
+            ->paginate(20)
+            ->withQueryString();
+
+        if ($users->currentPage() > $users->lastPage()) {
+            return redirect()->route('manage.users.index', array_replace(ListContext::filters('users', true), ['page' => $users->lastPage()]));
+        }
+
         return view('manage.users.index', [
-            'users' => User::with(['department', 'primaryDepartments', 'managedDepartments'])
-                ->when($request->user()->role === 'admin', fn ($query) => $query->whereIn('role', $this->adminViewableRoles()))
-                ->when($departmentFilter === 'unassigned', fn ($query) => $query->whereNull('department_id'))
-                ->when(filled($departmentFilter) && $departmentFilter !== 'unassigned', fn ($query) => $query->where('department_id', $departmentFilter))
-                ->when(filled($roleFilter), fn ($query) => $query->where('role', $roleFilter))
-                ->when($regionFilter === 'uae', fn ($query) => $query->where(function ($query) {
-                    $query->where('employee_code', 'like', 'MEC-HR-%')
-                        ->orWhere('employee_code', 'like', 'MCE-HR-%');
-                }))
-                ->when($regionFilter === 'ph', fn ($query) => $query->where('employee_code', 'like', 'MEC-PHIL-HR-%'))
-                ->when($regionFilter === 'unknown', fn ($query) => $query->where(function ($query) {
-                    $query->whereNull('employee_code')
-                        ->orWhere('employee_code', '')
-                        ->orWhere(function ($query) {
-                            $query->where('employee_code', 'not like', 'MEC-HR-%')
-                                ->where('employee_code', 'not like', 'MCE-HR-%')
-                                ->where('employee_code', 'not like', 'MEC-PHIL-HR-%');
-                        });
-                }))
-                ->when(is_array($searchFilter) && filled($selectedSearchNames), fn ($query) => $query->whereIn('name', $selectedSearchNames))
-                ->when(! is_array($searchFilter) && filled($searchLike), fn ($query) => $query->where('name', 'like', $searchLike))
-                ->orderBy('name')
-                ->paginate(20)
-                ->withQueryString(),
+            'users' => $users,
             'departments' => Department::orderBy('name')->get(),
             'selectedDepartmentId' => $departmentFilter,
             'selectedRole' => $roleFilter,
@@ -177,7 +184,7 @@ class UserController extends Controller
             $audit->record('leave_entitlement_synced', $annualEntitlement, null, $annualEntitlement->toArray());
         }
 
-        return redirect()->route('manage.users.index')->with('success', 'User created.');
+        return redirect()->route('manage.users.show', ['user' => $user] + ListContext::parameters('users'))->with('success', 'User created.');
     }
 
     public function edit(User $user, HodExclusionService $hodExclusions, AdminExclusionService $adminExclusions)
@@ -316,7 +323,7 @@ class UserController extends Controller
             }
         });
 
-        return redirect()->route('manage.users.show', $user)->with('success', 'User updated.');
+        return redirect()->route('manage.users.show', ['user' => $user] + ListContext::parameters('users'))->with('success', 'User updated.');
     }
 
     public function destroy(Request $request, User $user, AuditLogService $audit)

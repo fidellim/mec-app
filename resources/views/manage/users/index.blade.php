@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $listContext = \App\Support\ListContext::parameters('users', true);
+@endphp
 @php($roleLabels = config('roles.labels'))
 @php($genderLabels = ['male' => 'Male', 'female' => 'Female'])
 @php($maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'])
@@ -183,7 +186,7 @@
         </div>
     </div>
     @if(auth()->user()->role === 'super_admin')
-        <a class="btn btn-primary" href="{{ route('manage.users.create') }}">New User</a>
+        <a class="btn btn-primary" href="{{ route('manage.users.create', $listContext) }}">New User</a>
     @endif
 </div>
 
@@ -356,9 +359,9 @@
                         </td>
                         <td class="text-end users-actions">
                             <div class="action-group justify-content-end">
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('manage.users.show', $user) }}">View</a>
+                                <a class="btn btn-sm btn-outline-primary" href="{{ route('manage.users.show', ['user' => $user] + $listContext) }}">View</a>
                                 @if(auth()->user()->role === 'super_admin' || (auth()->user()->role === 'admin' && in_array($user->role, ['hod', 'employee'], true)))
-                                    <a class="btn btn-sm btn-primary" href="{{ route('manage.users.edit', $user) }}">Edit</a>
+                                    <a class="btn btn-sm btn-primary" href="{{ route('manage.users.edit', ['user' => $user] + $listContext) }}">Edit</a>
                                 @endif
                                 @if(auth()->user()->role === 'super_admin' && (int) $user->id !== (int) auth()->id())
                                     <button type="button" class="btn btn-sm btn-outline-danger users-delete-button" data-bs-toggle="modal" data-bs-target="#deleteUserModal{{ $user->id }}">

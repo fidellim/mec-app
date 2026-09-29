@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
+use App\Support\ListContext;
 use App\Models\Department;
 use App\Models\Project;
 use App\Models\Timesheet;
@@ -44,6 +45,10 @@ class ProjectController extends Controller
             ->orderBy('project_code')
             ->paginate(20)
             ->withQueryString();
+
+        if ($projects->currentPage() > $projects->lastPage()) {
+            return redirect()->route('manage.projects.index', array_replace(ListContext::filters('projects', true), ['page' => $projects->lastPage()]));
+        }
 
         return view('manage.projects.index', compact('projects', 'search', 'status'));
     }
@@ -105,7 +110,7 @@ class ProjectController extends Controller
         $this->forgetAssignmentImportToken($request, $assignmentImportToken);
         $this->forgetAllocationImportToken($request, $allocationImportToken);
 
-        return redirect()->route('projects.utilization', ['project' => $project, 'tab' => 'overview'])->with('success', 'Project created.');
+        return redirect()->route('projects.utilization', ['project' => $project, 'tab' => 'overview'] + ListContext::parameters('projects'))->with('success', 'Project created.');
     }
 
     public function edit(Project $project)
@@ -352,7 +357,7 @@ class ProjectController extends Controller
         $this->forgetAssignmentImportToken($request, $assignmentImportToken);
         $this->forgetAllocationImportToken($request, $allocationImportToken);
 
-        return redirect()->route('projects.utilization', ['project' => $project, 'tab' => 'overview'])->with('success', 'Project updated.');
+        return redirect()->route('projects.utilization', ['project' => $project, 'tab' => 'overview'] + ListContext::parameters('projects'))->with('success', 'Project updated.');
     }
 
     public function status(Project $project, AuditLogService $audit)

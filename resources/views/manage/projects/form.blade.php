@@ -1,8 +1,12 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $listContext = \App\Support\ListContext::parameters('projects');
+@endphp
 <div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $project->exists ? 'Edit Project' : 'New Project' }}</h1><div class="text-muted">Maintain the project details and control who can charge time to it.</div></div></div>
-<form class="content-card p-3" method="post" action="{{ $project->exists ? route('manage.projects.update', $project) : route('manage.projects.store') }}">
+<form class="content-card p-3" method="post" action="{{ $project->exists ? route('manage.projects.update', ['project' => $project] + $listContext) : route('manage.projects.store', $listContext) }}">
+    @include('shared.list-context')
     @csrf @if($project->exists) @method('put') @endif
     <input type="hidden" name="assignment_import_token" value="{{ old('assignment_import_token') }}" data-assignment-import-token>
     <input type="hidden" name="allocation_import_token" value="{{ old('allocation_import_token') }}" data-allocation-import-token>
@@ -313,7 +317,7 @@
             </div>
         </div>
     </div>
-    <div class="d-flex justify-content-between mt-3">@if($project->exists)<a class="btn btn-outline-secondary" href="{{ route('projects.utilization', $project) }}">View utilization</a>@else<span></span>@endif<button class="btn btn-primary">Save Project</button></div>
+    <div class="d-flex justify-content-between mt-3">@if($project->exists)<a class="btn btn-outline-secondary" href="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">View utilization</a>@else<span></span>@endif<button class="btn btn-primary">Save Project</button></div>
 </form>
 @endsection
 

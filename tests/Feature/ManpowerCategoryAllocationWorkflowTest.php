@@ -32,7 +32,7 @@ class ManpowerCategoryAllocationWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $this->assertDatabaseHas('users', ['email' => 'new.engineer@example.com']);
         $this->actingAs($superAdmin)->get(route('manage.users.create'))

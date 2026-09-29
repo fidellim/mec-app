@@ -1,13 +1,16 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $listContext = \App\Support\ListContext::parameters('projects', true);
+@endphp
 <div class="project-responsive-page">
 <div class="section-header">
     <div>
         <h1 class="h3 page-heading mb-1">Projects / Job Numbers</h1>
         <div class="text-muted">Keep job numbers available for history and archive inactive work.</div>
     </div>
-    <a class="btn btn-primary" href="{{ route('manage.projects.create') }}">New project</a>
+    <a class="btn btn-primary" href="{{ route('manage.projects.create', $listContext) }}">New project</a>
 </div>
 
 @php($hasProjectFilters = filled($search) || filled($status))
@@ -96,9 +99,9 @@
                         <td data-label="Usage" class="small text-muted">{{ $project->entries_count }} entries</td>
                         <td data-label="Actions" class="text-end">
                             <div class="action-group">
-                                <a class="btn btn-sm btn-outline-primary ui-action ui-action-navigation" href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview']) }}">Overview</a>
-                                <a class="btn btn-sm btn-outline-primary ui-action ui-action-navigation" href="{{ route('projects.utilization', $project) }}">Utilization</a>
-                                <a class="btn btn-sm btn-outline-secondary" href="{{ route('manage.projects.edit', $project) }}">Edit</a>
+                                <a class="btn btn-sm btn-outline-primary ui-action ui-action-navigation" href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview'] + $listContext) }}">Overview</a>
+                                <a class="btn btn-sm btn-outline-primary ui-action ui-action-navigation" href="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">Utilization</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ route('manage.projects.edit', ['project' => $project] + $listContext) }}">Edit</a>
                                 <form method="post" action="{{ route('manage.projects.status', $project) }}" data-confirm="{{ $project->is_active ? 'Deactivate this project? Existing records will remain visible.' : 'Reactivate this project?' }}">
                                     @csrf
                                     @method('patch')

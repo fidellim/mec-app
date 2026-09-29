@@ -45,7 +45,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $this->assertDatabaseHas('users', [
             'email' => 'new.employee@example.com',
@@ -119,7 +119,7 @@ class ManagementWorkflowTest extends TestCase
                 'is_active' => '1',
                 'annual_leave_allowance_days' => '45.5',
             ])
-            ->assertRedirect(route('manage.users.index'));
+            ->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $user = User::where('email', 'executive.employee@example.com')->firstOrFail();
         $this->assertSame('45.50', $user->annual_leave_allowance_days);
@@ -691,7 +691,7 @@ class ManagementWorkflowTest extends TestCase
 
         $this->actingAs($superAdmin)->post(route('manage.users.store'), $basePayload + [
             'password' => 'valid pass 1!',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $user = User::where('email', 'policy.employee@example.com')->firstOrFail();
         $this->assertTrue(Hash::check('valid pass 1!', $user->password));
@@ -787,7 +787,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $this->assertDatabaseHas('users', [
             'email' => 'phil.employee@example.com',
@@ -809,7 +809,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $this->assertDatabaseHas('users', [
             'email' => 'no.initials@example.com',
@@ -842,7 +842,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $this->assertDatabaseHas('users', [
             'email' => 'titled.employee@example.com',
@@ -905,7 +905,7 @@ class ManagementWorkflowTest extends TestCase
             'department_id' => $department->id,
             'role' => 'employee',
             'is_active' => '1',
-        ])->assertRedirect(route('manage.users.index'));
+        ])->assertRedirect(route('manage.users.show', \App\Models\User::latest('id')->first()));
 
         $user = User::where('email', 'profile.fields@example.com')->firstOrFail();
 

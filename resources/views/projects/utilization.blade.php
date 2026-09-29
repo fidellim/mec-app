@@ -1,6 +1,9 @@
 @extends('layouts.app')
 
 @section('content')
+@php
+    $listContext = \App\Support\ListContext::parameters('projects');
+@endphp
 @php($activeTab = $activeTab ?? 'utilization')
 <div class="project-responsive-page">
 <div class="section-header">
@@ -10,13 +13,13 @@
         <div class="text-muted">{{ $activeTab === 'overview' ? 'Project details, timesheet access, and saved allocations.' : 'Lifetime manhour allocation and timesheet usage by discipline.' }}</div>
     </div>
     <div class="action-group">
-        <a class="btn btn-outline-secondary" href="{{ auth()->user()->isAdminLike() ? route('manage.projects.index') : route('managed-projects.index') }}">Back to projects</a>
-    @if(auth()->user()->isAdminLike())<a class="btn btn-primary" href="{{ route('manage.projects.edit', $project) }}">Edit project</a>@endif
+        <a class="btn btn-outline-secondary" href="{{ auth()->user()->isAdminLike() ? route('manage.projects.index', $listContext['list'] ?? []) : route('managed-projects.index') }}">Back to projects</a>
+    @if(auth()->user()->isAdminLike())<a class="btn btn-primary" href="{{ route('manage.projects.edit', ['project' => $project] + $listContext) }}">Edit project</a>@endif
     </div>
 </div>
 <nav class="nav nav-tabs mb-3" aria-label="Project sections">
-    <a class="nav-link {{ $activeTab === 'overview' ? 'active' : '' }}" @if($activeTab === 'overview') aria-current="page" @endif href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview']) }}">Overview</a>
-    <a class="nav-link {{ $activeTab === 'utilization' ? 'active' : '' }}" @if($activeTab === 'utilization') aria-current="page" @endif href="{{ route('projects.utilization', $project) }}">Utilization</a>
+    <a class="nav-link {{ $activeTab === 'overview' ? 'active' : '' }}" @if($activeTab === 'overview') aria-current="page" @endif href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview'] + $listContext) }}">Overview</a>
+    <a class="nav-link {{ $activeTab === 'utilization' ? 'active' : '' }}" @if($activeTab === 'utilization') aria-current="page" @endif href="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">Utilization</a>
 </nav>
 <div class="content-card p-3 mb-3">
     <div class="row g-3">
@@ -29,7 +32,8 @@
     @include('projects.partials.overview')
 @else
 <div class="content-card p-3 mb-3">
-    <form method="GET" action="{{ route('projects.utilization', $project) }}">
+    <form method="GET" action="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">
+        @include('shared.list-context')
         <div class="row g-3 align-items-end">
             <div class="col-sm-6 col-lg-4">
                 <label class="form-label" for="date_from">From date</label>
@@ -44,7 +48,7 @@
             <div class="col-lg-4 d-flex flex-wrap gap-2">
                 <button class="btn btn-primary" type="submit">Apply date range</button>
                 @if(filled($filters['date_from'] ?? null) || filled($filters['date_to'] ?? null))
-                    <a class="btn btn-outline-secondary" href="{{ route('projects.utilization', $project) }}">Show lifetime</a>
+                    <a class="btn btn-outline-secondary" href="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">Show lifetime</a>
                 @endif
             </div>
         </div>
@@ -151,7 +155,8 @@
         <span class="badge text-bg-secondary">{{ $reviewTimesheets->total() }} timesheets</span>
     </div>
     <div class="content-card-body border-bottom bg-body-tertiary">
-        <form method="get" action="{{ route('projects.utilization', $project) }}">
+        <form method="get" action="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">
+            @include('shared.list-context')
             @if(filled($filters['date_from'] ?? null))<input type="hidden" name="date_from" value="{{ $filters['date_from'] }}">@endif
             @if(filled($filters['date_to'] ?? null))<input type="hidden" name="date_to" value="{{ $filters['date_to'] }}">@endif
             <div class="row g-3 align-items-end">
@@ -159,7 +164,7 @@
                 <div class="col-12 col-md-6 col-xl-2"><label class="form-label" for="review_status">Status</label><select class="form-select" id="review_status" name="review_status" data-searchable="false"><option value="">All statuses</option><option value="submitted" @selected(($filters['review_status'] ?? '') === 'submitted')>Submitted</option><option value="approved" @selected(($filters['review_status'] ?? '') === 'approved')>Approved</option></select></div>
                 <div class="col-6 col-md-4 col-xl-2"><label class="form-label" for="review_week">Week</label><select class="form-select" id="review_week" name="review_week" data-searchable="false"><option value="">All weeks</option>@foreach($reviewPeriods->pluck('week_number')->unique() as $week)<option value="{{ $week }}" @selected((string)($filters['review_week'] ?? '') === (string)$week)>Week {{ $week }}</option>@endforeach</select></div>
                 <div class="col-6 col-md-4 col-xl-2"><label class="form-label" for="review_year">Year</label><select class="form-select" id="review_year" name="review_year" data-searchable="false"><option value="">All years</option>@foreach($reviewPeriods->pluck('year')->unique() as $year)<option value="{{ $year }}" @selected((string)($filters['review_year'] ?? '') === (string)$year)>{{ $year }}</option>@endforeach</select></div>
-                <div class="col-12 col-md-4 col-xl-2"><div class="d-grid d-sm-flex gap-2"><button class="btn btn-primary flex-grow-1 text-nowrap">Apply filters</button>@if($hasReviewFilters)<a class="btn btn-outline-secondary" href="{{ route('projects.utilization', array_filter(['project' => $project, 'date_from' => $filters['date_from'] ?? null, 'date_to' => $filters['date_to'] ?? null])) }}">Reset</a>@endif</div></div>
+                <div class="col-12 col-md-4 col-xl-2"><div class="d-grid d-sm-flex gap-2"><button class="btn btn-primary flex-grow-1 text-nowrap">Apply filters</button>@if($hasReviewFilters)<a class="btn btn-outline-secondary" href="{{ route('projects.utilization', array_filter(['project' => $project, 'date_from' => $filters['date_from'] ?? null, 'date_to' => $filters['date_to'] ?? null]) + $listContext) }}">Reset</a>@endif</div></div>
             </div>
         </form>
     </div>

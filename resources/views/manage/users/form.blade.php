@@ -2,6 +2,9 @@
 
 @section('content')
 @php
+    $listContext = \App\Support\ListContext::parameters('users');
+@endphp
+@php
     $roleLabels = config('roles.labels');
     $genderLabels = ['male' => 'Male', 'female' => 'Female'];
     $maritalStatusLabels = ['single' => 'Single', 'married' => 'Married', 'widowed' => 'Widowed', 'separated' => 'Separated'];
@@ -22,7 +25,8 @@
             : null);
 @endphp
 <div class="section-header"><div><h1 class="h3 page-heading mb-1">{{ $userModel->exists ? 'Edit User' : 'New User' }}</h1><div class="text-muted">{{ $isSuperAdmin ? 'Set employee identity, role, department, and account status.' : 'Update employee profile details and account status.' }}</div></div></div>
-<form class="content-card p-3" method="post" action="{{ $userModel->exists ? route('manage.users.update', $userModel) : route('manage.users.store') }}">
+<form class="content-card p-3" method="post" action="{{ $userModel->exists ? route('manage.users.update', ['user' => $userModel] + $listContext) : route('manage.users.store', $listContext) }}">
+    @include('shared.list-context')
     @csrf @if($userModel->exists) @method('put') @endif
     <div class="row g-3">
         <div class="col-md-6"><label class="form-label">Name</label><input class="form-control" name="name" value="{{ old('name', $userModel->name) }}" required></div>
