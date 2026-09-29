@@ -28,6 +28,8 @@ The UI should be:
 
 ## UI Style
 
+Follow [docs/DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) for shared UI tokens, action roles, component patterns, and the page adoption checklist. Reuse the existing shared layout and Bootstrap foundation; update one page at a time.
+
 Use:
 - consistent spacing
 - readable typography

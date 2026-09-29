@@ -7,7 +7,7 @@
         <h1 class="h3 page-heading mb-1">Projects / Job Numbers</h1>
         <div class="text-muted">Keep job numbers available for history and archive inactive work.</div>
     </div>
-    <a class="btn btn-primary" href="{{ route('manage.projects.create') }}">New Project</a>
+    <a class="btn btn-primary" href="{{ route('manage.projects.create') }}">New project</a>
 </div>
 
 @php($hasProjectFilters = filled($search) || filled($status))
@@ -41,9 +41,9 @@
         </div>
         <div class="col-12 col-md-6 col-lg-3">
             <div class="d-flex flex-wrap gap-2">
-                <button class="btn btn-primary" type="submit">Apply Filters</button>
+                <button class="btn btn-outline-secondary" type="submit">Apply filters</button>
                 @if($hasProjectFilters)
-                    <a class="btn btn-outline-secondary" href="{{ route('manage.projects.index') }}">Clear</a>
+                    <a class="btn btn-link" href="{{ route('manage.projects.index') }}">Clear filters</a>
                 @endif
             </div>
         </div>
@@ -78,7 +78,7 @@
                     <th style="width: 9rem;">Client</th>
                     <th style="width: 7rem;">Status</th>
                     <th style="width: 8rem;">Usage</th>
-                    <th style="width: 17rem;"></th>
+                    <th class="text-end" style="width: 17rem;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -96,16 +96,16 @@
                         <td data-label="Usage" class="small text-muted">{{ $project->entries_count }} entries</td>
                         <td data-label="Actions" class="text-end">
                             <div class="action-group">
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview']) }}">Overview</a>
-                                <a class="btn btn-sm btn-outline-primary" href="{{ route('projects.utilization', $project) }}">Utilization</a>
-                                <a class="btn btn-sm btn-primary" href="{{ route('manage.projects.edit', $project) }}">Edit</a>
+                                <a class="btn btn-sm btn-outline-primary ui-action ui-action-navigation" href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview']) }}">Overview</a>
+                                <a class="btn btn-sm btn-outline-primary ui-action ui-action-navigation" href="{{ route('projects.utilization', $project) }}">Utilization</a>
+                                <a class="btn btn-sm btn-outline-secondary" href="{{ route('manage.projects.edit', $project) }}">Edit</a>
                                 <form method="post" action="{{ route('manage.projects.status', $project) }}" data-confirm="{{ $project->is_active ? 'Deactivate this project? Existing records will remain visible.' : 'Reactivate this project?' }}">
                                     @csrf
                                     @method('patch')
-                                    <button class="btn btn-sm btn-outline-secondary">{{ $project->is_active ? 'Deactivate' : 'Reactivate' }}</button>
+                                    <button type="submit" class="btn btn-sm ui-action {{ $project->is_active ? 'btn-outline-warning ui-action-warning' : 'btn-outline-success ui-action-success' }}">{{ $project->is_active ? 'Deactivate' : 'Reactivate' }}</button>
                                 </form>
                                 @if(auth()->user()->isSuperAdmin())
-                                    <button type="button" class="btn btn-sm btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal{{ $project->id }}">
+                                    <button type="button" class="btn btn-sm btn-outline-danger ui-action ui-action-danger" data-bs-toggle="modal" data-bs-target="#deleteProjectModal{{ $project->id }}">
                                         Delete
                                     </button>
                                 @endif
@@ -147,7 +147,7 @@
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-danger" @disabled(! $canDelete)>Delete Project</button>
+                        <button type="submit" class="btn btn-danger" @disabled(! $canDelete)>Delete project</button>
                     </div>
                 </form>
             </div>

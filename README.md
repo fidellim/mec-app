@@ -4,6 +4,8 @@ Phase 1 replaces the Excel/email weekly timesheet process with a Laravel web app
 
 ## Tech Stack
 
+UI conventions and the page adoption checklist are documented in [Design system](docs/DESIGN_SYSTEM.md).
+
 - Laravel 11 style application
 - Blade + Bootstrap 5
 - MySQL

@@ -1306,6 +1306,29 @@
             font-weight: 600;
         }
         .btn-sm { border-radius: .45rem; }
+        /* Semantic action roles: docs/DESIGN_SYSTEM.md. Opt in per action. */
+        .ui-action-navigation { --ui-action-color: var(--bs-primary-text-emphasis); --ui-action-bg: var(--bs-primary-bg-subtle); --ui-action-border: var(--bs-primary-text-emphasis); }
+        .ui-action-warning { --ui-action-color: var(--bs-warning-text-emphasis); --ui-action-bg: var(--bs-warning-bg-subtle); --ui-action-border: var(--bs-warning-text-emphasis); }
+        .ui-action-success { --ui-action-color: var(--bs-success-text-emphasis); --ui-action-bg: var(--bs-success-bg-subtle); --ui-action-border: var(--bs-success-text-emphasis); }
+        .ui-action-danger { --ui-action-color: var(--bs-danger-text-emphasis); --ui-action-bg: var(--bs-danger-bg-subtle); --ui-action-border: var(--bs-danger-text-emphasis); }
+        .ui-action {
+            --bs-btn-color: var(--ui-action-color);
+            --bs-btn-bg: transparent;
+            --bs-btn-border-color: var(--ui-action-border);
+            --bs-btn-hover-color: var(--ui-action-color);
+            --bs-btn-hover-bg: var(--ui-action-bg);
+            --bs-btn-hover-border-color: var(--ui-action-border);
+            --bs-btn-active-color: var(--ui-action-color);
+            --bs-btn-active-bg: var(--ui-action-bg);
+            --bs-btn-active-border-color: var(--ui-action-border);
+            --bs-btn-disabled-color: var(--ui-action-color);
+            --bs-btn-disabled-bg: transparent;
+            --bs-btn-disabled-border-color: var(--ui-action-border);
+        }
+        .ui-action:focus-visible {
+            outline: 2px solid var(--ui-action-color);
+            outline-offset: 2px;
+        }
         .badge {
             border-radius: 999px;
             font-weight: 700;

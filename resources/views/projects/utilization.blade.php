@@ -11,7 +11,7 @@
     </div>
     <div class="action-group">
         <a class="btn btn-outline-secondary" href="{{ auth()->user()->isAdminLike() ? route('manage.projects.index') : route('managed-projects.index') }}">Back to projects</a>
-    @if(auth()->user()->isAdminLike())<a class="btn btn-outline-secondary" href="{{ route('manage.projects.edit', $project) }}">Edit project</a>@endif
+    @if(auth()->user()->isAdminLike())<a class="btn btn-primary" href="{{ route('manage.projects.edit', $project) }}">Edit project</a>@endif
     </div>
 </div>
 <nav class="nav nav-tabs mb-3" aria-label="Project sections">
