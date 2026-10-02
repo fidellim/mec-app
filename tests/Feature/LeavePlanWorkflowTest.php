@@ -1151,6 +1151,8 @@ class LeavePlanWorkflowTest extends TestCase
 
     public function test_employee_calendar_shows_same_department_applied_leave_only(): void
     {
+        $this->travelTo('2026-09-02 12:00:00');
+
         $department = $this->department(['name' => 'Operations']);
         $otherDepartment = $this->department(['name' => 'Engineering']);
         $employee = $this->userWithRole('employee', [
@@ -1260,6 +1262,12 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('btn-primary leave-calendar-icon-btn', false)
             ->assertSee('October 2026')
             ->assertSee('<option value="10" selected>October</option>', false);
+
+        $this->actingAs($employee)
+            ->get(route('employee.leave-plans.calendar', ['month' => '2026-09']))
+            ->assertOk()
+            ->assertSee('September 2026')
+            ->assertDontSee('leave-calendar-current-link', false);
     }
 
     public function test_uae_employee_calendar_hides_same_department_philippines_leave(): void
