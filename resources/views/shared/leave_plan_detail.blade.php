@@ -29,17 +29,41 @@
                 @php($coverage = app(\App\Services\LeaveCoverageService::class)->preview($leavePlan->user, $leavePlan->getAttributes(), $leavePlan->id))
                 <div class="col-12">
                     <div class="border rounded p-3 bg-body-tertiary">
-                        <div class="fw-semibold mb-2">Annual leave allocation</div>
-                        <div>{{ $coverage['selected'] }} days selected · {{ $coverage['approved'] }} approved under other requests · {{ $coverage['pending'] }} pending under other requests · {{ $coverage['additional'] }} days not covered elsewhere</div>
-                        @if($coverage['additional_dates_label'])
-                            <div class="small mt-2">Dates not covered elsewhere: {{ $coverage['additional_dates_label'] }}</div>
+                        @php($overlapDays = $coverage['approved'] + $coverage['pending'])
+                        <div class="fw-semibold mb-1">Annual leave summary</div>
+                        <div class="fw-semibold">
+                            {{ $coverage['selected'] }} {{ $coverage['selected'] == 1 ? 'day' : 'days' }} requested
+                            @if($overlapDays > 0)
+                                · {{ $overlapDays }} {{ $overlapDays == 1 ? 'day overlaps' : 'days overlap' }} other annual leave requests
+                            @elseif(empty($coverage['overlaps']) && $leavePlan->start_date->isSameDay($leavePlan->end_date))
+                                · {{ $leavePlan->start_date->format('j M Y') }} ({{ $leavePlan->duration_type === 'half_day' ? $leavePlan->half_day_period : 'full day' }})
+                            @endif
+                        </div>
+                        @if(empty($coverage['overlaps']))
+                            <div class="small text-muted mt-2">No overlap with other leave requests.</div>
+                        @else
+                            @if($overlapDays > 0)
+                                <div class="small mt-2">Already covered: {{ collect([
+                                    $coverage['approved'] > 0 ? $coverage['approved'].' '.($coverage['approved'] == 1 ? 'day' : 'days').' approved' : null,
+                                    $coverage['pending'] > 0 ? $coverage['pending'].' '.($coverage['pending'] == 1 ? 'day' : 'days').' pending' : null,
+                                ])->filter()->implode(', ') }}.</div>
+                                <div class="small mt-1">{{ in_array($leavePlan->status, [\App\Models\LeavePlan::STATUS_APPROVED, \App\Models\LeavePlan::STATUS_CANCELLATION_REQUESTED]) ? 'Additional days counted toward the balance' : 'Additional days if approved' }}: <strong>{{ $coverage['additional'] }}</strong>.</div>
+                            @else
+                                <div class="small mt-2">Overlaps another leave type.</div>
+                            @endif
+                            <details class="small mt-2">
+                                <summary>View overlap details</summary>
+                                @foreach($coverage['overlaps'] as $overlap)
+                                    <div class="mt-2">Request #{{ $overlap['id'] }} ({{ str_replace('_', ' ', $overlap['status']) }}): {{ $overlap['dates_label'] }}</div>
+                                @endforeach
+                                @if($coverage['additional_dates_label'])
+                                    <div class="mt-2">Additional dates: {{ $coverage['additional_dates_label'] }}</div>
+                                @endif
+                                <div class="text-muted mt-2">Shared dates count once. Based on current requests.</div>
+                            </details>
                         @endif
-                        <div class="small text-muted mt-2">This request covers its entire selected period. Shared dates count once in the employee’s annual balance. This breakdown reflects current coverage, not a historical deduction.</div>
-                        @foreach($coverage['overlaps'] as $overlap)
-                            <div class="small mt-2">Request #{{ $overlap['id'] }} ({{ str_replace('_', ' ', $overlap['status']) }}): {{ $overlap['dates_label'] }}</div>
-                        @endforeach
                         @if(in_array($leavePlan->status, [\App\Models\LeavePlan::STATUS_APPROVED, \App\Models\LeavePlan::STATUS_CANCELLATION_REQUESTED]))
-                            <div class="small mt-2">If cancellation is approved with current coverage unchanged, {{ $coverage['additional'] }} days will return to the annual leave balance. Dates covered by other requests will keep their own approval or pending status.</div>
+                            <div class="small mt-2">If cancellation is approved: {{ $coverage['additional'] }} {{ $coverage['additional'] == 1 ? 'day' : 'days' }} would return to the balance, based on current overlaps.</div>
                         @endif
                     </div>
                 </div>

@@ -50,7 +50,7 @@ class AnnualLeaveCoverageTest extends TestCase
         $this->assertEquals(1, $balance['approved_days']);
         $this->assertEquals(2, $balance['pending_days']);
         $new = LeavePlan::latest('id')->first();
-        $this->get(route('employee.leave-plans.show', $new))->assertOk()->assertSee('Annual leave allocation');
+        $this->get(route('employee.leave-plans.show', $new))->assertOk()->assertSee('Annual leave summary');
     }
 
     public function test_cancellation_preserves_other_approved_coverage_but_never_grants_approval(): void

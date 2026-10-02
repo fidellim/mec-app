@@ -89,10 +89,14 @@
                 </div>
                 <div class="col-12 d-none" data-coverage-preview role="status" aria-live="polite">
                     <div class="border rounded p-3 bg-body-tertiary">
-                        <div class="fw-semibold mb-1">Annual leave allocation</div>
-                        <div data-coverage-summary></div>
+                        <div class="fw-semibold mb-1">Annual leave summary</div>
+                        <div class="fw-semibold" data-coverage-summary></div>
+                        <div class="small mt-2 d-none" data-coverage-totals></div>
                         <div class="small text-muted mt-2" data-coverage-context></div>
-                        <div class="small mt-2" data-coverage-requests></div>
+                        <details class="small mt-2 d-none" data-coverage-details>
+                            <summary>View overlap details</summary>
+                            <div class="mt-2" data-coverage-requests></div>
+                        </details>
                     </div>
                 </div>
                 <div class="col-12">
@@ -154,7 +158,13 @@
         const summary = coveragePanel.querySelector('[data-coverage-summary]');
         const context = coveragePanel.querySelector('[data-coverage-context]');
         const requests = coveragePanel.querySelector('[data-coverage-requests]');
-        summary.textContent = 'Checking annual leave allocation…';
+        const totals = coveragePanel.querySelector('[data-coverage-totals]');
+        const details = coveragePanel.querySelector('[data-coverage-details]');
+        details.classList.add('d-none');
+        details.open = false;
+        totals.classList.add('d-none');
+        totals.replaceChildren();
+        summary.textContent = 'Checking annual leave…';
         context.textContent = '';
         requests.replaceChildren();
         const url = new URL(window.location.href);
@@ -167,8 +177,33 @@
             const data = await response.json();
             if (sequence !== coverageSequence) return;
             const c = data.coverage;
-            summary.textContent = `${c.selected} ${c.selected === 1 ? 'day' : 'days'} selected · ${c.approved} already approved · ${c.pending} already pending · ${c.additional} additional ${c.additional === 1 ? 'day' : 'days'} required`;
-            context.textContent = c.errors.length ? c.errors.join(' ') : 'The full selected period follows its own approval process. Shared dates count only once. Allocation is checked again when you submit.';
+            const days = count => `${count} ${count === 1 ? 'day' : 'days'}`;
+            const overlapDays = c.approved + c.pending;
+            summary.textContent = `${days(c.selected)} requested`;
+            if (overlapDays > 0) {
+                summary.textContent += ` · ${days(overlapDays)} ${overlapDays === 1 ? 'overlaps' : 'overlap'} other annual leave requests`;
+                const covered = [];
+                if (c.approved > 0) covered.push(`${days(c.approved)} approved`);
+                if (c.pending > 0) covered.push(`${days(c.pending)} pending`);
+                const coveredLine = document.createElement('div');
+                coveredLine.textContent = `Already covered: ${covered.join(', ')}.`;
+                const additionalLine = document.createElement('div');
+                additionalLine.className = 'mt-1';
+                additionalLine.append('Additional days if approved: ');
+                const amount = document.createElement('strong');
+                amount.textContent = c.additional;
+                additionalLine.append(amount, '.');
+                totals.append(coveredLine, additionalLine);
+                totals.classList.remove('d-none');
+            } else if (!c.overlaps.length && startDate.value === endDate.value) {
+                const date = new Date(`${startDate.value}T00:00:00`);
+                const label = date.toLocaleDateString('en-GB', {day: 'numeric', month: 'short', year: 'numeric'});
+                summary.textContent += ` · ${label} (${durationType.value === 'half_day' ? halfDayPeriod.value : 'full day'})`;
+            }
+            context.textContent = c.errors.length ? c.errors.join(' ')
+                : c.overlaps.length ? '' : 'No overlap with other leave requests.';
+            context.classList.toggle('d-none', !context.textContent);
+            details.classList.toggle('d-none', !c.overlaps.length);
             c.overlaps.forEach(overlap => {
                 const link = document.createElement('a');
                 link.className = 'd-block';
@@ -178,7 +213,7 @@
             });
             document.querySelector('[data-leave-balances]').innerHTML = data.balances_html;
         } catch (error) {
-            if (sequence === coverageSequence) summary.textContent = 'Allocation preview is unavailable. Your dates and balance will be checked when you submit.';
+            if (sequence === coverageSequence) summary.textContent = 'Leave summary is unavailable. Your dates and balance will be checked when you submit.';
         }
     };
     [startDate, endDate, durationType, halfDayPeriod, attendanceCode].forEach(input => input.addEventListener('change', () => {
