@@ -54,6 +54,90 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('Operations');
     }
 
+    public function test_summary_employee_order_applies_to_preview_and_weekly_and_monthly_excel_exports(): void
+    {
+        $department = $this->department();
+        $project = $this->project();
+        $period = $this->openPeriod();
+        $nextPeriod = $this->openPeriod([
+            'week_number' => 21,
+            'start_date' => '2026-05-18',
+            'end_date' => '2026-05-24',
+        ]);
+        foreach (['Amy Adams', 'Ben Brown', 'Zoe Young'] as $name) {
+            $employee = $this->userWithRole('employee', ['name' => $name, 'department_id' => $department->id]);
+            $timesheet = $this->submittedTimesheet($employee, $period, $project);
+            $employeeTimesheets = [$timesheet];
+            if ($name === 'Zoe Young') {
+                $timesheet->entries()->update(['regular_hours' => 6]);
+                $nextTimesheet = $this->submittedTimesheet($employee, $nextPeriod, $project);
+                $nextTimesheet->entries()->update(['regular_hours' => 6]);
+                $employeeTimesheets[] = $nextTimesheet;
+            }
+            foreach ($employeeTimesheets as $employeeTimesheet) {
+                $attendanceEntry = $employeeTimesheet->entries()->first()->replicate();
+                $attendanceEntry->project_id = null;
+                $attendanceEntry->attendance_code = 'L100';
+                $attendanceEntry->save();
+            }
+        }
+        $this->actingAs($this->userWithRole('admin'));
+
+        foreach (['weekly', 'monthly'] as $mode) {
+            $filters = ['filter_mode' => $mode, 'year' => 2026];
+            $filters += $mode === 'monthly' ? ['month' => 5] : ['week_from' => 20, 'week_to' => 21];
+            foreach ([null, 'total_hours', 'name'] as $sort) {
+                $query = $filters;
+                if ($sort !== null) {
+                    $query['summary_sort'] = $sort;
+                }
+                $expected = $sort === 'name'
+                    ? ['Amy Adams', 'Ben Brown', 'Zoe Young']
+                    : ['Zoe Young', 'Amy Adams', 'Ben Brown'];
+
+                $preview = $this->get(route('admin.timesheets.index', $query + ['preview' => 'summary']))
+                    ->assertOk()
+                    ->assertSee('Summary employee order')
+                    ->assertSee('Highest total hours first')
+                    ->assertSee('Employee name (A–Z)');
+                if ($sort === 'name') {
+                    $preview->assertSee('<option value="name" selected>', false)
+                        ->assertSee('summary_sort=name', false);
+                }
+                foreach (['project', 'attendance'] as $summary) {
+                    $employees = $preview->viewData('summaryPreview')[$summary]['groups']->first()['employees'];
+                    $this->assertSame($expected, $employees->pluck('employee_name')->all());
+                    $this->assertEquals(28, $employees->sum('total_hours'));
+                }
+
+                $response = $this->get(route('admin.timesheets.export', $query))->assertOk();
+                $spreadsheet = IOFactory::load($response->getFile()->getPathname());
+                foreach ([0, 1] as $sheetIndex) {
+                    $names = [];
+                    foreach ($spreadsheet->getSheet($sheetIndex)->toArray() as $row) {
+                        foreach ($row as $cell) {
+                            if (in_array($cell, $expected, true)) {
+                                $names[] = $cell;
+                            }
+                        }
+                    }
+                    $this->assertSame($expected, $names);
+                }
+                $spreadsheet->disconnectWorksheets();
+            }
+        }
+    }
+
+    public function test_summary_employee_order_rejects_unsupported_values(): void
+    {
+        $this->actingAs($this->userWithRole('admin'));
+        foreach (['admin.timesheets.index', 'admin.timesheets.export'] as $route) {
+            $this->get(route($route, ['year' => 2026, 'summary_sort' => 'invalid']))
+                ->assertRedirect()
+                ->assertSessionHasErrors('summary_sort');
+        }
+    }
+
     public function test_admin_can_filter_all_timesheets_by_role(): void
     {
         $department = $this->department(['name' => 'Role Filter Department']);

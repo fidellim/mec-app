@@ -8,7 +8,7 @@
     $selectedMonth = request('month', now()->month);
     $selectedEmployeeTypes = collect((array) request('employee_types', []))->filter(fn ($type) => is_string($type) && isset($employeeTypeLabels[$type]))->values()->all();
     $selectedEmployeeTypeLabels = collect($selectedEmployeeTypes)->map(fn ($type) => $employeeTypeLabels[$type])->values();
-    $hasVisibleFilters = $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || $selectedEmployeeTypes || request('status') || request('corrections') || request()->boolean('include_employee_sheets') || request()->boolean('employee_totals_only');
+    $hasVisibleFilters = request('summary_sort') === 'name' || $filterMode === 'monthly' || $weekFrom || request('year') || request('project_id') || request('department_id') || request('employee_id') || request('role') || $selectedEmployeeTypes || request('status') || request('corrections') || request()->boolean('include_employee_sheets') || request()->boolean('employee_totals_only');
 @endphp
 <style>
     .summary-preview-info-button {
@@ -186,6 +186,15 @@
     </div>
     <div class="col-md-4 d-flex align-items-end" data-monthly-filter>
         <div class="text-muted small mb-2">Monthly reports are summary-only and count only dates inside the selected calendar month.</div>
+    </div>
+    <div class="col-md-4">
+        <label class="form-label" for="summary_sort">Summary employee order</label>
+        <select class="form-select @error('summary_sort') is-invalid @enderror" id="summary_sort" name="summary_sort" aria-describedby="summary-sort-help">
+            <option value="total_hours" @selected(request('summary_sort', 'total_hours') === 'total_hours')>Highest total hours first</option>
+            <option value="name" @selected(request('summary_sort') === 'name')>Employee name (A–Z)</option>
+        </select>
+        <div class="form-text" id="summary-sort-help">Orders employees within each Project Summary and Attendance Summary group. Apply filters to update the preview and Excel export.</div>
+        @error('summary_sort')<div class="invalid-feedback">{{ $message }}</div>@enderror
     </div>
     <div class="col-12">
         <div class="employee-totals-option">

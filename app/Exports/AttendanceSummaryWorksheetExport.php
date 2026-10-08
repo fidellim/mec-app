@@ -19,7 +19,8 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
     public function __construct(
         private readonly Collection $rows,
         private readonly string $reportMode = 'weekly',
-        private readonly ?bool $showCosting = null
+        private readonly ?bool $showCosting = null,
+        private readonly string $summarySort = 'total_hours'
     )
     {
     }
@@ -274,10 +275,12 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                     'total_hours' => $employeeRows->sum('total_hours'),
                 ];
             })
-            ->sortBy([
-                ['total_hours', 'desc'],
-                ['employee_name', 'asc'],
-            ])
+            ->sortBy($this->summarySort === 'name'
+                ? fn (array $employee) => mb_strtolower($employee['employee_name'])
+                : [
+                    ['total_hours', 'desc'],
+                    ['employee_name', 'asc'],
+                ])
             ->values();
     }
 

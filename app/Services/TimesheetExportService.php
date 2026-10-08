@@ -59,7 +59,7 @@ class TimesheetExportService
             ? 'monthly_timesheet_report_'.$this->monthlyDateRange($filters)['start']->format('Y_m').'_'.now()->format('Ymd_His').'.xlsx'
             : 'employee_weekly_timesheets_'.now()->format('Ymd_His').'.xlsx';
 
-        return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $attendanceSummary, $includeEmployeeSheets, $monthly ? 'monthly' : 'weekly', $employeeRateRows, $showCosting), $fileName, ExcelWriter::XLSX);
+        return Excel::download(new TimesheetsExcelExport($payload, $projectWeeklySummary, $attendanceSummary, $includeEmployeeSheets, $monthly ? 'monthly' : 'weekly', $employeeRateRows, $showCosting, $filters['summary_sort'] ?? 'total_hours'), $fileName, ExcelWriter::XLSX);
     }
 
     public function matchingTimesheetCount(array $filters): int
@@ -75,8 +75,8 @@ class TimesheetExportService
         $attendanceSummaryRows = $this->buildAttendanceSummary($summaryTimesheets, $filters);
 
         return [
-            'project' => (new ProjectSummaryWorksheetExport($projectSummaryRows, $this->isMonthly($filters) ? 'monthly' : 'weekly'))->data(),
-            'attendance' => (new AttendanceSummaryWorksheetExport($attendanceSummaryRows, $this->isMonthly($filters) ? 'monthly' : 'weekly'))->data(),
+            'project' => (new ProjectSummaryWorksheetExport($projectSummaryRows, $this->isMonthly($filters) ? 'monthly' : 'weekly', summarySort: $filters['summary_sort'] ?? 'total_hours'))->data(),
+            'attendance' => (new AttendanceSummaryWorksheetExport($attendanceSummaryRows, $this->isMonthly($filters) ? 'monthly' : 'weekly', summarySort: $filters['summary_sort'] ?? 'total_hours'))->data(),
             'timesheet_count' => $summaryTimesheets->count(),
             'project_row_count' => $projectSummaryRows->count(),
             'attendance_row_count' => $attendanceSummaryRows->count(),

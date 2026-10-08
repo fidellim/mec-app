@@ -208,6 +208,7 @@ class AdminTimesheetController extends Controller
             'status' => ['nullable', 'in:draft,submitted,approved,rejected,withdrawn,recalled,voided,not_submitted'],
             'include_employee_sheets' => ['nullable', 'boolean'],
             'employee_totals_only' => ['nullable', 'boolean'],
+            'summary_sort' => ['nullable', Rule::in(['total_hours', 'name'])],
             'corrections' => ['nullable', 'in:open'],
         ], [
             'week_from.required_with' => 'Enter From Week when using To Week.',
