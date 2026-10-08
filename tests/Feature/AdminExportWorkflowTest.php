@@ -38,9 +38,11 @@ class AdminExportWorkflowTest extends TestCase
             ->assertSee('To Week')
             ->assertSee('href="'.route('admin.timesheets.index').'"', false)
             ->assertSee('Clear')
-            ->assertSee('Include individual employee timesheet sheets')
-            ->assertSee('Export employee charging report')
-            ->assertSee('Creates one expandable Employee Hours Summary sheet with period totals and project/attendance charging breakdowns for each matching employee.')
+            ->assertSee('Include individual timesheets')
+            ->assertSee('Standard summary')
+            ->assertSee('Employee charging')
+            ->assertSee('More filters')
+            ->assertSee('One expandable Employee Hours Summary sheet with employee totals and project/attendance charging breakdowns.')
             ->assertSee('Filters are active. Add a valid week and year to see the configured date range.')
             ->assertSee('filter-summary-badge')
             ->assertSee('Export started. Your Excel file will download when ready.')
@@ -97,7 +99,7 @@ class AdminExportWorkflowTest extends TestCase
 
                 $preview = $this->get(route('admin.timesheets.index', $query + ['preview' => 'summary']))
                     ->assertOk()
-                    ->assertSee('Summary employee order')
+                    ->assertSee('Sort employees')
                     ->assertSee('Highest total hours first')
                     ->assertSee('Employee name (A–Z)');
                 if ($sort === 'name') {
@@ -883,7 +885,7 @@ class AdminExportWorkflowTest extends TestCase
                 'year' => 2026,
             ]))
             ->assertOk()
-            ->assertSee('Report mode')
+            ->assertSee('Report period')
             ->assertSee('Monthly')
             ->assertSee('Month')
             ->assertSee('Monthly reports are summary-only and count only dates inside the selected calendar month.')

@@ -49,11 +49,44 @@
         color: var(--bs-secondary-color);
         background: transparent;
     }
-    .employee-totals-option {
-        border: 1px solid color-mix(in srgb, var(--bs-primary) 25%, var(--bs-border-color));
-        border-radius: var(--bs-border-radius-lg);
-        padding: .85rem 1rem;
-        background: color-mix(in srgb, var(--bs-primary) 5%, var(--bs-body-bg));
+    .timesheet-filters .btn-outline-secondary {
+        --bs-btn-color: var(--bs-secondary-color);
+        --bs-btn-border-color: var(--bs-secondary-color);
+    }
+    .report-filter-section {
+        min-width: 0;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--app-soft-border);
+    }
+    .report-format-option {
+        display: flex;
+        align-items: flex-start;
+        gap: .75rem;
+        height: 100%;
+        padding: 1rem;
+        border: 1px solid var(--app-border);
+        border-radius: .75rem;
+        background: var(--app-card-bg);
+        cursor: pointer;
+    }
+    .report-format-option:has(input:checked) {
+        border-color: var(--bs-primary);
+        background: color-mix(in srgb, var(--bs-primary) 5%, var(--app-card-bg));
+    }
+    .report-format-option:has(input:focus-visible) {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: 3px;
+    }
+    .report-more-filters summary {
+        width: fit-content;
+        padding: .25rem 0;
+        cursor: pointer;
+    }
+    .report-more-filters summary:focus-visible {
+        outline: 2px solid var(--bs-primary);
+        outline-offset: 3px;
+        border-radius: var(--bs-border-radius-sm);
     }
     .employee-type-toggle {
         width: 100%;
@@ -67,6 +100,7 @@
         color: var(--bs-body-color);
         background: var(--bs-body-bg);
         text-align: left;
+        font-weight: 400;
     }
     .employee-type-toggle:hover,
     .employee-type-toggle:focus-visible,
@@ -115,104 +149,139 @@
         </div>
     @endunless
 </div>
-<form class="filter-card mb-3 row g-2">
-    <div class="col-12">
-        <label class="form-label small text-muted d-block">Report mode</label>
-        <div class="btn-group report-mode-control" role="group" aria-label="Report mode">
-            <input class="btn-check" type="radio" name="filter_mode" id="filter_mode_weekly" value="weekly" @checked($filterMode === 'weekly')>
-            <label class="btn btn-sm btn-outline-primary @if($filterMode === 'weekly') active @endif" for="filter_mode_weekly">Weekly</label>
-            <input class="btn-check" type="radio" name="filter_mode" id="filter_mode_monthly" value="monthly" @checked($filterMode === 'monthly')>
-            <label class="btn btn-sm btn-outline-primary @if($filterMode === 'monthly') active @endif" for="filter_mode_monthly">Monthly</label>
-        </div>
-        @error('filter_mode')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-    </div>
-    <div class="col-md-2" data-weekly-filter>
-        <label class="form-label small text-muted" for="week_from">From Week</label>
-        <input id="week_from" class="form-control @error('week_from') is-invalid @enderror" name="week_from" placeholder="e.g. 12" value="{{ old('week_from', request('week_from', request('week_number'))) }}">
-        @error('week_from')<div class="invalid-feedback">{{ $message }}</div>@enderror
-    </div>
-    <div class="col-md-2" data-weekly-filter>
-        <label class="form-label small text-muted" for="week_to">To Week <span class="fw-normal">(optional)</span></label>
-        <input id="week_to" class="form-control @error('week_to') is-invalid @enderror" name="week_to" placeholder="e.g. 15" value="{{ old('week_to', request('week_to')) }}">
-        <div class="form-text">Leave blank to view one week.</div>
-        @error('week_to')<div class="invalid-feedback">{{ $message }}</div>@enderror
-    </div>
-    <div class="col-md-2" data-monthly-filter>
-        <label class="form-label small text-muted" for="month">Month</label>
-        <select id="month" class="form-select @error('month') is-invalid @enderror" name="month">
-            @foreach(range(1, 12) as $monthNumber)
-                <option value="{{ $monthNumber }}" @selected((int) old('month', $selectedMonth) === $monthNumber)>{{ \Carbon\CarbonImmutable::create(2026, $monthNumber, 1)->format('F') }}</option>
-            @endforeach
-        </select>
-        @error('month')<div class="invalid-feedback">{{ $message }}</div>@enderror
-    </div>
-    <div class="col-md-2"><label class="form-label small text-muted" for="year">Year</label><input id="year" class="form-control @error('year') is-invalid @enderror" name="year" placeholder="Year" value="{{ request('year') }}">@error('year')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
-    <div class="col-md-3"><label class="form-label small text-muted" for="project_id">Project</label><select id="project_id" class="form-select" name="project_id"><option value="">All projects</option>@foreach($projects as $project)<option value="{{ $project->id }}" @selected(request('project_id') == $project->id)>{{ $project->project_code }} - {{ $project->project_name }}</option>@endforeach</select></div>
-    <div class="col-md-3"><label class="form-label small text-muted" for="department_id">Department</label><select id="department_id" class="form-select" name="department_id"><option value="">All departments</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(request('department_id') == $department->id)>{{ $department->name }}</option>@endforeach</select></div>
-    <div class="col-md-3"><label class="form-label small text-muted" for="employee_id">User</label><select id="employee_id" class="form-select" name="employee_id"><option value="">All users</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected(request('employee_id') == $employee->id)>{{ $employee->name }}</option>@endforeach</select></div>
-    <div class="col-md-2"><label class="form-label small text-muted" for="role">Role</label><select id="role" class="form-select" name="role"><option value="">All roles</option>@foreach($roleLabels as $role => $label)<option value="{{ $role }}" @selected(request('role') === $role)>{{ $label }}</option>@endforeach</select></div>
-    <div class="col-md-3">
-        <label class="form-label small text-muted" for="employee_type_filter">Employee type</label>
-        <div class="dropdown">
-            <button class="btn employee-type-toggle" id="employee_type_filter" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
-                <span data-employee-type-label>{{ $selectedEmployeeTypes ? $selectedEmployeeTypeLabels->join(', ') : 'All employee types' }}</span>
-                <span class="badge text-bg-primary rounded-pill @if(count($selectedEmployeeTypes) < 2) d-none @endif" data-employee-type-count>{{ count($selectedEmployeeTypes) }}</span>
-            </button>
-            <div class="dropdown-menu employee-type-menu" aria-labelledby="employee_type_filter">
-                <div class="form-check employee-type-option employee-type-option-all">
-                    <input class="form-check-input" type="checkbox" id="employee_type_all" data-employee-type-all @checked(!$selectedEmployeeTypes)>
-                    <label class="form-check-label" for="employee_type_all">All employee types</label>
+<form class="filter-card timesheet-filters mb-3" method="GET">
+    <fieldset class="report-filter-section">
+        <legend class="h6 fw-semibold mb-0">Period</legend>
+        <div class="row g-3">
+            <div class="col-md-6 col-lg-3">
+                <label class="form-label small text-muted d-block">Report period</label>
+                <div class="btn-group report-mode-control" role="group" aria-label="Report period">
+                    <input class="btn-check" type="radio" name="filter_mode" id="filter_mode_weekly" value="weekly" @checked($filterMode === 'weekly')>
+                    <label class="btn btn-sm btn-outline-primary @if($filterMode === 'weekly') active @endif" for="filter_mode_weekly">Weekly</label>
+                    <input class="btn-check" type="radio" name="filter_mode" id="filter_mode_monthly" value="monthly" @checked($filterMode === 'monthly')>
+                    <label class="btn btn-sm btn-outline-primary @if($filterMode === 'monthly') active @endif" for="filter_mode_monthly">Monthly</label>
                 </div>
-                @foreach($employeeTypeLabels as $type => $label)
-                    <div class="form-check employee-type-option">
-                        <input class="form-check-input" type="checkbox" id="employee_type_{{ $loop->index }}" name="employee_types[]" value="{{ $type }}" data-employee-type-option @checked(in_array($type, $selectedEmployeeTypes, true))>
-                        <label class="form-check-label" for="employee_type_{{ $loop->index }}">{{ $label }}</label>
+                @error('filter_mode')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-6 col-lg-3"><label class="form-label small text-muted" for="year">Year</label><input id="year" class="form-control @error('year') is-invalid @enderror" name="year" placeholder="Year" value="{{ request('year') }}">@error('year')<div class="invalid-feedback">{{ $message }}</div>@enderror</div>
+            <div class="col-md-6 col-lg-3" data-weekly-filter>
+                <label class="form-label small text-muted" for="week_from">From Week</label>
+                <input id="week_from" class="form-control @error('week_from') is-invalid @enderror" name="week_from" placeholder="e.g. 12" value="{{ old('week_from', request('week_from', request('week_number'))) }}">
+                @error('week_from')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-6 col-lg-3" data-weekly-filter>
+                <label class="form-label small text-muted" for="week_to">To Week <span class="fw-normal">(optional)</span></label>
+                <input id="week_to" class="form-control @error('week_to') is-invalid @enderror" name="week_to" placeholder="e.g. 15" value="{{ old('week_to', request('week_to')) }}">
+                <div class="form-text">Leave blank to view one week.</div>
+                @error('week_to')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-6 col-lg-3" data-monthly-filter>
+                <label class="form-label small text-muted" for="month">Month</label>
+                <select id="month" class="form-select @error('month') is-invalid @enderror" name="month">
+                    @foreach(range(1, 12) as $monthNumber)
+                        <option value="{{ $monthNumber }}" @selected((int) old('month', $selectedMonth) === $monthNumber)>{{ \Carbon\CarbonImmutable::create(2026, $monthNumber, 1)->format('F') }}</option>
+                    @endforeach
+                </select>
+                @error('month')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+        </div>
+    </fieldset>
+    <fieldset class="report-filter-section">
+        <legend class="h6 fw-semibold mb-0">Filter timesheets</legend>
+        <div class="row g-3">
+            <div class="col-md-6 col-lg-4 col-xl"><label class="form-label small text-muted" for="project_id">Project</label><select id="project_id" class="form-select" name="project_id"><option value="">All projects</option>@foreach($projects as $project)<option value="{{ $project->id }}" @selected(request('project_id') == $project->id)>{{ $project->project_code }} - {{ $project->project_name }}</option>@endforeach</select></div>
+            <div class="col-md-6 col-lg-4 col-xl"><label class="form-label small text-muted" for="department_id">Department</label><select id="department_id" class="form-select" name="department_id"><option value="">All departments</option>@foreach($departments as $department)<option value="{{ $department->id }}" @selected(request('department_id') == $department->id)>{{ $department->name }}</option>@endforeach</select></div>
+            <div class="col-md-6 col-lg-4 col-xl"><label class="form-label small text-muted" for="employee_id">Employee</label><select id="employee_id" class="form-select" name="employee_id"><option value="">All employees</option>@foreach($employees as $employee)<option value="{{ $employee->id }}" @selected(request('employee_id') == $employee->id)>{{ $employee->name }}</option>@endforeach</select></div>
+            <div class="col-md-6 col-lg-4 col-xl">
+                <label class="form-label small text-muted" for="employee_type_filter">Employee type</label>
+                <div class="dropdown">
+                    <button class="btn employee-type-toggle dropdown-toggle" id="employee_type_filter" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false">
+                        <span data-employee-type-label>{{ $selectedEmployeeTypes ? $selectedEmployeeTypeLabels->join(', ') : 'All employee types' }}</span>
+                        <span class="badge text-bg-primary rounded-pill @if(count($selectedEmployeeTypes) < 2) d-none @endif" data-employee-type-count>{{ count($selectedEmployeeTypes) }}</span>
+                    </button>
+                    <div class="dropdown-menu employee-type-menu" aria-labelledby="employee_type_filter">
+                        <div class="form-check employee-type-option employee-type-option-all">
+                            <input class="form-check-input" type="checkbox" id="employee_type_all" data-employee-type-all @checked(!$selectedEmployeeTypes)>
+                            <label class="form-check-label" for="employee_type_all">All employee types</label>
+                        </div>
+                        @foreach($employeeTypeLabels as $type => $label)
+                            <div class="form-check employee-type-option">
+                                <input class="form-check-input" type="checkbox" id="employee_type_{{ $loop->index }}" name="employee_types[]" value="{{ $type }}" data-employee-type-option @checked(in_array($type, $selectedEmployeeTypes, true))>
+                                <label class="form-check-label" for="employee_type_{{ $loop->index }}">{{ $label }}</label>
+                            </div>
+                        @endforeach
                     </div>
-                @endforeach
+                </div>
+                @error('employee_types')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                @error('employee_types.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-md-6 col-lg-4 col-xl"><label class="form-label small text-muted" for="status">Status</label><select id="status" class="form-select" name="status"><option value="">All statuses</option>@foreach(['draft' => 'Draft','submitted' => 'Submitted','approved' => 'Approved','rejected' => 'Rejected','withdrawn' => 'Withdrawn','recalled' => 'Recalled','voided' => 'Voided','not_submitted' => 'Not Submitted'] as $status => $label)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $label }}</option>@endforeach</select></div>
+        </div>
+        <details class="report-more-filters mt-3" @if(request('role') || request('corrections')) open @endif>
+            <summary class="fw-semibold">More filters @if(request('role') || request('corrections'))<span class="badge text-bg-secondary ms-2">{{ (int) (bool) request('role') + (int) (bool) request('corrections') }} active</span>@endif</summary>
+            <div class="row g-3 pt-3">
+                <div class="col-md-6"><label class="form-label small text-muted" for="role">Role</label><select id="role" class="form-select" name="role"><option value="">All roles</option>@foreach($roleLabels as $role => $label)<option value="{{ $role }}" @selected(request('role') === $role)>{{ $label }}</option>@endforeach</select></div>
+                <div class="col-md-6"><label class="form-label small text-muted" for="corrections">Correction review</label><select id="corrections" class="form-select" name="corrections" data-searchable="false"><option value="">All timesheets</option><option value="open" @selected(request('corrections') === 'open')>Open HOD correction requests</option></select></div>
+            </div>
+        </details>
+    </fieldset>
+    <fieldset class="report-filter-section">
+        <legend class="h6 fw-semibold mb-1">Report options</legend>
+        <p class="text-muted small mb-3">Choose the Excel report format for the filtered timesheets. Apply filters to update the preview and export.</p>
+        <fieldset class="mb-3">
+            <legend class="form-label small text-muted">Report format</legend>
+            <div class="row g-3">
+                <div class="col-lg-6">
+                    <label class="report-format-option" for="employee_totals_standard">
+                        <input class="form-check-input mt-1 flex-shrink-0" type="radio" id="employee_totals_standard" name="employee_totals_only" value="0" @checked(!request()->boolean('employee_totals_only')) aria-labelledby="standard-format-label" aria-describedby="standard-format-help">
+                        <span>
+                            <span class="d-block fw-semibold" id="standard-format-label">Standard summary</span>
+                            <span class="d-block text-muted small mt-1" id="standard-format-help">Project and attendance summaries, with rates and AED costs in summary-only exports.</span>
+                        </span>
+                    </label>
+                </div>
+                <div class="col-lg-6">
+                    <label class="report-format-option" for="employee_totals_only">
+                        <input class="form-check-input mt-1 flex-shrink-0" type="radio" id="employee_totals_only" name="employee_totals_only" value="1" @checked(request()->boolean('employee_totals_only')) aria-labelledby="charging-format-label" aria-describedby="charging-format-help">
+                        <span>
+                            <span class="d-block fw-semibold" id="charging-format-label">Employee charging</span>
+                            <span class="d-block text-muted small mt-1" id="charging-format-help">One expandable Employee Hours Summary sheet with employee totals and project/attendance charging breakdowns.</span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+            @error('employee_totals_only')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+        </fieldset>
+        <div class="row g-3">
+            <div class="col-lg-6">
+                <label class="form-label" for="summary_sort">Sort employees</label>
+                <select class="form-select @error('summary_sort') is-invalid @enderror" id="summary_sort" name="summary_sort" aria-describedby="summary-sort-help">
+                    <option value="total_hours" @selected(request('summary_sort', 'total_hours') === 'total_hours')>Highest total hours first</option>
+                    <option value="name" @selected(request('summary_sort') === 'name')>Employee name (A–Z)</option>
+                </select>
+                <div class="form-text" id="summary-sort-help">Orders employees within each project and attendance summary group.</div>
+                @error('summary_sort')<div class="invalid-feedback">{{ $message }}</div>@enderror
+            </div>
+            <div class="col-lg-6" data-weekly-filter>
+                <div class="form-check">
+                    <input type="hidden" name="include_employee_sheets" value="0">
+                    <input class="form-check-input" type="checkbox" id="include_employee_sheets" name="include_employee_sheets" value="1" @checked(request()->boolean('include_employee_sheets') && !request()->boolean('employee_totals_only')) @disabled(request()->boolean('employee_totals_only')) aria-describedby="individual-sheets-help individual-sheets-unavailable">
+                    <label class="form-check-label" for="include_employee_sheets">Include individual timesheets</label>
+                    <div class="form-text" id="individual-sheets-help">Maximum 250 timesheets. Individual sheets exclude rate and AED cost columns.</div>
+                    <div class="form-text @unless(request()->boolean('employee_totals_only')) d-none @endunless" id="individual-sheets-unavailable">Individual sheets are available with Standard summary only.</div>
+                    @error('include_employee_sheets')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
+                </div>
+            </div>
+            <div class="col-lg-6" data-monthly-filter>
+                <div class="text-muted small">Monthly reports are summary-only and count only dates inside the selected calendar month.</div>
             </div>
         </div>
-        @error('employee_types')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-        @error('employee_types.*')<div class="text-danger small mt-1">{{ $message }}</div>@enderror
-    </div>
-    <div class="col-md-2"><label class="form-label small text-muted" for="status">Status</label><select id="status" class="form-select" name="status"><option value="">All statuses</option>@foreach(['draft' => 'Draft','submitted' => 'Submitted','approved' => 'Approved','rejected' => 'Rejected','withdrawn' => 'Withdrawn','recalled' => 'Recalled','voided' => 'Voided','not_submitted' => 'Not Submitted'] as $status => $label)<option value="{{ $status }}" @selected(request('status') === $status)>{{ $label }}</option>@endforeach</select></div>
-    <div class="col-md-3"><label class="form-label small text-muted" for="corrections">Correction review</label><select id="corrections" class="form-select" name="corrections" data-searchable="false"><option value="">All timesheets</option><option value="open" @selected(request('corrections') === 'open')>Open HOD correction requests</option></select></div>
-    <div class="col-md-4 d-flex align-items-end" data-weekly-filter>
-        <div class="form-check mb-2">
-            <input type="hidden" name="include_employee_sheets" value="0">
-            <input class="form-check-input" type="checkbox" id="include_employee_sheets" name="include_employee_sheets" value="1" @checked(request()->boolean('include_employee_sheets'))>
-            <label class="form-check-label" for="include_employee_sheets">Include individual employee timesheet sheets</label>
-            <div class="form-text">Leave unchecked for a summary export with rate and AED cost columns. Individual sheets are limited to 250 matching timesheets.</div>
-        </div>
-    </div>
-    <div class="col-md-4 d-flex align-items-end" data-monthly-filter>
-        <div class="text-muted small mb-2">Monthly reports are summary-only and count only dates inside the selected calendar month.</div>
-    </div>
-    <div class="col-md-4">
-        <label class="form-label" for="summary_sort">Summary employee order</label>
-        <select class="form-select @error('summary_sort') is-invalid @enderror" id="summary_sort" name="summary_sort" aria-describedby="summary-sort-help">
-            <option value="total_hours" @selected(request('summary_sort', 'total_hours') === 'total_hours')>Highest total hours first</option>
-            <option value="name" @selected(request('summary_sort') === 'name')>Employee name (A–Z)</option>
-        </select>
-        <div class="form-text" id="summary-sort-help">Orders employees within each Project Summary and Attendance Summary group. Apply filters to update the preview and Excel export.</div>
-        @error('summary_sort')<div class="invalid-feedback">{{ $message }}</div>@enderror
-    </div>
-    <div class="col-12">
-        <div class="employee-totals-option">
-            <div class="form-check mb-0">
-                <input type="hidden" name="employee_totals_only" value="0">
-                <input class="form-check-input" type="checkbox" id="employee_totals_only" name="employee_totals_only" value="1" @checked(request()->boolean('employee_totals_only'))>
-                <label class="form-check-label fw-semibold" for="employee_totals_only">Export employee charging report</label>
-                <div class="form-text">Creates one expandable Employee Hours Summary sheet with period totals and project/attendance charging breakdowns for each matching employee.</div>
-            </div>
-        </div>
-    </div>
-    <div class="col-12 text-end">
-        <div class="d-inline-flex gap-2">
-            @if($hasVisibleFilters)
-                <a class="btn btn-outline-secondary" href="{{ route('admin.timesheets.index') }}">Clear</a>
-            @endif
-            <button class="btn btn-primary">Apply Filters</button>
-        </div>
+    </fieldset>
+    <div class="d-flex flex-wrap gap-2 justify-content-end">
+        <button class="btn btn-outline-secondary" type="submit">Apply filters</button>
+        @if($hasVisibleFilters)
+            <a class="btn btn-link" href="{{ route('admin.timesheets.index') }}">Clear filters</a>
+        @endif
     </div>
 </form>
 @php
@@ -338,6 +407,8 @@
         const monthlyFilters = document.querySelectorAll('[data-monthly-filter]');
         const modeInputs = document.querySelectorAll('input[name="filter_mode"]');
         const employeeTotalsOnly = document.getElementById('employee_totals_only');
+        const formatInputs = document.querySelectorAll('input[name="employee_totals_only"]');
+        const individualSheetsUnavailable = document.getElementById('individual-sheets-unavailable');
         const includeEmployeeSheets = document.getElementById('include_employee_sheets');
         const allEmployeeTypes = document.querySelector('[data-employee-type-all]');
         const employeeTypeOptions = Array.from(document.querySelectorAll('[data-employee-type-option]'));
@@ -346,6 +417,9 @@
 
         function syncReportMode() {
             const mode = document.querySelector('input[name="filter_mode"]:checked')?.value || 'weekly';
+            modeInputs.forEach((input) => {
+                input.nextElementSibling?.classList.toggle('active', input.checked);
+            });
             weeklyFilters.forEach((filter) => {
                 filter.classList.toggle('d-none', mode !== 'weekly');
                 filter.querySelectorAll('input, select').forEach((input) => {
@@ -369,7 +443,8 @@
                 includeEmployeeSheets.checked = false;
             }
 
-            includeEmployeeSheets.disabled = employeeTotalsOnly.checked;
+            includeEmployeeSheets.disabled = employeeTotalsOnly.checked || document.querySelector('input[name="filter_mode"]:checked')?.value === 'monthly';
+            individualSheetsUnavailable?.classList.toggle('d-none', !employeeTotalsOnly.checked);
         }
 
         function syncEmployeeTypes(changedInput) {
@@ -401,8 +476,11 @@
             }
         }
 
-        modeInputs.forEach((input) => input.addEventListener('change', syncReportMode));
-        employeeTotalsOnly?.addEventListener('change', syncExportOptions);
+        modeInputs.forEach((input) => input.addEventListener('change', () => {
+            syncReportMode();
+            syncExportOptions();
+        }));
+        formatInputs.forEach((input) => input.addEventListener('change', syncExportOptions));
         allEmployeeTypes?.addEventListener('change', (event) => syncEmployeeTypes(event.currentTarget));
         employeeTypeOptions.forEach((option) => option.addEventListener('change', (event) => syncEmployeeTypes(event.currentTarget)));
         syncReportMode();
