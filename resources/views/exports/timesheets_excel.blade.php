@@ -200,11 +200,11 @@
         <tr>
             <td colspan="14" class="right header">Totals</td>
             <td class="right header">{{ number_format($worksheet['rows']->sum('holiday'), 1) }}</td>
-            <td class="right header">{{ number_format($timesheet->total_regular_hours, 1) }}</td>
-            <td class="right header total-col">{{ number_format($timesheet->total_overtime_hours, 1) }}</td>
+            <td class="right header">{{ number_format($worksheet['rows']->sum('regular'), 1) }}</td>
+            <td class="right header total-col">{{ number_format($worksheet['rows']->sum('overtime'), 1) }}</td>
             <td class="right header">{{ number_format($worksheet['rows']->sum('leave'), 1) }}</td>
             <td class="right header">{{ number_format($worksheet['rows']->sum('absent'), 1) }}</td>
-            <td class="right header">{{ number_format($timesheet->total_hours, 1) }}</td>
+            <td class="right header">{{ number_format($worksheet['rows']->sum('total'), 1) }}</td>
             <td class="header"></td>
         </tr>
     </table>

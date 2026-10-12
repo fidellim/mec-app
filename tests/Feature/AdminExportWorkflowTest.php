@@ -7,11 +7,13 @@ use App\Models\LeavePlan;
 use App\Models\TimesheetEntry;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Style\Border;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\Support\CreatesTimesheetData;
 use Tests\TestCase;
 
@@ -1313,6 +1315,79 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('L100 - Annual Leave', $chargingSheet->getCell('H8')->getValue());
     }
 
+    public static function individualAttendanceCategories(): array
+    {
+        return [
+            'annual leave' => ['L100', 'R', 48],
+            'sick leave' => ['L110', 'R', 48],
+            'emergency leave' => ['L120', 'R', 48],
+            'unpaid leave' => ['L130', 'S', 40],
+            'holiday' => ['L140', 'O', 48],
+            'work from home' => ['L150', 'P', 48],
+            'maternity' => ['L160', 'R', 48],
+            'parental' => ['L170', 'R', 48],
+            'bereavement' => ['L180', 'R', 48],
+            'service incentive' => ['L190', 'R', 48],
+            'training' => ['L200', 'P', 48],
+            'paternity' => ['L210', 'R', 48],
+            'VAWC' => ['L220', 'R', 48],
+            'special leave' => ['L230', 'R', 48],
+            'weekend unpaid leave' => ['L130', 'S', 40, '2026-05-16'],
+            'historical unpaid overtime' => ['L130', 'S', 40, '2026-05-15', 2],
+            'historical paid leave overtime' => ['L110', 'R', 50, '2026-05-15', 2],
+        ];
+    }
+
+    #[DataProvider('individualAttendanceCategories')]
+    public function test_individual_excel_categorizes_hours_and_excludes_absence_from_total(
+        string $code, string $category, int $total, string $date = '2026-05-15', int $overtime = 0
+    ): void {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $timesheet = $this->submittedTimesheet($employee, $this->openPeriod(), $this->project(), [
+            'status' => 'approved',
+            'total_regular_hours' => 48,
+            'total_overtime_hours' => $overtime,
+            'total_hours' => 48 + $overtime,
+        ]);
+        $timesheet->entries()->delete();
+        foreach (['2026-05-11', '2026-05-12', '2026-05-13', '2026-05-14'] as $workDate) {
+            $timesheet->entries()->create([
+                'work_date' => $workDate, 'day_name' => Carbon::parse($workDate)->format('l'),
+                'attendance_code' => 'O100', 'project_id' => $this->project()->id,
+                'regular_hours' => 10, 'overtime_hours' => 0,
+            ]);
+        }
+        $timesheet->entries()->create([
+            'work_date' => $date, 'day_name' => Carbon::parse($date)->format('l'),
+            'attendance_code' => $code, 'project_id' => null,
+            'regular_hours' => 8, 'overtime_hours' => $overtime,
+        ]);
+
+        $response = $this->actingAs($this->userWithRole('admin'))->get(route('admin.timesheets.export', [
+            'week_number' => 20, 'year' => 2026, 'include_employee_sheets' => 1,
+        ]));
+        $response->assertOk();
+        $sheet = IOFactory::load($response->getFile()->getPathname())->getSheet(2);
+        $categoryRow = null;
+        for ($row = 11; $row <= 16; $row++) {
+            if ($sheet->getCell('B'.$row)->getValue() === $code) {
+                $categoryRow = $row;
+            }
+        }
+        $this->assertNotNull($categoryRow);
+        foreach (['O', 'P', 'Q', 'R', 'S'] as $column) {
+            $expected = $column === $category ? 8 + ($category === 'P' ? 0 : $overtime) : '-';
+            $this->assertEquals($expected, $sheet->getCell($column.$categoryRow)->getCalculatedValue());
+        }
+        $this->assertEquals($category === 'S' ? '-' : 8 + $overtime, $sheet->getCell('T'.$categoryRow)->getCalculatedValue());
+        $this->assertEquals($category === 'P' ? 48 : 40, $sheet->getCell('P17')->getCalculatedValue());
+        $this->assertEquals(0, $sheet->getCell('Q17')->getCalculatedValue());
+        $this->assertEquals($category === 'R' ? 8 + $overtime : 0, $sheet->getCell('R17')->getCalculatedValue());
+        $this->assertEquals($category === 'S' ? 8 + $overtime : 0, $sheet->getCell('S17')->getCalculatedValue());
+        $this->assertEquals($total, $sheet->getCell('T17')->getCalculatedValue());
+        $this->assertEquals($category === 'O' ? 8 : 0, $sheet->getCell('O17')->getCalculatedValue());
+    }
+
     public function test_individual_excel_sheet_does_not_count_training_code_as_leave_hours(): void
     {
         $employee = $this->userWithRole('employee', [
@@ -1369,9 +1444,12 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertEquals(8, $employeeSheet->getCell('T11')->getCalculatedValue());
 
         $this->assertSame('L100', $employeeSheet->getCell('B12')->getValue());
+        $this->assertSame('-', $employeeSheet->getCell('P12')->getValue());
         $this->assertEquals(8, $employeeSheet->getCell('R12')->getCalculatedValue());
         $this->assertEquals(8, $employeeSheet->getCell('T12')->getCalculatedValue());
 
+        $this->assertEquals(6, $employeeSheet->getCell('P17')->getCalculatedValue());
+        $this->assertEquals(2, $employeeSheet->getCell('Q17')->getCalculatedValue());
         $this->assertEquals(8, $employeeSheet->getCell('R17')->getCalculatedValue());
         $this->assertEquals(16, $employeeSheet->getCell('T17')->getCalculatedValue());
     }

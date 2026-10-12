@@ -179,11 +179,12 @@ class TimesheetExportService
                 'saturday' => (float) $saturdayEntries->sum('regular_hours') + (float) $saturdayEntries->sum('overtime_hours'),
                 'sunday' => (float) $sundayEntries->sum('regular_hours') + (float) $sundayEntries->sum('overtime_hours'),
                 'holiday' => $holidayHours,
-                'regular' => $regular,
-                'overtime' => $overtime,
+                // The stored regular field also holds leave; export each hour in one summary category.
+                'regular' => $isLeave ? 0 : $regular,
+                'overtime' => $isLeave ? 0 : $overtime,
                 'leave' => $leaveHours,
                 'absent' => $absentHours,
-                'total' => $regular + $overtime,
+                'total' => $isAbsent ? 0 : $regular + $overtime,
                 'remarks' => $this->spreadsheetText(trim((string) $first->remarks)),
             ];
         })->values();
