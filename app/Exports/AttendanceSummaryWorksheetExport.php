@@ -21,9 +21,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         private readonly string $reportMode = 'weekly',
         private readonly ?bool $showCosting = null,
         private readonly string $summarySort = 'total_hours'
-    )
-    {
-    }
+    ) {}
 
     public function title(): string
     {
@@ -82,6 +80,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         return [
             AfterSheet::class => function (AfterSheet $event): void {
                 $sheet = $event->sheet->getDelegate();
+                $groups = $this->groups();
                 $lastRow = $this->lastRow();
                 $lastColumn = $this->lastColumn();
 
@@ -96,7 +95,8 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                     'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
                 ]);
 
-                foreach ($this->attendanceTableRanges() as [$startRow, $endRow]) {
+                foreach ($this->attendanceTableRanges() as $groupIndex => [$startRow, $endRow]) {
+                    $lastColumn = $this->groupLastColumn($groups[$groupIndex]);
                     $sheet->getStyle("A{$startRow}:{$lastColumn}{$endRow}")->applyFromArray([
                         'borders' => [
                             'allBorders' => [
@@ -107,6 +107,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                     ]);
                 }
 
+                $lastColumn = $this->lastColumn();
                 $sheet->getStyle("A{$lastRow}:{$lastColumn}{$lastRow}")->applyFromArray([
                     'borders' => [
                         'allBorders' => [
@@ -119,7 +120,8 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                 $firstPeriodColumn = Coordinate::stringFromColumnIndex($this->firstPeriodColumnIndex());
                 $sheet->getStyle("{$firstPeriodColumn}3:{$lastColumn}{$lastRow}")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
-                foreach ($this->attendanceHeaderRows() as $rowNumber) {
+                foreach ($this->attendanceHeaderRows() as $groupIndex => $rowNumber) {
+                    $lastColumn = $this->groupLastColumn($groups[$groupIndex]);
                     $sheet->mergeCells("A{$rowNumber}:{$lastColumn}{$rowNumber}");
                     $sheet->getRowDimension($rowNumber)->setRowHeight(32);
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
@@ -132,7 +134,8 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                     ]);
                 }
 
-                foreach ($this->weekHeaderRows() as $rowNumber) {
+                foreach ($this->weekHeaderRows() as $groupIndex => $rowNumber) {
+                    $lastColumn = $this->groupLastColumn($groups[$groupIndex]);
                     $sheet->getRowDimension($rowNumber)->setRowHeight(36);
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
                         'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
@@ -144,12 +147,13 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                         ],
                     ]);
 
-                    foreach ($this->weekColumnRanges() as [$startColumn, $endColumn]) {
+                    foreach ($this->weekColumnRanges($groups[$groupIndex]['compact_leave']) as [$startColumn, $endColumn]) {
                         $sheet->mergeCells("{$startColumn}{$rowNumber}:{$endColumn}{$rowNumber}");
                     }
                 }
 
-                foreach ($this->tableHeaderRows() as $rowNumber) {
+                foreach ($this->tableHeaderRows() as $groupIndex => $rowNumber) {
+                    $lastColumn = $this->groupLastColumn($groups[$groupIndex]);
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
                         'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEBF1DE']],
@@ -157,13 +161,25 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                     ]);
                 }
 
-                foreach ($this->attendanceTotalRows() as $rowNumber) {
+                foreach ($this->attendanceTotalRows() as $groupIndex => $rowNumber) {
+                    $lastColumn = $this->groupLastColumn($groups[$groupIndex]);
                     $sheet->getStyle("A{$rowNumber}:{$lastColumn}{$rowNumber}")->applyFromArray([
                         'font' => ['bold' => true],
                         'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFF1F5F9']],
                     ]);
                 }
 
+                $lastColumn = $this->lastColumn();
+                if ($this->rows->isNotEmpty()) {
+                    $overallHeaderRow = $lastRow - 1;
+                    $sheet->getRowDimension($overallHeaderRow)->setRowHeight(36);
+                    $sheet->getStyle("A{$overallHeaderRow}:{$lastColumn}{$overallHeaderRow}")->applyFromArray([
+                        'font' => ['bold' => true, 'color' => ['argb' => 'FF111827']],
+                        'fill' => ['fillType' => Fill::FILL_SOLID, 'startColor' => ['argb' => 'FFEBF1DE']],
+                        'alignment' => ['horizontal' => Alignment::HORIZONTAL_CENTER],
+                        'borders' => ['allBorders' => ['borderStyle' => Border::BORDER_THIN]],
+                    ]);
+                }
                 $this->styleSelectedPeriodTotalColumns($sheet);
                 $this->styleCostColumns($sheet);
 
@@ -201,6 +217,9 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
                 return [
                     'attendance_code' => $first['attendance_code'],
                     'attendance_label' => $first['attendance_label'],
+                    // Keep historical overtime visible even if current validation disallows it.
+                    'compact_leave' => in_array($first['attendance_code'], config('timesheet.leave_attendance_codes', []), true)
+                        && ! $rows->contains(fn (array $row) => (float) $row['overtime_hours'] !== 0.0),
                     'project_code' => $first['project_code'],
                     'weeks' => $weeks,
                     'employees' => $employees,
@@ -308,6 +327,15 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         return max(10, $this->fixedColumnCount() + ($weekCount * $this->periodColumnCount()) + $rangeTotalColumns);
     }
 
+    private function groupLastColumn(array $group): string
+    {
+        $periodCount = $group['weeks']->count() + ($this->showRangeTotals($group['weeks']) ? 1 : 0);
+
+        return Coordinate::stringFromColumnIndex(
+            $this->fixedColumnCount() + $periodCount * $this->periodColumnCount($group['compact_leave'])
+        );
+    }
+
     private function lastColumn(): string
     {
         return Coordinate::stringFromColumnIndex($this->totalColumns());
@@ -319,7 +347,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
             return 4;
         }
 
-        return 3 + $this->groups()->sum(fn (array $group) => $group['employees']->count() + 5);
+        return 4 + $this->groups()->sum(fn (array $group) => $group['employees']->count() + 5);
     }
 
     private function attendanceHeaderRows(): array
@@ -403,19 +431,19 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         return $rows;
     }
 
-    private function weekColumnRanges(): array
+    private function weekColumnRanges(bool $compactLeave = false): array
     {
         $ranges = [];
         $weekCount = $this->weeks($this->rows)->count();
 
-        for ($column = $this->firstPeriodColumnIndex(); $column < $this->firstPeriodColumnIndex() + ($weekCount * $this->periodColumnCount()); $column += $this->periodColumnCount()) {
+        for ($column = $this->firstPeriodColumnIndex(); $column < $this->firstPeriodColumnIndex() + ($weekCount * $this->periodColumnCount($compactLeave)); $column += $this->periodColumnCount($compactLeave)) {
             $ranges[] = [
                 Coordinate::stringFromColumnIndex($column),
-                Coordinate::stringFromColumnIndex($column + $this->periodColumnCount() - 1),
+                Coordinate::stringFromColumnIndex($column + $this->periodColumnCount($compactLeave) - 1),
             ];
         }
 
-        if ($range = $this->selectedPeriodTotalColumnRange()) {
+        if ($range = $this->selectedPeriodTotalColumnRange($compactLeave)) {
             $ranges[] = [
                 $range[0],
                 $range[1],
@@ -425,7 +453,7 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         return $ranges;
     }
 
-    private function selectedPeriodTotalColumnRange(): ?array
+    private function selectedPeriodTotalColumnRange(bool $compactLeave = false): ?array
     {
         $weeks = $this->weeks($this->rows);
 
@@ -433,25 +461,22 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
             return null;
         }
 
-        $startColumnIndex = $this->firstPeriodColumnIndex() + ($weeks->count() * $this->periodColumnCount());
+        $startColumnIndex = $this->firstPeriodColumnIndex() + ($weeks->count() * $this->periodColumnCount($compactLeave));
 
         return [
             Coordinate::stringFromColumnIndex($startColumnIndex),
-            Coordinate::stringFromColumnIndex($startColumnIndex + $this->rangeTotalColumnCount() - 1),
+            Coordinate::stringFromColumnIndex($startColumnIndex + $this->periodColumnCount($compactLeave) - 1),
         ];
     }
 
     private function styleSelectedPeriodTotalColumns($sheet): void
     {
-        $range = $this->selectedPeriodTotalColumnRange();
-
-        if (! $range) {
-            return;
-        }
-
-        [$startColumn, $endColumn] = $range;
-
-        foreach ($this->attendanceTableRanges() as [$startRow, $endRow]) {
+        foreach ($this->attendanceTableRanges() as $groupIndex => [$startRow, $endRow]) {
+            $range = $this->selectedPeriodTotalColumnRange($this->groups()[$groupIndex]['compact_leave']);
+            if (! $range) {
+                continue;
+            }
+            [$startColumn, $endColumn] = $range;
             $weekHeaderRow = $startRow + 1;
             $tableHeaderRow = $startRow + 2;
             $firstBodyRow = $startRow + 3;
@@ -486,8 +511,12 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
         return $this->showCosting ?? ($this->reportMode === 'monthly');
     }
 
-    private function periodColumnCount(): int
+    private function periodColumnCount(bool $compactLeave = false): int
     {
+        if ($compactLeave) {
+            return $this->showCosting() ? 2 : 1;
+        }
+
         return $this->showCosting() ? 6 : 3;
     }
 
@@ -512,35 +541,29 @@ class AttendanceSummaryWorksheetExport implements FromView, WithColumnWidths, Wi
             return;
         }
 
-        $lastRow = $this->lastRow();
-
-        foreach ($this->costColumnIndexes() as $columnIndex) {
-            $column = Coordinate::stringFromColumnIndex($columnIndex);
-            $sheet->getStyle("{$column}1:{$column}{$lastRow}")
-                ->getNumberFormat()
-                ->setFormatCode('"AED" #,##0.00');
+        $ranges = $this->attendanceTableRanges();
+        foreach ($this->groups() as $index => $group) {
+            [$startRow, $endRow] = $ranges[$index];
+            $span = $this->periodColumnCount($group['compact_leave']);
+            $count = $group['weeks']->count() + ($this->showRangeTotals($group['weeks']) ? 1 : 0);
+            for ($period = 0; $period < $count; $period++) {
+                $start = $this->firstPeriodColumnIndex() + $period * $span;
+                $offsets = $group['compact_leave'] ? [1] : [3, 4, 5];
+                foreach ($offsets as $offset) {
+                    $column = Coordinate::stringFromColumnIndex($start + $offset);
+                    $sheet->getStyle("{$column}{$startRow}:{$column}{$endRow}")
+                        ->getNumberFormat()->setFormatCode('"AED" #,##0.00');
+                }
+            }
         }
-    }
-
-    private function costColumnIndexes(): array
-    {
-        $columns = [];
-        $weekCount = $this->weeks($this->rows)->count() ?: 1;
-
-        for ($column = $this->firstPeriodColumnIndex(); $column < $this->firstPeriodColumnIndex() + ($weekCount * $this->periodColumnCount()); $column += $this->periodColumnCount()) {
-            $columns[] = $column + 3;
-            $columns[] = $column + 4;
-            $columns[] = $column + 5;
+        foreach ($this->weekColumnRanges() as [$startColumn, $endColumn]) {
+            $start = Coordinate::columnIndexFromString($startColumn);
+            foreach ([3, 4, 5] as $offset) {
+                $column = Coordinate::stringFromColumnIndex($start + $offset);
+                $row = $this->lastRow();
+                $sheet->getStyle("{$column}{$row}")->getNumberFormat()->setFormatCode('"AED" #,##0.00');
+            }
         }
-
-        if ($range = $this->selectedPeriodTotalColumnRange()) {
-            $startColumnIndex = Coordinate::columnIndexFromString($range[0]);
-            $columns[] = $startColumnIndex + 3;
-            $columns[] = $startColumnIndex + 4;
-            $columns[] = $startColumnIndex + 5;
-        }
-
-        return $columns;
     }
 
     private function weekKey(array $row): string

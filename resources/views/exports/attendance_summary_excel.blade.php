@@ -81,14 +81,22 @@
         <td colspan="{{ $totalColumns }}" class="summary-spacer"></td>
     </tr>
     @forelse($groups as $group)
+        @php
+            $groupColumnSpan = $group['compact_leave'] ? ($showCosting ? 2 : 1) : $periodColumnSpan;
+            $attendanceTotalRows[] = ['row' => $currentRow + 3 + $group['employees']->count(), 'compact_leave' => $group['compact_leave']];
+            $groupTotalColumns = ($showCosting ? 8 : 7) + ($group['weeks']->count() + ($showRangeTotals ? 1 : 0)) * $groupColumnSpan;
+        @endphp
         <tr>
-            <td colspan="{{ $totalColumns }}" class="attendance-header">
+            <td colspan="{{ $groupTotalColumns }}" class="attendance-header">
                 {{ $group['attendance_code'] }} - {{ $group['attendance_label'] }}
                 @if($group['project_code'] !== 'Non-project')
                     <br>Project/Job: {{ $group['project_code'] }}
                 @endif
             </td>
         </tr>
+        @if($group['compact_leave'])
+            @include('exports.partials.attendance_leave_excel')
+        @else
         <tr>
             <th class="week-header"></th>
             <th class="week-header"></th>
@@ -204,7 +212,6 @@
             $attendanceTotalRow = $currentRow + 3 + $group['employees']->count();
             $employeeStartRow = $currentRow + 3;
             $employeeEndRow = $attendanceTotalRow - 1;
-            $attendanceTotalRows[] = $attendanceTotalRow;
         @endphp
         <tr>
             <td colspan="{{ $showCosting ? 8 : 7 }}" class="summary-total">Attendance Code Total</td>
@@ -245,6 +252,7 @@
                 @endif
             @endif
         </tr>
+        @endif
         <tr>
             <td colspan="{{ $totalColumns }}" class="summary-spacer"></td>
         </tr>
@@ -256,17 +264,51 @@
             <td colspan="{{ $totalColumns }}" class="center">No leave or non-project hours found for the selected filters.</td>
         </tr>
     @endforelse
+    @php
+        // Each section has its own period width; collect costs from the matching subtotal cells.
+        $costTotalRefs = function (int $periodIndex, string $metric) use ($attendanceTotalRows) {
+            return collect($attendanceTotalRows)->map(function ($item) use ($periodIndex, $metric) {
+                if ($item['compact_leave'] && $metric === 'overtime') {
+                    return null;
+                }
+                $span = $item['compact_leave'] ? 2 : 6;
+                $offset = $item['compact_leave'] ? 1 : ['regular' => 3, 'overtime' => 4, 'total' => 5][$metric];
+                return \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + $periodIndex * $span + $offset).$item['row'];
+            })->filter()->implode(',');
+        };
+    @endphp
+    @if($groups->isNotEmpty())
+        <tr>
+            <th colspan="{{ $showCosting ? 8 : 7 }}" class="table-header">Overall Totals</th>
+            @foreach($weeks as $week)
+                <th class="table-header">{{ $week['label'] }}<br>Regular Hours</th>
+                <th class="table-header">{{ $week['label'] }}<br>Overtime Hours</th>
+                <th class="table-header">{{ $week['label'] }}<br>Total Hours</th>
+                @if($showCosting)
+                    <th class="table-header">{{ $week['label'] }}<br>Regular Cost</th>
+                    <th class="table-header">{{ $week['label'] }}<br>OT Cost</th>
+                    <th class="table-header">{{ $week['label'] }}<br>Total Cost</th>
+                @endif
+            @endforeach
+            @if($showRangeTotals)
+                <th class="table-header">Selected Period<br>Regular Hours</th>
+                <th class="table-header">Selected Period<br>Overtime Hours</th>
+                <th class="table-header">Selected Period<br>Total Hours</th>
+                @if($showCosting)
+                    <th class="table-header">Selected Period<br>Regular Cost</th>
+                    <th class="table-header">Selected Period<br>OT Cost</th>
+                    <th class="table-header">Selected Period<br>Total Cost</th>
+                @endif
+            @endif
+        </tr>
+    @endif
     <tr>
         <td colspan="{{ $showCosting ? 8 : 7 }}" class="summary-total">Grand Total</td>
         @forelse($weeks as $weekIndex => $week)
             @php
-                $firstPeriodColumn = ($showCosting ? 9 : 8) + ($weekIndex * $periodColumnSpan);
-                $regularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 3);
-                $overtimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 4);
-                $totalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex($firstPeriodColumn + 5);
-                $regularCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $regularCostColumn.$row)->implode(',');
-                $overtimeCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $overtimeCostColumn.$row)->implode(',');
-                $totalCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $totalCostColumn.$row)->implode(',');
+                $regularCostTotalRefs = $costTotalRefs($weekIndex, 'regular');
+                $overtimeCostTotalRefs = $costTotalRefs($weekIndex, 'overtime');
+                $totalCostTotalRefs = $costTotalRefs($weekIndex, 'total');
             @endphp
             @php
                 $totals = $grandTotalsByWeek[$week['key']] ?? ['regular_hours' => 0, 'overtime_hours' => 0, 'total_hours' => 0];
@@ -287,12 +329,9 @@
         @if($showRangeTotals)
             @if($showCosting)
                 @php
-                    $selectedRegularCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($weeks->count() * $periodColumnSpan) + 3);
-                    $selectedOvertimeCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($weeks->count() * $periodColumnSpan) + 4);
-                    $selectedTotalCostColumn = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::stringFromColumnIndex(9 + ($weeks->count() * $periodColumnSpan) + 5);
-                    $selectedRegularCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $selectedRegularCostColumn.$row)->implode(',');
-                    $selectedOvertimeCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $selectedOvertimeCostColumn.$row)->implode(',');
-                    $selectedTotalCostTotalRefs = collect($attendanceTotalRows)->map(fn ($row) => $selectedTotalCostColumn.$row)->implode(',');
+                    $selectedRegularCostTotalRefs = $costTotalRefs($weeks->count(), 'regular');
+                    $selectedOvertimeCostTotalRefs = $costTotalRefs($weeks->count(), 'overtime');
+                    $selectedTotalCostTotalRefs = $costTotalRefs($weeks->count(), 'total');
                 @endphp
             @endif
             <td class="summary-total right">{{ number_format($totalRegular, 2) }}</td>

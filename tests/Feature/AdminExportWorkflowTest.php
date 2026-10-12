@@ -998,16 +998,12 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('L100 - Annual Leave', $attendanceSummary->getCell('A3')->getValue());
         $this->assertStringContainsString('May 2026', $attendanceSummary->getCell('I4')->getValue());
         $this->assertSame('Rate/Manhour', $attendanceSummary->getCell('F5')->getValue());
-        $this->assertSame('Regular Cost', $attendanceSummary->getCell('L5')->getValue());
-        $this->assertSame('OT Cost', $attendanceSummary->getCell('M5')->getValue());
-        $this->assertSame('Total Cost', $attendanceSummary->getCell('N5')->getValue());
+        $this->assertSame('Leave Hours', $attendanceSummary->getCell('I5')->getValue());
+        $this->assertSame('Leave Cost', $attendanceSummary->getCell('J5')->getValue());
+        $this->assertNull($attendanceSummary->getCell('K5')->getValue());
         $this->assertSame('=IFERROR(VLOOKUP($A6,\'Employee Rates\'!$A:$E,5,FALSE),"")', $attendanceSummary->getCell('F6')->getValue());
         $this->assertEquals(2, $attendanceSummary->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(0, $attendanceSummary->getCell('J6')->getCalculatedValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('K6')->getCalculatedValue());
-        $this->assertSame('=IF(F6="","",I6*F6)', $attendanceSummary->getCell('L6')->getValue());
-        $this->assertSame('=IF(F6="","",J6*F6*1.25)', $attendanceSummary->getCell('M6')->getValue());
-        $this->assertSame('=IF(F6="","",(I6+J6*1.25)*F6)', $attendanceSummary->getCell('N6')->getValue());
+        $this->assertSame('=IF(F6="","",I6*F6)', $attendanceSummary->getCell('J6')->getValue());
     }
 
     public function test_monthly_timesheet_export_respects_project_status_and_employee_filters(): void
@@ -1613,8 +1609,10 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('Rate/Manhour', $attendanceSummary->getCell('F5')->getValue());
         $this->assertSame('Non-project', $attendanceSummary->getCell('G6')->getValue());
         $this->assertEquals(8, $attendanceSummary->getCell('I6')->getCalculatedValue());
-        $this->assertEquals(0, $attendanceSummary->getCell('J6')->getCalculatedValue());
-        $this->assertEquals(8, $attendanceSummary->getCell('K6')->getCalculatedValue());
+        $this->assertSame('Leave Hours', $attendanceSummary->getCell('I5')->getValue());
+        $this->assertSame('Leave Cost', $attendanceSummary->getCell('J5')->getValue());
+        $this->assertSame('=IF(F6="","",I6*F6)', $attendanceSummary->getCell('J6')->getValue());
+        $this->assertNull($attendanceSummary->getCell('K6')->getValue());
 
         $this->assertSame('Attendance Code Total', $attendanceSummary->getCell('A7')->getValue());
         $this->assertEquals(8, $attendanceSummary->getCell('I7')->getCalculatedValue());
@@ -1623,10 +1621,10 @@ class AdminExportWorkflowTest extends TestCase
         $this->assertSame('O100 - Office', $attendanceSummary->getCell('A15')->getValue());
         $this->assertEquals(2, $attendanceSummary->getCell('I18')->getCalculatedValue());
         $this->assertEquals(1, $attendanceSummary->getCell('J18')->getCalculatedValue());
-        $this->assertSame('Grand Total', $attendanceSummary->getCell('A21')->getValue());
-        $this->assertEquals(14, $attendanceSummary->getCell('I21')->getCalculatedValue());
-        $this->assertEquals(1, $attendanceSummary->getCell('J21')->getCalculatedValue());
-        $this->assertEquals(15, $attendanceSummary->getCell('K21')->getCalculatedValue());
+        $this->assertSame('Grand Total', $attendanceSummary->getCell('A22')->getValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('I22')->getCalculatedValue());
+        $this->assertEquals(1, $attendanceSummary->getCell('J22')->getCalculatedValue());
+        $this->assertEquals(15, $attendanceSummary->getCell('K22')->getCalculatedValue());
     }
 
     public function test_attendance_summary_places_multiple_weeks_side_by_side_with_totals(): void
@@ -1703,11 +1701,11 @@ class AdminExportWorkflowTest extends TestCase
         $attendanceSummary->setCellValue('F6', 20);
         $this->assertEquals(130, $attendanceSummary->getCell('T6')->getCalculatedValue());
         $this->assertEquals(290, $attendanceSummary->getCell('Z6')->getCalculatedValue());
-        $this->assertEquals(290, $attendanceSummary->getCell('Z9')->getCalculatedValue());
-        $this->assertSame('Grand Total', $attendanceSummary->getCell('A9')->getValue());
-        $this->assertEquals(12, $attendanceSummary->getCell('U9')->getCalculatedValue());
-        $this->assertEquals(2, $attendanceSummary->getCell('V9')->getCalculatedValue());
-        $this->assertEquals(14, $attendanceSummary->getCell('W9')->getCalculatedValue());
+        $this->assertEquals(290, $attendanceSummary->getCell('Z10')->getCalculatedValue());
+        $this->assertSame('Grand Total', $attendanceSummary->getCell('A10')->getValue());
+        $this->assertEquals(12, $attendanceSummary->getCell('U10')->getCalculatedValue());
+        $this->assertEquals(2, $attendanceSummary->getCell('V10')->getCalculatedValue());
+        $this->assertEquals(14, $attendanceSummary->getCell('W10')->getCalculatedValue());
     }
 
     public function test_excel_project_summaries_ignore_entries_without_project_or_hours(): void
