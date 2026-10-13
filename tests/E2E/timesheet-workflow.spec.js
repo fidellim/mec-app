@@ -80,6 +80,55 @@ async function setSelectValue(select, value) {
 }
 
 test.describe('employee timesheet workflow', () => {
+  test('leave rows clear and block projects while work from home and training allow them', async ({ page }) => {
+    const errors = collectClientErrors(page);
+    await login(page, employeeEmail);
+    await page.goto('/my-timesheets/create');
+    await chooseOpenPeriodWithCreateForm(page);
+
+    const row = page.locator('[data-entry-row]').first();
+    const attendance = row.locator('[data-field="attendance_code"]');
+    const project = row.locator('[data-field="project_id"]');
+    const projectValue = await project.locator('option').nth(1).getAttribute('value');
+    expect(projectValue).toBeTruthy();
+
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate((value) => document.documentElement.setAttribute('data-bs-theme', value), theme);
+      await setSelectValue(attendance, 'O100');
+      await setSelectValue(project, projectValue);
+      await setSelectValue(attendance, 'L100');
+      await expect(project).toHaveValue('');
+      await expect(project).toBeDisabled();
+      await expect(row.locator('[data-leave-project-help]')).toBeVisible();
+      await expect(row.locator('[data-field="department_id"]')).toBeDisabled();
+
+      // A disabled select must still submit an empty project value for the leave row.
+      expect(await row.evaluate((element) => {
+        const select = element.querySelector('[data-field="project_id"]');
+        return new FormData(element.closest('form')).getAll(select.name);
+      })).toEqual(['']);
+
+      await row.getByRole('button', { name: /duplicate/i }).click();
+      const duplicate = page.locator('[data-entry-row]').nth(1);
+      await expect(duplicate.locator('[data-field="project_id"]')).toBeDisabled();
+      await duplicate.getByRole('button', { name: /remove/i }).click();
+
+      for (const code of ['L150', 'L200', 'O100']) {
+        await setSelectValue(attendance, code);
+        await expect(project).toBeEnabled();
+        await expect(row.locator('[data-leave-project-help]')).toBeHidden();
+        await setSelectValue(project, projectValue);
+        await expect(project).toHaveValue(projectValue);
+        expect(await row.evaluate((element) => {
+          const select = element.querySelector('[data-field="project_id"]');
+          return new FormData(element.closest('form')).getAll(select.name);
+        })).toEqual([projectValue]);
+      }
+    }
+
+    expect(errors).toEqual([]);
+  });
+
   test('employee can open timesheets and reach the weekly form or existing weekly record', async ({ page }) => {
     await login(page, 'aisha@example.com');
 

@@ -165,6 +165,10 @@ class TimesheetSaveRequest extends FormRequest
                     if ($isLeaveCode && $overtime > 0) {
                         $validator->errors()->add("entries.$index.overtime_hours", "$entryLabel cannot have overtime hours with a leave attendance code.");
                     }
+
+                    if (in_array($attendanceCode, config('timesheet.leave_attendance_codes', []), true) && ! empty($entry['project_id'])) {
+                        $validator->errors()->add("entries.$index.project_id", "$entryLabel cannot have a project/job number with a leave attendance code. Remove the project or select the correct attendance code.");
+                    }
                 }
 
                 if ($this->boolean('submit') && ! $hasHours) {

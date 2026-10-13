@@ -84,7 +84,7 @@
             </div>
             <div class="col-lg-7">
                 <div class="small text-muted">
-                    Use Add project to split a day across multiple projects. Project/job number is optional for leave codes. Leave codes accept regular hours only. Remarks are optional.
+                    Use Add project to split a day across multiple projects. Leave codes clear and disable the project/job number and accept regular hours only. Work From Home (L150) and Training Seminar (L200) allow projects. Remarks are optional.
                 </div>
             </div>
         </div>
@@ -162,6 +162,8 @@
                                     <option value="{{ $project->id }}" title="{{ $project->project_name }}" @selected(old("entries.$i.project_id", $row->project_id) == $project->id)>{{ $project->project_code }}{{ $project->is_timesheet_accessible ? '' : ' — unavailable' }}</option>
                                 @endforeach
                             </select>
+                            <input type="hidden" name="entries[{{ $i }}][project_id]" value="" data-leave-project-input disabled>
+                            <div class="small text-body-secondary d-none" data-leave-project-help>Projects are not allowed for leave entries.</div>
                             @error("entries.$i.project_id")<div class="invalid-feedback d-block" data-server-error><a class="text-danger" data-timesheet-review-link href="#timesheet-issue-{{ $errorGroups->keys()->search($message) }}">Review issue</a></div>@enderror
                             <div class="invalid-feedback d-block d-none" data-client-error-for="project_id"></div>
                         </td>
@@ -306,6 +308,7 @@
         row.querySelectorAll('[data-field]').forEach((field) => {
             field.name = `entries[${index}][${field.dataset.field}]`;
         });
+        row.querySelector('[data-leave-project-input]').name = `entries[${index}][project_id]`;
     };
 
     const formatDisplayDate = (workDate) => {
@@ -782,8 +785,19 @@
 
         if (isLeave) {
             overtimeInput.value = '0';
+            const hadProject = Boolean(getSearchableSelectValue(row, 'project_id'));
+            setSearchableSelectValue(projectSelect, '');
+            if (hadProject) refreshParticipatingDepartments(row, null, false);
         }
 
+        if (projectSelect.tomselect) {
+            if (isLeave) projectSelect.tomselect.disable();
+            else projectSelect.tomselect.enable();
+        } else {
+            projectSelect.disabled = isLeave;
+        }
+        row.querySelector('[data-leave-project-input]').disabled = !isLeave;
+        row.querySelector('[data-leave-project-help]').classList.toggle('d-none', !isLeave);
         overtimeInput.disabled = isLeave;
     };
 

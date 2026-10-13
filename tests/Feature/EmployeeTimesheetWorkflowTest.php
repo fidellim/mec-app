@@ -512,6 +512,81 @@ class EmployeeTimesheetWorkflowTest extends TestCase
         $this->assertNull($leaveEntry->project_id);
     }
 
+    public function test_leave_projects_are_rejected_for_drafts_and_submissions(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+
+        foreach (config('timesheet.leave_attendance_codes') as $code) {
+            foreach (['0', '1'] as $submit) {
+                $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+                    'timesheet_period_id' => $period->id,
+                    'submit' => $submit,
+                    'entries' => $this->validEntries($project, [
+                        '2026-05-11' => ['attendance_code' => $code],
+                    ]),
+                ])->assertSessionHasErrors('entries.0.project_id');
+            }
+        }
+
+        $this->assertDatabaseCount('timesheets', 0);
+    }
+
+    public function test_leave_project_is_rejected_on_update_and_can_be_cleared_on_resubmission(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $timesheet = $this->submittedTimesheet($employee, $period, $project, ['status' => Timesheet::STATUS_RECALLED]);
+        $entries = $this->validEntries($project, ['2026-05-11' => ['attendance_code' => 'L100']]);
+
+        $this->actingAs($employee)->put(route('employee.timesheets.update', $timesheet), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertSessionHasErrors('entries.0.project_id');
+
+        $this->assertSame(Timesheet::STATUS_RECALLED, $timesheet->fresh()->status);
+        $this->assertSame($project->id, $timesheet->entries()->firstOrFail()->project_id);
+
+        $entries[0]['project_id'] = '';
+        $this->actingAs($employee)->put(route('employee.timesheets.update', $timesheet), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $this->assertSame(Timesheet::STATUS_SUBMITTED, $timesheet->fresh()->status);
+        $this->assertNull($timesheet->entries()->where('attendance_code', 'L100')->firstOrFail()->project_id);
+    }
+
+    public function test_work_from_home_and_training_allow_projects(): void
+    {
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        $project = $this->project();
+        $entries = $this->validEntries($project, ['2026-05-11' => ['attendance_code' => 'L150']]);
+        $entries[] = [
+            'work_date' => '2026-05-12',
+            'attendance_code' => 'L200',
+            'project_id' => $project->id,
+            'regular_hours' => 6,
+            'overtime_hours' => 2,
+        ];
+
+        $this->actingAs($employee)->post(route('employee.timesheets.store'), [
+            'timesheet_period_id' => $period->id,
+            'submit' => '1',
+            'entries' => $entries,
+        ])->assertSessionHasNoErrors()->assertRedirect();
+
+        $timesheet = Timesheet::firstOrFail();
+        foreach (['L150', 'L200'] as $code) {
+            $this->assertSame($project->id, $timesheet->entries()->where('attendance_code', $code)->firstOrFail()->project_id);
+        }
+    }
+
     public function test_service_incentive_leave_is_restricted_on_timesheets(): void
     {
         $department = $this->department();
