@@ -10,7 +10,6 @@
     ? 'Philippines leave balances show available statutory entitlements only. Service incentive leave requires one year of service; maternity, paternity, parental, VAWC, and special leave for women require HR eligibility approval.'
     : 'UAE leave balances reset every January 1. Annual leave starts after six months of service at two working days per completed service month until one year; sick and maternity balances show full-pay allowance first.')
 @php($supportingDocumentNotes = [
-    'L110' => 'Please add a link to your medical certificate in the Reason field.',
     'L160' => 'Please add a link to your medical certificate, birth certificate, or hospital notification in the Reason field.',
     'L170' => 'Please add a link to the birth certificate or hospital birth notification in the Reason field.',
     'L180' => 'Please add a link to the death certificate in the Reason field.',
@@ -99,6 +98,21 @@
                         </details>
                     </div>
                 </div>
+                <div class="col-12 d-none" data-medical-certificate-guide>
+                    <section class="border rounded p-3 bg-body-tertiary" aria-labelledby="medical-certificate-heading">
+                        <h3 id="medical-certificate-heading" class="h6 mb-2">Submit your medical certificate</h3>
+                        <ol class="mb-3 ps-3">
+                            <li class="mb-2">
+                                Rename your PDF using <code class="text-break">firstName_lastName_dateOfSickLeave_med_cert.pdf</code>.
+                                Use <strong>dd-mmm-yyyy</strong> for the date, for example <code class="text-break">Jane_Smith_22-Oct-2026_med_cert.pdf</code>.
+                                For multi-day leave, use the start date.
+                            </li>
+                            <li class="mb-2">Open the upload page below and upload your medical certificate. SharePoint will notify HR after submission.</li>
+                            <li>Return here and put the uploaded filename in the Reason field below so HR can match it to your leave request. HR will confirm receipt.</li>
+                        </ol>
+                        <a class="btn btn-outline-primary ui-action ui-action-navigation" href="https://midstreamconsultant-my.sharepoint.com/:f:/g/personal/mruperto_midstreamconsultants_ae/IgBXI5KC-XtgTbSCbY5x38YYARJ1NdqV_GYatG8h8yPZkrU" target="_blank" rel="noopener noreferrer">Upload medical certificate <span class="small">(opens in a new tab)</span></a>
+                    </section>
+                </div>
                 <div class="col-12">
                     <label class="form-label" for="reason">Reason <span class="text-muted fw-normal">(optional)</span></label>
                     <textarea id="reason" class="form-control @error('reason') is-invalid @enderror" name="reason" rows="4" placeholder="Add context for your HOD.">{{ old('reason', $leavePlan?->reason) }}</textarea>
@@ -140,6 +154,7 @@
     const attendanceCode = document.getElementById('attendance_code');
     const supportingDocumentNote = document.querySelector('[data-supporting-document-note]');
     const supportingDocumentMessage = document.querySelector('[data-supporting-document-message]');
+    const medicalCertificateGuide = document.querySelector('[data-medical-certificate-guide]');
     const bereavementRelationshipField = document.querySelector('[data-bereavement-relationship-field]');
     const bereavementRelationship = document.getElementById('bereavement_relationship');
     const availabilityCalendarShell = document.querySelector('[data-availability-calendar-shell]');
@@ -226,6 +241,8 @@
     const getAvailabilityCalendar = () => availabilityCalendarShell?.querySelector('[data-leave-plan-availability-calendar]');
 
     const syncSupportingDocumentNote = () => {
+        medicalCertificateGuide?.classList.toggle('d-none', attendanceCode?.value !== 'L110');
+
         if (!supportingDocumentNote || !supportingDocumentMessage || !attendanceCode) {
             return;
         }

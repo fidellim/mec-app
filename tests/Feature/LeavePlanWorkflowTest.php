@@ -2736,7 +2736,10 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertSee('UAE leave balances reset every January 1. Annual leave starts after six months of service at two working days per completed service month until one year; sick and maternity balances show full-pay allowance first.')
             ->assertDontSee('Philippines leave balances show available statutory entitlements only.')
             ->assertSee('Supporting document needed')
-            ->assertSee('Please add a link to your medical certificate in the Reason field.')
+            ->assertSee('Submit your medical certificate')
+            ->assertSee('firstName_lastName_dateOfSickLeave_med_cert.pdf')
+            ->assertSee('dd-mmm-yyyy')
+            ->assertSee('put the uploaded filename in the Reason field below')
             ->assertSee('Please add a link to the birth certificate or hospital birth notification in the Reason field.')
             ->assertDontSee('Paternity Leave');
     }
