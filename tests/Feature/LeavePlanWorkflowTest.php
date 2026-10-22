@@ -2737,8 +2737,9 @@ class LeavePlanWorkflowTest extends TestCase
             ->assertDontSee('Philippines leave balances show available statutory entitlements only.')
             ->assertSee('Supporting document needed')
             ->assertSee('Submit your medical certificate')
-            ->assertSee('firstName_lastName_dateOfSickLeave_med_cert.pdf')
-            ->assertSee('dd-mmm-yyyy')
+            ->assertSee('SL Certificate - FirstName LastName - LeaveDates.pdf')
+            ->assertSee('dd.mm.yy')
+            ->assertSee('SL Certificate - Jane Smith - 29-30.07.26.pdf')
             ->assertSee('put the uploaded filename in the Reason field below')
             ->assertSee('Please add a link to the birth certificate or hospital birth notification in the Reason field.')
             ->assertDontSee('Paternity Leave');

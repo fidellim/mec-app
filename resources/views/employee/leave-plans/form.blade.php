@@ -103,9 +103,10 @@
                         <h3 id="medical-certificate-heading" class="h6 mb-2">Submit your medical certificate</h3>
                         <ol class="mb-3 ps-3">
                             <li class="mb-2">
-                                Rename your PDF using <code class="text-break">firstName_lastName_dateOfSickLeave_med_cert.pdf</code>.
-                                Use <strong>dd-mmm-yyyy</strong> for the date, for example <code class="text-break">Jane_Smith_22-Oct-2026_med_cert.pdf</code>.
-                                For multi-day leave, use the start date.
+                                Rename your PDF using <code class="text-break">SL Certificate - FirstName LastName - LeaveDates.pdf</code>.
+                                Use <strong>dd.mm.yy</strong> for a single day, for example <code class="text-break">SL Certificate - Jane Smith - 29.07.26.pdf</code>.
+                                For multiple days in the same month, use the day range: <code class="text-break">SL Certificate - Jane Smith - 29-30.07.26.pdf</code>.
+                                If the leave spans different months or years, include both full dates, for example <code class="text-break">29.07.26-02.08.26</code>.
                             </li>
                             <li class="mb-2">Open the upload page below and upload your medical certificate. SharePoint will notify HR after submission.</li>
                             <li>Return here and put the uploaded filename in the Reason field below so HR can match it to your leave request. HR will confirm receipt.</li>
