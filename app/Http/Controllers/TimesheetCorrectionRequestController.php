@@ -32,7 +32,7 @@ class TimesheetCorrectionRequestController extends Controller
             if ($entries->count() !== count($data['entry_ids'])) throw ValidationException::withMessages(['entry_ids' => 'One or more selected entries no longer exist.']);
             $timesheetIds = $entries->pluck('timesheet_id')->unique();
             if ($timesheetIds->count() !== 1) throw ValidationException::withMessages(['entry_ids' => 'Selected entries must belong to one timesheet.']);
-            if ($entries->contains(fn ($entry) => (int) $entry->project?->project_manager_id !== (int) $actor->id)) abort(403);
+            if (! $actor->isSuperAdmin() && $entries->contains(fn ($entry) => (int) $entry->project?->project_manager_id !== (int) $actor->id)) abort(403);
             $timesheet = $entries->first()->timesheet;
             if (! in_array($timesheet->status, [Timesheet::STATUS_SUBMITTED, Timesheet::STATUS_APPROVED], true)) throw ValidationException::withMessages(['entry_ids' => 'Correction requests can only be raised for submitted or approved timesheets.']);
             $duplicate = TimesheetCorrectionRequestEntry::query()->whereIn('timesheet_entry_id', $entries->pluck('id'))->whereHas('request', fn ($q) => $q->where('status', TimesheetCorrectionRequest::STATUS_OPEN))->exists();
@@ -44,7 +44,7 @@ class TimesheetCorrectionRequestController extends Controller
             return $correction;
         });
         $notifications->submitted($correction);
-        return back()->with('success', 'Correction request sent to the employee\'s HOD.');
+        return back()->with('success', 'Correction request sent to the responsible reviewers.');
     }
 
     public function withdraw(TimesheetCorrectionRequest $correctionRequest, AuditLogService $audit, TimesheetCorrectionNotificationService $notifications)
@@ -53,7 +53,7 @@ class TimesheetCorrectionRequestController extends Controller
         DB::transaction(function () use ($correctionRequest, $audit) {
             $locked = TimesheetCorrectionRequest::lockForUpdate()->findOrFail($correctionRequest->id);
             abort_unless($locked->status === TimesheetCorrectionRequest::STATUS_OPEN, 422);
-            $locked->update(['status' => TimesheetCorrectionRequest::STATUS_WITHDRAWN, 'resolved_by' => auth()->id(), 'resolved_at' => now(), 'resolution_comment' => 'Withdrawn by project manager.']);
+            $locked->update(['status' => TimesheetCorrectionRequest::STATUS_WITHDRAWN, 'resolved_by' => auth()->id(), 'resolved_at' => now(), 'resolution_comment' => 'Withdrawn by requester.']);
             $audit->record('timesheet_correction_withdrawn', $locked, null, $locked->fresh()->toArray());
         });
         $notifications->resolved($correctionRequest->fresh());

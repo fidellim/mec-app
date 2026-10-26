@@ -147,11 +147,11 @@
         </table>
     </div>
 </div>
-@if((int) $project->project_manager_id === (int) auth()->id())
+@if(auth()->user()->isSuperAdmin() || (int) $project->project_manager_id === (int) auth()->id())
 @php($hasReviewFilters = filled($filters['review_employee_id'] ?? null) || filled($filters['review_status'] ?? null) || filled($filters['review_week'] ?? null) || filled($filters['review_year'] ?? null))
 <div class="content-card mt-3">
     <div class="content-card-header d-flex flex-wrap justify-content-between align-items-start gap-3">
-        <div><h2 class="h5 mb-1">Entry review docket</h2><div class="small text-muted">Review one employee week at a time. Open a packet to inspect entries and raise one focused correction request.</div></div>
+        <div><h2 class="h5 mb-1">Entry review docket</h2><div class="small text-muted">Review one employee week at a time. Open a packet to inspect entries and raise one focused correction request. The responsible reviewers are notified by email.</div></div>
         <span class="badge text-bg-secondary">{{ $reviewTimesheets->total() }} timesheets</span>
     </div>
     <div class="content-card-body border-bottom bg-body-tertiary">
@@ -190,7 +190,7 @@
                         @endforeach
                         </tbody></table></div>
                         @if($reviewTimesheet->entries->contains(fn($entry) => ! $openEntryRequestIds->has($entry->id)))
-                        <div class="p-3 border-top bg-body-tertiary"><label class="form-label" for="correction_comment_{{ $reviewTimesheet->id }}">What needs correction?</label><textarea id="correction_comment_{{ $reviewTimesheet->id }}" class="form-control" name="comment" rows="2" required maxlength="2000" placeholder="Describe the discrepancy for the HOD."></textarea><div class="d-flex justify-content-between align-items-center gap-3 mt-2"><span class="small text-muted">Only selected entries in this employee week will be included.</span><button class="btn btn-warning" type="submit">Send correction request</button></div></div>
+                        <div class="p-3 border-top bg-body-tertiary"><label class="form-label" for="correction_comment_{{ $reviewTimesheet->id }}">What needs correction?</label><textarea id="correction_comment_{{ $reviewTimesheet->id }}" class="form-control" name="comment" rows="2" required maxlength="2000" placeholder="Describe the discrepancy for the reviewer."></textarea><div class="d-flex flex-column flex-sm-row justify-content-between align-items-sm-center gap-3 mt-2"><span class="small text-muted">Only selected entries are flagged. If accepted, the entire weekly timesheet is returned for correction. Hours remain reserved until it is returned.</span><button class="btn btn-warning flex-shrink-0" type="submit">Send correction request</button></div></div>
                         @endif
                     </form>
                 </div>

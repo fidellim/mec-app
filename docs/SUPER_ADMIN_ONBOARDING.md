@@ -172,6 +172,14 @@ Important project rules:
 - Projects with timesheet entries cannot be deleted.
 - Deactivate projects instead of deleting them when they have history.
 
+### Cross-check project manhours
+
+Open **Projects → Utilization** for any project, including inactive projects with historical entries. Expand a department to see employee totals, then use the **Entry review docket** to inspect submitted and approved entries by employee, week, status, and date range.
+
+Select the entries that need review, enter a reason, and select **Send correction request**. The responsible HOD receives an email. For a HOD's timesheet, the request follows the existing admin review and notification rules. You receive an email when your request is resolved, and can withdraw your own open requests under **My recent requests**.
+
+A request alone does not release budget hours. If a reviewer accepts it, the entire weekly timesheet is returned for correction, releasing its submitted/approved budget usage; the employee is notified and can correct and resubmit it. Requests, decisions, and withdrawals are audited. Shared department and manpower-category budgets remain unchanged.
+
 ## Manage Weekly Periods
 
 Use **Weekly Periods** to control when users can create, submit, or resubmit timesheets.
