@@ -148,25 +148,30 @@
     </div>
 </div>
 @if(auth()->user()->isSuperAdmin() || (int) $project->project_manager_id === (int) auth()->id())
+@php($reviewTimesheets->fragment('entry-review-docket'))
 @php($hasReviewFilters = filled($filters['review_employee_id'] ?? null) || filled($filters['review_status'] ?? null) || filled($filters['review_week'] ?? null) || filled($filters['review_year'] ?? null))
-<div class="content-card mt-3">
+<div class="content-card mt-3" id="entry-review-docket">
     <div class="content-card-header d-flex flex-wrap justify-content-between align-items-start gap-3">
         <div><h2 class="h5 mb-1">Entry review docket</h2><div class="small text-muted">Review one employee week at a time. Open a packet to inspect entries and raise one focused correction request. The responsible reviewers are notified by email.</div></div>
-        <span class="badge text-bg-secondary">{{ $reviewTimesheets->total() }} timesheets</span>
+        <div class="small text-muted">Showing {{ $reviewTimesheets->firstItem() ?? 0 }} to {{ $reviewTimesheets->lastItem() ?? 0 }} of {{ $reviewTimesheets->total() }} {{ \Illuminate\Support\Str::plural('timesheet', $reviewTimesheets->total()) }}</div>
     </div>
     <div class="content-card-body border-bottom bg-body-tertiary">
-        <form method="get" action="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">
+        <form class="review-docket-filters" method="get" action="{{ route('projects.utilization', ['project' => $project] + $listContext) }}#entry-review-docket">
             @include('shared.list-context')
             @if(filled($filters['date_from'] ?? null))<input type="hidden" name="date_from" value="{{ $filters['date_from'] }}">@endif
             @if(filled($filters['date_to'] ?? null))<input type="hidden" name="date_to" value="{{ $filters['date_to'] }}">@endif
             <div class="row g-3 align-items-end">
-                <div class="col-12 col-md-6 col-xl-4"><label class="form-label" for="review_employee_id">Employee</label><select class="form-select" id="review_employee_id" name="review_employee_id" aria-label="Filter by employee"><option value="">All project employees</option>@foreach($reviewEmployees as $reviewEmployee)<option value="{{ $reviewEmployee->id }}" @selected((int)($filters['review_employee_id'] ?? 0) === (int)$reviewEmployee->id)>{{ $reviewEmployee->name }}</option>@endforeach</select></div>
-                <div class="col-12 col-md-6 col-xl-2"><label class="form-label" for="review_status">Status</label><select class="form-select" id="review_status" name="review_status" data-searchable="false"><option value="">All statuses</option><option value="submitted" @selected(($filters['review_status'] ?? '') === 'submitted')>Submitted</option><option value="approved" @selected(($filters['review_status'] ?? '') === 'approved')>Approved</option></select></div>
-                <div class="col-6 col-md-4 col-xl-2"><label class="form-label" for="review_week">Week</label><select class="form-select" id="review_week" name="review_week" data-searchable="false"><option value="">All weeks</option>@foreach($reviewPeriods->pluck('week_number')->unique() as $week)<option value="{{ $week }}" @selected((string)($filters['review_week'] ?? '') === (string)$week)>Week {{ $week }}</option>@endforeach</select></div>
-                <div class="col-6 col-md-4 col-xl-2"><label class="form-label" for="review_year">Year</label><select class="form-select" id="review_year" name="review_year" data-searchable="false"><option value="">All years</option>@foreach($reviewPeriods->pluck('year')->unique() as $year)<option value="{{ $year }}" @selected((string)($filters['review_year'] ?? '') === (string)$year)>{{ $year }}</option>@endforeach</select></div>
-                <div class="col-12 col-md-4 col-xl-2"><div class="d-grid d-sm-flex gap-2"><button class="btn btn-primary flex-grow-1 text-nowrap">Apply filters</button>@if($hasReviewFilters)<a class="btn btn-outline-secondary" href="{{ route('projects.utilization', array_filter(['project' => $project, 'date_from' => $filters['date_from'] ?? null, 'date_to' => $filters['date_to'] ?? null]) + $listContext) }}">Reset</a>@endif</div></div>
+                <div class="col-12 col-xl-6"><label class="form-label" for="review_employee_id">Employee</label><select class="form-select" id="review_employee_id" name="review_employee_id" aria-label="Filter by employee"><option value="">All project employees</option>@foreach($reviewEmployees as $reviewEmployee)<option value="{{ $reviewEmployee->id }}" @selected((int)($filters['review_employee_id'] ?? 0) === (int)$reviewEmployee->id)>{{ $reviewEmployee->name }}</option>@endforeach</select></div>
+                <div class="col-12 col-xl-2"><label class="form-label" for="review_status">Status</label><select class="form-select" id="review_status" name="review_status" data-searchable="false"><option value="">All statuses</option><option value="submitted" @selected(($filters['review_status'] ?? '') === 'submitted')>Submitted</option><option value="approved" @selected(($filters['review_status'] ?? '') === 'approved')>Approved</option></select></div>
+                <div class="col-6 col-xl-2"><label class="form-label" for="review_week">Week</label><select class="form-select" id="review_week" name="review_week" data-searchable="false"><option value="">All weeks</option>@foreach($reviewPeriods->pluck('week_number')->unique() as $week)<option value="{{ $week }}" @selected((string)($filters['review_week'] ?? '') === (string)$week)>Week {{ $week }}</option>@endforeach</select></div>
+                <div class="col-6 col-xl-2"><label class="form-label" for="review_year">Year</label><select class="form-select" id="review_year" name="review_year" data-searchable="false"><option value="">All years</option>@foreach($reviewPeriods->pluck('year')->unique() as $year)<option value="{{ $year }}" @selected((string)($filters['review_year'] ?? '') === (string)$year)>{{ $year }}</option>@endforeach</select></div>
+            </div>
+            <div class="d-grid d-sm-flex justify-content-sm-end gap-2 mt-3">
+                <button class="btn btn-outline-secondary" type="submit">Apply filters</button>
+                @if($hasReviewFilters)<a class="btn btn-link" href="{{ route('projects.utilization', array_filter(['project' => $project, 'date_from' => $filters['date_from'] ?? null, 'date_to' => $filters['date_to'] ?? null]) + $listContext) }}#entry-review-docket">Reset</a>@endif
             </div>
         </form>
+        @include('shared.pagination-footer', ['paginator' => $reviewTimesheets, 'label' => 'timesheet'])
     </div>
     <div class="content-card-body">
         @error('entry_ids')<div class="alert alert-danger py-2">{{ $message }}</div>@enderror
@@ -200,7 +205,9 @@
         @endforelse
         </div>
     </div>
-    @if($reviewTimesheets->hasPages())<div class="content-card-body border-top">{{ $reviewTimesheets->links() }}</div>@endif
+    @if($reviewTimesheets->hasPages())
+    <div class="content-card-body border-top">@include('shared.pagination-footer', ['paginator' => $reviewTimesheets, 'label' => 'timesheet'])</div>
+    @endif
 </div>
 <div class="content-card mt-3 overflow-hidden">
     <div class="content-card-header"><h2 class="h5 mb-1">My recent requests</h2><div class="small text-muted">Open requests can be withdrawn but not edited.</div></div>

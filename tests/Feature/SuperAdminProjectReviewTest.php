@@ -60,6 +60,56 @@ class SuperAdminProjectReviewTest extends TestCase
         }
     }
 
+    public function test_super_admin_and_manager_can_page_through_all_matching_timesheets(): void
+    {
+        $manager = $this->userWithRole('employee');
+        $superAdmin = $this->userWithRole('super_admin');
+        $worker = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $project = $this->project(['project_manager_id' => $manager->id]);
+        $sheets = collect();
+        for ($week = 20; $week < 32; $week++) {
+            $start = \Illuminate\Support\Carbon::parse('2026-05-11')->addWeeks($week - 20);
+            $period = $this->openPeriod([
+                'week_number' => $week, 'start_date' => $start->toDateString(),
+                'end_date' => $start->copy()->addDays(6)->toDateString(),
+            ]);
+            $sheet = $this->submittedTimesheet($worker, $period, $project, ['submitted_at' => $start]);
+            $sheets->push($sheet);
+        }
+        $filters = [
+            'project' => $project, 'review_employee_id' => $worker->id,
+            'review_status' => 'submitted', 'review_year' => 2026,
+            'date_from' => '2026-01-01', 'date_to' => '2026-12-31',
+            'list' => ['search' => 'kept project context'],
+        ];
+        foreach ([$superAdmin, $manager] as $viewer) {
+            $response = $this->actingAs($viewer)->get(route('projects.utilization', $filters));
+            $response->assertOk()->assertSee('Showing 1 to 10 of 12 timesheets')
+                ->assertSee('Timesheets pagination')->assertSee('Page 1 of 2')
+                ->assertSee('id="review-packet-'.$sheets->last()->id.'"', false)
+                ->assertDontSee('id="review-packet-'.$sheets->first()->id.'"', false);
+            $this->assertSame(2, substr_count($response->getContent(), 'aria-label="Timesheets pagination"'));
+            $paginator = $response->viewData('reviewTimesheets');
+            $nextUrl = $paginator->nextPageUrl();
+            parse_str(parse_url($nextUrl, PHP_URL_QUERY), $query);
+            $this->assertSame('2', $query['review_page']);
+            $this->assertSame((string) $worker->id, $query['review_employee_id']);
+            $this->assertSame('submitted', $query['review_status']);
+            $this->assertSame('2026', $query['review_year']);
+            $this->assertSame('2026-01-01', $query['date_from']);
+            $this->assertSame('2026-12-31', $query['date_to']);
+            $this->assertSame('kept project context', $query['list']['search']);
+            $this->assertSame('entry-review-docket', parse_url($nextUrl, PHP_URL_FRAGMENT));
+            $this->get($nextUrl)->assertOk()->assertSee('Showing 11 to 12 of 12 timesheets')
+                ->assertSee('Page 2 of 2')->assertSee('id="review-packet-'.$sheets->first()->id.'"', false)
+                ->assertDontSee('id="review-packet-'.$sheets->last()->id.'"', false);
+            $this->get(route('projects.utilization', $filters + ['review_week' => 20]))
+                ->assertOk()->assertSee('Showing 1 to 1 of 1 timesheet')->assertDontSee('Timesheets pagination');
+            $this->get(route('projects.utilization', array_replace($filters, ['review_year' => 2025])))
+                ->assertOk()->assertSee('Showing 0 to 0 of 0 timesheets')->assertDontSee('Timesheets pagination');
+        }
+    }
+
     public function test_super_admin_request_notifies_hods_and_acceptance_notifies_employee_and_requester(): void
     {
         Mail::fake();

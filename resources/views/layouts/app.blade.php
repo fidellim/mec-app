@@ -1757,6 +1757,10 @@
             }
         }
 
+        #entry-review-docket { scroll-margin-top: 7rem; }
+        #entry-review-docket .pagination-footer { flex-wrap: wrap; }
+        #entry-review-docket .pagination-footer-summary { flex-shrink: 0; max-width: 100%; }
+
         /* Keep project information readable without horizontal scrolling on phones. */
         .project-responsive-page .section-header > div { min-width: 0; }
         .project-responsive-page .page-heading,
