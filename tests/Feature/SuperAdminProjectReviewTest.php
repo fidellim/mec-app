@@ -110,6 +110,54 @@ class SuperAdminProjectReviewTest extends TestCase
         }
     }
 
+    public function test_docket_orders_by_latest_year_and_week_then_employee_name_with_and_without_filters(): void
+    {
+        $viewer = $this->userWithRole('super_admin');
+        $department = $this->department();
+        $project = $this->project();
+        $workers = collect(['Zara Adams', 'michael Brown', 'Alice Smith'])->map(
+            fn ($name) => $this->userWithRole('employee', ['name' => $name, 'department_id' => $department->id])
+        );
+        $sheets = collect();
+        foreach ([
+            [2027, 1, '2027-01-04'],
+            [2026, 53, '2026-12-28'],
+            [2026, 52, '2026-12-21'],
+            [2026, 51, '2026-12-14'],
+        ] as [$year, $week, $start]) {
+            $period = $this->openPeriod([
+                'year' => $year, 'week_number' => $week, 'start_date' => $start,
+                'end_date' => \Illuminate\Support\Carbon::parse($start)->addDays(6)->toDateString(),
+            ]);
+            foreach ($workers as $index => $worker) {
+                $sheets->push($this->submittedTimesheet($worker, $period, $project, [
+                    'status' => $index === 1 ? Timesheet::STATUS_APPROVED : Timesheet::STATUS_SUBMITTED,
+                    // Older weeks were submitted more recently.
+                    'submitted_at' => \Illuminate\Support\Carbon::parse('2027-02-01')->addDays($sheets->count()),
+                ]));
+            }
+        }
+        $expected = $sheets->chunk(3)->flatMap(fn ($group) => $group->reverse()->values())->values();
+        foreach ([
+            [[], $expected],
+            [['review_status' => 'submitted'], $expected->where('status', Timesheet::STATUS_SUBMITTED)],
+            [['review_year' => 2026], $expected->filter(fn ($sheet) => $sheet->period->year === 2026)],
+            [['review_week' => 53, 'review_year' => 2026], $expected->slice(3, 3)],
+            [['review_employee_id' => $workers->first()->id], $expected->where('user_id', $workers->first()->id)],
+            [['date_from' => '2026-12-21', 'date_to' => '2027-01-10'], $expected->take(9)],
+        ] as [$filters, $matching]) {
+            $ids = $matching->pluck('id')->values();
+            foreach ($ids->chunk(10) as $page => $pageIds) {
+                $response = $this->actingAs($viewer)->get(route('projects.utilization', [
+                    'project' => $project, 'review_page' => $page + 1,
+                ] + $filters))->assertOk();
+                $paginator = $response->viewData('reviewTimesheets');
+                $this->assertSame($ids->count(), $paginator->total());
+                $this->assertSame($pageIds->values()->all(), $paginator->getCollection()->pluck('id')->all());
+            }
+        }
+    }
+
     public function test_super_admin_request_notifies_hods_and_acceptance_notifies_employee_and_requester(): void
     {
         Mail::fake();

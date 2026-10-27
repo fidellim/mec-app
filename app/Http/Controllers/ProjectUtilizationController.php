@@ -7,6 +7,8 @@ use App\Models\Project;
 use App\Models\ProjectDepartmentAllocation;
 use App\Models\Timesheet;
 use App\Models\TimesheetCorrectionRequest;
+use App\Models\TimesheetPeriod;
+use App\Models\User;
 use Illuminate\Support\Facades\DB;
 
 class ProjectUtilizationController extends Controller
@@ -212,7 +214,10 @@ class ProjectUtilizationController extends Controller
             ->when($filters['review_status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['review_week'] ?? null, fn ($query, $week) => $query->whereHas('period', fn ($period) => $period->where('week_number', $week)))
             ->when($filters['review_year'] ?? null, fn ($query, $year) => $query->whereHas('period', fn ($period) => $period->where('year', $year)))
-            ->latest('submitted_at')->latest('id')->paginate(10, ['*'], 'review_page')->withQueryString();
+            ->orderByDesc(TimesheetPeriod::select('year')->whereColumn('timesheet_periods.id', 'timesheets.timesheet_period_id'))
+            ->orderByDesc(TimesheetPeriod::select('week_number')->whereColumn('timesheet_periods.id', 'timesheets.timesheet_period_id'))
+            ->orderBy(User::selectRaw('LOWER(name)')->whereColumn('users.id', 'timesheets.user_id'))
+            ->orderBy('id')->paginate(10, ['*'], 'review_page')->withQueryString();
         $visibleEntryIds = $reviewTimesheets->getCollection()->flatMap->entries->pluck('id');
         $openEntryRequestIds = DB::table('timesheet_correction_request_entries as items')
             ->join('timesheet_correction_requests as requests', 'requests.id', '=', 'items.timesheet_correction_request_id')
