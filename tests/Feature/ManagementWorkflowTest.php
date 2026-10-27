@@ -491,8 +491,22 @@ class ManagementWorkflowTest extends TestCase
             ->assertSee('Edit');
     }
 
-    public function test_admin_can_update_safe_profile_fields_for_hod_and_employee(): void
+    public static function profileUpdateEligibilityDates(): array
     {
+        return [
+            'before six months' => ['2026-10-14', '0.00'],
+            'on six-month anniversary' => ['2026-10-15', '12.00'],
+            'after six-month anniversary' => ['2026-10-27', '12.00'],
+        ];
+    }
+
+    #[\PHPUnit\Framework\Attributes\DataProvider('profileUpdateEligibilityDates')]
+    public function test_admin_can_update_safe_profile_fields_for_hod_and_employee(string $asOf, string $expectedAllowance): void
+    {
+        // Keep the clock fixed relative to the 2026-04-15 joining date below.
+        // Using the real date makes the zero-day expectation expire after six months.
+        $this->travelTo(\Illuminate\Support\Carbon::parse($asOf)->startOfDay());
+
         $admin = $this->userWithRole('admin');
         $oldDepartment = $this->department(['name' => 'Old Admin Editable Department']);
         $newDepartment = $this->department(['name' => 'New Admin Editable Department']);
@@ -588,7 +602,7 @@ class ManagementWorkflowTest extends TestCase
             'year' => now()->year,
             'attendance_code' => 'L100',
             'source' => LeaveEntitlement::SOURCE_REGIONAL_DEFAULT,
-            'claimable_allowance_days' => '0.00',
+            'claimable_allowance_days' => $expectedAllowance,
         ]);
     }
 
