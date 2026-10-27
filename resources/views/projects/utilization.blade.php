@@ -10,7 +10,7 @@
     <div>
         <div class="small text-muted mb-1">{{ $project->project_code }}</div>
         <h1 class="h3 page-heading mb-1">{{ $project->project_name }}</h1>
-        <div class="text-muted">{{ $activeTab === 'overview' ? 'Project details, timesheet access, and saved allocations.' : 'Lifetime manhour allocation and timesheet usage by discipline.' }}</div>
+        <div class="text-muted">{{ match ($activeTab) { 'overview' => 'Project details, timesheet access, and saved allocations.', 'analytics' => 'Monthly effort, cumulative consumption, and employee hours for this project.', default => 'Lifetime manhour allocation and timesheet usage by discipline.' } }}</div>
     </div>
     <div class="action-group">
         <a class="btn btn-outline-secondary" href="{{ auth()->user()->isAdminLike() ? route('manage.projects.index', $listContext['list'] ?? []) : route('managed-projects.index') }}">Back to projects</a>
@@ -20,6 +20,9 @@
 <nav class="nav nav-tabs mb-3" aria-label="Project sections">
     <a class="nav-link {{ $activeTab === 'overview' ? 'active' : '' }}" @if($activeTab === 'overview') aria-current="page" @endif href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'overview'] + $listContext) }}">Overview</a>
     <a class="nav-link {{ $activeTab === 'utilization' ? 'active' : '' }}" @if($activeTab === 'utilization') aria-current="page" @endif href="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">Utilization</a>
+    @if(auth()->user()->isSuperAdmin() || (int) $project->project_manager_id === (int) auth()->id())
+    <a class="nav-link {{ $activeTab === 'analytics' ? 'active' : '' }}" @if($activeTab === 'analytics') aria-current="page" @endif href="{{ route('projects.utilization', ['project' => $project, 'tab' => 'analytics'] + $listContext) }}">Analytics</a>
+    @endif
 </nav>
 <div class="content-card p-3 mb-3">
     <div class="row g-3">
@@ -30,6 +33,8 @@
 </div>
 @if($activeTab === 'overview')
     @include('projects.partials.overview')
+@elseif($activeTab === 'analytics')
+    @include('projects.partials.analytics')
 @else
 <div class="content-card p-3 mb-3">
     <form method="GET" action="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">

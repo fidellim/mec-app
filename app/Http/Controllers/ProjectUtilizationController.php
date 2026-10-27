@@ -9,6 +9,7 @@ use App\Models\Timesheet;
 use App\Models\TimesheetCorrectionRequest;
 use App\Models\TimesheetPeriod;
 use App\Models\User;
+use App\Services\ProjectAnalyticsService;
 use Illuminate\Support\Facades\DB;
 
 class ProjectUtilizationController extends Controller
@@ -35,6 +36,22 @@ class ProjectUtilizationController extends Controller
     {
         $user = auth()->user();
         abort_unless($user->isAdminLike() || (int) $project->project_manager_id === (int) $user->id, 403);
+
+        if (request()->query('tab') === 'analytics') {
+            abort_unless($user->isSuperAdmin() || (int) $project->project_manager_id === (int) $user->id, 403);
+            $filters = request()->validate([
+                'date_from' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:2100-12-31'],
+                'date_to' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:1900-01-01', 'before_or_equal:2100-12-31', 'after_or_equal:date_from'],
+                'rank_by' => ['nullable', 'in:overtime,total'],
+            ], ['date_to.after_or_equal' => 'The to date must be on or after the from date.']);
+
+            return view('projects.utilization', [
+                'project' => $project->load('projectManager:id,name,email'),
+                'activeTab' => 'analytics',
+                'filters' => $filters,
+                'analytics' => app(ProjectAnalyticsService::class)->build($project, $filters),
+            ]);
+        }
 
         if (request()->query('tab') === 'overview') {
             return view('projects.utilization', [
