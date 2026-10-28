@@ -11,6 +11,7 @@ use App\Models\TimesheetPeriod;
 use App\Models\User;
 use App\Services\ProjectAnalyticsService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class ProjectUtilizationController extends Controller
 {
@@ -72,6 +73,7 @@ class ProjectUtilizationController extends Controller
             'review_employee_id' => ['nullable', 'integer', 'exists:users,id'],
             'review_department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'review_status' => ['nullable', 'in:submitted,approved'],
+            'review_category' => ['nullable', Rule::in([...array_keys(config('manpower_categories.labels')), 'legacy'])],
             'review_week' => ['nullable', 'integer', 'between:1,53'],
             'review_year' => ['nullable', 'integer', 'between:2000,2100'],
         ], [
@@ -215,7 +217,12 @@ class ProjectUtilizationController extends Controller
             $allocations->push($allocation);
         }
 
+        // Keep legacy matching aligned with the category ledger, including null snapshots.
         $entryScope = fn ($query) => $query->where('project_id', $project->id)
+            ->when(($filters['review_category'] ?? null) === 'legacy', fn ($q) => $q->where(fn ($category) => $category
+                ->whereNull('manpower_category_snapshot')
+                ->orWhereNotIn('manpower_category_snapshot', array_keys(config('manpower_categories.labels')))))
+            ->when(filled($filters['review_category'] ?? null) && $filters['review_category'] !== 'legacy', fn ($q) => $q->where('manpower_category_snapshot', $filters['review_category']))
             ->when($filters['review_department_id'] ?? null, fn ($q, $department) => $q->where('department_id', $department))
             ->when($filters['date_from'] ?? null, fn ($q, $date) => $q->whereDate('work_date', '>=', $date))
             ->when($filters['date_to'] ?? null, fn ($q, $date) => $q->whereDate('work_date', '<=', $date));

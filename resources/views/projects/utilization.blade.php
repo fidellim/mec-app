@@ -154,7 +154,7 @@
 </div>
 @if(auth()->user()->isSuperAdmin() || (int) $project->project_manager_id === (int) auth()->id())
 @php($reviewTimesheets->fragment('entry-review-docket'))
-@php($hasReviewFilters = filled($filters['review_employee_id'] ?? null) || filled($filters['review_department_id'] ?? null) || filled($filters['review_status'] ?? null) || filled($filters['review_week'] ?? null) || filled($filters['review_year'] ?? null))
+@php($hasReviewFilters = filled($filters['review_employee_id'] ?? null) || filled($filters['review_department_id'] ?? null) || filled($filters['review_status'] ?? null) || filled($filters['review_week'] ?? null) || filled($filters['review_year'] ?? null) || filled($filters['review_category'] ?? null))
 <div class="content-card mt-3" id="entry-review-docket">
     <div class="content-card-header d-flex flex-wrap justify-content-between align-items-start gap-3">
         <div><h2 class="h5 mb-1">Entry review docket</h2><div class="small text-muted">Review one employee week at a time. Open a packet to inspect entries and raise one focused correction request. The responsible reviewers are notified by email.</div></div>
@@ -172,6 +172,20 @@
                 <div class="col-6 col-xl-2"><label class="form-label" for="review_week">Week</label><select class="form-select" id="review_week" name="review_week" data-searchable="false"><option value="">All weeks</option>@foreach($reviewPeriods->pluck('week_number')->unique() as $week)<option value="{{ $week }}" @selected((string)($filters['review_week'] ?? '') === (string)$week)>Week {{ $week }}</option>@endforeach</select></div>
                 <div class="col-6 col-xl-2"><label class="form-label" for="review_year">Year</label><select class="form-select" id="review_year" name="review_year" data-searchable="false"><option value="">All years</option>@foreach($reviewPeriods->pluck('year')->unique() as $year)<option value="{{ $year }}" @selected((string)($filters['review_year'] ?? '') === (string)$year)>{{ $year }}</option>@endforeach</select></div>
             </div>
+            <div class="row g-3 mt-0">
+                <div class="col-12 col-sm-6 col-xl-4">
+                    <label class="form-label" for="review_category">Manpower Category</label>
+                    <select class="form-select @error('review_category') is-invalid @enderror" id="review_category" name="review_category" data-searchable="false">
+                        <option value="">All categories</option>
+                        @foreach(config('manpower_categories.labels') as $categoryValue => $categoryLabel)
+                            <option value="{{ $categoryValue }}" @selected(($filters['review_category'] ?? '') === $categoryValue)>{{ $categoryLabel }}</option>
+                        @endforeach
+                        <option value="legacy" @selected(($filters['review_category'] ?? '') === 'legacy')>Legacy / Unclassified only</option>
+                    </select>
+                    @error('review_category')<div class="invalid-feedback">{{ $message }}</div>@enderror
+                    <div class="form-text">Filter by the category recorded on each entry. Legacy / Unclassified includes missing or unrecognized categories.</div>
+                </div>
+            </div>
             <div class="d-grid d-sm-flex justify-content-sm-end gap-2 mt-3">
                 <button class="btn btn-outline-secondary" type="submit">Apply filters</button>
                 @if($hasReviewFilters)<a class="btn btn-link" href="{{ route('projects.utilization', array_filter(['project' => $project, 'date_from' => $filters['date_from'] ?? null, 'date_to' => $filters['date_to'] ?? null]) + $listContext) }}#entry-review-docket">Reset</a>@endif
@@ -180,6 +194,9 @@
         @include('shared.pagination-footer', ['paginator' => $reviewTimesheets, 'label' => 'timesheet'])
     </div>
     <div class="content-card-body">
+        @if(filled($filters['review_category'] ?? null))
+            <div class="alert alert-info py-2">Showing only {{ ($filters['review_category'] ?? '') === 'legacy' ? 'Legacy / Unclassified' : config('manpower_categories.labels.'.$filters['review_category']) }} entries. Weekly entry counts and hours reflect these matching entries.</div>
+        @endif
         @error('entry_ids')<div class="alert alert-danger py-2">{{ $message }}</div>@enderror
         @error('comment')<div class="alert alert-danger py-2">{{ $message }}</div>@enderror
         <div class="vstack gap-3">
@@ -211,7 +228,7 @@
                         <div class="table-responsive border-top"><table class="project-responsive-table table table-sm align-middle mb-0"><thead><tr><th data-correction-select class="text-center" style="width:3rem"><span class="visually-hidden">Select for correction request</span></th>@if(auth()->user()->isSuperAdmin())<th data-transfer-column class="d-none" hidden>Select for transfer</th>@endif<th>Date</th><th>Discipline</th><th>Manpower Category</th><th class="text-end">Regular</th><th class="text-end">OT</th><th>Description</th><th>Review state</th>@if(auth()->user()->isSuperAdmin())<th>Actions</th>@endif</tr></thead><tbody>
                         @foreach($reviewTimesheet->entries as $entry)
                             @php($openRequestId = $openEntryRequestIds->get($entry->id))
-                            <tr><td data-correction-select data-label="Select" class="text-center"><input class="form-check-input" type="checkbox" name="entry_ids[]" value="{{ $entry->id }}" aria-label="Select {{ $entry->work_date->toDateString() }} entry" @disabled($openRequestId)></td>@if(auth()->user()->isSuperAdmin())<td data-transfer-column class="d-none" data-label="Select for transfer" hidden><input class="form-check-input" type="checkbox" data-batch-entry="{{ $entry->id }}" data-hours="{{ (float)$entry->regular_hours + (float)$entry->overtime_hours }}" aria-label="Transfer entry {{ $entry->id }}, {{ $entry->work_date->toDateString() }}" @disabled($openRequestId || (float)$entry->regular_hours + (float)$entry->overtime_hours <= 0)></td>@endif<td data-label="Date" class="text-nowrap">{{ $entry->work_date->format('D, d M') }}</td><td data-label="Discipline">{{ $entry->department?->code ?? '—' }}</td><td data-label="Manpower Category">{{ config('manpower_categories.labels.'.$entry->manpower_category_snapshot, $entry->manpower_category_snapshot ? 'Legacy / Unclassified' : '—') }}</td><td data-label="Regular" class="text-end">{{ number_format((float)$entry->regular_hours, 2) }}</td><td data-label="OT" class="text-end">{{ number_format((float)$entry->overtime_hours, 2) }}</td><td data-label="Description">{{ $entry->description ?: '—' }}</td><td data-label="Review state">@if($openRequestId)<span class="badge text-bg-warning">Request #{{ $openRequestId }}</span>@else<span class="small text-muted">Available</span>@endif</td>@if(auth()->user()->isSuperAdmin())<td data-label="Actions">@if($openRequestId)<span class="small text-muted">Resolve request before transfer</span>@else<button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-department-transfer="{{ route('projects.entries.department-transfer.show', ['project' => $project, 'entry' => $entry]) }}">Transfer department</button> <button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-department-transfer="{{ route('projects.entries.department-transfer.show', ['project' => $project, 'entry' => $entry]) }}" data-category-only>Change category</button>@endif</td>@endif</tr>
+                            <tr><td data-correction-select data-label="Select" class="text-center"><input class="form-check-input" type="checkbox" name="entry_ids[]" value="{{ $entry->id }}" aria-label="Select {{ $entry->work_date->toDateString() }} entry" @disabled($openRequestId)></td>@if(auth()->user()->isSuperAdmin())<td data-transfer-column class="d-none" data-label="Select for transfer" hidden><input class="form-check-input" type="checkbox" data-batch-entry="{{ $entry->id }}" data-hours="{{ (float)$entry->regular_hours + (float)$entry->overtime_hours }}" aria-label="Transfer entry {{ $entry->id }}, {{ $entry->work_date->toDateString() }}" @disabled($openRequestId || (float)$entry->regular_hours + (float)$entry->overtime_hours <= 0)></td>@endif<td data-label="Date" class="text-nowrap">{{ $entry->work_date->format('D, d M') }}</td><td data-label="Discipline">{{ $entry->department?->code ?? '—' }}</td><td data-label="Manpower Category">{{ config('manpower_categories.labels.'.$entry->manpower_category_snapshot, 'Legacy / Unclassified') }}</td><td data-label="Regular" class="text-end">{{ number_format((float)$entry->regular_hours, 2) }}</td><td data-label="OT" class="text-end">{{ number_format((float)$entry->overtime_hours, 2) }}</td><td data-label="Description">{{ $entry->description ?: '—' }}</td><td data-label="Review state">@if($openRequestId)<span class="badge text-bg-warning">Request #{{ $openRequestId }}</span>@else<span class="small text-muted">Available</span>@endif</td>@if(auth()->user()->isSuperAdmin())<td data-label="Actions">@if($openRequestId)<span class="small text-muted">Resolve request before transfer</span>@else<button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-department-transfer="{{ route('projects.entries.department-transfer.show', ['project' => $project, 'entry' => $entry]) }}">Transfer department</button> <button class="btn btn-sm btn-outline-secondary text-nowrap" type="button" data-department-transfer="{{ route('projects.entries.department-transfer.show', ['project' => $project, 'entry' => $entry]) }}" data-category-only>Change category</button>@endif</td>@endif</tr>
                         @endforeach
                         </tbody></table></div>
                         @if($reviewTimesheet->entries->contains(fn($entry) => ! $openEntryRequestIds->has($entry->id)))
@@ -221,7 +238,7 @@
                 </div>
             </section>
         @empty
-            <div class="empty-state text-center"><div class="fw-semibold mb-1">No timesheets match these filters</div><div class="small text-muted">Adjust the employee, status, week, or date range to widen the review queue.</div></div>
+            <div class="empty-state text-center"><div class="fw-semibold mb-1">No timesheets match these filters</div><div class="small text-muted">Adjust the employee, department, category, status, week, or date range to widen the review queue.</div></div>
         @endforelse
         </div>
     </div>

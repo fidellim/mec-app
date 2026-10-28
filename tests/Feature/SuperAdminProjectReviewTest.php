@@ -7,6 +7,7 @@ use App\Models\Timesheet;
 use App\Models\TimesheetCorrectionRequest;
 use App\Services\TimesheetAllocationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +17,100 @@ use Tests\TestCase;
 class SuperAdminProjectReviewTest extends TestCase
 {
     use CreatesTimesheetData, RefreshDatabase;
+
+    public function test_legacy_filter_matches_recorded_categories_and_scopes_packet_entries_and_totals(): void
+    {
+        $manager = $this->userWithRole('employee');
+        $project = $this->project(['project_manager_id' => $manager->id]);
+        $worker = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $sheet = $this->submittedTimesheet($worker, $this->openPeriod(), $project);
+        $original = $sheet->entries()->first();
+        $ids = collect([$original->id]);
+        foreach ([['', 2, 1], ['old_category', 3, 2], ['engineer', 4, 0], ['designer', 5, 0]] as [$category, $regular, $ot]) {
+            $entry = $original->replicate();
+            $entry->fill(['manpower_category_snapshot' => $category, 'regular_hours' => $regular, 'overtime_hours' => $ot])->save();
+            if (! in_array($category, ['engineer', 'designer'], true)) {
+                $ids->push($entry->id);
+            }
+        }
+        // Neither other-project nor other-department legacy entries may leak into packets.
+        foreach ([['project_id' => $this->project()->id], ['department_id' => $this->department()->id]] as $attributes) {
+            $entry = $original->replicate();
+            $entry->fill($attributes + ['regular_hours' => 20])->save();
+        }
+        // The person's current assignment does not classify historical entries.
+        $project->assignedUsers()->attach($worker, ['manpower_category' => 'engineer']);
+        $filters = [
+            'project' => $project, 'review_category' => 'legacy', 'review_department_id' => $worker->department_id,
+            'review_employee_id' => $worker->id, 'review_week' => 20, 'review_year' => 2026,
+            'review_status' => 'submitted', 'date_from' => '2026-05-11', 'date_to' => '2026-05-17',
+        ];
+        foreach ([$this->userWithRole('super_admin'), $manager] as $viewer) {
+            $response = $this->actingAs($viewer)->get(route('projects.utilization', $filters))->assertOk()
+                ->assertSee('Legacy / Unclassified only')->assertSee('Showing only Legacy / Unclassified entries.');
+            $packet = $response->viewData('reviewTimesheets')->getCollection()->sole();
+            $this->assertSame($ids->all(), $packet->entries->pluck('id')->all());
+            $this->assertEquals(3, $packet->project_entries_count);
+            $this->assertEquals(13, $packet->project_regular_hours);
+            $this->assertEquals(3, $packet->project_overtime_hours);
+            // Docket filtering must not hide consumption from the department ledger.
+            $this->assertEquals(25, $response->viewData('allocations')->firstWhere('department_id', $worker->department_id)->pending_hours);
+        }
+        $original->update(['manpower_category_snapshot' => 'senior_engineer']);
+        $sheet->entries()->whereIn('id', $ids->skip(1))->update(['manpower_category_snapshot' => 'designer']);
+        $this->get(route('projects.utilization', $filters))->assertOk()
+            ->assertViewHas('reviewTimesheets', fn ($packets) => $packets->total() === 0);
+        $this->get(route('projects.utilization', array_diff_key($filters, ['review_category' => true])))
+            ->assertOk()->assertViewHas('reviewTimesheets', fn ($packets) => $packets->total() === 1);
+    }
+
+    public function test_each_manpower_category_filters_recorded_entries_and_totals_independently_of_current_assignment(): void
+    {
+        $project = $this->project();
+        $worker = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $sheet = $this->submittedTimesheet($worker, $this->openPeriod(), $project);
+        $original = $sheet->entries()->first();
+        $project->assignedUsers()->attach($worker, ['manpower_category' => 'engineer']);
+        $categories = config('manpower_categories.labels');
+        $entries = [];
+        foreach ($categories as $value => $label) {
+            $entry = $original->replicate();
+            $entry->fill(['manpower_category_snapshot' => $value, 'regular_hours' => 2, 'overtime_hours' => 1])->save();
+            $entries[$value] = $entry;
+        }
+        $this->actingAs($this->userWithRole('super_admin'));
+        foreach ($categories as $value => $label) {
+            $response = $this->get(route('projects.utilization', [
+                'project' => $project, 'review_category' => $value,
+                'review_department_id' => $worker->department_id, 'review_employee_id' => $worker->id,
+                'review_status' => 'submitted', 'date_from' => '2026-05-11', 'date_to' => '2026-05-17',
+            ]))->assertOk()->assertSee('Showing only '.$label.' entries.')
+                ->assertSee('value="'.$value.'" selected', false);
+            foreach ($categories as $optionLabel) {
+                $response->assertSee($optionLabel);
+            }
+            $packet = $response->viewData('reviewTimesheets')->getCollection()->sole();
+            $this->assertSame([$entries[$value]->id], $packet->entries->pluck('id')->all());
+            $this->assertEquals(1, $packet->project_entries_count);
+            $this->assertEquals(2, $packet->project_regular_hours);
+            $this->assertEquals(1, $packet->project_overtime_hours);
+        }
+        $this->get(route('projects.utilization', ['project' => $project, 'review_category' => '']))
+            ->assertOk()->assertViewHas('reviewTimesheets', fn ($packets) => $packets->getCollection()->sole()->entries->count() === 5);
+        $entries['designer']->update(['manpower_category_snapshot' => 'engineer']);
+        $this->get(route('projects.utilization', ['project' => $project, 'review_category' => 'designer']))
+            ->assertOk()->assertViewHas('reviewTimesheets', fn ($packets) => $packets->total() === 0);
+    }
+
+    public function test_legacy_filter_rejects_invalid_values_and_preserves_project_access_rules(): void
+    {
+        $project = $this->project();
+        $this->actingAs($this->userWithRole('super_admin'))
+            ->get(route('projects.utilization', ['project' => $project, 'review_category' => 'unknown']))
+            ->assertSessionHasErrors('review_category');
+        $this->actingAs($this->userWithRole('hod'))
+            ->get(route('projects.utilization', ['project' => $project, 'review_category' => 'legacy']))->assertForbidden();
+    }
 
     public function test_super_admin_reviews_any_project_with_project_scoped_entries_and_filters(): void
     {
@@ -68,7 +163,7 @@ class SuperAdminProjectReviewTest extends TestCase
         $project = $this->project(['project_manager_id' => $manager->id]);
         $sheets = collect();
         for ($week = 20; $week < 32; $week++) {
-            $start = \Illuminate\Support\Carbon::parse('2026-05-11')->addWeeks($week - 20);
+            $start = Carbon::parse('2026-05-11')->addWeeks($week - 20);
             $period = $this->openPeriod([
                 'week_number' => $week, 'start_date' => $start->toDateString(),
                 'end_date' => $start->copy()->addDays(6)->toDateString(),
@@ -78,7 +173,7 @@ class SuperAdminProjectReviewTest extends TestCase
         }
         $filters = [
             'project' => $project, 'review_employee_id' => $worker->id,
-            'review_status' => 'submitted', 'review_year' => 2026,
+            'review_status' => 'submitted', 'review_year' => 2026, 'review_category' => 'legacy',
             'date_from' => '2026-01-01', 'date_to' => '2026-12-31',
             'list' => ['search' => 'kept project context'],
         ];
@@ -95,6 +190,7 @@ class SuperAdminProjectReviewTest extends TestCase
             $this->assertSame('2', $query['review_page']);
             $this->assertSame((string) $worker->id, $query['review_employee_id']);
             $this->assertSame('submitted', $query['review_status']);
+            $this->assertSame('legacy', $query['review_category']);
             $this->assertSame('2026', $query['review_year']);
             $this->assertSame('2026-01-01', $query['date_from']);
             $this->assertSame('2026-12-31', $query['date_to']);
@@ -127,13 +223,13 @@ class SuperAdminProjectReviewTest extends TestCase
         ] as [$year, $week, $start]) {
             $period = $this->openPeriod([
                 'year' => $year, 'week_number' => $week, 'start_date' => $start,
-                'end_date' => \Illuminate\Support\Carbon::parse($start)->addDays(6)->toDateString(),
+                'end_date' => Carbon::parse($start)->addDays(6)->toDateString(),
             ]);
             foreach ($workers as $index => $worker) {
                 $sheets->push($this->submittedTimesheet($worker, $period, $project, [
                     'status' => $index === 1 ? Timesheet::STATUS_APPROVED : Timesheet::STATUS_SUBMITTED,
                     // Older weeks were submitted more recently.
-                    'submitted_at' => \Illuminate\Support\Carbon::parse('2027-02-01')->addDays($sheets->count()),
+                    'submitted_at' => Carbon::parse('2027-02-01')->addDays($sheets->count()),
                 ]));
             }
         }
