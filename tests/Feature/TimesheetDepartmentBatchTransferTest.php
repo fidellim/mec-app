@@ -276,14 +276,14 @@ class TimesheetDepartmentBatchTransferTest extends TestCase
         $this->assertSame('submitted', $s['sheet']->fresh()->status);
     }
 
-    public function test_category_keys_and_known_historical_classifications_cannot_be_rewritten(): void
+    public function test_category_keys_and_disallowed_classifications_are_rejected(): void
     {
         $s = $this->scenario();
         $this->categories($s, ['engineer' => 18]);
         $s['first']->update(['manpower_category_snapshot' => 'engineer']);
         $query = ['entry_ids' => $s['ids'], 'department_id' => $s['destination']->id];
         $this->getJson($s['url'].'?'.http_build_query($query + ['classifications' => [$s['sibling']->id => 'engineer']]))->assertUnprocessable();
-        $this->getJson($s['url'].'?'.http_build_query($query + ['classifications' => [$s['first']->id => 'designer']]))->assertUnprocessable();
+        $this->getJson($s['url'].'?'.http_build_query($query + ['classifications' => [$s['first']->id => 'designer']]))->assertOk()->assertJsonPath('can_transfer', false);
         $this->getJson($s['url'].'?'.http_build_query($query + ['classifications' => [$s['second']->id => 'invalid']]))->assertUnprocessable();
         $this->assertUnmoved($s);
     }

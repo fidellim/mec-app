@@ -201,7 +201,7 @@ class TimesheetDepartmentTransferTest extends TestCase
         $preview = $this->preview($s);
         $this->assertFalse($preview['can_transfer']);
         $this->assertEquals(6, $preview['shortfall']);
-        $this->getJson($s['url'].'?'.http_build_query(['department_id' => $s['destination']->id, 'manpower_category' => 'designer']))->assertUnprocessable();
+        $this->getJson($s['url'].'?'.http_build_query(['department_id' => $s['destination']->id, 'manpower_category' => 'designer']))->assertOk()->assertJsonPath('can_transfer', false);
         $s['allocation']->manpowerCategoryAllocations()->where('manpower_category', 'engineer')->update(['allocated_hours' => null]);
         $legacy = $s['entry']->replicate();
         $legacy->fill(['department_id' => $s['destination']->id, 'manpower_category_snapshot' => 'old_title', 'allocation_bucket_snapshot' => null, 'regular_hours' => 21, 'overtime_hours' => 0])->save();

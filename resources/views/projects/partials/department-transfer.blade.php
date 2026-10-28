@@ -4,7 +4,7 @@
         <form class="modal-content" id="department-transfer-form">
             @csrf
             <div class="modal-header">
-                <div><h2 class="modal-title h5" id="departmentTransferTitle">Transfer entry department</h2><div class="small text-muted">Move this entry within {{ $project->project_code }}.</div></div>
+                <div><h2 class="modal-title h5" id="departmentTransferTitle">Update entry allocation</h2><div class="small text-muted">Correct allocation classification within {{ $project->project_code }}.</div></div>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close transfer"></button>
             </div>
             <div class="modal-body">
@@ -22,16 +22,21 @@
                         </div>
                     </div>
                     <div class="mb-3">
+                        <label class="form-label" for="transfer-mode">Update type</label>
+                        <select class="form-select" id="transfer-mode" data-searchable="false"><option value="transfer">Change department and optionally category</option><option value="category">Change category only — keep department</option></select>
+                    </div>
+                    <div class="mb-3" id="transfer-department-field">
                         <label class="form-label" for="transfer-department">Destination department</label>
                         <select class="form-select" id="transfer-department" required data-searchable="false" aria-describedby="transfer-capacity-help"></select>
                         <div class="form-text" id="transfer-capacity-help">Capacity includes all approved and pending hours, regardless of the page's date filters.</div>
                     </div>
                     <div id="transfer-category-field" class="mb-3" hidden>
-                        <label class="form-label" for="transfer-category">Historical Manpower Category</label>
+                        <label class="form-label" for="transfer-category">New Manpower Category</label>
                         <select class="form-select" id="transfer-category" data-searchable="false" aria-describedby="transfer-category-help"></select>
-                        <div class="form-text" id="transfer-category-help">This legacy entry is unclassified. Select the category that applied when the work was done; the selection will be audited.</div>
+                        <div class="form-text" id="transfer-category-help">Choose the category that should apply to this entry. The employee’s current project assignment stays unchanged. Leaving an unclassified entry blank preserves it where permitted.</div>
                     </div>
                     <div id="transfer-preview" hidden>
+                        <p class="small fw-semibold" id="transfer-category-change"></p>
                         <div class="table-responsive mb-2"><table class="table table-sm align-middle"><caption class="visually-hidden">Remaining hours before and after this transfer</caption><thead><tr><th>Remaining hours</th><th class="text-end">Before</th><th class="text-end">After transfer</th></tr></thead><tbody id="transfer-balances"></tbody></table></div>
                     </div>
                     <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
@@ -40,11 +45,11 @@
                         <span class="small text-muted">After adjusting, return here and refresh. Nothing transfers automatically.</span>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label" for="transfer-reason">Reason for transfer</label>
-                        <textarea class="form-control" id="transfer-reason" rows="2" required minlength="5" maxlength="2000" placeholder="Explain why this entry belongs to the destination department."></textarea>
+                        <label class="form-label" for="transfer-reason">Reason for change</label>
+                        <textarea class="form-control" id="transfer-reason" rows="2" required minlength="5" maxlength="2000" placeholder="Explain the department or manpower category correction."></textarea>
                     </div>
-                    <p class="small text-muted">Employee, project, work date, hours, and approval status stay the same. The transfer and your reason are recorded in the audit log.</p>
-                    <details><summary class="small">Recent transfer history for this entry</summary><ul class="list-group list-group-flush small mt-2" id="transfer-history"></ul></details>
+                    <p class="small text-muted">Employee, project, work date, hours, and approval status stay the same. Department and category changes and your reason are recorded in the audit log.</p>
+                    <details><summary class="small">Recent department / category history for this entry</summary><ul class="list-group list-group-flush small mt-2" id="transfer-history"></ul></details>
                 </div>
             </div>
             <div class="modal-footer">
@@ -62,6 +67,9 @@
     const form = byId('department-transfer-form');
     const destination = byId('transfer-department');
     const category = byId('transfer-category');
+    const mode = byId('transfer-mode');
+    const categoryOnly = () => mode.value === 'category';
+    const destinationId = () => categoryOnly() ? context?.entry.department_id : destination.value;
     const save = byId('transfer-save');
     const message = byId('transfer-message');
     const storageKey = 'project-department-transfer-{{ $project->id }}';
@@ -69,7 +77,7 @@
     let context = null, endpoint = null, preview = null, sequence = 0, saving = false, loading = false;
     const hours = value => Number(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const remember = () => {
-        if (endpoint) sessionStorage.setItem(storageKey, JSON.stringify({ endpoint, destination: destination.value, category: category.value, reason: byId('transfer-reason').value }));
+        if (endpoint) sessionStorage.setItem(storageKey, JSON.stringify({ endpoint, destination: destination.value, category: category.value, mode: mode.value, reason: byId('transfer-reason').value }));
     };
     const tell = (text, kind = 'secondary') => {
         message.textContent = text;
@@ -78,7 +86,7 @@
     };
     const ready = () => {
         save.disabled = saving || loading || !preview?.can_transfer || byId('transfer-reason').value.trim().length < 5;
-        destination.disabled = saving;
+        destination.disabled = saving; mode.disabled = saving;
         category.disabled = saving;
         byId('transfer-reason').disabled = saving;
         byId('transfer-refresh').disabled = saving;
@@ -97,10 +105,11 @@
         }
     }
     function categoryVisibility() {
-        const target = context?.departments.find(item => String(item.id) === destination.value);
-        const needsCategory = !!target?.controlled && !context.entry.category_known;
-        byId('transfer-category-field').hidden = !needsCategory;
-        category.required = needsCategory;
+        const target = context?.departments.find(item => String(item.id) === String(destinationId()));
+        byId('transfer-department-field').hidden = categoryOnly(); destination.required = !categoryOnly();
+        byId('transfer-category-field').hidden = false;
+        category.required = categoryOnly() || (!!target?.controlled && !context.entry.category_known);
+        byId('departmentTransferTitle').textContent = categoryOnly() ? 'Correct entry manpower category' : 'Transfer department / correct category';
     }
     function balanceRow(label, before, after) {
         const row = document.createElement('tr');
@@ -117,24 +126,26 @@
         const current = ++sequence;
         preview = null; loading = true; ready(); remember(); categoryVisibility();
         byId('transfer-preview').hidden = true;
-        if (!destination.value) { loading = false; tell('Choose a destination to preview the transfer.'); ready(); return; }
+        if (!destinationId()) { loading = false; tell(categoryOnly() ? 'This entry needs a department before its category can be corrected. Use Change department.' : 'Choose a destination to preview the transfer.'); ready(); return; }
+        if (categoryOnly() && (!category.value || category.value === context.entry.category)) { loading = false; tell('Choose a different manpower category to preview the correction.'); ready(); return; }
         tell('Checking current allocation and entry…');
         const url = new URL(endpoint, location.origin);
-        url.searchParams.set('department_id', destination.value);
-        if (category.required && category.value) url.searchParams.set('manpower_category', category.value);
+        if (categoryOnly()) url.searchParams.set('category_only', '1'); else url.searchParams.set('department_id', destination.value);
+        if (category.value) url.searchParams.set('manpower_category', category.value);
         try {
             const data = await request(url);
             if (current !== sequence) return;
             preview = data;
-            const selectedDepartment = context.departments.find(item => String(item.id) === destination.value);
-            if (selectedDepartment) { selectedDepartment.controlled = data.controlled; selectedDepartment.allocated = true; destination.selectedOptions[0].textContent = data.destination_name; }
+            const selectedDepartment = context.departments.find(item => String(item.id) === String(destinationId()));
+            if (selectedDepartment) { selectedDepartment.controlled = data.controlled; selectedDepartment.allocated = true; if (!categoryOnly() && destination.selectedOptions[0]) destination.selectedOptions[0].textContent = data.destination_name; }
             context.entry = data.entry; showEntry(data.entry); categoryVisibility();
-            const rows = [balanceRow(data.source_name + ' (source)', data.source_before, data.source_after), balanceRow(data.destination_name + ' (destination)', data.destination_before, data.destination_after)];
-            if (data.pool_label) rows.push(balanceRow(data.pool_label, data.pool_before, data.pool_after));
+            const rows = data.departments.map(item => balanceRow(item.label, item.before, item.after));
+            data.pools.forEach(pool => rows.push(balanceRow(pool.label, pool.before, pool.after)));
+            byId('transfer-category-change').textContent = `Category: ${data.category_before} → ${data.category_after}`;
             byId('transfer-balances').replaceChildren(...rows);
             byId('transfer-preview').hidden = false;
-            tell(data.blocker || `Ready to transfer ${hours(data.hours)} hours to ${data.destination_name}.`, data.can_transfer ? 'success' : 'warning');
-            save.textContent = `Transfer ${hours(data.hours)} hours`;
+            tell(data.blocker || (data.category_only ? `Ready to correct the category for ${hours(data.hours)} hours in ${data.destination_name}.` : `Ready to transfer ${hours(data.hours)} hours to ${data.destination_name}.`), data.can_transfer ? 'success' : 'warning');
+            save.textContent = data.category_only ? 'Save category correction' : `Transfer ${hours(data.hours)} hours`;
         } catch (error) {
             if (current !== sequence) return;
             tell(error.message, 'danger');
@@ -142,11 +153,11 @@
             if (current === sequence) { loading = false; ready(); }
         }
     }
-    async function openTransfer(url, restored = null) {
+    async function openTransfer(url, restored = null, initialCategoryOnly = false) {
         if (!window.bootstrap?.Modal) return;
         endpoint = url; context = null; preview = null; loading = true; ++sequence;
         byId('transfer-content').hidden = true; byId('transfer-preview').hidden = true;
-        form.reset(); save.textContent = 'Transfer entry'; ready(); tell('Loading entry…');
+        form.reset(); mode.value = restored?.mode || (initialCategoryOnly ? 'category' : 'transfer'); save.textContent = 'Transfer entry'; ready(); tell('Loading entry…');
         bootstrap.Modal.getOrCreateInstance(modalElement).show();
         const current = sequence;
         try {
@@ -154,23 +165,24 @@
             if (current !== sequence) return;
             context = data;
             destination.replaceChildren(new Option('Choose a department', ''), ...context.departments.map(item => new Option(item.name + (item.allocated ? '' : ' — allocation needed'), item.id)));
-            category.replaceChildren(new Option('Choose the historical category', ''), ...Object.entries(context.categories).map(([value, label]) => new Option(label, value)));
-            destination.value = restored?.destination || ''; category.value = restored?.category || '';
+            category.replaceChildren(new Option('Keep recorded category / unclassified', ''), ...Object.entries(context.categories).map(([value, label]) => new Option(label, value)));
+            destination.value = restored?.destination || ''; category.value = restored?.category ?? (context.entry.category_known ? context.entry.category : '');
             byId('transfer-reason').value = restored?.reason || '';
             showEntry(context.entry); categoryVisibility();
             const history = context.history.map(item => {
                 const li = document.createElement('li'); li.className = 'list-group-item bg-transparent px-0 text-break';
-                li.textContent = `${item.at} · ${item.actor}: ${item.from} → ${item.to}. ${item.reason}`; return li;
+                li.textContent = `${item.at} · ${item.actor}: ${item.from} → ${item.to}; category ${item.category_from} → ${item.category_to}. ${item.reason}`; return li;
             });
-            if (!history.length) { const li = document.createElement('li'); li.className = 'list-group-item bg-transparent px-0'; li.textContent = 'No previous department transfers.'; history.push(li); }
+            if (!history.length) { const li = document.createElement('li'); li.className = 'list-group-item bg-transparent px-0'; li.textContent = 'No previous department or category corrections.'; history.push(li); }
             byId('transfer-history').replaceChildren(...history);
             byId('transfer-content').hidden = false;
             loading = false; await refreshPreview();
-            destination.focus();
+            (categoryOnly() ? category : destination).focus();
         } catch (error) { if (current === sequence) { loading = false; tell(error.message, 'danger'); ready(); } }
     }
-    document.querySelectorAll('[data-department-transfer]').forEach(button => button.addEventListener('click', () => openTransfer(button.dataset.departmentTransfer)));
+    document.querySelectorAll('[data-department-transfer]').forEach(button => button.addEventListener('click', () => openTransfer(button.dataset.departmentTransfer, null, button.hasAttribute('data-category-only'))));
     destination.addEventListener('change', refreshPreview);
+    mode.addEventListener('change', refreshPreview);
     category.addEventListener('change', refreshPreview);
     byId('transfer-refresh').addEventListener('click', refreshPreview);
     byId('transfer-reason').addEventListener('input', () => { remember(); ready(); });
@@ -179,13 +191,13 @@
     form.addEventListener('submit', async event => {
         event.preventDefault();
         if (save.disabled || !form.reportValidity()) return;
-        saving = true; ready(); tell('Transferring entry…'); save.textContent = 'Transferring…';
+        saving = true; ready(); tell('Saving entry changes…'); save.textContent = 'Saving…';
         try {
-            const data = { department_id: destination.value, version: preview.version, reason: byId('transfer-reason').value.trim() };
-            if (category.required) data.manpower_category = category.value;
+            const data = { category_only: categoryOnly(), ...(categoryOnly() ? {} : { department_id: destination.value }), version: preview.version, reason: byId('transfer-reason').value.trim() };
+            if (category.value) data.manpower_category = category.value;
             await request(endpoint, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': form.querySelector('[name="_token"]').value }, body: JSON.stringify(data) });
             sessionStorage.removeItem(storageKey);
-            sessionStorage.setItem(successKey, 'Entry transferred. Department balances and project reports have been refreshed.');
+            sessionStorage.setItem(successKey, preview.category_only ? 'Entry category corrected. Allocation balances have been refreshed.' : 'Entry transferred. Department and category changes have been recorded.');
             location.hash = 'entry-review-docket'; location.reload();
         } catch (error) {
             preview = null; tell(error.message + ' Use Refresh preview before trying again.', 'danger');
