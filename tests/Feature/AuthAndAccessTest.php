@@ -324,6 +324,10 @@ class AuthAndAccessTest extends TestCase
             ->assertRedirect(route('login'))
             ->assertSessionHas('status', 'Your session expired. Please sign in again.');
 
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertSee('Your session expired. Please sign in again.');
+
         $this->assertGuest();
     }
 
