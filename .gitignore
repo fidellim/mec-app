@@ -1,6 +1,8 @@
 /vendor
 /node_modules
 /.agents
+/.codex/
+/.impeccable/
 /skills-lock.json
 /.env
 /.env.e2e
