@@ -171,7 +171,7 @@
             showEntry(context.entry); categoryVisibility();
             const history = context.history.map(item => {
                 const li = document.createElement('li'); li.className = 'list-group-item bg-transparent px-0 text-break';
-                li.textContent = `${item.at} · ${item.actor}: ${item.from} → ${item.to}; category ${item.category_from} → ${item.category_to}. ${item.reason}`; return li;
+                li.textContent = `${item.at} · ${item.actor}: ${item.from} → ${item.to}; category ${item.category_from} → ${item.category_to}; allocation pool ${item.pool_from || 'unclassified'} → ${item.pool_to || 'unclassified'}. ${item.reason}`; return li;
             });
             if (!history.length) { const li = document.createElement('li'); li.className = 'list-group-item bg-transparent px-0'; li.textContent = 'No previous department or category corrections.'; history.push(li); }
             byId('transfer-history').replaceChildren(...history);

@@ -229,7 +229,7 @@ class ProjectUtilizationController extends Controller
         $reviewTimesheets = Timesheet::query()
             ->select(['id', 'user_id', 'department_id', 'timesheet_period_id', 'status'])
             ->with(['user:id,name', 'period:id,week_number,year,start_date,end_date', 'entries' => fn ($query) => $entryScope($query)
-                ->select(['id', 'timesheet_id', 'work_date', 'department_id', 'manpower_category_snapshot', 'regular_hours', 'overtime_hours', 'description'])
+                ->select(['id', 'timesheet_id', 'work_date', 'department_id', 'manpower_category_snapshot', 'allocation_bucket_snapshot', 'regular_hours', 'overtime_hours', 'description'])
                 ->with('department:id,name,code')->orderBy('work_date')->orderBy('id')])
             ->withCount(['entries as project_entries_count' => $entryScope])
             ->withSum(['entries as project_regular_hours' => $entryScope], 'regular_hours')

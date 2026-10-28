@@ -56,7 +56,7 @@ class TimesheetAllocationService
         })->values();
 
         $allocations = ProjectDepartmentAllocation::query()
-            ->with('manpowerCategoryAllocations')
+            ->with(['manpowerCategoryAllocations' => fn ($query) => $query->lockForUpdate()])
             ->where(function ($query) use ($pairs) {
                 foreach ($pairs as $pair) {
                     $query->orWhere(fn ($query) => $query
@@ -96,8 +96,11 @@ class TimesheetAllocationService
             }
 
             $requestedHours = (float) $rows->sum('hours');
-            $usageQuery = $this->usageQuery($allocation->project_id, $allocation->department_id, $excludingTimesheet?->id);
-            $overallConsumed = (float) (clone $usageQuery)->sum(DB::raw('entries.regular_hours + entries.overtime_hours'));
+            // Current locking reads are needed if an allocation edit committed while this submission waited.
+            $usageRows = $this->usageQuery($allocation->project_id, $allocation->department_id, $excludingTimesheet?->id)
+                ->orderBy('entries.id')->lockForUpdate()->get(['entries.regular_hours', 'entries.overtime_hours', 'entries.manpower_category_snapshot', 'entries.allocation_bucket_snapshot']);
+            $entryHours = fn ($row) => (float) $row->regular_hours + (float) $row->overtime_hours;
+            $overallConsumed = (float) $usageRows->sum($entryHours);
 
             if ($overallConsumed + $requestedHours > (float) $allocation->allocated_hours + 0.0001) {
                 $this->addErrors($errors, $rows, 'department_id', self::EXCEEDED_MESSAGE);
@@ -145,14 +148,8 @@ class TimesheetAllocationService
             if ($sharedRows->isNotEmpty()) {
                 $reservedTotal = (float) $categoryAllocations->sum(fn ($row) => $row->allocated_hours === null ? 0 : (float) $row->allocated_hours);
                 $sharedLimit = (float) $allocation->allocated_hours - $reservedTotal;
-                $sharedConsumed = (float) (clone $usageQuery)
-                    ->where(function ($query) use ($canonicalCategories) {
-                        $query->where('entries.allocation_bucket_snapshot', self::BUCKET_SHARED)
-                            ->orWhereNull('entries.allocation_bucket_snapshot')
-                            ->orWhereNull('entries.manpower_category_snapshot')
-                            ->orWhereNotIn('entries.manpower_category_snapshot', $canonicalCategories);
-                    })
-                    ->sum(DB::raw('entries.regular_hours + entries.overtime_hours'));
+                $sharedConsumed = (float) $usageRows->filter(fn ($row) => $row->allocation_bucket_snapshot === self::BUCKET_SHARED
+                    || $row->allocation_bucket_snapshot === null || ! in_array($row->manpower_category_snapshot, $canonicalCategories, true))->sum($entryHours);
 
                 if ((float) $sharedRows->sum('hours') > $sharedLimit - $sharedConsumed + 0.0001) {
                     $this->addErrors($errors, $sharedRows, 'department_id', self::EXCEEDED_MESSAGE);
@@ -162,10 +159,8 @@ class TimesheetAllocationService
 
             foreach ($validRows->where('bucket', self::BUCKET_RESERVED)->groupBy('manpowerCategory') as $category => $categoryRows) {
                 $categoryAllocation = $categoryAllocations->firstWhere('manpower_category', $category);
-                $reservedConsumed = (float) (clone $usageQuery)
-                    ->where('entries.allocation_bucket_snapshot', self::BUCKET_RESERVED)
-                    ->where('entries.manpower_category_snapshot', $category)
-                    ->sum(DB::raw('entries.regular_hours + entries.overtime_hours'));
+                $reservedConsumed = (float) $usageRows->where('allocation_bucket_snapshot', self::BUCKET_RESERVED)
+                    ->where('manpower_category_snapshot', $category)->sum($entryHours);
 
                 if ((float) $categoryRows->sum('hours') > (float) $categoryAllocation->allocated_hours - $reservedConsumed + 0.0001) {
                     $this->addErrors($errors, $categoryRows, 'department_id', self::EXCEEDED_MESSAGE);

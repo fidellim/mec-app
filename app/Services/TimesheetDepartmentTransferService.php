@@ -30,7 +30,8 @@ class TimesheetDepartmentTransferService
         $this->ensureEligible($entry);
         $releasingIds = $releasingIds ?: [$entry->id];
         $sameDepartment = (int) $entry->department_id === $destinationId;
-        if ($sameDepartment && (blank($classification) || $classification === $entry->manpower_category_snapshot)) {
+        if ($sameDepartment && (blank($classification) || ($classification === $entry->manpower_category_snapshot
+            && in_array($entry->allocation_bucket_snapshot, ['shared', 'reserved'], true)))) {
             $this->fail('Entry #'.$entry->id.': choose a different category or department, or remove this unchanged entry from the selection.');
         }
         $destination = ProjectDepartmentAllocation::with(['department', 'manpowerCategoryAllocations'])

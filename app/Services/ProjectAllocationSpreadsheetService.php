@@ -166,7 +166,7 @@ class ProjectAllocationSpreadsheetService
         $current = $this->formState($input);
         $usage = $project ? $this->usageByDepartment($project) : collect();
 
-        $rows = collect($parsed['rows'])->map(function (array $row) use ($departments, $current, $usage) {
+        $rows = collect($parsed['rows'])->map(function (array $row) use ($departments, $current, $usage, $project) {
             $department = filled($row['department_code'])
                 ? $departments->get(Str::upper($row['department_code']))
                 : null;
@@ -195,7 +195,20 @@ class ProjectAllocationSpreadsheetService
             };
 
             if ($department && $row['included'] !== null) {
-                $this->addUsageErrors($row, $usage->get($department->id, $this->emptyUsage()));
+                $metrics = $usage->get($department->id, $this->emptyUsage());
+                if ($project && $row['included'] === true && $row['controlled'] === true && $row['errors'] === []) {
+                    $settings = collect($row['categories'])->map(fn ($c) => $c['mode'] === 'shared' ? null : ($c['mode'] === 'reserved' ? (float) $c['hours'] : 0.0))->all();
+                    $conversion = app(ManpowerPoolConversionService::class)->preview($project, [$department->id => $row['total_hours']], [$department->id => $settings]);
+                    foreach ($conversion['errors'] as $messages) {
+                        array_push($row['errors'], ...$messages);
+                    }
+                    foreach ($conversion['conversions'] as $change) {
+                        $metrics['shared'] -= $change['hours'];
+                        $metrics['reserved'][$change['category']] += $change['hours'];
+                        $row['warnings'][] = $change['label'].': '.$this->hours($change['hours']).' recorded shared hours will move into the reservation when the project is saved. Review the conversion after applying this import.';
+                    }
+                }
+                $this->addUsageErrors($row, $metrics);
             }
 
             $row['valid'] = $row['errors'] === [];

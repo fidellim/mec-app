@@ -126,7 +126,7 @@
                                                 <div class="border rounded-2 p-2 h-100" data-job-level-row data-manpower-category="{{ $manpowerCategory }}">
                                                     <label class="form-label small fw-semibold" for="mode_{{ $department->id }}_{{ $manpowerCategory }}">{{ $manpowerCategoryLabel }}</label>
                                                     <div class="input-group input-group-sm">
-                                                        <select class="form-select" id="mode_{{ $department->id }}_{{ $manpowerCategory }}" name="job_level_allocations[{{ $department->id }}][{{ $manpowerCategory }}][mode]" data-job-level-mode>
+                                                        <select class="form-select" id="mode_{{ $department->id }}_{{ $manpowerCategory }}" name="job_level_allocations[{{ $department->id }}][{{ $manpowerCategory }}][mode]" data-job-level-mode data-shared-conversion-source="{{ $storedHasCategory && $storedValue === null ? '1' : '0' }}">
                                                             <option value="shared" @selected($mode === 'shared')>Shared</option>
                                                             <option value="reserved" @selected($mode === 'reserved')>Reserved</option>
                                                             <option value="not_allowed" @selected($mode === 'not_allowed')>Not allowed</option>
@@ -146,6 +146,9 @@
                     @endforeach
                 </div>
                 @error('department_allocations')<div class="text-danger small mt-2">{{ $message }}</div>@enderror
+                @if($project->exists && auth()->user()->isSuperAdmin())
+                    @include('manage.projects.partials.pool-conversion')
+                @endif
                 @if($project->exists)
                     <div class="mt-3">
                         <label class="form-label" for="allocation_change_reason">Allocation change reason</label>

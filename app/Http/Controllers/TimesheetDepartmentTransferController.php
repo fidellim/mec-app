@@ -30,10 +30,11 @@ class TimesheetDepartmentTransferController extends Controller
                 ->map(fn ($department) => ['id' => $department->id, 'name' => $department->name, 'allocated' => $allocations->has($department->id), 'controlled' => $allocations->get($department->id)?->usesManpowerCategories() ?? false]),
             'categories' => config('manpower_categories.labels'),
             'history' => AuditLog::with('user:id,name')->where('auditable_type', TimesheetEntry::class)->where('auditable_id', $entry->id)
-                ->whereIn('action', ['timesheet_entry_department_transferred', 'timesheet_entry_manpower_category_corrected'])->latest('id')->limit(10)->get()
+                ->whereIn('action', ['timesheet_entry_department_transferred', 'timesheet_entry_manpower_category_corrected', 'timesheet_entry_allocation_pool_converted'])->latest('id')->limit(10)->get()
                 ->map(fn ($log) => ['actor' => $log->user?->name ?? 'Former user', 'at' => $log->created_at->toDateTimeString(), 'from' => $log->old_values['department_name'] ?? 'Unknown', 'to' => $log->new_values['department_name'] ?? 'Unknown',
                     'category_from' => $log->old_values['category_label'] ?? config('manpower_categories.labels.'.($log->old_values['manpower_category_snapshot'] ?? ''), 'Legacy / unclassified'),
                     'category_to' => $log->new_values['category_label'] ?? config('manpower_categories.labels.'.($log->new_values['manpower_category_snapshot'] ?? ''), 'Legacy / unclassified'),
+                    'pool_from' => $log->old_values['allocation_bucket_snapshot'] ?? null, 'pool_to' => $log->new_values['allocation_bucket_snapshot'] ?? null,
                     'reason' => $log->new_values['reason'] ?? '', 'batch_id' => $log->new_values['batch_id'] ?? null]),
         ]);
     }

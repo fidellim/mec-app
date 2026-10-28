@@ -23,8 +23,8 @@ use App\Http\Controllers\Manage\TimesheetPeriodController;
 use App\Http\Controllers\Manage\UserController;
 use App\Http\Controllers\ProjectUtilizationController;
 use App\Http\Controllers\TimesheetCorrectionRequestController;
-use App\Http\Controllers\TimesheetDepartmentTransferController;
 use App\Http\Controllers\TimesheetDepartmentBatchTransferController;
+use App\Http\Controllers\TimesheetDepartmentTransferController;
 use Illuminate\Support\Facades\Route;
 
 Route::middleware('guest')->group(function () {
@@ -166,6 +166,7 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::get('projects', [ProjectController::class, 'index'])->name('projects.index');
         Route::get('projects/create', [ProjectController::class, 'create'])->name('projects.create');
         Route::get('projects/allocation-template', [ProjectController::class, 'allocationTemplate'])->middleware('throttle:exports')->name('projects.allocation-template');
+        Route::post('projects/{project}/pool-conversion/preview', [ProjectController::class, 'previewPoolConversion'])->middleware('role:super_admin', 'throttle:authenticated-writes')->name('projects.pool-conversion.preview');
         Route::post('projects/allocation-import/preview', [ProjectController::class, 'previewAllocationImport'])->middleware('throttle:authenticated-writes')->name('projects.allocation-import.preview');
         Route::get('projects/assignment-template', [ProjectController::class, 'assignmentTemplate'])->middleware('throttle:exports')->name('projects.assignment-template');
         Route::post('projects/assignment-import/preview', [ProjectController::class, 'previewAssignmentImport'])->middleware('throttle:authenticated-writes')->name('projects.assignment-import.preview');

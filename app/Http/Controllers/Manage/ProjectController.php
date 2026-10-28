@@ -3,14 +3,15 @@
 namespace App\Http\Controllers\Manage;
 
 use App\Http\Controllers\Controller;
-use App\Support\ListContext;
 use App\Models\Department;
 use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\User;
 use App\Services\AuditLogService;
+use App\Services\ManpowerPoolConversionService;
 use App\Services\ProjectAllocationSpreadsheetService;
 use App\Services\ProjectAssignmentSpreadsheetService;
+use App\Support\ListContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -91,7 +92,7 @@ class ProjectController extends Controller
         $allocationImportSummary = $allocationImport
             ? $this->allocationImportSummary($allocationImport, $allocations, $categorySettings)
             : null;
-        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token'], $validated['allocation_import_token']);
+        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token'], $validated['allocation_import_token'], $validated['pool_conversion_version']);
 
         $project = DB::transaction(function () use ($validated, $assignedUserCategories, $allocations, $categorySettings, $audit, $assignmentImportSummary, $allocationImportSummary) {
             $project = Project::create($validated);
@@ -140,6 +141,27 @@ class ProjectController extends Controller
             'legacyCategoryDepartmentIds' => $project->departmentAllocations->filter(fn ($allocation) => $allocation->manpowerCategoryAllocations
                 ->contains(fn ($item) => ! in_array($item->manpower_category, $canonicalCategories, true)))->pluck('department_id'),
         ]);
+    }
+
+    public function previewPoolConversion(Request $request, Project $project, ManpowerPoolConversionService $converter)
+    {
+        abort_unless($request->user()->isSuperAdmin(), 403);
+        $validated = $request->validate([
+            'department_allocations' => ['required', 'array'],
+            'department_allocations.*' => ['nullable', 'numeric', 'min:0.05', 'multiple_of:0.05', 'max:9999999999.99'],
+            'job_level_controls' => ['nullable', 'array'],
+            'job_level_controls.*' => ['nullable', 'boolean'],
+            'job_level_allocations' => ['nullable', 'array'],
+            'job_level_allocations.*' => ['nullable', 'array'],
+            'job_level_allocations.*.*.mode' => ['nullable', Rule::in(['shared', 'reserved', 'not_allowed'])],
+            'job_level_allocations.*.*.hours' => ['nullable', 'numeric', 'min:0.05', 'multiple_of:0.05', 'max:9999999999.99'],
+        ]);
+        $allocations = $validated['department_allocations'];
+        $settings = $this->normalizeManpowerCategorySettings($validated, $allocations);
+        $plan = $converter->preview($project, $allocations, $settings);
+        $plan['conversions'] = collect($plan['conversions'])->map(fn ($row) => collect($row)->except('entry_ids')->all())->all();
+
+        return response()->json($plan);
     }
 
     public function assignmentTemplate(Request $request, ProjectAssignmentSpreadsheetService $spreadsheets)
@@ -321,14 +343,14 @@ class ProjectController extends Controller
         }
         $this->validateProjectAssignments($assignedUserCategories, $allocations, $categorySettings, $project);
         $reason = $validated['allocation_change_reason'] ?? null;
-        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token'], $validated['allocation_import_token']);
+        $conversionVersion = $validated['pool_conversion_version'] ?? null;
+        unset($validated['assigned_user_ids'], $validated['assigned_user_categories'], $validated['department_allocations'], $validated['job_level_controls'], $validated['job_level_allocations'], $validated['allocation_change_reason'], $validated['assignment_import_token'], $validated['allocation_import_token'], $validated['pool_conversion_version']);
         $oldAllocations = $this->allocationAuditValues($project);
         $newAllocations = $this->normalizedAllocationAuditValues($allocations, $categorySettings);
         $allocationsChanged = $oldAllocations !== $newAllocations;
         if ($allocationsChanged && blank($reason)) {
             throw ValidationException::withMessages(['allocation_change_reason' => 'Explain why the manhour allocation is changing.']);
         }
-        $old = $this->auditValues($project);
         $oldAssignments = $this->assignmentMap($project);
         $newAssignments = collect($assignedUserCategories)->map(fn ($pivot) => $pivot['manpower_category']);
         $assignmentImportSummary = $assignmentImportApplied
@@ -338,7 +360,17 @@ class ProjectController extends Controller
             ? $this->allocationImportSummary($allocationImport, $allocations, $categorySettings, $reason)
             : null;
 
-        DB::transaction(function () use ($project, $validated, $assignedUserCategories, $allocations, $categorySettings, $audit, $old, $oldAllocations, $newAllocations, $allocationsChanged, $reason, $assignmentImportSummary, $allocationImportSummary) {
+        DB::transaction(function () use ($project, $validated, $assignedUserCategories, $allocations, $categorySettings, $audit, $newAllocations, $reason, $assignmentImportSummary, $allocationImportSummary, $conversionVersion) {
+            $converter = app(ManpowerPoolConversionService::class);
+            $converter->lock($project, $categorySettings);
+            $old = $this->auditValues($project);
+            $oldAllocations = $this->allocationAuditValues($project);
+            $allocationsChanged = $oldAllocations !== $newAllocations;
+            if ($allocationsChanged && blank($reason)) {
+                throw ValidationException::withMessages(['allocation_change_reason' => 'Explain why the manhour allocation is changing.']);
+            }
+            $plan = $converter->preview($project, $allocations, $categorySettings, true);
+            $converter->apply($project, $plan, $conversionVersion, $reason, $audit);
             $this->validateAllocationChanges($project, $allocations, $categorySettings);
             $project->update($validated);
             $project->assignedUsers()->sync($assignedUserCategories);
@@ -353,7 +385,7 @@ class ProjectController extends Controller
             if ($allocationImportSummary !== null) {
                 $audit->record('project_allocation_excel_imported', $project, $oldAllocations, $allocationImportSummary);
             }
-        });
+        }, 3);
         $this->forgetAssignmentImportToken($request, $assignmentImportToken);
         $this->forgetAllocationImportToken($request, $allocationImportToken);
 
@@ -421,6 +453,7 @@ class ProjectController extends Controller
             'job_level_allocations.*.*.mode' => ['nullable', Rule::in(['shared', 'reserved', 'not_allowed'])],
             'job_level_allocations.*.*.hours' => ['nullable', 'numeric', 'min:0.05', 'multiple_of:0.05', 'max:9999999999.99'],
             'allocation_change_reason' => ['nullable', 'string', 'max:2000'],
+            'pool_conversion_version' => ['nullable', 'string', 'size:64'],
         ]) + ['is_active' => false];
     }
 
@@ -503,10 +536,9 @@ class ProjectController extends Controller
             ->where('entries.project_id', $project->id)
             ->whereIn('timesheets.status', [Timesheet::STATUS_APPROVED, Timesheet::STATUS_SUBMITTED])
             ->whereNotNull('entries.department_id')
-            ->groupBy('entries.department_id')
-            ->selectRaw('entries.department_id, SUM(entries.regular_hours + entries.overtime_hours) as consumed_hours')
-            ->get()
-            ->keyBy('department_id');
+            ->orderBy('entries.id')->lockForUpdate()
+            ->get(['entries.department_id', 'entries.regular_hours', 'entries.overtime_hours'])
+            ->groupBy('department_id')->map(fn ($rows) => (object) ['consumed_hours' => $rows->sum(fn ($row) => (float) $row->regular_hours + (float) $row->overtime_hours)]);
 
         foreach ($existing as $departmentId => $existingAllocation) {
             $newHours = $allocations[$departmentId] ?? null;
@@ -629,10 +661,9 @@ class ProjectController extends Controller
             ->where('entries.allocation_bucket_snapshot', 'reserved')
             ->whereIn('entries.manpower_category_snapshot', $categories)
             ->whereIn('timesheets.status', [Timesheet::STATUS_APPROVED, Timesheet::STATUS_SUBMITTED])
-            ->groupBy('entries.manpower_category_snapshot')
-            ->selectRaw('entries.manpower_category_snapshot, SUM(entries.regular_hours + entries.overtime_hours) as consumed_hours')
-            ->get()
-            ->pluck('consumed_hours', 'manpower_category_snapshot');
+            ->orderBy('entries.id')->lockForUpdate()
+            ->get(['entries.manpower_category_snapshot', 'entries.regular_hours', 'entries.overtime_hours'])
+            ->groupBy('manpower_category_snapshot')->map(fn ($rows) => $rows->sum(fn ($row) => (float) $row->regular_hours + (float) $row->overtime_hours));
     }
 
     private function sharedUsage(Project $project, int $departmentId): float
@@ -650,7 +681,8 @@ class ProjectController extends Controller
                     ->orWhereNull('entries.manpower_category_snapshot')
                     ->orWhereNotIn('entries.manpower_category_snapshot', $categories);
             })
-            ->sum(DB::raw('entries.regular_hours + entries.overtime_hours'));
+            ->orderBy('entries.id')->lockForUpdate()->get(['entries.regular_hours', 'entries.overtime_hours'])
+            ->sum(fn ($row) => (float) $row->regular_hours + (float) $row->overtime_hours);
     }
 
     private function allocationAuditValues(Project $project): array
