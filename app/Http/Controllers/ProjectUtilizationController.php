@@ -70,6 +70,7 @@ class ProjectUtilizationController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'review_employee_id' => ['nullable', 'integer', 'exists:users,id'],
+            'review_department_id' => ['nullable', 'integer', 'exists:departments,id'],
             'review_status' => ['nullable', 'in:submitted,approved'],
             'review_week' => ['nullable', 'integer', 'between:1,53'],
             'review_year' => ['nullable', 'integer', 'between:2000,2100'],
@@ -215,6 +216,7 @@ class ProjectUtilizationController extends Controller
         }
 
         $entryScope = fn ($query) => $query->where('project_id', $project->id)
+            ->when($filters['review_department_id'] ?? null, fn ($q, $department) => $q->where('department_id', $department))
             ->when($filters['date_from'] ?? null, fn ($q, $date) => $q->whereDate('work_date', '>=', $date))
             ->when($filters['date_to'] ?? null, fn ($q, $date) => $q->whereDate('work_date', '<=', $date));
         $reviewTimesheets = Timesheet::query()
