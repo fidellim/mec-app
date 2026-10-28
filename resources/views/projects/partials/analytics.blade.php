@@ -25,6 +25,9 @@
         <p class="small text-muted mt-3 mb-0">{{ $analytics['from'] }} to {{ $analytics['to'] }} · Approved and submitted entries only. All hours shown belong to this project. Partial months follow the selected dates.</p>
     </form>
 </div>
+@if($analytics['projectNotStarted'])
+<div class="alert alert-secondary">Project has not started. The scheduled start date is {{ $project->start_date->toFormattedDateString() }}. You can adjust the dates to review recorded hours.</div>
+@endif
 @php
     $periodHours = $analytics['regular'] + $analytics['overtime'];
     $remainingHours = $analytics['allocated'] - $analytics['approved'] - $analytics['pending'];

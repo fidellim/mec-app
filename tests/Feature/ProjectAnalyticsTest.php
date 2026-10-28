@@ -10,6 +10,84 @@ class ProjectAnalyticsTest extends TestCase
 {
     use CreatesTimesheetData, RefreshDatabase;
 
+    public function test_default_period_runs_from_project_start_to_today_and_preserves_lifetime_hours(): void
+    {
+        $this->travelTo(now()->setDate(2026, 6, 15));
+        $project = $this->project(['start_date' => '2026-02-10']);
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        foreach ([['2026-01-20', 'approved', 5], ['2026-01-21', 'submitted', 3], ['2026-03-01', 'approved', 8], ['2026-06-16', 'submitted', 20]] as [$date, $status, $hours]) {
+            $sheet = $this->submittedTimesheet($employee, $period, $project, ['status' => $status]);
+            $sheet->entries()->first()->update(['work_date' => $date, 'regular_hours' => $hours]);
+        }
+        $url = route('projects.utilization', ['project' => $project, 'tab' => 'analytics']);
+        $this->actingAs($this->userWithRole('super_admin'))->get($url)->assertOk()
+            ->assertSee('value="2026-02-10"', false)->assertSee('value="2026-06-15"', false)
+            ->assertViewHas('analytics', function ($data) {
+                $this->assertSame('2026-02-10', $data['from']);
+                $this->assertSame('2026-06-15', $data['to']);
+                $this->assertSame(8.0, $data['openingHours']);
+                $this->assertSame(13.0, $data['approved']);
+                $this->assertSame(3.0, $data['pending']);
+                $this->assertSame(8.0, $data['periodApproved']);
+                $this->assertSame(0.0, $data['periodPending']);
+                $this->assertSame(['Feb 2026', 'Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026'], $data['months']->pluck('label')->all());
+                $this->assertSame(0.0, $data['months']->last()['regular']);
+                $this->assertCount(1, $data['costBasis']);
+
+                return true;
+            });
+
+        $this->get($url.'&date_from=2026-01-01&date_to=2026-01-31')->assertOk()
+            ->assertSee('data-analytics-reset')->assertSee('href="'.$url.'"', false)
+            ->assertViewHas('analytics', fn ($data) => $data['from'] === '2026-01-01' && $data['to'] === '2026-01-31' && $data['regular'] === 8.0);
+        $this->get($url)->assertOk()
+            ->assertViewHas('analytics', fn ($data) => $data['from'] === '2026-02-10' && $data['to'] === '2026-06-15');
+    }
+
+    public function test_missing_start_date_falls_back_to_first_eligible_entry_then_today(): void
+    {
+        $this->travelTo(now()->setDate(2026, 6, 15));
+        $project = $this->project();
+        $url = route('projects.utilization', ['project' => $project, 'tab' => 'analytics']);
+        $this->actingAs($this->userWithRole('super_admin'))->get($url)->assertOk()
+            ->assertViewHas('analytics', fn ($data) => $data['from'] === '2026-06-15' && $data['to'] === '2026-06-15');
+
+        $project->update(['start_date' => '2026-02-10']);
+        $this->get($url.'&date_from=&date_to=')->assertOk()
+            ->assertViewHas('analytics', fn ($data) => $data['from'] === '2026-02-10' && $data['to'] === '2026-06-15' && ! $data['hasEntries']);
+        $project->update(['start_date' => null]);
+
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        foreach ([['2026-01-01', 'draft'], ['2026-02-10', 'submitted'], ['2026-07-01', 'approved']] as [$date, $status]) {
+            $sheet = $this->submittedTimesheet($employee, $period, $project, ['status' => $status]);
+            $sheet->entries()->first()->update(['work_date' => $date]);
+        }
+        $this->get($url)->assertOk()
+            ->assertViewHas('analytics', fn ($data) => $data['from'] === '2026-02-10' && $data['to'] === '2026-06-15');
+    }
+
+    public function test_future_project_and_one_sided_filters_keep_valid_ranges(): void
+    {
+        $this->travelTo(now()->setDate(2026, 6, 15));
+        $project = $this->project(['start_date' => '2026-07-01']);
+        $url = route('projects.utilization', ['project' => $project, 'tab' => 'analytics']);
+        $this->actingAs($this->userWithRole('super_admin'))->get($url)->assertOk()
+            ->assertSee('Project has not started.')->assertSee('Jul 1, 2026')
+            ->assertViewHas('analytics', fn ($data) => $data['from'] === '2026-06-15' && $data['to'] === '2026-06-15' && ! $data['hasEntries']);
+
+        foreach ([
+            ['date_to=2026-05-31', '2026-05-31', '2026-05-31'],
+            ['date_from=2026-08-01', '2026-08-01', '2026-08-01'],
+            ['date_to=2026-08-31', '2026-07-01', '2026-08-31'],
+            ['date_from=2026-07-01&date_to=2026-07-31', '2026-07-01', '2026-07-31'],
+        ] as [$query, $from, $to]) {
+            $this->get($url.'&'.$query)->assertOk()
+                ->assertViewHas('analytics', fn ($data) => $data['from'] === $from && $data['to'] === $to);
+        }
+    }
+
     public function test_confidential_cost_basis_is_only_rendered_for_super_admins(): void
     {
         $manager = $this->userWithRole('hod');
@@ -160,6 +238,7 @@ class ProjectAnalyticsTest extends TestCase
 
     public function test_partial_month_leap_day_and_year_boundaries_include_pending_opening_hours(): void
     {
+        $this->travelTo(now()->setDate(2024, 3, 1));
         $manager = $this->userWithRole();
         $project = $this->project(['project_manager_id' => $manager->id]);
         $sheet = $this->submittedTimesheet($this->userWithRole('employee', ['department_id' => $this->department()->id]), $this->openPeriod(), $project);

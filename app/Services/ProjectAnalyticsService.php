@@ -11,6 +11,9 @@ class ProjectAnalyticsService
 {
     public function build(Project $project, array $filters, bool $includeCostBasis = false): array
     {
+        $today = now()->toDateString();
+        $to = $filters['date_to'] ?? max($today, $filters['date_from'] ?? $today);
+
         $base = DB::table('timesheet_entries as entries')
             ->join('timesheets', 'timesheets.id', '=', 'entries.timesheet_id')
             ->where('entries.project_id', $project->id)
@@ -18,13 +21,13 @@ class ProjectAnalyticsService
 
         // Aggregate in SQL: never load individual entries just to draw a chart.
         $daily = (clone $base)
-            ->when($filters['date_to'] ?? null, fn ($q, $date) => $q->whereDate('entries.work_date', '<=', $date))
+            ->whereDate('entries.work_date', '<=', $to)
             ->groupBy(DB::raw('DATE(entries.work_date)'), 'timesheets.status')
             ->selectRaw('DATE(entries.work_date) as work_date, timesheets.status, SUM(entries.regular_hours) as regular, SUM(entries.overtime_hours) as overtime')
             ->orderBy('work_date')->get();
 
-        $from = $filters['date_from'] ?? $daily->first()?->work_date ?? $filters['date_to'] ?? now()->toDateString();
-        $to = $filters['date_to'] ?? max($from, $daily->last()?->work_date ?? $from);
+        // Clamp only the implicit start so future projects and end-only filters have a valid range.
+        $from = $filters['date_from'] ?? min($project->start_date?->toDateString() ?? $daily->first()?->work_date ?? $today, $to);
         $opening = $daily->filter(fn ($row) => $row->work_date < $from);
         $approved = (float) $opening->where('status', Timesheet::STATUS_APPROVED)->sum(fn ($row) => $row->regular + $row->overtime);
         $pending = (float) $opening->where('status', Timesheet::STATUS_SUBMITTED)->sum(fn ($row) => $row->regular + $row->overtime);
@@ -98,6 +101,7 @@ class ProjectAnalyticsService
             'overtime' => (float) $selected->sum('overtime'),
             'from' => $from,
             'to' => $to,
+            'projectNotStarted' => $project->start_date?->toDateString() > $today,
             'hasEntries' => $selected->isNotEmpty(),
         ];
     }
