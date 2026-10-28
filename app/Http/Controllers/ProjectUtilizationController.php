@@ -46,12 +46,12 @@ class ProjectUtilizationController extends Controller
                 'rank_by' => ['nullable', 'in:overtime,total'],
             ], ['date_to.after_or_equal' => 'The to date must be on or after the from date.']);
 
-            return view('projects.utilization', [
+            return response()->view('projects.utilization', [
                 'project' => $project->load('projectManager:id,name,email'),
                 'activeTab' => 'analytics',
                 'filters' => $filters,
-                'analytics' => app(ProjectAnalyticsService::class)->build($project, $filters),
-            ]);
+                'analytics' => app(ProjectAnalyticsService::class)->build($project, $filters, $user->isSuperAdmin()),
+            ])->header('Cache-Control', 'private, no-store');
         }
 
         if (request()->query('tab') === 'overview') {

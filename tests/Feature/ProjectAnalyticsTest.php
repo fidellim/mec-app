@@ -10,6 +10,56 @@ class ProjectAnalyticsTest extends TestCase
 {
     use CreatesTimesheetData, RefreshDatabase;
 
+    public function test_confidential_cost_basis_is_only_rendered_for_super_admins(): void
+    {
+        $manager = $this->userWithRole('hod');
+        $project = $this->project(['project_manager_id' => $manager->id]);
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $this->submittedTimesheet($employee, $this->openPeriod(), $project);
+        $url = route('projects.utilization', ['project' => $project, 'tab' => 'analytics']);
+
+        $this->actingAs($manager)->get($url)->assertOk()
+            ->assertDontSee('project-cost-basis')->assertDontSee('Load confidential rates')
+            ->assertViewHas('analytics', fn ($data) => $data['costBasis'] === null);
+        $this->actingAs($this->userWithRole('super_admin'))->get($url)->assertOk()
+            ->assertHeader('Cache-Control', 'no-store, private')
+            ->assertSee('Load confidential rates')->assertSee('project-cost-basis')
+            ->assertViewHas('analytics', fn ($data) => $data['costBasis'][0]['employeeCode'] === $employee->employee_code);
+    }
+
+    public function test_cost_basis_preserves_employee_month_charged_department_category_and_status_without_financial_fields(): void
+    {
+        $project = $this->project();
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $chargedDepartment = $this->department();
+        $period = $this->openPeriod();
+        $category = array_key_first(config('manpower_categories.labels'));
+        foreach ([['2026-01-01', 'approved', 99], ['2026-02-10', 'approved', 2.25], ['2026-02-10', 'submitted', 3.5], ['2026-03-01', 'approved', 80], ['2026-02-10', 'draft', 90]] as [$date, $status, $hours]) {
+            $sheet = $this->submittedTimesheet($employee, $period, $project, ['status' => $status]);
+            $sheet->entries()->first()->update(['work_date' => $date, 'regular_hours' => $hours, 'overtime_hours' => 1.25, 'department_id' => $chargedDepartment->id, 'manpower_category_snapshot' => $category]);
+        }
+        $other = $this->submittedTimesheet($employee, $period, $this->project());
+        $other->entries()->first()->update(['work_date' => '2026-02-10']);
+
+        $this->actingAs($this->userWithRole('super_admin'))->get(route('projects.utilization', ['project' => $project, 'tab' => 'analytics', 'date_from' => '2026-02-01', 'date_to' => '2026-02-28']))
+            ->assertOk()->assertViewHas('analytics', function ($data) use ($employee, $chargedDepartment, $category) {
+                $this->assertCount(2, $data['costBasis']);
+                foreach ($data['costBasis'] as $row) {
+                    $this->assertSame($employee->employee_code, $row['employeeCode']);
+                    $this->assertSame($chargedDepartment->name, $row['department']);
+                    $this->assertSame(config('manpower_categories.labels.'.$category), $row['category']);
+                    $this->assertSame('2026-02', $row['month']);
+                    $this->assertArrayNotHasKey('rate', $row);
+                    $this->assertArrayNotHasKey('cost', $row);
+                }
+                $this->assertSame(3.5, $data['periodApproved']);
+                $this->assertSame(4.75, $data['periodPending']);
+                $this->assertSame(8.25, $data['departments']->sum(fn ($row) => $row['regular'] + $row['overtime']));
+
+                return true;
+            });
+    }
+
     public function test_only_own_project_managers_and_super_admins_can_access_analytics(): void
     {
         $manager = $this->userWithRole('hod');

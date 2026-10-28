@@ -9,7 +9,7 @@ use Illuminate\Support\Facades\DB;
 
 class ProjectAnalyticsService
 {
-    public function build(Project $project, array $filters): array
+    public function build(Project $project, array $filters, bool $includeCostBasis = false): array
     {
         $base = DB::table('timesheet_entries as entries')
             ->join('timesheets', 'timesheets.id', '=', 'entries.timesheet_id')
@@ -55,9 +55,40 @@ class ProjectAnalyticsService
             ->orderByDesc(($filters['rank_by'] ?? 'overtime') === 'total' ? 'overtime' : 'total')
             ->orderBy('users.name')->orderBy('users.id')->get();
 
+        // Only nonfinancial hour aggregates leave Laravel. Rates are never accepted here.
+        $periodRows = (clone $base)
+            ->join('users', 'users.id', '=', 'timesheets.user_id')
+            ->leftJoin('departments', 'departments.id', '=', 'entries.department_id')
+            ->whereDate('entries.work_date', '>=', $from)
+            ->whereDate('entries.work_date', '<=', $to)
+            ->groupBy('users.id', 'users.employee_code', 'users.name', 'entries.department_id', 'departments.name', 'entries.manpower_category_snapshot', 'timesheets.status', DB::raw('SUBSTR(entries.work_date, 1, 7)'))
+            ->selectRaw('users.id as employee_id, users.employee_code, users.name as employee_name, entries.department_id, departments.name as department_name, entries.manpower_category_snapshot as category, timesheets.status, SUBSTR(entries.work_date, 1, 7) as month, SUM(entries.regular_hours) as regular, SUM(entries.overtime_hours) as overtime')
+            ->orderBy('month')->orderBy('users.id')->get();
+
+        $departments = $periodRows->groupBy(fn ($row) => $row->department_id ?? 'unclassified')->map(fn ($rows) => [
+            'name' => $rows->first()->department_name ?? 'Unclassified department',
+            'regular' => (float) $rows->sum('regular'),
+            'overtime' => (float) $rows->sum('overtime'),
+            'approved' => (float) $rows->where('status', Timesheet::STATUS_APPROVED)->sum(fn ($row) => $row->regular + $row->overtime),
+            'pending' => (float) $rows->where('status', Timesheet::STATUS_SUBMITTED)->sum(fn ($row) => $row->regular + $row->overtime),
+        ])->sortByDesc(fn ($row) => $row['regular'] + $row['overtime'])->values();
+
         return [
             'months' => $months,
             'employees' => $employees,
+            'departments' => $departments,
+            'periodApproved' => (float) $selected->where('status', Timesheet::STATUS_APPROVED)->sum(fn ($row) => $row->regular + $row->overtime),
+            'periodPending' => (float) $selected->where('status', Timesheet::STATUS_SUBMITTED)->sum(fn ($row) => $row->regular + $row->overtime),
+            'costBasis' => $includeCostBasis ? $periodRows->map(fn ($row) => [
+                'employeeCode' => $row->employee_code,
+                'employeeName' => $row->employee_name,
+                'department' => $row->department_name ?? 'Unclassified department',
+                'category' => config('manpower_categories.labels.'.$row->category, 'Legacy / Unclassified'),
+                'month' => $row->month,
+                'status' => $row->status,
+                'regular' => number_format((float) $row->regular, 2, '.', ''),
+                'overtime' => number_format((float) $row->overtime, 2, '.', ''),
+            ])->values()->all() : null,
             'allocated' => (float) $project->departmentAllocations()->sum('allocated_hours'),
             'hasAllocation' => $project->departmentAllocations()->exists(),
             'approved' => $approved,
