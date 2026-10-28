@@ -512,6 +512,17 @@ class ProjectController extends Controller
             $newHours = $allocations[$departmentId] ?? null;
             $consumedHours = (float) ($usage->get($departmentId)->consumed_hours ?? 0);
 
+            // A super admin may repair another department's budget before moving
+            // historical mischarges out of an unchanged, already overdrawn source.
+            $currentSettings = $existingAllocation->manpowerCategoryAllocations->sortBy('manpower_category')
+                ->mapWithKeys(fn ($row) => [$row->manpower_category => $row->allocated_hours === null ? null : (float) $row->allocated_hours])->all();
+            $nextSettings = collect($categorySettings[(int) $departmentId] ?? [])->sortKeys()->all();
+            if (auth()->user()->isSuperAdmin() && filled($newHours)
+                && abs((float) $newHours - (float) $existingAllocation->allocated_hours) < 0.0001
+                && $currentSettings === $nextSettings) {
+                continue;
+            }
+
             if (filled($newHours) && (float) $newHours + 0.0001 < $consumedHours) {
                 throw ValidationException::withMessages(["department_allocations.$departmentId" => 'Allocation cannot be lower than '.number_format($consumedHours, 2).' submitted and approved hours already used.']);
             }
