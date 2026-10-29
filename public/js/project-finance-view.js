@@ -43,7 +43,14 @@
         const cost = figures.labour !== null ? BigInt(figures.labour) : ready ? BigInt(labour.result.approved) : null;
         const values = { order, invoiced, balance, total: cost === null ? null : cost + subcontractor + overhead };
         panel().querySelectorAll('[data-finance-value]').forEach(el => { el.textContent = money(values[el.dataset.financeValue]); });
-        const notes = [figures.labour !== null ? 'Labour source: imported Manhour Spent.' : ready ? 'Labour source: all approved platform hours through today × AED employee rates, including overtime at 1.25.' : 'Labour unavailable: load AED employee rates covering every employee with approved hours, or enter Manhour Spent in the finance workbook. Total cost remains unavailable.'];
+        let unavailable = 'Labour unavailable: load your employee rate workbook below, with AED selected.';
+        if (!labour?.result && !document.querySelector('[data-cost-results]')?.hidden) unavailable = 'Employee rates are loaded, but the project labour calculation was not received. Refresh this page and reload both workbooks. If this continues, the application files need updating.';
+        else if (labour && labour.currency !== 'AED') unavailable = `The loaded employee rates use ${labour.currency || 'no currency'}. Select AED below and confirm the rates are in AED; no currency conversion is applied.`;
+        else if (labour?.result && BigInt(labour.result.unpricedHours) > 0n) {
+            const hours = (Number(labour.result.unpricedHours) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+            unavailable = `${hours} approved project hours have no matching rate across the full project history. Missing Employee IDs: ${labour.result.missing.slice(0, 10).join(', ')}${labour.result.missing.length > 10 ? '…' : ''}. Add these rates and reload the rate workbook.`;
+        }
+        const notes = [figures.labour !== null ? 'Labour source: imported Manhour Spent.' : ready ? 'Labour source: all approved platform hours through today × AED employee rates, including overtime at 1.25.' : `${unavailable} Total cost remains unavailable; you can also enter Manhour Spent in the finance workbook.`];
         if (balance < 0n) notes.push('Invoice submitted exceeds the order value. Review the order and invoice figures.');
         find('[data-finance-note]').textContent = notes.join(' ');
         find('[data-finance-note]').classList.toggle('text-warning-emphasis', cost === null || balance < 0n);

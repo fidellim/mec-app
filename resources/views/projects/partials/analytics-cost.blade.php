@@ -1,5 +1,12 @@
+@php
+    // One content fingerprint keeps the views and their worker protocol in step after deployment.
+    $financialAssetVersion = substr(hash('sha256', implode('', array_map(
+        fn ($file) => hash_file('sha256', public_path('js/'.$file)),
+        ['project-cost-view.js', 'project-cost-worker.js', 'project-cost-core.js', 'project-finance-view.js', 'project-finance-worker.js']
+    ))), 0, 16);
+@endphp
 @include('projects.partials.analytics-finance')
-<section class="content-card mb-3" data-financial-panel aria-labelledby="labour-cost-heading" data-worker-url="{{ asset('js/project-cost-worker.js') }}">
+<section class="content-card mb-3" data-financial-panel aria-labelledby="labour-cost-heading" data-worker-url="{{ asset('js/project-cost-worker.js').'?v='.$financialAssetVersion }}">
     <div class="content-card-header analytics-heading">
         <div><h2 class="h5 mb-1" id="labour-cost-heading">Confidential labour costs</h2><p class="small text-muted mb-0">Add salary-based employee rates to this selected-period analysis.</p></div>
         <span class="badge text-bg-secondary" data-cost-badge>Rates not loaded</span>
@@ -55,5 +62,5 @@
 <script type="application/json" id="project-cost-basis">{!! \Illuminate\Support\Js::encode($analytics['costBasis']) !!}</script>
 <script type="application/json" id="project-management-cost-basis">{!! \Illuminate\Support\Js::encode($analytics['managementCostBasis']) !!}</script>
 @push('scripts')
-<script src="{{ asset('js/project-cost-view.js') }}" defer></script>
+<script src="{{ asset('js/project-cost-view.js').'?v='.$financialAssetVersion }}" defer></script>
 @endpush

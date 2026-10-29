@@ -1,5 +1,5 @@
 /* This worker reads a transferred local file. It never sends requests with file data. */
-importScripts('vendor/xlsx-0.20.3.min.js', 'project-cost-core.js');
+importScripts('vendor/xlsx-0.20.3.min.js', 'project-cost-core.js' + (self.location?.search || ''));
 let rates = null;
 function inputError(message) {
     const error = new Error(message);

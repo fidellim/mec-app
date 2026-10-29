@@ -43,6 +43,8 @@ Invoice Submitted represents certified work value before retention/advance recov
 
 Project figures have their own absolute 15-minute expiry, and clear on page exit, refresh, logout, financial clearing or invalid/unauthorized filter responses. The import worker is terminated immediately after success or failure; only the current project snapshot lives in document memory. Clear project figures preserves employee rates; Clear financial data removes both. Filters preserve a completed finance snapshot without extending its expiry. Both confidential panels are omitted from printing.
 
+The financial view scripts and worker URLs share a content fingerprint covering both views, both workers, and the labour calculation core. The rate worker propagates this version to its core dependency so previously cached files cannot silently omit the management labour result after a deployment. Deploy these files and their Blade partials together. The finance note distinguishes unloaded rates, a missing calculation result, wrong currency and unpriced approved hours (with missing IDs).
+
 ## Verification commands
 
 - `node --test tests/JS/project-cost.test.js`: real XLSX/XLS parsing, employee rates, overtime, precision/rounding, reconciliation, missing rates, invalid imports and identifiers.

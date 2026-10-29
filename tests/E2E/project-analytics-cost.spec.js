@@ -218,3 +218,36 @@ test('finance rejects duplicate and missing projects, clears on refresh and expi
   await page.reload();
   await expect(page.locator('[data-finance-results]')).toBeHidden();
 });
+
+test('rates-first import supplies project labour and versioned workers use the matching calculation core', async ({ page }) => {
+  await openAnalytics(page);
+  const urls = [];
+  page.on('request', request => { if (/project-cost-(worker|core)\.js/.test(request.url())) urls.push(request.url()); });
+  await page.locator('#cost-workbook').setInputFiles(rateFile(validRows));
+  await expect(page.locator('[data-cost-coverage]')).toContainText('100.00%');
+  const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
+  await page.locator('#finance-workbook').setInputFiles(financeFile(code));
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 17,850.00');
+  await expect(page.locator('[data-finance-note]')).toContainText('all approved platform hours');
+  const script = await page.locator('script[src*="project-cost-view.js"]').getAttribute('src');
+  const version = new URL(script).searchParams.get('v');
+  expect(version).toMatch(/^[a-f0-9]{16}$/);
+  expect(urls.filter(url => new URL(url).searchParams.get('v') === version)).toHaveLength(2);
+});
+
+test('an outdated calculation worker produces a refresh instruction instead of a missing-rates claim', async ({ page }, testInfo) => {
+  await openAnalytics(page);
+  await page.route('**/js/project-cost-worker.js*', async route => {
+    const response = await route.fetch();
+    const body = (await response.text()).replace(', management: MecProjectCost.calculate(data.managementBasis || [], rates)', '');
+    await route.fulfill({ response, body });
+  });
+  await page.locator('#cost-workbook').setInputFiles(rateFile(validRows));
+  await expect(page.locator('[data-cost-coverage]')).toContainText('100.00%');
+  const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
+  await page.locator('#finance-workbook').setInputFiles(financeFile(code));
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('Awaiting labour cost');
+  await expect(page.locator('[data-finance-note]')).toContainText('project labour calculation was not received');
+  await expect(page.locator('[data-finance-note]')).toContainText('Refresh this page');
+  await page.locator('[data-finance-panel]').screenshot({ path: testInfo.outputPath('labour-refresh-instruction.png') });
+});

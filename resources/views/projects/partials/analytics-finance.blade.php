@@ -1,4 +1,4 @@
-<section class="content-card mb-3" data-finance-panel data-project-code="{{ $project->project_code }}" data-worker-url="{{ asset('js/project-finance-worker.js') }}" aria-labelledby="project-finance-heading">
+<section class="content-card mb-3" data-finance-panel data-project-code="{{ $project->project_code }}" data-worker-url="{{ asset('js/project-finance-worker.js').'?v='.$financialAssetVersion }}" aria-labelledby="project-finance-heading">
     <div class="content-card-header analytics-heading">
         <div><h2 class="h5 mb-1" id="project-finance-heading">Project financial position</h2><p class="small text-muted mb-0">Cumulative project totals in AED, excluding VAT. Independent of the hours filters.</p></div>
         <span class="badge text-bg-secondary">{{ $project->project_code }}</span>
@@ -28,5 +28,5 @@
     </div>
 </section>
 @push('scripts')
-<script src="{{ asset('js/project-finance-view.js') }}" defer></script>
+<script src="{{ asset('js/project-finance-view.js').'?v='.$financialAssetVersion }}" defer></script>
 @endpush
