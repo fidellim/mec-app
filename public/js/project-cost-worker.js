@@ -41,7 +41,7 @@ self.onmessage = ({ data }) => {
             catch (error) { throw inputError(error.message); }
         }
         if (!rates) throw new Error('Load the rate workbook again.');
-        self.postMessage({ type: 'result', result: MecProjectCost.calculate(data.basis, rates), management: MecProjectCost.calculate(data.managementBasis || [], rates) });
+        self.postMessage({ type: 'result', result: MecProjectCost.calculate(data.basis, rates), management: MecProjectCost.calculate(data.managementBasis || [], rates), managementCutoff: data.managementCutoff });
     } catch (error) {
         rates = null;
         self.postMessage({ type: 'error', message: data.type === 'import' && error.safeToDisplay ? error.message : 'Financial calculations could not be completed. Clear the data and reload the workbook.' });

@@ -96,7 +96,7 @@ class ProjectAnalyticsService
             'managementCostBasis' => $includeCostBasis ? (clone $base)
                 ->join('users', 'users.id', '=', 'timesheets.user_id')
                 ->where('timesheets.status', Timesheet::STATUS_APPROVED)
-                ->whereDate('entries.work_date', '<=', $today)
+                ->whereDate('entries.work_date', '<=', $to)
                 ->groupBy('users.id', 'users.employee_code', 'users.name', DB::raw('SUBSTR(entries.work_date, 1, 7)'), 'entries.department_id', 'entries.manpower_category_snapshot')
                 ->selectRaw('users.employee_code, users.name, SUBSTR(entries.work_date, 1, 7) as month, SUM(entries.regular_hours) as regular, SUM(entries.overtime_hours) as overtime')
                 ->get()->map(fn ($row) => [

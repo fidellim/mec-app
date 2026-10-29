@@ -152,14 +152,21 @@ test('invalid filters retain Laravel validation messages and clear financial dat
   await expect(page.locator('[data-cost-results]')).toBeHidden();
 });
 
-function financeFile(code, labour = '', duplicate = false) {
+function financeFile(code, labour = '', duplicate = false, committed = 30000) {
   const context = vm.createContext({});
   vm.runInContext(readFileSync('public/js/vendor/xlsx-0.20.3.min.js', 'utf8'), context);
   const book = context.XLSX.utils.book_new();
-  const rows = [['Project Code', 'Order Value', 'Invoice Submitted', 'Subcontractor Spent', 'Manhour Spent'], ['UNRELATED-SECRET', 9999999, 8888888, 7777777, 6666666], [code, 100000, 60000, 12000, labour]];
+  const rows = [['Project Code', 'Order Value', 'Invoice Submitted', 'Subcontractor Spent', 'Manhour Spent', 'Subcontractor Committed Value'], ['UNRELATED-SECRET', 9999999, 8888888, 7777777, 6666666, 5555555], [code, 100000, 60000, 12000, labour, committed]];
   if (duplicate) rows.push([code, 1, 1, 1, 1]);
   context.XLSX.utils.book_append_sheet(book, context.XLSX.utils.aoa_to_sheet(rows), 'Finance');
   return { name: 'synthetic-finance.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(context.XLSX.write(book, { type: 'array', bookType: 'xlsx' })) };
+}
+
+async function importFinance(page, file) {
+  const details = page.locator('[data-finance-import]');
+  if (await details.getAttribute('open') === null) await details.locator('summary').click();
+  await page.locator('[data-finance-confirm]').check();
+  await page.locator('#finance-workbook').setInputFiles(file);
 }
 
 test('finance isolates project figures, approved labour fallback and zero override; stays local across filters', async ({ page }, testInfo) => {
@@ -167,7 +174,7 @@ test('finance isolates project figures, approved labour fallback and zero overri
   const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
   const requests = [];
   page.on('request', request => requests.push({ url: request.url(), method: request.method(), body: request.postData() }));
-  await page.locator('#finance-workbook').setInputFiles(financeFile(code));
+  await importFinance(page, financeFile(code));
   await expect(page.locator('[data-finance-value="balance"]')).toHaveText('AED 40,000.00');
   await expect(page.locator('[data-finance-value="total"]')).toHaveText('Awaiting labour cost');
   await page.locator('#cost-workbook').setInputFiles(rateFile([validRows[1]]));
@@ -181,7 +188,7 @@ test('finance isolates project figures, approved labour fallback and zero overri
   await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 17,850.00');
   await page.getByLabel('Rate currency', { exact: true }).selectOption('USD');
   await expect(page.locator('[data-finance-value="total"]')).toHaveText('Awaiting labour cost');
-  await page.locator('#finance-workbook').setInputFiles(financeFile(code, 0));
+  await importFinance(page, financeFile(code, 0));
   await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 16,800.00');
   await expect(page.locator('[data-finance-note]')).toContainText('imported Manhour Spent');
   for (const width of [1512, 390]) {
@@ -204,16 +211,16 @@ test('finance rejects duplicate and missing projects, clears on refresh and expi
   await openAnalytics(page);
   await page.clock.install();
   const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
-  await page.locator('#finance-workbook').setInputFiles(financeFile(code, 1, true));
+  await importFinance(page, financeFile(code, 1, true));
   await expect(page.locator('[data-finance-status]')).toContainText('Duplicate rows');
-  await page.locator('#finance-workbook').setInputFiles(financeFile('MISSING', 1));
+  await importFinance(page, financeFile('MISSING', 1));
   await expect(page.locator('[data-finance-status]')).toContainText('No row matches');
-  await page.locator('#finance-workbook').setInputFiles(financeFile(code, 123));
+  await importFinance(page, financeFile(code, 123));
   await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 16,923.00');
   await page.clock.fastForward(15 * 60 * 1000 + 1);
   await expect(page.locator('[data-finance-results]')).toBeHidden();
   await expect(page.locator('[data-finance-status]')).toContainText('expired');
-  await page.locator('#finance-workbook').setInputFiles(financeFile(code, 123));
+  await importFinance(page, financeFile(code, 123));
   await expect(page.locator('[data-finance-results]')).toBeVisible();
   await page.reload();
   await expect(page.locator('[data-finance-results]')).toBeHidden();
@@ -226,7 +233,7 @@ test('rates-first import supplies project labour and versioned workers use the m
   await page.locator('#cost-workbook').setInputFiles(rateFile(validRows));
   await expect(page.locator('[data-cost-coverage]')).toContainText('100.00%');
   const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
-  await page.locator('#finance-workbook').setInputFiles(financeFile(code));
+  await importFinance(page, financeFile(code));
   await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 17,850.00');
   await expect(page.locator('[data-finance-note]')).toContainText('all approved platform hours');
   const script = await page.locator('script[src*="project-cost-view.js"]').getAttribute('src');
@@ -245,9 +252,56 @@ test('an outdated calculation worker produces a refresh instruction instead of a
   await page.locator('#cost-workbook').setInputFiles(rateFile(validRows));
   await expect(page.locator('[data-cost-coverage]')).toContainText('100.00%');
   const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
-  await page.locator('#finance-workbook').setInputFiles(financeFile(code));
+  await importFinance(page, financeFile(code));
   await expect(page.locator('[data-finance-value="total"]')).toHaveText('Awaiting labour cost');
   await expect(page.locator('[data-finance-note]')).toContainText('project labour calculation was not received');
   await expect(page.locator('[data-finance-note]')).toContainText('Refresh this page');
   await page.locator('[data-finance-panel]').screenshot({ path: testInfo.outputPath('labour-refresh-instruction.png') });
+});
+
+test('finance cutoff confirmation is required; From date preserves figures and To date requires a fresh import', async ({ page }) => {
+  await openAnalytics(page);
+  const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
+  await page.locator('#finance-workbook').setInputFiles(financeFile(code, 100));
+  await expect(page.locator('[data-finance-status]')).toContainText('Confirm that your Excel totals');
+  await expect(page.locator('[data-finance-results]')).toBeHidden();
+  await importFinance(page, financeFile(code, 100));
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 16,900.00');
+  await page.locator('#date_from').fill('2026-01-01');
+  await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+  await expect(page.locator('#project-analytics')).not.toHaveAttribute('aria-busy', 'true');
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 16,900.00');
+  await page.locator('#date_to').fill('2026-09-30');
+  await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+  await expect(page.locator('[data-finance-panel]')).toHaveAttribute('data-cutoff', '2026-09-30');
+  await expect(page.locator('[data-finance-results]')).toBeHidden();
+  await expect(page.locator('[data-finance-confirm]')).not.toBeChecked();
+  await importFinance(page, financeFile(code, 100));
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 16,900.00');
+  await expect(page.locator('[data-finance-status]')).toContainText('Sep');
+});
+
+test('commitments distinguish unknown, overpayment and remaining obligations without double counting', async ({ page }, testInfo) => {
+  await openAnalytics(page);
+  const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
+  await importFinance(page, financeFile(code, 100, false, ''));
+  await expect(page.locator('[data-finance-value="committed"]')).toHaveText('Not provided');
+  await expect(page.locator('[data-finance-value="exposure"]')).toHaveText('Commitment not provided');
+  await importFinance(page, financeFile(code, 100, false, 0));
+  await expect(page.locator('[data-finance-value="remaining"]')).toHaveText('AED -12,000.00');
+  await expect(page.locator('[data-finance-commitment-warning]')).toContainText('Payments exceed');
+  await expect(page.locator('[data-finance-value="exposure"]')).toHaveText('Review commitment');
+  await importFinance(page, financeFile(code, 100));
+  await expect(page.locator('[data-finance-value="committed"]')).toHaveText('AED 30,000.00');
+  await expect(page.locator('[data-finance-value="remaining"]')).toHaveText('AED 18,000.00');
+  await expect(page.locator('[data-finance-value="exposure"]')).toHaveText('AED 34,900.00');
+  await expect(page.locator('[data-finance-value="orderLessCost"]')).toHaveText('AED 83,100.00');
+  await expect(page.locator('[data-finance-value="invoiceLessCost"]')).toHaveText('AED 43,100.00');
+  const widths = await page.locator('[data-finance-billing] .analytics-finance-track span').evaluateAll(elements => elements.map(el => parseFloat(el.style.width)));
+  expect(widths).toEqual([100, 60, 16.9]);
+  await page.setViewportSize({width:1512,height:1000});
+  await page.locator('[data-finance-panel]').screenshot({path:testInfo.outputPath('position-commitments-desktop.png')});
+  await importFinance(page, financeFile(code, 200000));
+  await expect(page.locator('[data-finance-value="orderLessCost"]')).toHaveText('AED -116,800.00');
+  await expect(page.locator('[data-finance-value="invoiceLessCost"]')).toHaveText('AED -156,800.00');
 });

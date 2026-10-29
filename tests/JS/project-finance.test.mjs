@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import vm from 'node:vm';
 import test from 'node:test';
-const headers = ['Project Code', 'Order Value', 'Invoice Submitted', 'Subcontractor Spent', 'Manhour Spent'];
+const headers = ['Project Code', 'Order Value', 'Invoice Submitted', 'Subcontractor Spent', 'Manhour Spent', 'Subcontractor Committed Value'];
 function reader() {
     let message;
     const ctx = vm.createContext({ postMessage: value => { message = value; } }); ctx.self = ctx;
@@ -23,8 +23,16 @@ test('matches only the current project, ignoring invalid financial cells for oth
         assert.equal(message.type, 'result');
         assert.equal(message.result.order, '89500000'); assert.equal(message.result.invoiced, '66133500');
         assert.equal(message.result.subcontractor, '1260000'); assert.equal(message.result.labour, null);
-        assert.equal(Object.keys(message.result).length, 4);
+        assert.equal(Object.keys(message.result).length, 5);
+        assert.equal(message.result.committed, null);
     }
+});
+test('commitment distinguishes unknown from zero and does not deduct payments from the imported approved value', () => {
+    const read = reader();
+    assert.equal(read([['P26483', 100, 20, 10, '', '']]).result.committed, null);
+    assert.equal(read([['P26483', 100, 20, 10, '', 0]]).result.committed, '0');
+    assert.equal(read([['P26483', 100, 20, 10, '', 50]]).result.committed, '5000');
+    assert.equal(read([['P26483', 100, 20, 10, '', -1]]).type, 'error');
 });
 test('blank labour falls back; explicit zero and cents remain overrides', () => {
     const read = reader();

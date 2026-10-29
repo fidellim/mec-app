@@ -237,7 +237,7 @@ class ProjectAnalyticsTest extends TestCase
         }
     }
 
-    public function test_management_labour_basis_uses_only_this_projects_approved_hours_through_today_independent_of_filters(): void
+    public function test_management_labour_basis_uses_only_this_projects_approved_hours_through_to_date_independent_of_from_date(): void
     {
         $this->travelTo(now()->setDate(2026, 6, 15));
         $project = $this->project();
@@ -247,7 +247,8 @@ class ProjectAnalyticsTest extends TestCase
             $sheet = $this->submittedTimesheet($employee, $period, $entryProject, ['status' => $status]);
             $sheet->entries()->first()->update(['work_date' => $date, 'regular_hours' => $hours, 'overtime_hours' => 1]);
         }
-        $this->actingAs($this->userWithRole('super_admin'))->get(route('projects.utilization', ['project' => $project, 'tab' => 'analytics', 'date_from' => '2026-06-01', 'date_to' => '2026-06-30']))
+        $url = route('projects.utilization', ['project' => $project, 'tab' => 'analytics']);
+        $this->actingAs($this->userWithRole('super_admin'))->get($url.'&date_from=2026-06-01&date_to=2026-06-15')
             ->assertOk()->assertViewHas('analytics', function ($data) {
                 $this->assertCount(2, $data['managementCostBasis']);
                 $this->assertSame(30.0, collect($data['managementCostBasis'])->sum(fn ($row) => (float) $row['regular']));
@@ -256,6 +257,10 @@ class ProjectAnalyticsTest extends TestCase
 
                 return true;
             });
+        $this->get($url.'&date_from=2026-01-01&date_to=2026-01-31')->assertOk()
+            ->assertViewHas('analytics', fn ($data) => count($data['managementCostBasis']) === 1 && $data['managementCostBasis'][0]['regular'] === '10.00');
+        $this->get($url.'&date_from=2026-06-01&date_to=2026-06-30')->assertOk()
+            ->assertViewHas('analytics', fn ($data) => collect($data['managementCostBasis'])->sum(fn ($row) => (float) $row['regular']) === 120.0);
     }
 
     public function test_partial_month_leap_day_and_year_boundaries_include_pending_opening_hours(): void

@@ -1,4 +1,4 @@
-<link rel="stylesheet" href="{{ asset('css/project-analytics.css') }}">
+<link rel="stylesheet" href="{{ asset('css/project-analytics.css').'?v='.substr(hash_file('sha256', public_path('css/project-analytics.css')), 0, 16) }}">
 <div class="project-analytics" id="project-analytics">
 <div class="filter-card p-3 mb-3">
     <form id="analytics-filters" method="get" action="{{ route('projects.utilization', ['project' => $project] + $listContext) }}">

@@ -5,7 +5,7 @@
     let root = document.getElementById('project-analytics');
     if (!root) return;
     let worker = null, result = null, expiry = null, expiresAt = 0, importTimer = null, busy = false;
-    let epoch = 0, management = null;
+    let epoch = 0, management = null, managementCutoff = null;
     const find = selector => root.querySelector(selector);
     const panel = () => find('[data-financial-panel]');
     const status = message => { const element = find('[data-cost-status]'); if (element) element.textContent = message; };
@@ -17,7 +17,7 @@
     function clear(message = 'Financial data cleared. Load your workbook again when needed.') {
         epoch++;
         worker?.terminate(); worker = null; result = null; busy = false; expiresAt = 0;
-        management = null;
+        management = null; managementCutoff = null;
         document.dispatchEvent(new CustomEvent('project-labour:updated', { detail: null }));
         clearTimeout(expiry); clearTimeout(importTimer); expiry = null; importTimer = null;
         if (!panel()) return;
@@ -60,7 +60,7 @@
     }
     function render() {
         if (!result || !panel()) return;
-        document.dispatchEvent(new CustomEvent('project-labour:updated', { detail: { result: management, currency: find('[data-cost-currency]').value } }));
+        document.dispatchEvent(new CustomEvent('project-labour:updated', { detail: { result: management, currency: find('[data-cost-currency]').value, cutoff: managementCutoff } }));
         find('[data-cost-results]').hidden = false;
         find('[data-cost-badge]').textContent = BigInt(result.unpricedHours) ? 'Partially priced' : 'Rates loaded · local only';
         root.querySelectorAll('[data-cost-value]').forEach(element => { element.textContent = money(result[element.dataset.costValue]); });
@@ -96,6 +96,7 @@
                 if (expiresAt && Date.now() >= expiresAt) { clear('The financial session expired. Reload your workbook to continue.'); return; }
                 result = data.result;
                 management = data.management;
+                managementCutoff = data.managementCutoff;
                 if (!expiresAt) {
                     expiresAt = Date.now() + 15 * 60 * 1000;
                     expiry = setTimeout(() => clear('The 15-minute financial session expired. Reload your workbook to continue.'), 15 * 60 * 1000);
@@ -106,7 +107,7 @@
             importTimer = setTimeout(() => clear('Reading the workbook took too long. Use a smaller workbook and try again.'), 30000);
             const buffer = await file.arrayBuffer();
             if (epoch !== operation) return;
-            worker.postMessage({ type: 'import', buffer, basis: basis(), managementBasis: JSON.parse(find('#project-management-cost-basis').textContent) }, [buffer]);
+            worker.postMessage({ type: 'import', buffer, basis: basis(), managementBasis: JSON.parse(find('#project-management-cost-basis').textContent), managementCutoff: find('[data-finance-panel]').dataset.cutoff }, [buffer]);
         } catch { if (epoch === operation) clear('The workbook could not be read locally. Try a valid, unencrypted Excel workbook.'); }
     }
     // Only hours filters are transmitted. File and currency controls have no form or name.
@@ -140,7 +141,7 @@
                 if (hasValidationErrors) { document.dispatchEvent(new CustomEvent('project-finance:clear')); clear('Filters were not applied. Correct the highlighted fields, then reload your rate workbook.'); return; }
                 if (worker && result) {
                     busy = true; status('Updating costs locally for the selected period…');
-                    worker.postMessage({ type: 'calculate', basis: basis(), managementBasis: JSON.parse(find('#project-management-cost-basis').textContent) });
+                    worker.postMessage({ type: 'calculate', basis: basis(), managementBasis: JSON.parse(find('#project-management-cost-basis').textContent), managementCutoff: find('[data-finance-panel]').dataset.cutoff });
                 } else busy = false;
             }
         } catch { busy = false; status('Filters could not be loaded. Check your connection and try again.'); }

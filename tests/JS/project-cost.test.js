@@ -20,6 +20,15 @@ function workbook(context, rows, format = 'xlsx') {
 const headers = ['Employee ID', 'Initials', 'Employee Name', 'Rate/Manhour'];
 const row = (code, status, regular, overtime, extras = {}) => ({ employeeCode: code, employeeName: code === '001' ? 'Employee One' : 'Employee Two', department: 'Engineering', category: 'Engineer', month: '2026-08', status, regular, overtime, ...extras });
 
+test('management labour result retains its own reporting cutoff independently of selected-period totals', () => {
+    const { context, send } = worker();
+    const message = send({ type: 'import', buffer: workbook(context, [headers, ['001', 'EO', 'Employee One', 100]]), basis: [], managementBasis: [row('001', 'approved', '2', '1')], managementCutoff: '2026-09-30' });
+    assert.equal(message.result.total, '0'); assert.equal(message.management.approved, '32500');
+    assert.equal(message.managementCutoff, '2026-09-30');
+    const next = send({ type: 'calculate', basis: [], managementBasis: [], managementCutoff: '2026-08-31' });
+    assert.equal(next.management.approved, '0'); assert.equal(next.managementCutoff, '2026-08-31');
+});
+
 test('real XLSX and XLS parsing prices each employee and status independently, and reconciles groups', () => {
     for (const format of ['xlsx', 'xls']) {
         const { context, send } = worker();
