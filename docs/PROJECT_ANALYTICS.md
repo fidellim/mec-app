@@ -31,9 +31,22 @@ Filtering sends only ordinary hours-filter GET parameters and obtains a fresh no
 
 This prevents intentional application/server storage, not device-level forensic recovery. It does not delete or modify the original workbook, securely wipe browser-managed memory, prevent screenshots, or isolate the page from browser extensions or compromised scripts. Existing shared-layout third-party dependencies remain unchanged. Automated tests must use synthetic employee data and rate files.
 
-## Verification
+## Project finance summary
+
+Super admins can also load a local Excel project summary with five headings in the first 20 rows: `Project Code`, `Order Value`, `Invoice Submitted`, `Subcontractor Spent`, `Manhour Spent`. Exactly one worksheet must contain the schema. Matching trims whitespace and ignores case but otherwise requires the current project's exact code. Only the matching row is returned by the short-lived reader worker; unrelated project figures are discarded. Missing matches and duplicate matching rows reject the import. No routes, financial database fields or upload endpoints are added.
+
+Amounts are cumulative AED values excluding VAT. Required amounts must be nonnegative numbers (explicit zero accepted); Manhour Spent alone may be blank. Text amounts accept two decimals without separators or currency symbols; numeric saved Excel values round to two decimals. Limits are 5 MB, 20,000 worksheet rows, 256 columns and AED 1 trillion per amount. Formula cells require saved numeric results. Each successful import replaces the prior snapshot, never adds to it.
+
+An imported Manhour Spent value, including zero, overrides the platform calculation. Blank uses all approved project hours through today and AED employee rates, independently of the selected hours filters. Pending, other-project and future hours are excluded. Missing approved-hour employee rates or a different rate currency keep total cost unavailable; partial labour totals are not presented as a complete project cost. Nonfinancial aggregates for this calculation are rendered only for super admins. One current employee rate applies across historical hours; effective-dated rates are not modeled.
+
+Invoice Submitted represents certified work value before retention/advance recovery, excluding VAT. Subcontractor Spent represents actual payments excluding VAT. Overhead is Invoice Submitted × 8%, rounded half-up to cents; Total Cost Spent is labour + subcontractors + overhead; Balance for Invoicing is Order Value − Invoice Submitted. Over-invoicing remains visible as a negative balance with a warning. Native HTML horizontal bars share a zero baseline and scale within each chart, with exact accessible text labels and monetary values. No monthly trends or profit claims are inferred from this snapshot.
+
+Project figures have their own absolute 15-minute expiry, and clear on page exit, refresh, logout, financial clearing or invalid/unauthorized filter responses. The import worker is terminated immediately after success or failure; only the current project snapshot lives in document memory. Clear project figures preserves employee rates; Clear financial data removes both. Filters preserve a completed finance snapshot without extending its expiry. Both confidential panels are omitted from printing.
+
+## Verification commands
 
 - `node --test tests/JS/project-cost.test.js`: real XLSX/XLS parsing, employee rates, overtime, precision/rounding, reconciliation, missing rates, invalid imports and identifiers.
+- `node --test tests/JS/project-finance.test.mjs`: project-specific matching, unrelated data exclusion, duplicate/missing matches, blank versus zero labour and invalid finance inputs.
 - `php artisan test --parallel --processes=4 tests/Feature/ProjectAnalyticsTest.php`: permissions and project/date/status/department/category isolation.
 - `PHP_BINARY=php E2E_APP_ENV=e2e npx playwright test tests/E2E/project-analytics-cost.spec.js --project=chromium`: local import, outgoing-request/storage checks, filtering, clearing, refresh, expiry, return navigation, and responsive themes. Uses existing seeded E2E accounts and synthetic browser-intercepted hours; it does not reset the database. Configure the normal E2E environment first.
 - `composer test`: full Laravel regression suite.

@@ -98,7 +98,8 @@ class ProjectAnalyticsTest extends TestCase
 
         $this->actingAs($manager)->get($url)->assertOk()
             ->assertDontSee('project-cost-basis')->assertDontSee('Load confidential rates')
-            ->assertViewHas('analytics', fn ($data) => $data['costBasis'] === null);
+            ->assertDontSee('data-finance-panel')->assertDontSee('project-management-cost-basis')
+            ->assertViewHas('analytics', fn ($data) => $data['costBasis'] === null && $data['managementCostBasis'] === null);
         $this->actingAs($this->userWithRole('super_admin'))->get($url)->assertOk()
             ->assertHeader('Cache-Control', 'no-store, private')
             ->assertSee('Load confidential rates')->assertSee('project-cost-basis')
@@ -234,6 +235,27 @@ class ProjectAnalyticsTest extends TestCase
         ] as $filters) {
             $this->actingAs($manager)->getJson(route('projects.utilization', ['project' => $project, 'tab' => 'analytics'] + $filters))->assertUnprocessable();
         }
+    }
+
+    public function test_management_labour_basis_uses_only_this_projects_approved_hours_through_today_independent_of_filters(): void
+    {
+        $this->travelTo(now()->setDate(2026, 6, 15));
+        $project = $this->project();
+        $employee = $this->userWithRole('employee', ['department_id' => $this->department()->id]);
+        $period = $this->openPeriod();
+        foreach ([['2026-01-01', 'approved', 10, $project], ['2026-06-01', 'approved', 20, $project], ['2026-06-16', 'approved', 90, $project], ['2026-06-01', 'submitted', 80, $project], ['2026-06-01', 'approved', 70, $this->project()]] as [$date, $status, $hours, $entryProject]) {
+            $sheet = $this->submittedTimesheet($employee, $period, $entryProject, ['status' => $status]);
+            $sheet->entries()->first()->update(['work_date' => $date, 'regular_hours' => $hours, 'overtime_hours' => 1]);
+        }
+        $this->actingAs($this->userWithRole('super_admin'))->get(route('projects.utilization', ['project' => $project, 'tab' => 'analytics', 'date_from' => '2026-06-01', 'date_to' => '2026-06-30']))
+            ->assertOk()->assertViewHas('analytics', function ($data) {
+                $this->assertCount(2, $data['managementCostBasis']);
+                $this->assertSame(30.0, collect($data['managementCostBasis'])->sum(fn ($row) => (float) $row['regular']));
+                $this->assertSame(2.0, collect($data['managementCostBasis'])->sum(fn ($row) => (float) $row['overtime']));
+                $this->assertSame(['approved'], collect($data['managementCostBasis'])->pluck('status')->unique()->values()->all());
+
+                return true;
+            });
     }
 
     public function test_partial_month_leap_day_and_year_boundaries_include_pending_opening_hours(): void

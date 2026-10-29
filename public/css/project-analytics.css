@@ -27,6 +27,16 @@
 .project-analytics :is(input, select) { caret-color: var(--bs-primary); }
 .project-analytics :is(summary, [tabindex]):focus-visible { outline: 3px solid var(--bs-primary); outline-offset: 3px; }
 .project-analytics ::selection { color: var(--bs-body-color); background: color-mix(in srgb, var(--bs-primary) 25%, var(--bs-body-bg)); }
+.project-analytics .analytics-finance-note { margin: 0; padding: 1rem 1.25rem; background: var(--bs-tertiary-bg); }
+.project-analytics .analytics-finance-bars { margin: 0; }
+.project-analytics .analytics-finance-bars > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem 1rem; padding: .85rem 0; }
+.project-analytics .analytics-finance-bars dt { font-weight: 400; }
+.project-analytics .analytics-finance-bars dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; text-align: end; }
+.project-analytics .analytics-finance-track { grid-column: 1 / -1; height: .85rem; background: var(--bs-tertiary-bg); border-radius: .2rem; overflow: hidden; }
+.project-analytics .analytics-finance-track span { display: block; height: 100%; background: var(--bs-primary); }
+.project-analytics .analytics-finance-track .finance-secondary { background: var(--bs-secondary-color); }
+.project-analytics .analytics-finance-track .finance-reference { background: var(--bs-body-color); }
+.project-analytics .analytics-finance-track .finance-warning { background: var(--bs-warning-text-emphasis); }
 @media (max-width: 1199.98px) { .project-analytics .analytics-charts { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 575.98px) {
     .project-analytics .analytics-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -35,4 +45,4 @@
     .project-analytics .analytics-stat:nth-child(n+3) { border-top: 1px solid var(--bs-border-color); }
     .project-analytics :is(button, summary, .btn) { min-height: 44px; }
 }
-@media print { .project-analytics [data-financial-panel] { display: none !important; } }
+@media print { .project-analytics :is([data-financial-panel], [data-finance-panel]) { display: none !important; } }
