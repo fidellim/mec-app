@@ -13,31 +13,39 @@ self.onmessage = ({ data }) => {
             let book;
             try { book = XLSX.read(data.buffer, { type: 'array', cellHTML: false, cellFormula: false, sheetRows: 20002 }); }
             catch { throw inputError('The workbook could not be read. Use a valid, unencrypted Excel workbook.'); }
-            const required = ['employee id', 'initials', 'employee name', 'rate/manhour'];
+            const required = ['employee id', 'initials', 'employee name'];
+            const datedColumns = ['rate/manhour until apr 2026', 'rate/manhour from may 2026'];
+            const rateColumns = ['rate/manhour', ...datedColumns];
             const candidates = [];
             for (const sheetName of book.SheetNames) {
                 const sheet = book.Sheets[sheetName];
                 if (sheet['!ref'] && XLSX.utils.decode_range(sheet['!ref']).e.c > 255) throw inputError('Use a rate worksheet with no more than 256 columns.');
                 const range = sheet['!ref'] ? { s: { r: 0, c: 0 }, e: XLSX.utils.decode_range(sheet['!ref']).e } : null;
                 const rows = range ? XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', raw: true, blankrows: true, range }) : [];
-                const header = rows.slice(0, 20).findIndex(row => required.every(column => row.map(v => String(v).trim().toLowerCase()).includes(column)));
+                const header = rows.slice(0, 20).findIndex(row => {
+                    const names = row.map(v => String(v).trim().toLowerCase());
+                    return required.every(column => names.includes(column)) && rateColumns.some(column => names.includes(column));
+                });
                 if (header >= 0) candidates.push({ rows, header, sheet });
             }
-            if (candidates.length !== 1) throw inputError(candidates.length ? 'More than one rate worksheet found. Use a workbook with one rate worksheet.' : 'Required headings not found in the first 20 rows: Employee ID, Initials, Employee Name, Rate/Manhour.');
+            if (candidates.length !== 1) throw inputError(candidates.length ? 'More than one rate worksheet found. Use a workbook with one rate worksheet.' : 'Required headings not found in the first 20 rows: Employee ID, Initials, Employee Name, Rate/Manhour Until Apr 2026, Rate/Manhour From May 2026.');
             const { rows, header, sheet } = candidates[0];
             if (sheet['!fullref'] && XLSX.utils.decode_range(sheet['!fullref']).e.r >= 20001) throw inputError('The worksheet exceeds 20,000 rows. Use a smaller rate workbook.');
             const headings = rows[header].map(value => String(value).trim().toLowerCase());
-            if (required.some(column => headings.filter(value => value === column).length !== 1)) throw inputError('The rate worksheet contains duplicate column headings.');
+            if (required.some(column => headings.filter(value => value === column).length !== 1) || rateColumns.some(column => headings.filter(value => value === column).length > 1)) throw inputError('The rate worksheet contains duplicate column headings.');
+            const dated = datedColumns.some(column => headings.includes(column));
+            if (dated && !datedColumns.every(column => headings.includes(column))) throw inputError('Both rate headings are required: Rate/Manhour Until Apr 2026 and Rate/Manhour From May 2026. Leave an employee’s rate blank only when it is unknown.');
+            if (dated && headings.includes('rate/manhour')) throw inputError('The workbook mixes single and dated rates. Remove Rate/Manhour and keep the two dated rate columns.');
             const id = headings.indexOf('employee id'), employeeName = headings.indexOf('employee name'), amount = headings.indexOf('rate/manhour');
             const entries = rows.slice(header + 1).map((row, index) => ({ values: row, row: index + header + 2 }))
                 .filter(({ values }) => values.some(value => String(value).trim() !== ''))
                 .map(({ values, row }) => {
                     // Preserve formatted identifiers such as 000123 rather than coercing them to numbers.
                     const idCell = sheet[XLSX.utils.encode_cell({ r: row - 1, c: id })];
-                    return { employeeCode: idCell ? XLSX.utils.format_cell(idCell) : '', employeeName: values[employeeName], rate: values[amount], row };
+                    return { employeeCode: idCell ? XLSX.utils.format_cell(idCell) : '', employeeName: values[employeeName], rate: values[amount], beforeRate: values[headings.indexOf(datedColumns[0])], afterRate: values[headings.indexOf(datedColumns[1])], row };
                 });
             if (entries.length > 20000) throw inputError('Use a workbook with no more than 20,000 employee rates.');
-            try { rates = MecProjectCost.validateRates(entries); }
+            try { rates = MecProjectCost.validateRates(entries, dated); }
             catch (error) { throw inputError(error.message); }
         }
         if (!rates) throw new Error('Load the rate workbook again.');

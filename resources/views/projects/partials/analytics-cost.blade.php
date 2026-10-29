@@ -29,7 +29,8 @@
                 </div>
                 <div class="col-xl-3"><button type="button" class="btn btn-outline-secondary" data-cost-clear disabled>Clear financial data</button></div>
             </div>
-            <p class="small text-muted mt-3 mb-1" id="cost-file-help">Excel (.xlsx or .xls), up to 5 MB. Columns: Employee ID, Initials, Employee Name, Rate/Manhour.</p>
+            <p class="small text-muted mt-3 mb-1" id="cost-file-help">Excel (.xlsx or .xls), up to 5 MB. Columns: Employee ID, Initials, Employee Name, Rate/Manhour Until Apr 2026, Rate/Manhour From May 2026.</p>
+            <p class="small text-muted mb-1">The work date determines the rate: through 30 April 2026, or from 1 May 2026. Missing rates leave the affected hours unpriced.</p>
             <p class="small text-muted mb-0">Read only in this browser; never uploaded or saved by the app. Clear anytime. Leaving, refreshing, logging out, or 15 minutes clears the financial view. Your original file stays on your computer.</p>
         </div>
         <p class="small mt-3 mb-0" data-cost-status role="status" aria-live="polite">Choose the rate currency, then load your workbook. Hours analytics remains available without rates.</p>
@@ -41,7 +42,7 @@
                 @endforeach
             </div>
             <div class="analytics-ledger mb-3">
-                <div><span class="fw-semibold" data-cost-coverage></span><div class="small text-muted" data-cost-matches></div></div>
+                <div><span class="fw-semibold" data-cost-coverage></span><div class="small text-muted" data-cost-matches></div><div class="small text-muted" data-cost-rate-basis></div></div>
                 <div><span class="small text-muted">Total overtime cost: </span><strong data-cost-value="overtime">—</strong></div>
             </div>
             <div class="analytics-charts">
@@ -53,7 +54,8 @@
             </div>
             <details class="small text-muted mt-3"><summary>Calculation basis and limits</summary>
                 <p class="mt-2 mb-1">Regular hours × employee rate. Overtime hours × employee rate × 1.25. The overtime premium is the extra 0.25 portion, already included in overtime cost.</p>
-                <p class="mb-1">One imported rate per employee applies throughout {{ $analytics['from'] }} to {{ $analytics['to'] }}. Excel formulas use their saved numeric results; save and recalculate the workbook before loading it. No currency conversion is applied.</p>
+                <p class="mb-1">Rates follow the work date, not the submission or approval date. The first rate applies through 30 April 2026; the second applies from 1 May 2026. A blank rate never substitutes the other period’s rate. Older workbooks with only Rate/Manhour apply one rate across all dates and show a warning.</p>
+                <p class="mb-1">Excel formulas use their saved numeric results; save and recalculate the workbook before loading it. No currency conversion is applied.</p>
                 <p class="mb-0">Regular and overtime costs are rounded separately to two decimal places per employee, month, charged department, category and approval status, then summed. Salary-based labour cost excludes benefits and overhead unless included in your rate. Unpriced hours are excluded from monetary totals. Figures are not payroll, invoices, profit, or project completion.</p>
             </details>
         </div>

@@ -91,9 +91,10 @@
         else if (labour && labour.currency !== 'AED') unavailable = `The loaded employee rates use ${labour.currency || 'no currency'}. Select AED below and confirm the rates are in AED; no currency conversion is applied.`;
         else if (labour?.result && BigInt(labour.result.unpricedHours) > 0n) {
             const hours = (Number(labour.result.unpricedHours) / 100).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            unavailable = `${hours} approved project hours have no matching rate across the full project history. Missing Employee IDs: ${labour.result.missing.slice(0, 10).join(', ')}${labour.result.missing.length > 10 ? '…' : ''}. Add these rates and reload the rate workbook.`;
+            const missing = labour.result.missingPeriods?.length ? labour.result.missingPeriods.slice(0, 10).map(item => `${item.employeeCode} (${item.period})`) : labour.result.missing.slice(0, 10);
+            unavailable = `${hours} approved project hours have no matching rate through the selected cutoff. Missing rates: ${missing.join(', ')}${labour.result.missing.length > 10 || labour.result.missingPeriods?.length > 10 ? '…' : ''}. Add these rates and reload the rate workbook.`;
         }
-        const notes = [figures.labour !== null ? `Labour source: imported Manhour Spent, confirmed through ${dateLabel()}.` : ready ? `Labour source: all approved platform hours through ${dateLabel()} × AED employee rates, including overtime at 1.25.` : `${unavailable} Total cost remains unavailable; you can also enter Manhour Spent in the finance workbook.`];
+        const notes = [figures.labour !== null ? `Labour source: imported Manhour Spent, confirmed through ${dateLabel()}.` : ready ? `Labour source: all approved platform hours through ${dateLabel()} × AED employee rates, including overtime at 1.25. ${labour.result.rateMode === 'dated' ? 'Work-date rates change on 1 May 2026.' : 'Single-rate workbook: one rate applies across all work dates.'}` : `${unavailable} Total cost remains unavailable; you can also enter Manhour Spent in the finance workbook.`];
         if (balance < 0n) notes.push('Invoice submitted exceeds the order value. Review the order and invoice figures.');
         find('[data-finance-note]').textContent = notes.join(' ');
         find('[data-finance-note]').classList.toggle('text-warning-emphasis', cost === null || balance < 0n);

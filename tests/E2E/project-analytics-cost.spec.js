@@ -7,17 +7,17 @@ const basis = [
   { employeeCode: 'COST-001', employeeName: 'Synthetic One', department: 'Engineering', category: 'Engineer', month: '2026-08', status: 'approved', regular: '8.00', overtime: '2.00' },
   { employeeCode: 'COST-002', employeeName: 'Synthetic Two', department: 'Operations', category: 'Designer', month: '2026-09', status: 'submitted', regular: '4.00', overtime: '1.00' },
 ];
-function workbook(rows) {
+function workbook(rows, headers = ['Employee ID', 'Initials', 'Employee Name', 'Rate/Manhour']) {
   const context = vm.createContext({});
   vm.runInContext(readFileSync('public/js/vendor/xlsx-0.20.3.min.js', 'utf8'), context);
   const book = context.XLSX.utils.book_new();
-  context.XLSX.utils.book_append_sheet(book, context.XLSX.utils.aoa_to_sheet([['Employee ID', 'Initials', 'Employee Name', 'Rate/Manhour'], ...rows]), 'Rates');
+  context.XLSX.utils.book_append_sheet(book, context.XLSX.utils.aoa_to_sheet([headers, ...rows]), 'Rates');
   return Buffer.from(context.XLSX.write(book, { type: 'array', bookType: 'xlsx' }));
 }
 const rateFile = rows => ({ name: 'synthetic-confidential-rates.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: workbook(rows) });
 const validRows = [['COST-001', 'SO', 'Synthetic One', 100], ['COST-002', 'ST', 'Synthetic Two', 80]];
 
-async function openAnalytics(page) {
+async function openAnalytics(page, costBasis = basis) {
   await page.goto('/login');
   await page.locator('input[name="email"]').fill(process.env.E2E_SUPER_ADMIN_EMAIL || 'superadmin@example.com');
   await page.locator('input[name="password"]').fill(process.env.E2E_SUPER_ADMIN_PASSWORD || 'password123');
@@ -26,8 +26,8 @@ async function openAnalytics(page) {
   await page.route('**/projects/*/utilization?*', async route => {
     const response = await route.fetch();
     let html = await response.text();
-    html = html.replace(/(<script type="application\/json" id="project-cost-basis">)[\s\S]*?(<\/script>)/, `$1${JSON.stringify(basis)}$2`);
-    html = html.replace(/(<script type="application\/json" id="project-management-cost-basis">)[\s\S]*?(<\/script>)/, `$1${JSON.stringify(basis.filter(row => row.status === 'approved'))}$2`);
+    html = html.replace(/(<script type="application\/json" id="project-cost-basis">)[\s\S]*?(<\/script>)/, `$1${JSON.stringify(costBasis)}$2`);
+    html = html.replace(/(<script type="application\/json" id="project-management-cost-basis">)[\s\S]*?(<\/script>)/, `$1${JSON.stringify(costBasis.filter(row => row.status === 'approved'))}$2`);
     await route.fulfill({ response, body: html });
   });
   await page.goto('/projects/1/utilization?tab=analytics');
@@ -331,4 +331,30 @@ test('client receipts show a signed collection gap, distinguish unknown from zer
   await page.getByRole('button', { name: 'Clear project figures', exact: true }).click();
   await expect(page.locator('[data-finance-billing]')).toBeEmpty();
   await expect(page.locator('[data-finance-collection-note]')).toBeEmpty();
+});
+
+test('dated rates follow work months in labour and project costs; missing periods block a complete financial total', async ({page},testInfo) => {
+  const costBasis=[{...basis[0],month:'2026-04'}, {...basis[0],month:'2026-05'}];
+  await openAnalytics(page,costBasis);
+  const headers=['Employee ID','Initials','Employee Name','Rate/Manhour Until Apr 2026','Rate/Manhour From May 2026'];
+  const file=(before,after)=>({name:'synthetic-dated-rates.xlsx',mimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',buffer:workbook([['COST-001','SO','Synthetic One',before,after]],headers)});
+  await page.locator('#cost-workbook').setInputFiles(file(100,200));
+  await expect(page.locator('[data-cost-value="approved"]')).toHaveText('AED 3,150.00');
+  await expect(page.locator('[data-cost-value="overtime"]')).toHaveText('AED 750.00');
+  await expect(page.locator('[data-cost-rate-basis]')).toContainText('from 1 May 2026');
+  const code=await page.locator('[data-finance-panel]').getAttribute('data-project-code');
+  await importFinance(page,financeFile(code));
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 19,950.00');
+  await expect(page.locator('[data-finance-note]')).toContainText('rates change on 1 May 2026');
+  await page.getByRole('button',{name:'Apply filters',exact:true}).click();
+  await expect(page.locator('#project-analytics')).not.toHaveAttribute('aria-busy','true');
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 19,950.00');
+  await page.locator('#cost-workbook').setInputFiles(file(100,''));
+  await expect(page.locator('[data-cost-warning]')).toContainText('From May 2026: 10.00 hrs');
+  await expect(page.locator('[data-cost-value="total"]')).toHaveText('AED 1,050.00');
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('Awaiting labour cost');
+  await expect(page.locator('[data-finance-note]')).toContainText('COST-001 (From May 2026)');
+  await page.setViewportSize({width:390,height:900});
+  await page.evaluate(()=>document.documentElement.setAttribute('data-bs-theme','dark'));
+  await page.locator('[data-financial-panel]').screenshot({path:testInfo.outputPath('dated-rate-missing-period-mobile.png')});
 });

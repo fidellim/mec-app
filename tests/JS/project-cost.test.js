@@ -18,6 +18,7 @@ function workbook(context, rows, format = 'xlsx') {
     return context.XLSX.write(book, { type: 'array', bookType: format });
 }
 const headers = ['Employee ID', 'Initials', 'Employee Name', 'Rate/Manhour'];
+const datedHeaders = ['Employee ID', 'Initials', 'Employee Name', 'Rate/Manhour Until Apr 2026', 'Rate/Manhour From May 2026'];
 const row = (code, status, regular, overtime, extras = {}) => ({ employeeCode: code, employeeName: code === '001' ? 'Employee One' : 'Employee Two', department: 'Engineering', category: 'Engineer', month: '2026-08', status, regular, overtime, ...extras });
 
 test('management labour result retains its own reporting cutoff independently of selected-period totals', () => {
@@ -107,4 +108,46 @@ test('headings may start below row one and formatted numeric identifiers retain 
     const buffer = context.XLSX.write(book, { type: 'array', bookType: 'xlsx' });
     const message = send({ type: 'import', buffer, basis: [row('001', 'approved', '1', '0')] });
     assert.equal(message.type, 'result'); assert.equal(message.result.total, '10000');
+});
+
+test('dated XLSX and XLS rates price April and May separately, including overtime, pending hours and management totals', () => {
+    for (const format of ['xlsx', 'xls']) {
+        const { context, send } = worker();
+        const basis = [row('001', 'approved', '8', '2', {month:'2026-04'}), row('001', 'approved', '8', '2', {month:'2026-05'}), row('001', 'submitted', '1', '1', {month:'2026-05'})];
+        const message = send({ type:'import', buffer:workbook(context, [datedHeaders, ['001', 'EO', 'Employee One', 100, 200]], format), basis, managementBasis:basis.filter(row=>row.status==='approved'), managementCutoff:'2026-05-31' });
+        assert.equal(message.type, 'result'); assert.equal(message.result.rateMode, 'dated');
+        assert.equal(message.result.approved, '315000'); assert.equal(message.result.pending, '45000');
+        assert.equal(message.result.total, '360000'); assert.equal(message.result.overtime, '100000');
+        assert.equal(message.result.premium, '20000'); assert.equal(message.management.approved, '315000');
+        assert.deepEqual(Array.from(message.result.months, row=>row.total), ['105000','255000']);
+        for (const key of ['months','departments','categories','employees']) assert.equal(message.result[key].reduce((sum,row)=>sum+BigInt(row.total),0n),360000n);
+        const before = send({ type:'calculate', basis:[row('001','approved','1','0',{month:'2025-12'})] });
+        assert.equal(before.result.total,'10000');
+    }
+});
+
+test('a blank period never borrows the other rate and reports the missing period and its hours', () => {
+    const {context,send}=worker();
+    const basis=[row('001','approved','8','2',{month:'2026-04'}),row('001','approved','8','2',{month:'2026-05'})];
+    for (const [before,after,expected,period]of [[100,'','105000','From May 2026'],['',200,'210000','Until Apr 2026'],['','','0','Until Apr 2026']]) {
+        const {result}=send({type:'import',buffer:workbook(context,[datedHeaders,['001','EO','Employee One',before,after]]),basis});
+        assert.equal(result.total,expected); assert.equal(result.missingPeriods[0].period,period);
+        assert.equal(result.missingPeriods[0].employeeCode,'001'); assert.equal(result.missingPeriods[0].hours,'1000');
+        assert.equal(result.unpricedHours,before===''&&after===''?'2000':'1000');
+    }
+});
+
+test('dated-rate headers and amounts reject ambiguous or invalid inputs while preserving decimal rounding', () => {
+    const {context,send}=worker();
+    for (const rows of [
+        [datedHeaders,['001','EO','Employee One',0,200]], [datedHeaders,['001','EO','Employee One',100,-1]],
+        [datedHeaders,['001','EO','Employee One','invalid',200]],
+        [datedHeaders,['001','EO','Employee One',100,200],['001','EO','Employee One',100,200]],
+        [datedHeaders.slice(0,4),['001','EO','Employee One',100]],
+        [[...datedHeaders,'Rate/Manhour'],['001','EO','Employee One',100,200,100]],
+        [[...datedHeaders,'Rate/Manhour From May 2026'],['001','EO','Employee One',100,200,200]],
+    ]) assert.equal(send({type:'import',buffer:workbook(context,rows),basis:[]}).type,'error');
+    const rounded=send({type:'import',buffer:workbook(context,[datedHeaders,['001','EO','Employee One','0.005000','0.015000']]),basis:[row('001','approved','1','0',{month:'2026-04'}),row('001','approved','1','0',{month:'2026-05'})]});
+    assert.equal(rounded.result.total,'3');
+    assert.equal(send({type:'calculate',basis:[row('001','approved','1','0',{month:'not-a-month'})]}).type,'error');
 });

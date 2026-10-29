@@ -30,6 +30,7 @@
         find('[data-cost-warning]').textContent = '';
         find('[data-cost-coverage]').textContent = '';
         find('[data-cost-matches]').textContent = '';
+        find('[data-cost-rate-basis]').textContent = '';
         root.querySelectorAll('[data-cost-value]').forEach(element => { element.textContent = '—'; });
         find('[data-cost-months]').replaceChildren(); find('[data-cost-drivers]').replaceChildren();
         status(message);
@@ -68,8 +69,11 @@
         const percentage = total ? Number(BigInt(result.pricedHours) * 10000n / total) / 100 : 0;
         find('[data-cost-coverage]').textContent = `Rate coverage: ${percentage.toFixed(2)}% of recorded hours`;
         find('[data-cost-matches]').textContent = `${result.matched} employees matched · ${result.imported} rates imported · ${hourText(result.unpricedHours)} unpriced`;
+        find('[data-cost-rate-basis]').textContent = result.rateMode === 'dated' ? 'Work-date rates: through 30 Apr 2026 / from 1 May 2026.' : 'Single-rate workbook: one rate per employee across all work dates.';
         const warnings = [];
+        if (result.rateMode === 'single') warnings.push('This workbook uses one Rate/Manhour across all dates. To apply the May 2026 rate change, load Rate/Manhour Until Apr 2026 and Rate/Manhour From May 2026 instead.');
         if (result.missing.length) warnings.push(`Missing rates for ${result.missing.length} employee identifiers. Monetary figures cover priced hours only. IDs: ${result.missing.slice(0, 10).join(', ')}${result.missing.length > 10 ? '…' : ''}.`);
+        if (result.missingPeriods?.length) warnings.push(`Missing period rates: ${result.missingPeriods.slice(0, 10).map(item => `${item.employeeCode} (${item.period}: ${hourText(item.hours)})`).join('; ')}${result.missingPeriods.length > 10 ? '…' : ''}.`);
         if (result.mismatched.length) warnings.push(`Names differ for ${result.mismatched.length} matched Employee IDs. Verify the workbook: ${result.mismatched.slice(0, 10).join(', ')}.`);
         find('[data-cost-warning]').hidden = !warnings.length;
         find('[data-cost-warning]').textContent = warnings.join(' ');

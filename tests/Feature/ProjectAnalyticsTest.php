@@ -263,6 +263,30 @@ class ProjectAnalyticsTest extends TestCase
             ->assertViewHas('analytics', fn ($data) => collect($data['managementCostBasis'])->sum(fn ($row) => (float) $row['regular']) === 120.0);
     }
 
+    public function test_inactive_employees_work_dates_remain_separate_across_the_april_may_rate_boundary(): void
+    {
+        $project = $this->project();
+        $employee = $this->userWithRole('employee', ['is_active' => false, 'department_id' => $this->department()->id]);
+        $sheet = $this->submittedTimesheet($employee, $this->openPeriod(), $project, ['status' => 'approved']);
+        $entry = $sheet->entries()->first();
+        $entry->update(['work_date' => '2026-04-30', 'regular_hours' => 8, 'overtime_hours' => 2]);
+        $copy = $entry->replicate();
+        $copy->fill(['work_date' => '2026-05-01', 'regular_hours' => 8, 'overtime_hours' => 2])->save();
+        $this->actingAs($this->userWithRole('super_admin'))->get(route('projects.utilization', ['project' => $project, 'tab' => 'analytics', 'date_from' => '2026-04-30', 'date_to' => '2026-05-01']))
+            ->assertOk()->assertViewHas('analytics', function ($data) use ($employee) {
+                foreach (['costBasis', 'managementCostBasis'] as $key) {
+                    $this->assertSame(['2026-04', '2026-05'], collect($data[$key])->pluck('month')->sort()->values()->all());
+                    foreach ($data[$key] as $row) {
+                        $this->assertSame($employee->employee_code, $row['employeeCode']);
+                        $this->assertSame('8.00', $row['regular']);
+                        $this->assertSame('2.00', $row['overtime']);
+                    }
+                }
+
+                return true;
+            });
+    }
+
     public function test_partial_month_leap_day_and_year_boundaries_include_pending_opening_hours(): void
     {
         $this->travelTo(now()->setDate(2024, 3, 1));
