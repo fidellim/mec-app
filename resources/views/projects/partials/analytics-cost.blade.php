@@ -50,6 +50,7 @@
                 <section aria-labelledby="cost-drivers-heading">
                     <div class="analytics-heading mb-2"><h3 class="h6 mb-0" id="cost-drivers-heading">Cost drivers</h3><div><label class="visually-hidden" for="cost-group">Group costs by</label><select id="cost-group" class="form-select form-select-sm" data-cost-group data-searchable="false"><option value="departments">Department</option><option value="categories">Manpower category</option><option value="employees">Employee</option></select></div></div>
                     <div class="table-responsive" data-cost-drivers></div>
+                    <p class="small text-muted mt-2 mb-0" data-cost-category-help hidden>“Not categorized” includes entries where a manpower category is not required, or no historical category was recorded.</p>
                 </section>
             </div>
             <details class="small text-muted mt-3"><summary>Calculation basis and limits</summary>

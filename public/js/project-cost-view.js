@@ -33,6 +33,7 @@
         find('[data-cost-rate-basis]').textContent = '';
         root.querySelectorAll('[data-cost-value]').forEach(element => { element.textContent = '—'; });
         find('[data-cost-months]').replaceChildren(); find('[data-cost-drivers]').replaceChildren();
+        find('[data-cost-category-help]').hidden = true;
         status(message);
     }
     function table(rows, heading, showBars = false) {
@@ -80,6 +81,7 @@
         find('[data-cost-months]').replaceChildren(table(result.months, 'Month', true));
         const group = find('[data-cost-group]').value;
         find('[data-cost-drivers]').replaceChildren(table(result[group], group === 'employees' ? 'Employee' : group === 'categories' ? 'Manpower category' : 'Department', true));
+        find('[data-cost-category-help]').hidden = group !== 'categories' || !result.categories.some(item => item.label === 'Not categorized');
         find('[data-cost-clear]').disabled = false;
     }
     function basis() { return JSON.parse(find('#project-cost-basis').textContent); }

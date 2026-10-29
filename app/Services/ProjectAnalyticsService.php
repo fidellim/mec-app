@@ -86,7 +86,7 @@ class ProjectAnalyticsService
                 'employeeCode' => $row->employee_code,
                 'employeeName' => $row->employee_name,
                 'department' => $row->department_name ?? 'Unclassified department',
-                'category' => config('manpower_categories.labels.'.$row->category, 'Legacy / Unclassified'),
+                'category' => config('manpower_categories.labels.'.$row->category, 'Not categorized'),
                 'month' => $row->month,
                 'status' => $row->status,
                 'regular' => number_format((float) $row->regular, 2, '.', ''),

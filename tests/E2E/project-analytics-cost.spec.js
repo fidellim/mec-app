@@ -35,8 +35,8 @@ async function openAnalytics(page, costBasis = basis) {
   await page.getByLabel('Rate currency', { exact: true }).selectOption('AED');
 }
 
-test('local workbook costs reconcile; filters keep rates local; clear and refresh discard them', async ({ page }) => {
-  await openAnalytics(page);
+test('local workbook costs reconcile; filters keep rates local; clear and refresh discard them', async ({ page }, testInfo) => {
+  await openAnalytics(page, basis.map(row => ({...row, category:'Not categorized'})));
   const requests = [];
   page.on('request', request => requests.push({ url: request.url(), method: request.method(), body: request.postData() }));
   await page.locator('#cost-workbook').setInputFiles(rateFile(validRows));
@@ -47,10 +47,15 @@ test('local workbook costs reconcile; filters keep rates local; clear and refres
   await expect(page.locator('[data-cost-value="overtime"]')).toHaveText('AED 350.00');
   await expect(page.locator('[data-cost-coverage]')).toContainText('100.00%');
   await expect(page.locator('#cost-workbook')).toHaveValue('');
+  await page.getByLabel('Group costs by').selectOption('categories');
+  await expect(page.locator('[data-cost-drivers]')).toContainText('Not categorized');
+  await expect(page.locator('[data-cost-category-help]')).toBeVisible();
+  await page.locator('[aria-labelledby="cost-drivers-heading"]').screenshot({path:testInfo.outputPath('not-categorized-help.png')});
   await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
   await expect(page.locator('[data-cost-status]')).toContainText('Rates loaded locally');
   await expect(page.locator('[data-cost-value="total"]')).toHaveText('AED 1,470.00');
   await page.getByLabel('Group costs by').selectOption('employees');
+  await expect(page.locator('[data-cost-category-help]')).toBeHidden();
   await expect(page.locator('[data-cost-drivers]')).toContainText('Synthetic One');
   expect(requests.every(request => request.method === 'GET' && !request.body)).toBe(true);
   expect(requests.some(request => /synthetic-confidential|COST-001|1470|1050|Rate%2FManhour/i.test(request.url))).toBe(false);

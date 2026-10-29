@@ -34,6 +34,7 @@ class ProjectAnalyticsTest extends TestCase
                 $this->assertSame(['Feb 2026', 'Mar 2026', 'Apr 2026', 'May 2026', 'Jun 2026'], $data['months']->pluck('label')->all());
                 $this->assertSame(0.0, $data['months']->last()['regular']);
                 $this->assertCount(1, $data['costBasis']);
+                $this->assertSame('Not categorized', $data['costBasis'][0]['category']);
 
                 return true;
             });
