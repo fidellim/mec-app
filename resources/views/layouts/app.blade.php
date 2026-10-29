@@ -35,6 +35,13 @@
             --app-focus-ring: rgba(13, 110, 253, .18);
             --app-shadow-sm: 0 .25rem .75rem rgba(15, 23, 42, .05);
             --app-shadow-md: 0 .75rem 1.75rem rgba(15, 23, 42, .08);
+            --app-chart-order: #52657b;
+            --app-chart-invoice: #2563b8;
+            --app-chart-receipts: #a04f39;
+            --app-chart-spent: #9a680f;
+            --app-chart-labour: #157b75;
+            --app-chart-subcontractor: #7855ae;
+            --app-chart-overhead: #6e7b8c;
         }
         [data-bs-theme="dark"] {
             --app-body-bg: #101418;
@@ -52,6 +59,13 @@
             --app-focus-ring: rgba(108, 161, 255, .22);
             --app-shadow-sm: 0 .25rem .75rem rgba(0, 0, 0, .2);
             --app-shadow-md: 0 .75rem 1.75rem rgba(0, 0, 0, .28);
+            --app-chart-order: #95a8c0;
+            --app-chart-invoice: #6da4ee;
+            --app-chart-receipts: #e3a18b;
+            --app-chart-spent: #dbac59;
+            --app-chart-labour: #53bab0;
+            --app-chart-subcontractor: #b29bdc;
+            --app-chart-overhead: #8c9bac;
         }
         body {
             background: var(--app-body-bg);

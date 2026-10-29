@@ -35,9 +35,11 @@ self.onmessage = ({ data }) => {
             const columns = headings.map(key => titles.indexOf(key));
             const committed = titles.indexOf('subcontractor committed value');
             if (titles.filter(key => key === 'subcontractor committed value').length > 1) throw new Error('The finance worksheet contains duplicate column headings.');
+            const receipts = titles.indexOf('client payments received');
+            if (titles.filter(key => key === 'client payments received').length > 1) throw new Error('The finance worksheet contains duplicate column headings.');
             for (const row of rows.slice(header + 1)) {
                 // Other projects' monetary figures are never returned to the page.
-                if (normalize(row[columns[0]]) === normalize(data.projectCode)) matches.push([...columns.map(i => row[i]), committed < 0 ? null : row[committed]]);
+                if (normalize(row[columns[0]]) === normalize(data.projectCode)) matches.push([...columns.map(i => row[i]), committed < 0 ? null : row[committed], receipts < 0 ? null : row[receipts]]);
             }
         }
         if (tables !== 1) throw new Error(tables ? 'Use one finance worksheet with the five required columns.' : 'Required headings not found in the first 20 rows: Project Code, Order Value, Invoice Submitted, Subcontractor Spent, Manhour Spent.');
@@ -47,6 +49,7 @@ self.onmessage = ({ data }) => {
             order: amount(row[1], 'Order Value'), invoiced: amount(row[2], 'Invoice Submitted'),
             subcontractor: amount(row[3], 'Subcontractor Spent'), labour: amount(row[4], 'Manhour Spent', true),
             committed: amount(row[5], 'Subcontractor Committed Value', true),
+            receipts: amount(row[6], 'Client Payments Received', true),
         } });
     } catch (error) {
         self.postMessage({ type: 'error', message: error instanceof Error && /missing|must be|limit|project code|worksheet|headings|matches|Duplicate/.test(error.message) ? error.message : 'The workbook could not be read. Use a valid, unencrypted Excel workbook with saved numeric values.' });

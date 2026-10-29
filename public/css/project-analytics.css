@@ -33,10 +33,17 @@
 .project-analytics .analytics-finance-bars dt { font-weight: 400; }
 .project-analytics .analytics-finance-bars dd { margin: 0; font-weight: 600; overflow-wrap: anywhere; text-align: end; }
 .project-analytics .analytics-finance-track { grid-column: 1 / -1; height: .85rem; background: var(--bs-tertiary-bg); border-radius: .2rem; overflow: hidden; }
-.project-analytics .analytics-finance-track span { display: block; height: 100%; background: var(--bs-primary); }
-.project-analytics .analytics-finance-track .finance-secondary { background: var(--bs-secondary-color); }
-.project-analytics .analytics-finance-track .finance-reference { background: var(--bs-body-color); }
-.project-analytics .analytics-finance-track .finance-warning { background: var(--bs-warning-text-emphasis); }
+.project-analytics .analytics-finance-track span { display: block; height: 100%; }
+.project-analytics .finance-order { background: var(--app-chart-order); }
+.project-analytics .finance-invoice { background: var(--app-chart-invoice); }
+.project-analytics .finance-receipts { background: var(--app-chart-receipts); }
+.project-analytics .finance-track-unknown { border: 1px dashed var(--bs-secondary-color); background: transparent; box-sizing: border-box; }
+.project-analytics .finance-balances .finance-collection-note { font-size: .78rem; font-weight: 400; color: var(--bs-secondary-color); margin-block: .4rem 0; line-height: 1.5; }
+.project-analytics .finance-spent { background: var(--app-chart-spent); }
+.project-analytics .finance-labour { background: var(--app-chart-labour); }
+.project-analytics .finance-subcontractor { background: var(--app-chart-subcontractor); }
+.project-analytics .finance-overhead { background: var(--app-chart-overhead); }
+.project-analytics .finance-remaining { background: color-mix(in srgb, var(--app-chart-subcontractor) 14%, var(--app-card-bg)); border: 1px solid var(--app-chart-subcontractor); box-sizing: border-box; }
 .project-analytics .finance-position { display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 2rem; }
 .project-analytics :is(.finance-position, .finance-detail-grid) > * { min-width: 0; }
 .project-analytics .finance-position .analytics-finance-track { height: 1.25rem; }
@@ -50,9 +57,8 @@
 .project-analytics .finance-scale { display: flex; justify-content: space-between; gap: .5rem; padding-top: .35rem; border-top: 1px solid var(--bs-border-color); color: var(--bs-secondary-color); font-size: .75rem; }
 .project-analytics .finance-detail-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2rem; padding-block: 1.5rem; border-block: 1px solid var(--bs-border-color); }
 .project-analytics .finance-stack { display: flex; height: 1.35rem; background: var(--bs-tertiary-bg); overflow: hidden; border-radius: .2rem; margin-block: 1.25rem; }
-.project-analytics :is(.finance-stack > span, .finance-key) { background: var(--bs-primary); }
-.project-analytics :is(.finance-stack > .finance-secondary, .finance-key.finance-secondary) { background: var(--bs-secondary-color); }
-.project-analytics :is(.finance-stack > .finance-reference, .finance-key.finance-reference) { background: var(--bs-body-color); }
+.project-analytics .finance-stack > span { box-sizing: border-box; }
+.project-analytics .finance-stack > span + span { border-inline-start: 2px solid var(--app-card-bg); }
 .project-analytics .finance-breakdown { margin: 0; }
 .project-analytics .finance-breakdown > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .75rem; padding-block: .65rem; }
 .project-analytics .finance-breakdown dt { font-size: .9rem; font-weight: 400; }

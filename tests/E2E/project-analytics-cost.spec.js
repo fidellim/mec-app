@@ -152,11 +152,11 @@ test('invalid filters retain Laravel validation messages and clear financial dat
   await expect(page.locator('[data-cost-results]')).toBeHidden();
 });
 
-function financeFile(code, labour = '', duplicate = false, committed = 30000) {
+function financeFile(code, labour = '', duplicate = false, committed = 30000, receipts = 45000) {
   const context = vm.createContext({});
   vm.runInContext(readFileSync('public/js/vendor/xlsx-0.20.3.min.js', 'utf8'), context);
   const book = context.XLSX.utils.book_new();
-  const rows = [['Project Code', 'Order Value', 'Invoice Submitted', 'Subcontractor Spent', 'Manhour Spent', 'Subcontractor Committed Value'], ['UNRELATED-SECRET', 9999999, 8888888, 7777777, 6666666, 5555555], [code, 100000, 60000, 12000, labour, committed]];
+  const rows = [['Project Code', 'Order Value', 'Invoice Submitted', 'Subcontractor Spent', 'Manhour Spent', 'Subcontractor Committed Value', 'Client Payments Received'], ['UNRELATED-SECRET', 9999999, 8888888, 7777777, 6666666, 5555555, 4444444], [code, 100000, 60000, 12000, labour, committed, receipts]];
   if (duplicate) rows.push([code, 1, 1, 1, 1]);
   context.XLSX.utils.book_append_sheet(book, context.XLSX.utils.aoa_to_sheet(rows), 'Finance');
   return { name: 'synthetic-finance.xlsx', mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', buffer: Buffer.from(context.XLSX.write(book, { type: 'array', bookType: 'xlsx' })) };
@@ -298,10 +298,37 @@ test('commitments distinguish unknown, overpayment and remaining obligations wit
   await expect(page.locator('[data-finance-value="orderLessCost"]')).toHaveText('AED 83,100.00');
   await expect(page.locator('[data-finance-value="invoiceLessCost"]')).toHaveText('AED 43,100.00');
   const widths = await page.locator('[data-finance-billing] .analytics-finance-track span').evaluateAll(elements => elements.map(el => parseFloat(el.style.width)));
-  expect(widths).toEqual([100, 60, 16.9]);
+  expect(widths).toEqual([100, 60, 45, 16.9]);
   await page.setViewportSize({width:1512,height:1000});
   await page.locator('[data-finance-panel]').screenshot({path:testInfo.outputPath('position-commitments-desktop.png')});
   await importFinance(page, financeFile(code, 200000));
   await expect(page.locator('[data-finance-value="orderLessCost"]')).toHaveText('AED -116,800.00');
   await expect(page.locator('[data-finance-value="invoiceLessCost"]')).toHaveText('AED -156,800.00');
+});
+
+test('client receipts show a signed collection gap, distinguish unknown from zero, and never alter cost spent', async ({ page }, testInfo) => {
+  await openAnalytics(page);
+  const code = await page.locator('[data-finance-panel]').getAttribute('data-project-code');
+  await importFinance(page, financeFile(code, 100));
+  await expect(page.locator('[data-finance-value="receipts"]')).toHaveText('AED 45,000.00');
+  await expect(page.locator('[data-finance-value="collectionGap"]')).toHaveText('AED 15,000.00');
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 16,900.00');
+  await importFinance(page, financeFile(code, 100, false, 30000, ''));
+  await expect(page.locator('[data-finance-value="receipts"]')).toHaveText('Not provided');
+  await expect(page.locator('[data-finance-value="collectionGap"]')).toHaveText('Receipts not provided');
+  await expect(page.locator('[data-finance-billing] .finance-track-unknown')).toHaveCount(1);
+  await importFinance(page, financeFile(code, 100, false, 30000, 0));
+  await expect(page.locator('[data-finance-value="receipts"]')).toHaveText('AED 0.00');
+  await expect(page.locator('[data-finance-value="collectionGap"]')).toHaveText('AED 60,000.00');
+  await importFinance(page, financeFile(code, 100, false, 30000, 120000));
+  await expect(page.locator('[data-finance-value="collectionGap"]')).toHaveText('AED -60,000.00');
+  await expect(page.locator('[data-finance-value="collectionGap"]')).not.toHaveClass(/text-danger/);
+  await expect(page.locator('[data-finance-collection-note]')).toContainText('Advance payments may explain');
+  await expect(page.locator('[data-finance-value="total"]')).toHaveText('AED 16,900.00');
+  const widths = await page.locator('[data-finance-billing] .analytics-finance-track span').evaluateAll(elements => elements.map(el => parseFloat(el.style.width)));
+  expect(widths).toEqual([83.33, 50, 100, 14.08]);
+  await page.locator('[data-finance-panel]').screenshot({path:testInfo.outputPath('client-advance-receipts.png')});
+  await page.getByRole('button', { name: 'Clear project figures', exact: true }).click();
+  await expect(page.locator('[data-finance-billing]')).toBeEmpty();
+  await expect(page.locator('[data-finance-collection-note]')).toBeEmpty();
 });

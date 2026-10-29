@@ -19,6 +19,10 @@ Use Bootstrap `--bs-*` tokens for semantic colors and the shared `--app-*` token
 
 Use `color-mix` with existing tokens when a subtle surface is needed. Keep typography, sidebar, and page shell unchanged when adopting these rules. Heading elements express document structure; Bootstrap heading classes express visual size. Use one page `h1`, then `h2` for its sections, without skipping levels just to obtain smaller text.
 
+### Financial chart colors
+
+Shared `--app-chart-*` tokens in the layout provide explicit light/dark variants: `order` (slate), `invoice` (blue), `receipts` (copper), `spent` (muted amber), `labour` (teal), `subcontractor` (violet), and `overhead` (slate gray). Retain the same category color across financial charts and their keys. Remaining subcontractor commitment uses a pale violet mix with the card surface and a violet outline, distinguishing unpaid obligations from actual payments. Stacked segments have surface-colored separators. Unknown comparison amounts use a dashed empty track and an explicit Not provided or Awaiting labour cost label; they must not resemble confirmed zeros. Colors are categorical; copper receipts do not imply profit, amber cost bars do not imply a warning, and positive balances do not imply profit. Exceptions retain semantic warning/danger text with an explanation. A negative invoicing–collection gap may reflect advances and is not automatically an exception. Keep direct labels and amounts so color is never the only way to read a chart.
+
 ## Action hierarchy
 
 Choose styles by meaning, not to give every button a different color. Always retain a visible verb or clear destination label. Similar actions should look similar.
