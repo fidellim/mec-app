@@ -22,21 +22,85 @@ class HistoricalTimesheetImportService
     {
         $item['original_entries'] = $item['entries'];
         $user = User::where('employee_code', $item['employee_code'])->first();
+        $item = $this->employeeDefaults($item, $user);
+        $item['initial_preview_entries'] = $item['entries'];
+
+        return $item;
+    }
+
+    private function employeeDefaults(array $item, ?User $user): array
+    {
         $projects = Project::with(['assignedUsers' => fn ($query) => $query->whereKey($user?->id ?? 0)])->whereIn('project_code', array_column($item['entries'], 'project_code'))->get()->keyBy('project_code');
         foreach ($item['entries'] as &$entry) {
             $entry['department_id'] = $user?->department_id;
             $entry['manpower_category'] = $user ? $projects->get($entry['project_code'])?->manpowerCategoryFor($user) : null;
         }
         unset($entry);
-        $item['initial_preview_entries'] = $item['entries'];
 
         return $item;
+    }
+
+    /** Explicit, per-workbook correction. Never edit source identity or employee master data. */
+    public function assignEmployee(array $item, User $actor, ?User $target, string $reason, bool $incorrectMatch, bool $restore = false): array
+    {
+        $source = User::where('employee_code', $item['employee_code'])->first();
+        $assignment = $item['employee_assignment'] ?? null;
+        $reason = trim($reason);
+        $errors = [];
+        if ($reason === '' || mb_strlen($reason) > 2000) {
+            $errors['assignment_reason'] = 'Provide a reason of up to 2,000 characters.';
+        }
+        if ($restore) {
+            if (! $assignment || ! $source) {
+                $errors['assignment_action'] = 'There is no existing workbook match to restore.';
+            }
+            $target = $source;
+        } else {
+            if (! $target || ! filled($target->employee_code)) {
+                $errors['employee_id'] = 'Select an existing employee with an employee code.';
+            }
+            if ($source && ! $assignment && ! $incorrectMatch) {
+                $errors['incorrect_employee_match'] = 'Confirm that the workbook employee match is incorrect before assigning another employee.';
+            }
+            if ($target && $target->id === ($assignment['user_id'] ?? $source?->id)) {
+                $errors['employee_id'] = 'Select a different employee. The current match remains locked.';
+            }
+            if ($assignment && $target && $source && $target->id === $source->id) {
+                $errors['employee_id'] = 'Use Restore workbook match to return to the original employee.';
+            }
+        }
+        if ($errors) {
+            throw ValidationException::withMessages($errors);
+        }
+        $event = [
+            'action' => $restore ? 'restored_workbook_match' : 'assigned_employee',
+            'source_employee_code' => $item['employee_code'], 'source_employee_name' => $item['employee_name'] ?? null,
+            'source_matched_user_id' => $source?->id, 'source_matched_employee_name' => $source?->name,
+            'previous_user_id' => $assignment['user_id'] ?? $source?->id,
+            'user_id' => $target->id, 'employee_code' => $target->employee_code, 'employee_name' => $target->name,
+            'reason' => $reason, 'actor_id' => $actor->id, 'actor_name' => $actor->name,
+            'incorrect_match_reported' => ! $restore && $incorrectMatch,
+            'occurred_at' => now()->toIso8601String(),
+        ];
+        $item['employee_assignment_history'][] = $event;
+        if ($restore) {
+            unset($item['employee_assignment']);
+        } else {
+            $item['employee_assignment'] = $event;
+        }
+
+        return $this->employeeDefaults($item, $target);
     }
 
     /** Resolve references in batches and reserve preview capacity in the same order as confirmation. */
     public function preview(array $items): array
     {
-        $users = User::with('department')->whereIn('employee_code', array_column($items, 'employee_code'))->get()->keyBy('employee_code');
+        $assignedIds = collect($items)->pluck('employee_assignment.user_id')->filter()->unique();
+        $users = User::with('department')->where(function ($query) use ($items, $assignedIds) {
+            $query->whereIn('employee_code', array_column($items, 'employee_code'))->orWhereIn('id', $assignedIds);
+        })->get();
+        $usersByCode = $users->keyBy('employee_code');
+        $usersById = $users->keyBy('id');
         $codes = collect($items)->flatMap(fn ($item) => array_column($item['entries'] ?? [], 'project_code'))->filter()->unique();
         $projects = Project::with(['assignedUsers' => fn ($query) => $query->whereKey($users->pluck('id')), 'departmentAllocations.manpowerCategoryAllocations'])->whereIn('project_code', $codes)->get()->keyBy('project_code');
         $starts = array_values(array_unique(array_column($items, 'start_date')));
@@ -55,15 +119,21 @@ class HistoricalTimesheetImportService
         $results = [];
         foreach ($items as $index => $item) {
             $result = $item + ['errors' => [], 'warnings' => [], 'state' => 'ready', 'resolved_entries' => [], 'snapshots' => []];
-            $user = $users->get($item['employee_code'] ?? '');
+            $sourceUser = $usersByCode->get($item['employee_code'] ?? '');
+            $user = isset($item['employee_assignment']) ? $usersById->get($item['employee_assignment']['user_id']) : $sourceUser;
             $period = $periods->get($item['start_date'] ?? '');
             $result['user'] = $user;
+            $result['source_user'] = $sourceUser;
             $result['period'] = $period;
             if (isset($item['parse_error'])) {
                 $result['errors'][] = $item['parse_error'];
             } else {
                 if (! $user) {
-                    $result['errors'][] = 'Employee code does not match an existing employee.';
+                    $result['errors'][] = isset($item['employee_assignment'])
+                        ? 'The assigned employee no longer exists. Assign another employee before importing.'
+                        : 'Employee code does not match an existing employee. Assign the correct employee before importing.';
+                } elseif (! filled($user->employee_code)) {
+                    $result['errors'][] = 'The assigned employee no longer has an employee code. Update the employee record before importing.';
                 } elseif (! $user->department_id || ! $user->department) {
                     $result['errors'][] = 'The employee needs an existing department before importing.';
                 } elseif (! $user->is_active) {
@@ -179,8 +249,8 @@ class HistoricalTimesheetImportService
         $results = [];
         $seen = [];
         foreach ($items as $index => $item) {
-            $key = ($item['employee_code'] ?? '').'|'.($item['start_date'] ?? '');
-            $receipt = ['filename' => $item['filename'], 'employee_code' => $item['employee_code'] ?? '', 'start_date' => $item['start_date'] ?? '', 'state' => 'failed', 'message' => '', 'timesheet_id' => null];
+            $key = (isset($item['employee_assignment']) ? 'user:'.$item['employee_assignment']['user_id'] : 'code:'.($item['employee_code'] ?? '')).'|'.($item['start_date'] ?? '');
+            $receipt = ['filename' => $item['filename'], 'employee_code' => $item['employee_assignment']['employee_code'] ?? $item['employee_code'] ?? '', 'source_employee_code' => $item['employee_code'] ?? '', 'start_date' => $item['start_date'] ?? '', 'state' => 'failed', 'message' => '', 'timesheet_id' => null];
             if (isset($seen[$key]) && ! isset($item['parse_error'])) {
                 $results[] = array_replace($receipt, ['state' => 'skipped', 'message' => 'Duplicate employee and week within this batch.']);
 
@@ -193,11 +263,17 @@ class HistoricalTimesheetImportService
                 continue;
             }
             try {
-                $results[] = DB::transaction(function () use ($item, $receipt, $batchId, $actor) {
+                $expectedUserId = $reviewed[$index]['user_id'] ?? null;
+                $results[] = DB::transaction(function () use ($item, $receipt, $batchId, $actor, $expectedUserId) {
                     // Serialise imports for an employee. The production unique active-period index
                     // also protects against normal employee submissions racing this request.
-                    User::where('employee_code', $item['employee_code'] ?? '')->lockForUpdate()->first();
+                    $employeeQuery = isset($item['employee_assignment']) ? User::whereKey($item['employee_assignment']['user_id']) : User::where('employee_code', $item['employee_code'] ?? '');
+                    $employeeQuery->lockForUpdate()->first();
                     $review = $this->preview([$item])[0];
+                    $receipt['employee_code'] = $review['user']?->employee_code ?? $receipt['employee_code'];
+                    if ($expectedUserId !== null && $review['user'] && $review['user']->id !== $expectedUserId) {
+                        return array_replace($receipt, ['message' => 'The employee match changed after the preview. Upload and review the workbook again before importing.']);
+                    }
                     if ($review['state'] !== 'ready') {
                         return array_replace($receipt, ['state' => $review['state'] === 'conflict' ? 'skipped' : 'failed', 'message' => implode(' ', $review['errors'])]);
                     }
@@ -225,6 +301,10 @@ class HistoricalTimesheetImportService
                         'initial_preview_entries' => $item['initial_preview_entries'] ?? $item['original_entries'],
                         'preview_edited' => ($item['initial_preview_entries'] ?? $item['original_entries']) != $item['entries'],
                         'warnings' => $review['warnings'],
+                        'source_employee_code' => $item['employee_code'], 'source_employee_name' => $item['employee_name'] ?? null,
+                        'assigned_employee' => ['user_id' => $review['user']->id, 'employee_code' => $review['user']->employee_code, 'name' => $review['user']->name],
+                        'employee_assignment' => $item['employee_assignment'] ?? null,
+                        'employee_assignment_history' => $item['employee_assignment_history'] ?? [],
                     ];
                     $sheet->statusHistories()->create([
                         'actor_id' => $actor->id, 'action' => 'timesheet_historical_imported',

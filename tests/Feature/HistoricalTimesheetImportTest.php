@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\AuditLog;
 use App\Models\LeavePlan;
 use App\Models\Timesheet;
 use App\Models\TimesheetStatusHistory;
+use App\Models\User;
 use App\Services\HistoricalTimesheetImportService;
 use App\Services\HistoricalTimesheetImportStore;
 use App\Services\HistoricalTimesheetWorkbookReader;
@@ -107,6 +109,7 @@ class HistoricalTimesheetImportTest extends TestCase
             $this->get(route('admin.timesheets.import.show', $id))->assertForbidden();
             $this->post(route('admin.timesheets.import.upload'))->assertForbidden();
             $this->post(route('admin.timesheets.import.update', [$id, 0]))->assertForbidden();
+            $this->post(route('admin.timesheets.import.assign-employee', [$id, 0]))->assertForbidden();
             $this->post(route('admin.timesheets.import.confirm', $id))->assertForbidden();
             $this->delete(route('admin.timesheets.import.cancel', $id))->assertForbidden();
         }
@@ -522,6 +525,228 @@ class HistoricalTimesheetImportTest extends TestCase
         $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 1])->assertConflict();
         $this->assertDatabaseCount('timesheets', 0);
         $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 3])->assertRedirect();
+        $this->assertDatabaseCount('timesheets', 1);
+    }
+
+    private function assignPayload(User $employee, array $overrides = []): array
+    {
+        return array_replace(['revision' => 1, 'assignment_action' => 'assign', 'employee_id' => $employee->id, 'assignment_reason' => 'Incorrect employee ID in the historical workbook.'], $overrides);
+    }
+
+    public function test_unmatched_workbook_can_be_explicitly_assigned_and_original_identity_is_audited(): void
+    {
+        $s = $this->scenario();
+        $item = $this->item($s);
+        $item['employee_code'] = 'MEC-HR-OLD-TYPO';
+        $item['employee_name'] = 'Workbook employee name';
+        $item['entries'][0]['department_id'] = null;
+        $original = $item['original_entries'];
+        $id = $this->stage([$item]);
+        $url = route('admin.timesheets.import.show', $id);
+        $this->get($url)->assertOk()->assertSee('Assign employee')->assertSee('Unmatched')->assertDontSee('id="incorrect-employee-match"', false);
+        $this->post(route('admin.timesheets.import.assign-employee', [$id, 0]), $this->assignPayload($s['worker']))->assertRedirect();
+        $this->get($url)->assertOk()->assertSee('1 of 1 timesheets are ready')->assertSee('Manually assigned')->assertSee('MEC-HR-OLD-TYPO');
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 1])->assertConflict();
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 2])->assertRedirect();
+        $this->assertSame($s['worker']->id, Timesheet::sole()->user_id);
+        $metadata = TimesheetStatusHistory::sole()->metadata;
+        $this->assertSame('MEC-HR-OLD-TYPO', $metadata['source_employee_code']);
+        $this->assertSame('Workbook employee name', $metadata['source_employee_name']);
+        $this->assertSame($s['worker']->id, $metadata['assigned_employee']['user_id']);
+        $this->assertSame($s['admin']->id, $metadata['employee_assignment']['actor_id']);
+        $this->assertSame('Incorrect employee ID in the historical workbook.', $metadata['employee_assignment']['reason']);
+        $this->assertSame($original, $metadata['original_entries']);
+        $this->assertSame($metadata, AuditLog::sole()->new_values['import']);
+        $this->assertSame($s['worker']->employee_code, $s['worker']->fresh()->employee_code);
+        $this->get(route('admin.timesheets.history', Timesheet::sole()))->assertOk()->assertSee('Employee assignment corrected')->assertSee('MEC-HR-OLD-TYPO');
+        Mail::assertNothingSent();
+    }
+
+    public function test_matched_employee_is_locked_until_incorrect_match_is_explicitly_reported(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $item = $this->item($s);
+        $id = $this->stage([$item]);
+        $url = route('admin.timesheets.import.assign-employee', [$id, 0]);
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk()->assertSee('Matched · Locked')->assertSee('Report incorrect employee match');
+        $this->postJson($url, $this->assignPayload($target))->assertUnprocessable()->assertJsonValidationErrors('incorrect_employee_match');
+        $this->postJson($url, $this->assignPayload($target, ['incorrect_employee_match' => true, 'assignment_reason' => ' ']))->assertUnprocessable()->assertJsonValidationErrors('assignment_reason');
+        $this->postJson($url, $this->assignPayload($s['worker'], ['incorrect_employee_match' => true]))->assertUnprocessable()->assertJsonValidationErrors('employee_id');
+        $this->postJson($url, $this->assignPayload($target, ['incorrect_employee_match' => true]))->assertRedirect();
+        app(HistoricalTimesheetImportStore::class)->access($id, $s['admin']->id, function ($batch) use ($item, $target, $s) {
+            $this->assertSame($item['employee_code'], $batch['items'][0]['employee_code']);
+            $this->assertSame($target->id, $batch['items'][0]['employee_assignment']['user_id']);
+            $this->assertSame($s['worker']->id, $batch['items'][0]['employee_assignment']['source_matched_user_id']);
+            $this->assertTrue($batch['items'][0]['employee_assignment']['incorrect_match_reported']);
+        });
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk();
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 2])->assertRedirect();
+        $this->assertSame($target->id, Timesheet::sole()->user_id);
+        $this->assertDatabaseMissing('timesheets', ['user_id' => $s['worker']->id]);
+    }
+
+    public function test_assignment_resets_employee_specific_defaults_but_preserves_work_and_source_values(): void
+    {
+        $s = $this->scenario(true);
+        $otherDepartment = $this->department();
+        $target = $this->userWithRole('employee', ['department_id' => $otherDepartment->id]);
+        $s['project']->assignedUsers()->attach($s['worker']->id, ['manpower_category' => 'engineer']);
+        $s['project']->assignedUsers()->attach($target->id, ['manpower_category' => 'designer']);
+        $item = $this->item($s);
+        $item['entries'][0]['regular_hours'] = 7;
+        $item['entries'][0]['remarks'] = 'Edited work description';
+        $assigned = app(HistoricalTimesheetImportService::class)->assignEmployee($item, $s['admin'], $target, 'Workbook has the wrong employee.', true);
+        $this->assertSame($otherDepartment->id, $assigned['entries'][0]['department_id']);
+        $this->assertSame('designer', $assigned['entries'][0]['manpower_category']);
+        foreach (['regular_hours', 'overtime_hours', 'work_date', 'project_code', 'remarks', 'source_row'] as $field) {
+            $this->assertSame($item['entries'][0][$field], $assigned['entries'][0][$field]);
+        }
+        $this->assertSame($item['original_entries'], $assigned['original_entries']);
+        $this->assertSame($item['initial_preview_entries'], $assigned['initial_preview_entries']);
+        $this->assertSame('engineer', $s['project']->assignedUsers()->find($s['worker']->id)->pivot->manpower_category);
+        $review = app(HistoricalTimesheetImportService::class)->preview([$assigned])[0];
+        $this->assertSame('blocked', $review['state']);
+        $this->assertStringContainsString('no hours are allocated', implode(' ', $review['errors']));
+    }
+
+    public function test_assignment_rechecks_existing_timesheet_and_batch_conflicts_for_target_employee(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $imports = app(HistoricalTimesheetImportService::class);
+        $assigned = $imports->assignEmployee($this->item($s), $s['admin'], $target, 'Incorrect employee match.', true);
+        $other = $this->item($s);
+        $other['employee_code'] = $target->employee_code;
+        $this->assertSame(['ready', 'conflict'], array_column($imports->preview([$assigned, $other]), 'state'));
+        $existing = $this->submittedTimesheet($target, $s['period'], $s['project']);
+        $this->assertSame('conflict', $imports->preview([$assigned])[0]['state']);
+        $this->assertSame('skipped', $imports->commit([$assigned], 'target-conflict', $s['admin'])[0]['state']);
+        $this->assertSame($existing->id, Timesheet::sole()->id);
+        $this->assertDatabaseCount('timesheet_status_histories', 0);
+    }
+
+    public function test_same_wrong_source_code_can_be_assigned_to_different_employees_per_workbook(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $imports = app(HistoricalTimesheetImportService::class);
+        $item = $this->item($s);
+        $item['employee_code'] = 'LEGACY-TYPO';
+        $first = $imports->assignEmployee($item, $s['admin'], $s['worker'], 'Identify the first workbook.', false);
+        $second = $imports->assignEmployee($item, $s['admin'], $target, 'Identify the second workbook.', false);
+        $this->assertSame(['ready', 'ready'], array_column($imports->preview([$first, $second]), 'state'));
+        $this->assertSame(['imported', 'imported'], array_column($imports->commit([$first, $second], 'per-workbook', $s['admin']), 'state'));
+        $this->assertDatabaseCount('timesheets', 2);
+        $this->assertDatabaseCount('timesheet_status_histories', 2);
+    }
+
+    public function test_deleted_assignee_never_falls_back_to_the_original_match(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $imports = app(HistoricalTimesheetImportService::class);
+        $item = $imports->assignEmployee($this->item($s), $s['admin'], $target, 'Incorrect workbook employee.', true);
+        $id = $this->stage([$item]);
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk();
+        $target->delete();
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 1])->assertRedirect();
+        $this->assertDatabaseCount('timesheets', 0);
+        $this->assertDatabaseCount('timesheet_status_histories', 0);
+    }
+
+    public function test_assignee_is_identified_by_database_id_even_if_employee_code_changes(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $imports = app(HistoricalTimesheetImportService::class);
+        $item = $imports->assignEmployee($this->item($s), $s['admin'], $target, 'Incorrect workbook employee.', true);
+        $target->update(['employee_code' => 'MEC-HR-CORRECTED-999']);
+        $results = $imports->commit([$item], 'stable-user-id', $s['admin']);
+        $this->assertSame('imported', $results[0]['state']);
+        $this->assertSame('MEC-HR-CORRECTED-999', $results[0]['employee_code']);
+        $this->assertSame($target->id, Timesheet::sole()->user_id);
+    }
+
+    public function test_assignee_without_an_employee_code_is_blocked_at_confirmation(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $imports = app(HistoricalTimesheetImportService::class);
+        $item = $imports->assignEmployee($this->item($s), $s['admin'], $target, 'Incorrect employee match.', true);
+        $target->update(['employee_code' => null]);
+        $this->assertSame('blocked', $imports->preview([$item])[0]['state']);
+        $this->assertSame('failed', $imports->commit([$item], 'missing-employee-code', $s['admin'])[0]['state']);
+        $this->assertDatabaseCount('timesheets', 0);
+    }
+
+    public function test_regular_entry_editor_cannot_reassign_a_correct_employee_match(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $item = $this->item($s);
+        $id = $this->stage([$item]);
+        $this->postJson(route('admin.timesheets.import.update', [$id, 0]), [
+            'revision' => 1, 'entry_count' => 1, 'entries' => $item['entries'],
+            'employee_id' => $target->id, 'incorrect_employee_match' => true, 'assignment_reason' => 'Ignored outside the explicit correction action.',
+        ])->assertRedirect();
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk()->assertSee('Matched · Locked');
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 2])->assertRedirect();
+        $this->assertSame($s['worker']->id, Timesheet::sole()->user_id);
+        $this->assertNull(TimesheetStatusHistory::sole()->metadata['employee_assignment']);
+    }
+
+    public function test_reused_source_code_cannot_silently_change_the_employee_after_preview(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $id = $this->stage([$this->item($s)]);
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk();
+        $oldCode = $s['worker']->employee_code;
+        $s['worker']->update(['employee_code' => 'MEC-HR-RENAMED-999']);
+        $target->update(['employee_code' => $oldCode]);
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 1])->assertRedirect();
+        $this->assertDatabaseCount('timesheets', 0);
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk()->assertSee('employee match changed after the preview');
+    }
+
+    public function test_restoring_source_match_preserves_assignment_history_and_requires_new_preview(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $id = $this->stage([$this->item($s)]);
+        $url = route('admin.timesheets.import.assign-employee', [$id, 0]);
+        $this->post($url, $this->assignPayload($target, ['incorrect_employee_match' => true]))->assertRedirect();
+        $this->from(route('admin.timesheets.import.show', $id))->post($url, ['revision' => 2, 'assignment_action' => 'restore', 'assignment_reason' => ''])->assertSessionHasErrors('assignment_reason');
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk()->assertSee('id="restore-employee-match"  open', false);
+        $this->post($url, ['revision' => 2, 'assignment_action' => 'restore', 'assignment_reason' => 'The workbook match was correct after verification.'])->assertRedirect();
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 3])->assertConflict();
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk()->assertSee('Matched · Locked');
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 3])->assertRedirect();
+        $this->assertSame($s['worker']->id, Timesheet::sole()->user_id);
+        $metadata = TimesheetStatusHistory::sole()->metadata;
+        $this->assertNull($metadata['employee_assignment']);
+        $this->assertSame(['assigned_employee', 'restored_workbook_match'], array_column($metadata['employee_assignment_history'], 'action'));
+    }
+
+    public function test_assignment_requires_batch_owner_current_revision_existing_coded_employee_and_pending_import(): void
+    {
+        $s = $this->scenario();
+        $target = $this->userWithRole('employee', ['department_id' => $s['department']->id]);
+        $id = $this->stage([$this->item($s)]);
+        $url = route('admin.timesheets.import.assign-employee', [$id, 0]);
+        $payload = $this->assignPayload($target, ['incorrect_employee_match' => true]);
+        $this->actingAs($this->userWithRole('super_admin'))->post($url, $payload)->assertForbidden();
+        $this->actingAs($s['admin']);
+        $this->post($url, array_replace($payload, ['revision' => 99]))->assertConflict();
+        $this->postJson($url, array_replace($payload, ['employee_id' => 99999]))->assertUnprocessable();
+        $this->postJson($url, array_replace($payload, ['employee_id' => $s['admin']->id]))->assertUnprocessable();
+        $this->get(route('admin.timesheets.import.show', $id))->assertOk();
+        $this->post(route('admin.timesheets.import.confirm', $id), ['revision' => 1])->assertRedirect();
+        $this->post($url, $payload)->assertConflict();
+        $expired = $this->stage([$this->item($s)]);
+        $this->travel(61)->minutes();
+        $this->post(route('admin.timesheets.import.assign-employee', [$expired, 0]), $payload)->assertStatus(410);
         $this->assertDatabaseCount('timesheets', 1);
     }
 

@@ -55,17 +55,18 @@
         <div class="content-card-header"><h2 class="h5 mb-1" id="batch-heading">Workbook review</h2><p class="small text-body-secondary mb-0">Files are checked in the order shown. Ready timesheets reserve allocation capacity in this preview.</p></div>
         <div class="table-responsive"><table class="table table-hover align-middle mb-0"><thead><tr><th>Workbook / employee</th><th>Week beginning</th><th>Check</th><th>Actions</th></tr></thead><tbody>
             @foreach($batch['review'] as $index => $review)
-                <tr @if($index === $selected) class="table-active" @endif><td class="text-break">{{ $review['filename'] }}<div class="small text-body-secondary">{{ $review['user']?->name ?? ($review['employee_name'] ?? 'Unreadable workbook') }} · {{ $review['employee_code'] ?? 'Unknown employee' }}</div></td><td>{{ $review['start_date'] ?? 'Unknown' }}</td><td><span class="badge text-bg-{{ $review['state'] === 'ready' ? 'success' : ($review['state'] === 'conflict' ? 'secondary' : 'danger') }}">{{ ucfirst($review['state']) }}</span>@if($review['warnings'])<div class="small text-body-secondary">{{ count($review['warnings']) }} warning(s)</div>@endif</td><td><a class="btn btn-sm btn-outline-secondary" @if($index === $selected) aria-current="true" @endif href="{{ route('admin.timesheets.import.show', ['batch' => $batchId, 'sheet' => $index]) }}#selected-workbook">Review workbook {{ $index + 1 }}</a></td></tr>
+                <tr @if($index === $selected) class="table-active" @endif><td class="text-break">{{ $review['filename'] }}<div class="small text-body-secondary">{{ $review['user']?->name ?? ($review['employee_name'] ?? 'Unreadable workbook') }} · {{ $review['user']?->employee_code ?? ($review['employee_code'] ?? 'Unknown employee') }}</div></td><td>{{ $review['start_date'] ?? 'Unknown' }}</td><td><span class="badge text-bg-{{ $review['state'] === 'ready' ? 'success' : ($review['state'] === 'conflict' ? 'secondary' : 'danger') }}">{{ ucfirst($review['state']) }}</span>@if($review['warnings'])<div class="small text-body-secondary">{{ count($review['warnings']) }} warning(s)</div>@endif</td><td><a class="btn btn-sm btn-outline-secondary" @if($index === $selected) aria-current="true" @endif href="{{ route('admin.timesheets.import.show', ['batch' => $batchId, 'sheet' => $index]) }}#selected-workbook">Review workbook {{ $index + 1 }}</a></td></tr>
             @endforeach
         </tbody></table></div>
     </section>
     @php($item = $batch['review'][$selected])
     <section class="content-card mb-3" id="selected-workbook" aria-labelledby="selected-heading">
-        <div class="content-card-header"><h2 class="h5 mb-1 text-break" id="selected-heading">{{ $item['filename'] }}</h2><p class="small text-body-secondary mb-0">Employee code: {{ $item['employee_code'] ?? 'Unknown' }}. Employee and week are fixed to the source workbook.</p></div>
+        <div class="content-card-header"><h2 class="h5 mb-1 text-break" id="selected-heading">{{ $item['filename'] }}</h2><p class="small text-body-secondary mb-0">Workbook employee code: {{ $item['employee_code'] ?? 'Unknown' }}. The week remains fixed to the source workbook.</p></div>
         <div class="content-card-body">
             @if($item['errors'])<div class="alert alert-danger" role="alert"><p class="fw-semibold mb-1">Resolve before importing</p><ul class="mb-0">@foreach($item['errors'] as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
             @if($item['warnings'])<div class="alert alert-warning"><p class="fw-semibold mb-1">Historical record warnings</p><ul class="mb-0">@foreach($item['warnings'] as $warning)<li>{{ $warning }}</li>@endforeach</ul></div>@endif
             @unless(isset($item['parse_error']))
+                @include('admin.timesheets._employee_assignment')
                 <p class="small text-body-secondary">Edit entries below, then save to update the display preview and allocation checks. Enter 0 in both hour fields to exclude an entry. Categories affect these historical entries only.</p>
                 <form method="post" action="{{ route('admin.timesheets.import.update', ['batch' => $batchId, 'sheet' => $selected]) }}" id="entry-editor">
                     @csrf
@@ -75,7 +76,7 @@
                         <div class="col-md-3"><label class="form-label" for="bulk-category">Manpower category</label><select data-searchable="false" class="form-select" id="bulk-category"><option value="">No category</option>@foreach(config('manpower_categories.labels') as $value => $label)<option value="{{ $value }}">{{ $label }}</option>@endforeach</select></div>
                         <div class="col-md-2"><button class="btn btn-outline-secondary" type="button" id="apply-category">Apply to matching entries</button></div>
                     </div>
-                    <div class="table-responsive mb-3"><table class="table align-middle mb-0 import-editor"><caption class="small">Editable daily entries for {{ $item['employee_code'] }}. Required: date, attendance, discipline, and hours; project and category depend on the discipline.</caption><thead><tr><th>Date</th><th>Attendance</th><th>Project / job</th><th>Discipline</th><th>Manpower category</th><th>Regular</th><th>Overtime</th><th>Remarks</th></tr></thead><tbody>
+                    <div class="table-responsive mb-3"><table class="table align-middle mb-0 import-editor"><caption class="small">Editable daily entries for {{ $item['user']?->employee_code ?? $item['employee_code'] }}. Required: date, attendance, discipline, and hours; project and category depend on the discipline.</caption><thead><tr><th>Date</th><th>Attendance</th><th>Project / job</th><th>Discipline</th><th>Manpower category</th><th>Regular</th><th>Overtime</th><th>Remarks</th></tr></thead><tbody>
                         @php($editableEntries = array_values(is_array(old('entries')) ? old('entries') : $item['entries']))
                         @foreach($editableEntries as $i => $entry)
                             @php($entry = array_replace(['work_date' => '', 'source_row' => '', 'attendance_code' => '', 'project_code' => '', 'department_id' => '', 'manpower_category' => '', 'regular_hours' => '', 'overtime_hours' => '', 'remarks' => ''], array_map(fn ($value) => is_scalar($value) ? $value : '', is_array($entry) ? $entry : [])))
@@ -119,7 +120,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const editor = document.getElementById('entry-editor');
     const status = document.getElementById('editor-status');
     const confirm = document.getElementById('confirm-import');
-    const dirty = () => { if (confirm) confirm.disabled = true; if (status) status.textContent = 'Unsaved changes. Save to refresh validation before importing.'; };
+    const dirty = () => {
+        if (confirm) confirm.disabled = true;
+        if (status) status.textContent = 'Unsaved changes. Save to refresh validation before importing.';
+        document.querySelectorAll('.employee-assignment-form').forEach(form => {
+            form.querySelector('button[type="submit"]').disabled = true;
+            form.querySelector('[data-assignment-status]').textContent = 'Save entry changes before changing the employee assignment.';
+        });
+    };
+    document.querySelectorAll('.employee-assignment-form').forEach(form => {
+        const pending = () => { if (confirm) confirm.disabled = true; form.querySelector('[data-assignment-status]').textContent = 'Save the employee assignment to refresh validation before importing.'; };
+        form.addEventListener('input', pending);
+        form.addEventListener('change', pending);
+    });
     editor?.addEventListener('input', dirty);
     editor?.addEventListener('change', dirty);
     document.getElementById('apply-category')?.addEventListener('click', () => {

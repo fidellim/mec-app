@@ -81,6 +81,14 @@
                             @if($log->metadata['preview_edited'] ?? false)
                                 <div>Preview edits were recorded with this import.</div>
                             @endif
+                            @foreach($log->metadata['employee_assignment_history'] ?? [] as $assignment)
+                                <div class="mt-2">{{ ($assignment['action'] ?? '') === 'restored_workbook_match' ? 'Workbook match restored' : 'Employee assignment corrected' }}:
+                                    {{ $assignment['source_employee_code'] }} ({{ $assignment['source_employee_name'] ?: 'Name not supplied' }})
+                                    to {{ $assignment['employee_name'] }} ({{ $assignment['employee_code'] }}).
+                                    {{ $assignment['actor_name'] }} · {{ \Carbon\Carbon::parse($assignment['occurred_at'])->setTimezone(config('app.timezone'))->format('M j, Y g:i A') }}
+                                    <div>Reason: {{ $assignment['reason'] }}</div>
+                                </div>
+                            @endforeach
                         </div>
                     @endif
                     <div class="timeline-meta">

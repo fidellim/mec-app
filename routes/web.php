@@ -117,6 +117,7 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
             Route::post('/', [HistoricalTimesheetImportController::class, 'upload'])->middleware('throttle:authenticated-writes')->name('upload');
             Route::get('/{batch}', [HistoricalTimesheetImportController::class, 'show'])->name('show');
             Route::post('/{batch}/entries/{sheet}', [HistoricalTimesheetImportController::class, 'update'])->whereNumber('sheet')->middleware('throttle:authenticated-writes')->name('update');
+            Route::post('/{batch}/employees/{sheet}', [HistoricalTimesheetImportController::class, 'assignEmployee'])->whereNumber('sheet')->middleware('throttle:authenticated-writes')->name('assign-employee');
             Route::post('/{batch}/confirm', [HistoricalTimesheetImportController::class, 'confirm'])->middleware('throttle:authenticated-writes')->name('confirm');
             Route::delete('/{batch}', [HistoricalTimesheetImportController::class, 'cancel'])->middleware('throttle:authenticated-writes')->name('cancel');
         });

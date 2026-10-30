@@ -6,6 +6,7 @@ use App\Models\Department;
 use App\Models\Project;
 use App\Models\Timesheet;
 use App\Models\TimesheetEntry;
+use App\Models\User;
 use App\Services\HistoricalTimesheetImportService;
 use App\Services\HistoricalTimesheetImportStore;
 use App\Services\HistoricalTimesheetWorkbookReader;
@@ -80,7 +81,7 @@ class HistoricalTimesheetImportController extends Controller
             if ($data['results'] === null) {
                 $data['review'] = DB::transaction(fn () => $imports->preview($data['items']));
                 // Keep only the reviewed indices/messages in staging, never serialised Eloquent objects.
-                $reviewed = collect($data['review'])->map(fn ($item) => ['state' => $item['state'], 'errors' => $item['errors']])->all();
+                $reviewed = collect($data['review'])->map(fn ($item) => ['state' => $item['state'], 'errors' => $item['errors'], 'user_id' => $item['user']?->id])->all();
                 if (isset($data['reviewed']) && $data['reviewed'] !== $reviewed) {
                     // Another tab must not silently expand the set approved by an older preview.
                     $data['revision']++;
@@ -124,7 +125,30 @@ class HistoricalTimesheetImportController extends Controller
             'batchId' => $batch, 'batch' => $data, 'selected' => $selected, 'previewTimesheet' => $previewTimesheet,
             'departments' => Department::orderBy('name')->get(),
             'projects' => Project::orderBy('project_code')->get(['id', 'project_code', 'project_name', 'is_active']),
+            'employees' => User::with('department:id,name')->whereNotNull('employee_code')->where('employee_code', '!=', '')->orderBy('name')->get(['id', 'name', 'employee_code', 'department_id', 'is_active']),
         ]);
+    }
+
+    public function assignEmployee(Request $request, string $batch, int $sheet, HistoricalTimesheetImportStore $store, HistoricalTimesheetImportService $imports)
+    {
+        $validated = $request->validate([
+            'revision' => ['required', 'integer'], 'assignment_action' => ['required', 'in:assign,restore'],
+            'employee_id' => ['required_if:assignment_action,assign', 'nullable', 'integer', 'exists:users,id'],
+            'assignment_reason' => ['required', 'string', 'max:2000'],
+            'incorrect_employee_match' => ['sometimes', 'accepted'],
+        ]);
+        $store->access($batch, $request->user()->id, function (&$data) use ($validated, $sheet, $request, $imports) {
+            abort_unless($data['results'] === null && $data['revision'] === (int) $validated['revision'], 409, 'This preview has changed or has already been imported. Reload it before continuing.');
+            abort_unless(isset($data['items'][$sheet]) && ! isset($data['items'][$sheet]['parse_error']), 404);
+            $target = isset($validated['employee_id']) ? User::find($validated['employee_id']) : null;
+            $item = $imports->assignEmployee($data['items'][$sheet], $request->user(), $target, $validated['assignment_reason'], $request->boolean('incorrect_employee_match'), $validated['assignment_action'] === 'restore');
+            abort_if(strlen(json_encode($item, JSON_THROW_ON_ERROR)) + strlen(json_encode(array_diff_key($data['items'], [$sheet => true]), JSON_THROW_ON_ERROR)) > config('timesheet_import.max_preview_kb') * 1024, 422, 'The preview size limit has been reached. Start a new import for further corrections.');
+            $data['items'][$sheet] = $item;
+            $data['revision']++;
+            unset($data['reviewed'], $data['preview_revision']);
+        });
+
+        return redirect()->route('admin.timesheets.import.show', ['batch' => $batch, 'sheet' => $sheet]);
     }
 
     public function update(Request $request, string $batch, int $sheet, HistoricalTimesheetImportStore $store)
