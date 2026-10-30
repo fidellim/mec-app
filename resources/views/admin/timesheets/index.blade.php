@@ -139,6 +139,9 @@
     </div>
     @unless($showingNotSubmitted || request('corrections') === 'open')
         <div class="action-group">
+            @if(auth()->user()->isSuperAdmin())
+                <a class="btn btn-outline-secondary" href="{{ route('admin.timesheets.import.index') }}">Import historical timesheets</a>
+            @endif
             @if($summaryPreviewState['can_preview'])
                 <a class="btn btn-outline-primary" href="{{ route('admin.timesheets.index', array_merge(request()->query(), ['preview' => 'summary'])) }}#summary-report-preview">Summary Report Preview</a>
             @endif

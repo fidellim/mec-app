@@ -3,6 +3,7 @@
         'timesheet_submitted' => ['title' => 'Approval Requested', 'icon' => 'send', 'tone' => 'info'],
         'timesheet_resubmitted' => ['title' => 'Approval Requested Again', 'icon' => 'send', 'tone' => 'info'],
         'timesheet_approved' => ['title' => 'Timesheet Approved', 'icon' => 'check-circle', 'tone' => 'success'],
+        'timesheet_historical_imported' => ['title' => 'Historical Timesheet Imported', 'icon' => 'check-circle', 'tone' => 'success'],
         'timesheet_rejected' => ['title' => 'Timesheet Rejected', 'icon' => 'x-circle', 'tone' => 'danger'],
         'timesheet_withdrawn' => ['title' => 'Submission Withdrawn', 'icon' => 'undo', 'tone' => 'warning'],
         'timesheet_approved_recalled' => ['title' => 'Approved Timesheet Recalled', 'icon' => 'rotate-left', 'tone' => 'recall'],
@@ -72,6 +73,15 @@
                     </div>
                     @if($comment)
                         <div class="timeline-comment">{{ $comment }}</div>
+                    @endif
+                    @if($log->action === 'timesheet_historical_imported')
+                        <div class="small text-body-secondary mt-2">
+                            Source: {{ $log->metadata['filename'] ?? 'Excel workbook' }}
+                            · Batch {{ $log->metadata['batch_id'] ?? 'Unknown' }}
+                            @if($log->metadata['preview_edited'] ?? false)
+                                <div>Preview edits were recorded with this import.</div>
+                            @endif
+                        </div>
                     @endif
                     <div class="timeline-meta">
                         {{ $occurredAt->format('M j, Y g:i A') }}

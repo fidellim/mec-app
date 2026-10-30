@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\EmployeeLeavePlanController;
 use App\Http\Controllers\EmployeeTimesheetController;
 use App\Http\Controllers\GuideController;
+use App\Http\Controllers\HistoricalTimesheetImportController;
 use App\Http\Controllers\HodLeavePlanController;
 use App\Http\Controllers\HodTimesheetController;
 use App\Http\Controllers\Manage\AuditLogController;
@@ -111,6 +112,14 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
     });
 
     Route::middleware('role:admin,super_admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::middleware('role:super_admin')->prefix('timesheet-imports')->name('timesheets.import.')->group(function () {
+            Route::get('/', [HistoricalTimesheetImportController::class, 'index'])->name('index');
+            Route::post('/', [HistoricalTimesheetImportController::class, 'upload'])->middleware('throttle:authenticated-writes')->name('upload');
+            Route::get('/{batch}', [HistoricalTimesheetImportController::class, 'show'])->name('show');
+            Route::post('/{batch}/entries/{sheet}', [HistoricalTimesheetImportController::class, 'update'])->whereNumber('sheet')->middleware('throttle:authenticated-writes')->name('update');
+            Route::post('/{batch}/confirm', [HistoricalTimesheetImportController::class, 'confirm'])->middleware('throttle:authenticated-writes')->name('confirm');
+            Route::delete('/{batch}', [HistoricalTimesheetImportController::class, 'cancel'])->middleware('throttle:authenticated-writes')->name('cancel');
+        });
         Route::get('/timesheets', [AdminTimesheetController::class, 'index'])->name('timesheets.index');
         Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->middleware('throttle:exports')->name('timesheets.export');
         Route::get('/timesheets/{timesheet}/history', [AdminTimesheetController::class, 'history'])->name('timesheets.history');

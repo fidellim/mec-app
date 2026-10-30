@@ -1,8 +1,15 @@
 <?php
 
 use App\Models\AutomationSetting;
+use App\Services\HistoricalTimesheetImportStore;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
+
+Artisan::command('timesheets:prune-imports', function (HistoricalTimesheetImportStore $store) {
+    $this->info('Removed '.$store->prune().' expired import files.');
+})->purpose('Remove expired timesheet previews and abandoned temporary workbook uploads');
+
+Schedule::command('timesheets:prune-imports')->everyTenMinutes()->withoutOverlapping();
 
 Schedule::command('timesheets:send-missing-reminders')
     ->mondays()

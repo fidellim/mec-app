@@ -68,4 +68,6 @@
         </table>
     </div>
 </div>
-@include('shared.timesheet_history', ['timesheet' => $timesheet])
+@if($showTimesheetHistory ?? true)
+    @include('shared.timesheet_history', ['timesheet' => $timesheet])
+@endif

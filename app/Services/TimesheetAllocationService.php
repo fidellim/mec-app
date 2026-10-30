@@ -27,6 +27,17 @@ class TimesheetAllocationService
      */
     public function validateSubmission(User $user, array $entries, ?Timesheet $excludingTimesheet = null): array
     {
+        return $this->validateAllocations($user, $entries, $excludingTimesheet);
+    }
+
+    /** Historical classifications are entry snapshots, never changes to current assignments. */
+    public function validateHistoricalImport(User $user, array $entries, array $pendingUsage = []): array
+    {
+        return $this->validateAllocations($user, $entries, null, true, $pendingUsage);
+    }
+
+    private function validateAllocations(User $user, array $entries, ?Timesheet $excludingTimesheet, bool $historical = false, array $pendingUsage = []): array
+    {
         $canonicalCategories = array_keys(config('manpower_categories.labels'));
         $projectIds = collect($entries)->pluck('project_id')->filter()->map(fn ($id) => (int) $id)->unique();
         $assignedCategories = DB::table('project_user')
@@ -34,11 +45,11 @@ class TimesheetAllocationService
             ->whereIn('project_id', $projectIds)
             ->pluck('manpower_category', 'project_id');
         $requested = collect($entries)
-            ->map(function (array $entry, int $index) use ($user, $assignedCategories) {
+            ->map(function (array $entry, int $index) use ($user, $assignedCategories, $historical) {
                 $hours = (float) ($entry['regular_hours'] ?? 0) + (float) ($entry['overtime_hours'] ?? 0);
                 $projectId = (int) ($entry['project_id'] ?? 0);
                 $departmentId = (int) (($entry['department_id'] ?? null) ?: $user->department_id);
-                $manpowerCategory = $assignedCategories->get($projectId);
+                $manpowerCategory = $historical ? ($entry['manpower_category'] ?? null) : $assignedCategories->get($projectId);
 
                 return compact('index', 'hours', 'projectId', 'departmentId', 'manpowerCategory');
             })
@@ -82,7 +93,7 @@ class TimesheetAllocationService
         foreach ($requested as $key => $rows) {
             $allocation = $allocations->get($key);
             if (! $allocation) {
-                if (! $allocatedProjectIds->contains((int) $rows->first()['projectId'])) {
+                if (! $historical && ! $allocatedProjectIds->contains((int) $rows->first()['projectId'])) {
                     foreach ($rows as $row) {
                         $snapshots[$row['index']] = ['manpower_category_snapshot' => null, 'allocation_bucket_snapshot' => null];
                     }
@@ -99,6 +110,9 @@ class TimesheetAllocationService
             // Current locking reads are needed if an allocation edit committed while this submission waited.
             $usageRows = $this->usageQuery($allocation->project_id, $allocation->department_id, $excludingTimesheet?->id)
                 ->orderBy('entries.id')->lockForUpdate()->get(['entries.regular_hours', 'entries.overtime_hours', 'entries.manpower_category_snapshot', 'entries.allocation_bucket_snapshot']);
+            $usageRows = $usageRows->concat(collect($pendingUsage)
+                ->filter(fn ($entry) => (int) $entry['project_id'] === (int) $allocation->project_id && (int) $entry['department_id'] === (int) $allocation->department_id)
+                ->map(fn ($entry) => (object) $entry));
             $entryHours = fn ($row) => (float) $row->regular_hours + (float) $row->overtime_hours;
             $overallConsumed = (float) $usageRows->sum($entryHours);
 
