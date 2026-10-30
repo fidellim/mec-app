@@ -41,6 +41,60 @@
 @endif
 @include('shared.timesheet_detail', ['timesheet' => $timesheet])
 @include('shared.timesheet_correction_requests', ['timesheet' => $timesheet])
+@if(auth()->user()->role === 'super_admin' && $timesheet->status === 'draft' && $timesheet->user && ! $timesheet->user->is_active)
+    <section class="content-card mt-3" aria-labelledby="delete-draft-heading">
+        <div class="content-card-header">
+            <h2 class="h5 mb-1" id="delete-draft-heading">Delete inactive user's draft</h2>
+            <p class="small text-body-secondary mb-0">This employee's account is inactive. You can delete this draft with a recorded reason.</p>
+        </div>
+        <div class="content-card-body">
+            <button type="button" class="btn btn-outline-danger ui-action ui-action-danger" data-bs-toggle="modal" data-bs-target="#deleteDraftModal">Delete draft</button>
+        </div>
+    </section>
+    <div class="modal fade" id="deleteDraftModal" tabindex="-1" aria-labelledby="deleteDraftModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <form method="post" action="{{ route('admin.timesheets.destroy-draft', $timesheet) }}" class="modal-content" id="deleteDraftForm">
+                @csrf
+                @method('delete')
+                <div class="modal-header">
+                    <h2 class="modal-title h5" id="deleteDraftModalLabel">Delete draft?</h2>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <dl class="row mb-3">
+                        <dt class="col-sm-4">Employee</dt><dd class="col-sm-8 text-break">{{ $timesheet->user->name }} <span class="badge text-bg-secondary">Inactive</span></dd>
+                        <dt class="col-sm-4">Week</dt><dd class="col-sm-8">{{ $timesheet->period->week_number }}, {{ $timesheet->period->year }} ({{ $timesheet->period->start_date->format('M j') }} – {{ $timesheet->period->end_date->format('M j') }})</dd>
+                        <dt class="col-sm-4">Total hours</dt><dd class="col-sm-8">{{ $timesheet->total_hours }}</dd>
+                    </dl>
+                    <p>This permanently deletes the draft and all its entries. The draft details and your reason will remain in Audit Logs.</p>
+                    <label class="form-label" for="deletion_reason">Deletion reason <span class="text-body-secondary">(required)</span></label>
+                    <textarea id="deletion_reason" name="deletion_reason" class="form-control @error('deletion_reason') is-invalid @enderror" rows="3" required minlength="5" maxlength="2000" placeholder="Explain why this draft should be deleted." @error('deletion_reason') aria-invalid="true" aria-describedby="deletion-reason-error" @enderror>{{ old('deletion_reason') }}</textarea>
+                    @error('deletion_reason')<div class="invalid-feedback" id="deletion-reason-error">{{ $message }}</div>@enderror
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger" id="deleteDraftSubmit">Delete draft</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    @push('scripts')
+    <script>
+        const deleteDraftModal = document.getElementById('deleteDraftModal');
+        deleteDraftModal.addEventListener('shown.bs.modal', () => document.getElementById('deletion_reason').focus());
+        document.getElementById('deleteDraftForm').addEventListener('submit', () => {
+            deleteDraftModal.querySelectorAll('button').forEach(button => button.disabled = true);
+            const button = document.getElementById('deleteDraftSubmit');
+            button.textContent = 'Deleting…';
+            button.setAttribute('role', 'status');
+            document.getElementById('deleteDraftForm').setAttribute('aria-busy', 'true');
+        });
+        @if($errors->has('deletion_reason'))
+            bootstrap.Modal.getOrCreateInstance(deleteDraftModal).show();
+        @endif
+    </script>
+    @endpush
+@endif
 @if($timesheet->status === 'submitted')
     @php
         $actor = auth()->user();

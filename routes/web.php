@@ -115,6 +115,7 @@ Route::middleware(['auth', 'setup.mode'])->group(function () {
         Route::get('/timesheets/export', [AdminTimesheetController::class, 'export'])->middleware('throttle:exports')->name('timesheets.export');
         Route::get('/timesheets/{timesheet}/history', [AdminTimesheetController::class, 'history'])->name('timesheets.history');
         Route::get('/timesheets/{timesheet}', [AdminTimesheetController::class, 'show'])->name('timesheets.show');
+        Route::delete('/timesheets/{timesheet}', [AdminTimesheetController::class, 'destroyDraft'])->middleware('role:super_admin', 'throttle:authenticated-writes')->name('timesheets.destroy-draft');
         Route::post('/timesheets/{timesheet}/recall-approved', [AdminTimesheetController::class, 'recallApproved'])->middleware('throttle:workflow-actions')->name('timesheets.recall-approved');
         Route::post('/timesheets/{timesheet}/void', [AdminTimesheetController::class, 'voidTimesheet'])->middleware('role:super_admin', 'throttle:workflow-actions')->name('timesheets.void');
         Route::get('/hod-timesheets', [AdminHodTimesheetController::class, 'index'])->name('hod-timesheets.index');

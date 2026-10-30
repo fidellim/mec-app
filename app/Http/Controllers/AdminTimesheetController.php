@@ -18,6 +18,7 @@ use App\Services\TimesheetStatusHistoryService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -59,6 +60,36 @@ class AdminTimesheetController extends Controller
     public function show(Timesheet $timesheet)
     {
         return view('admin.timesheets.show', ['timesheet' => $timesheet->load(['user', 'department', 'period', 'entries.project', 'entries.department', 'approver', 'voider', 'correctionRequests' => fn ($q) => $q->where('status', 'open')->with(['requester:id,name', 'entries'])])]);
+    }
+
+    public function destroyDraft(Request $request, Timesheet $timesheet, AuditLogService $audit)
+    {
+        abort_unless($request->user()?->role === 'super_admin', 403);
+
+        $validated = $request->validate([
+            'deletion_reason' => ['required', 'string', 'min:5', 'max:2000'],
+        ]);
+
+        DB::transaction(function () use ($timesheet, $validated, $audit) {
+            // Lock the owner before the sheet so account reactivation cannot race deletion.
+            $owner = User::query()->lockForUpdate()->findOrFail($timesheet->user_id);
+            $draft = Timesheet::query()->lockForUpdate()->findOrFail($timesheet->id);
+
+            abort_unless($draft->user_id === $owner->id && ! $owner->is_active, 422, 'Only drafts belonging to inactive users can be deleted.');
+            abort_unless($draft->status === Timesheet::STATUS_DRAFT, 422, 'Only draft timesheets can be deleted.');
+
+            $draft->load(['period', 'department', 'entries.project', 'entries.department']);
+            $snapshot = $draft->toArray();
+            // Keep useful identity details without copying private account fields.
+            $snapshot['owner'] = $owner->only(['id', 'name', 'employee_code', 'is_active']);
+
+            $audit->record('inactive_user_timesheet_draft_deleted', $draft, $snapshot, [
+                'deletion_reason' => $validated['deletion_reason'],
+            ]);
+            $draft->delete();
+        });
+
+        return redirect()->route('admin.timesheets.index')->with('success', 'Draft deleted. The deletion reason and draft details are saved in Audit Logs.');
     }
 
     public function history(Timesheet $timesheet)
